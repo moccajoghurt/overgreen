@@ -25,16 +25,29 @@ function computeSilhouette(height: number, rootDepth: number, leafArea: number) 
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
 
-  const trunkH = Math.max(0.1, height * 0.6);
-  const trunkThickness = 0.7 + rootRatio * 0.9;
+  const trunkH = Math.max(0.1, height * 0.35);
+  const trunkThickness = 0.8 + rootRatio * 0.9;
 
   const shapeRatio = (leafArea + 0.1) / (height + 0.1);
-  const canopyBase = 0.2 + leafRatio * 0.6;
+  const canopyBase = 0.5 + leafRatio * 1.2;
   const verticalF = 0.4 + 0.6 / (1 + shapeRatio);
   const canopyX = canopyBase * (1 + shapeRatio * 0.15);
   const canopyY = canopyBase * verticalF;
 
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX };
+}
+
+function makeRoughSphere(radius: number, detail: number, jitter: number): THREE.BufferGeometry {
+  const geo = new THREE.IcosahedronGeometry(radius, detail);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const len = Math.sqrt(x * x + y * y + z * z);
+    const scale = 1 + (Math.random() * 2 - 1) * jitter;
+    pos.setXYZ(i, x / len * radius * scale, y / len * radius * scale, z / len * radius * scale);
+  }
+  geo.computeVertexNormals();
+  return geo;
 }
 
 export function createRenderer3D(
@@ -69,7 +82,7 @@ export function createRenderer3D(
   // ── Plants (instanced meshes) ──
   const MAX_INSTANCES = GRID * GRID + MAX_DYING;
 
-  const trunkGeo = new THREE.CylinderGeometry(0.05, 0.1, 1, 6);
+  const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
   const trunks = new THREE.InstancedMesh(
     trunkGeo,
     new THREE.MeshLambertMaterial(),
@@ -85,7 +98,7 @@ export function createRenderer3D(
   trunks.frustumCulled = false;
   scene.add(trunks);
 
-  const canopyGeo = new THREE.IcosahedronGeometry(0.5, 1);
+  const canopyGeo = makeRoughSphere(0.5, 2, 0.25);
   const canopies = new THREE.InstancedMesh(
     canopyGeo,
     new THREE.MeshLambertMaterial(),
@@ -100,6 +113,22 @@ export function createRenderer3D(
   canopies.count = 0;
   canopies.frustumCulled = false;
   scene.add(canopies);
+
+  const canopy2Geo = makeRoughSphere(0.5, 2, 0.25);
+  const canopies2 = new THREE.InstancedMesh(
+    canopy2Geo,
+    new THREE.MeshLambertMaterial(),
+    MAX_INSTANCES,
+  );
+  canopies2.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  canopies2.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_INSTANCES * 3),
+    3,
+  );
+  canopies2.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  canopies2.count = 0;
+  canopies2.frustumCulled = false;
+  scene.add(canopies2);
 
   // ── Dying plant animation state ──
   let prevSnapshots = new Map<number, PlantSnapshot>();
@@ -240,6 +269,7 @@ export function createRenderer3D(
     tiltAngle: number, tiltDir: number,
     trunkMtx: Float32Array, trunkClr: Float32Array,
     canopyMtx: Float32Array, canopyClr: Float32Array,
+    canopy2Mtx: Float32Array, canopy2Clr: Float32Array,
   ): void {
     // ── Trunk ──
     dummy.position.set(wx, sil.trunkH * 0.5, wz);
@@ -252,20 +282,39 @@ export function createRenderer3D(
     dummy.updateMatrix();
     dummy.matrix.toArray(trunkMtx, idx * 16);
 
-    // ── Canopy ──
-    dummy.position.set(wx, sil.trunkH + sil.canopyY * 0.3, wz);
+    // ── Primary canopy (overlaps trunk top) ──
+    const canopyCenterY = sil.trunkH - sil.canopyY * 0.3;
+    dummy.position.set(wx, canopyCenterY, wz);
     dummy.scale.set(sil.canopyX, sil.canopyY, sil.canopyZ);
+    dummy.rotation.set(0, 0, 0);
     dummy.updateMatrix();
     dummy.matrix.toArray(canopyMtx, idx * 16);
 
-    // ── Color ──
+    // ── Secondary canopy blob (offset, 70% scale) ──
+    dummy.position.set(
+      wx + 0.15 * sil.canopyX,
+      canopyCenterY - sil.canopyY * 0.1,
+      wz + 0.15 * sil.canopyZ,
+    );
+    dummy.scale.set(sil.canopyX * 0.7, sil.canopyY * 0.7, sil.canopyZ * 0.7);
+    dummy.updateMatrix();
+    dummy.matrix.toArray(canopy2Mtx, idx * 16);
+
+    // ── Colors ──
     const ci = idx * 3;
-    trunkClr[ci] = cr * 0.5;
-    trunkClr[ci + 1] = cg * 0.4;
-    trunkClr[ci + 2] = cb * 0.3;
+
+    // Bark: 85% fixed brown + 15% species tint
+    const barkR = 0.28, barkG = 0.18, barkB = 0.10;
+    trunkClr[ci]     = barkR * 0.85 + cr * 0.15;
+    trunkClr[ci + 1] = barkG * 0.85 + cg * 0.15;
+    trunkClr[ci + 2] = barkB * 0.85 + cb * 0.15;
+
     canopyClr[ci] = cr;
     canopyClr[ci + 1] = cg;
     canopyClr[ci + 2] = cb;
+    canopy2Clr[ci] = cr;
+    canopy2Clr[ci + 1] = cg;
+    canopy2Clr[ci + 2] = cb;
   }
 
   function updatePlants(): void {
@@ -273,6 +322,8 @@ export function createRenderer3D(
     const trunkClr = trunks.instanceColor!.array as Float32Array;
     const canopyMtx = canopies.instanceMatrix.array as Float32Array;
     const canopyClr = canopies.instanceColor!.array as Float32Array;
+    const canopy2Mtx = canopies2.instanceMatrix.array as Float32Array;
+    const canopy2Clr = canopies2.instanceColor!.array as Float32Array;
 
     // ── Detect deaths: plants in prev snapshot but no longer in world ──
     for (const [id, snap] of prevSnapshots) {
@@ -301,7 +352,7 @@ export function createRenderer3D(
       const { cr, cg, cb } = plantColor(plant.speciesId, plant.genome);
 
       writeInstance(idx, wx, wz, sil, cr, cg, cb, 0, 0,
-        trunkMtx, trunkClr, canopyMtx, canopyClr);
+        trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
       idx++;
     }
 
@@ -341,17 +392,20 @@ export function createRenderer3D(
       const cb = origB * (1 - p) + 0.08 * p;
 
       writeInstance(idx, wx, wz, sil, cr, cg, cb, tiltAngle, tiltDir,
-        trunkMtx, trunkClr, canopyMtx, canopyClr);
+        trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
       idx++;
     }
     for (const id of toRemove) dyingPlants.delete(id);
 
     trunks.count = idx;
     canopies.count = idx;
+    canopies2.count = idx;
     trunks.instanceMatrix.needsUpdate = true;
     canopies.instanceMatrix.needsUpdate = true;
+    canopies2.instanceMatrix.needsUpdate = true;
     trunks.instanceColor!.needsUpdate = true;
     canopies.instanceColor!.needsUpdate = true;
+    canopies2.instanceColor!.needsUpdate = true;
   }
 
   // ═══════════════════════════════════════════════════════
