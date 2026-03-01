@@ -21,7 +21,8 @@ export function updateLeaderboard(world: World): void {
       : '#888';
     html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">`;
     html += `<span style="display:inline-block;width:10px;height:10px;background:${rgb};border:1px solid #555;flex-shrink:0;"></span>`;
-    html += `<span style="color:${rgb}">Sp ${speciesId}</span>`;
+    const name = world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`;
+    html += `<span style="color:${rgb}">${name}</span>`;
     html += `<span style="margin-left:auto;">${count}</span>`;
     html += `</div>`;
   }

@@ -117,6 +117,7 @@ export interface World {
   nextPlantId: number;
   nextSpeciesId: number;
   speciesColors: Map<number, SpeciesColor>;
+  speciesNames: Map<number, string>;
   seedEvents: SeedEvent[];
 }
 
@@ -139,6 +140,7 @@ export interface Renderer {
 export interface TickSnapshot {
   tick: number;
   populations: Map<number, number>; // speciesId → alive count
+  traitAverages: { root: number; height: number; leaf: number; seed: number };
 }
 
 export interface SpeciesRecord {

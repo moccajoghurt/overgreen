@@ -1,4 +1,5 @@
 import { Cell, Genome, Plant, SIM, SpeciesColor, TerrainType, World } from './types';
+import { generateSpeciesName } from './species-names';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -192,7 +193,7 @@ export function createWorld(width: number, height: number): World {
   generateRocks(grid, width, height);
   assignTerrainProperties(grid, elevation, width, height);
 
-  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map(), seedEvents: [] };
+  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map(), speciesNames: new Map(), seedEvents: [] };
 }
 
 function randomGenome(): Genome {
@@ -228,7 +229,9 @@ export function seedInitialPlants(world: World, count: number): void {
     const speciesId = world.nextSpeciesId++;
     world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
     const id = world.nextPlantId++;
-    const plant = createPlant(id, x, y, randomGenome(), speciesId);
+    const genome = randomGenome();
+    world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId));
+    const plant = createPlant(id, x, y, genome, speciesId);
     world.plants.set(id, plant);
     world.grid[y][x].plantId = id;
     world.grid[y][x].lastSpeciesId = speciesId;

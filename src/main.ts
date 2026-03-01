@@ -5,6 +5,7 @@ import { initControls, updateInspector } from './controls';
 import { updateLeaderboard } from './leaderboard';
 import { createHistory, recordTick } from './history';
 import { createPopulationChart } from './population-chart';
+import { createTraitChart } from './trait-chart';
 import { createEventTicker } from './event-ticker';
 
 const container = document.getElementById('canvas-container')!;
@@ -16,7 +17,22 @@ const controls = initControls(renderer.canvas, renderer, world);
 
 const history = createHistory();
 const chart = createPopulationChart(document.getElementById('chart-container')!);
+const traitChart = createTraitChart(document.getElementById('trait-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
+
+// Tab switching
+const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
+const chartContainer = document.getElementById('chart-container')!;
+const traitContainer = document.getElementById('trait-container')!;
+chartTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    chartTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const which = tab.dataset.chart;
+    chartContainer.style.display = which === 'population' ? '' : 'none';
+    traitContainer.style.display = which === 'traits' ? '' : 'none';
+  });
+});
 
 const tickLabel = document.getElementById('tick-label')!;
 const plantCount = document.getElementById('plant-count')!;
@@ -34,6 +50,7 @@ function updateUI(): void {
     lastLeaderboardTick = world.tick;
   }
   chart.update(history, world.speciesColors);
+  traitChart.update(history);
   ticker.update(history, world.speciesColors);
 }
 

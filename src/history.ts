@@ -20,16 +20,31 @@ export function createHistory(): History {
   };
 }
 
+function spName(world: World, speciesId: number): string {
+  return world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`;
+}
+
 export function recordTick(history: History, world: World): void {
-  // 1. Count populations
+  // 1. Count populations + aggregate genome traits
   const populations = new Map<number, number>();
+  let totalAlive = 0;
+  let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0;
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     populations.set(plant.speciesId, (populations.get(plant.speciesId) ?? 0) + 1);
+    totalAlive++;
+    sumRoot += plant.genome.rootPriority;
+    sumHeight += plant.genome.heightPriority;
+    sumLeaf += plant.genome.leafSize;
+    sumSeed += plant.genome.seedInvestment;
   }
 
+  const traitAverages = totalAlive > 0
+    ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive }
+    : { root: 0, height: 0, leaf: 0, seed: 0 };
+
   // 2. Store snapshot (ring buffer)
-  history.snapshots.push({ tick: world.tick, populations: new Map(populations) });
+  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages });
   if (history.snapshots.length > MAX_SNAPSHOTS) {
     history.snapshots.shift();
   }
@@ -65,7 +80,7 @@ export function recordTick(history: History, world: World): void {
         pushEvent(history, {
           tick: world.tick,
           type: 'population_record',
-          message: `Sp ${speciesId} reached ${milestone} plants`,
+          message: `${spName(world, speciesId)} reached ${milestone} plants`,
           speciesId,
         });
       }
@@ -81,7 +96,7 @@ export function recordTick(history: History, world: World): void {
         pushEvent(history, {
           tick: world.tick,
           type: 'extinction',
-          message: `Sp ${speciesId} went extinct (lived ${world.tick - rec.firstSeenTick} ticks)`,
+          message: `${spName(world, speciesId)} went extinct (lived ${world.tick - rec.firstSeenTick} ticks)`,
           speciesId,
         });
       }
@@ -113,7 +128,7 @@ export function recordTick(history: History, world: World): void {
     pushEvent(history, {
       tick: world.tick,
       type: 'dominance_shift',
-      message: `Sp ${dominant} is now dominant (${maxCount} plants)`,
+      message: `${spName(world, dominant)} is now dominant (${maxCount} plants)`,
       speciesId: dominant,
     });
   }
@@ -135,7 +150,7 @@ export function recordTick(history: History, world: World): void {
         pushEvent(history, {
           tick: world.tick,
           type: 'notable_age',
-          message: `Plant #${oldest.plantId} (Sp ${oldest.speciesId}) reached age ${milestone}`,
+          message: `Plant #${oldest.plantId} (${spName(world, oldest.speciesId)}) reached age ${milestone}`,
           speciesId: oldest.speciesId,
         });
       }

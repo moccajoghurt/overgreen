@@ -78,7 +78,8 @@ export function updateInspector(world: World, controls: Controls): void {
   if (cell.plantId !== null) {
     const plant = world.plants.get(cell.plantId);
     if (plant) {
-      text += `\n[Plant #${plant.id}]  Species: ${plant.speciesId}  Age: ${plant.age}\n`;
+      const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
+      text += `\n[Plant #${plant.id}]  ${spName}  Age: ${plant.age}\n`;
       text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
       text += `Energy: ${plant.energy.toFixed(1)}\n`;
       text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} S=${plant.genome.seedInvestment.toFixed(2)}\n`;
@@ -90,7 +91,8 @@ export function updateInspector(world: World, controls: Controls): void {
   } else {
     text += '\nNo plant on this cell.';
     if (cell.lastSpeciesId !== null) {
-      text += `\nLast species: ${cell.lastSpeciesId}`;
+      const lastName = world.speciesNames.get(cell.lastSpeciesId!) ?? `Sp ${cell.lastSpeciesId}`;
+      text += `\nLast: ${lastName}`;
     }
   }
 

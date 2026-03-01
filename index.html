@@ -39,10 +39,25 @@
       display: flex; background: #1e1e1e;
       border-top: 1px solid #333;
     }
-    #chart-container {
-      flex: 7; position: relative; overflow: hidden;
+    #charts-wrapper {
+      flex: 7; display: flex; flex-direction: column; min-width: 0;
     }
-    #chart-container canvas { width: 100%; height: 100%; display: block; }
+    #chart-tabs {
+      display: flex; gap: 0; flex-shrink: 0; background: #1a1a1a;
+      border-bottom: 1px solid #333;
+    }
+    .chart-tab {
+      padding: 3px 12px; cursor: pointer;
+      background: transparent; color: #666; border: none;
+      font-family: monospace; font-size: 11px;
+      border-bottom: 2px solid transparent;
+    }
+    .chart-tab:hover { color: #aaa; }
+    .chart-tab.active { color: #8f8; border-bottom-color: #8f8; }
+    #chart-container, #trait-container {
+      flex: 1; position: relative; overflow: hidden;
+    }
+    #chart-container canvas, #trait-container canvas { width: 100%; height: 100%; display: block; }
     #ticker-container {
       flex: 3; overflow-y: auto;
       border-left: 1px solid #333;
@@ -189,7 +204,14 @@
   <div id="canvas-container"></div>
   </div>
   <div id="bottom-panel">
-    <div id="chart-container"></div>
+    <div id="charts-wrapper">
+      <div id="chart-tabs">
+        <button class="chart-tab active" data-chart="population">Population</button>
+        <button class="chart-tab" data-chart="traits">Traits</button>
+      </div>
+      <div id="chart-container"></div>
+      <div id="trait-container" style="display:none"></div>
+    </div>
     <div id="ticker-container">
       <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Events</div>
       <div id="ticker-list"></div>
