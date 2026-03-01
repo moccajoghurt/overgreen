@@ -1,12 +1,40 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, World, Renderer } from './types';
+import { SIM, World, Renderer, Genome } from './types';
 
 const GRID = 80;
 const HALF = GRID / 2;
+const DEATH_ANIM_FRAMES = 90; // ~1.5s at 60fps
+const MAX_DYING = 200;
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+interface PlantSnapshot {
+  x: number; y: number;
+  height: number; rootDepth: number; leafArea: number;
+  speciesId: number; genome: Genome;
+}
+
+interface DyingPlant extends PlantSnapshot {
+  progress: number; // 0→1
+}
+
+function computeSilhouette(height: number, rootDepth: number, leafArea: number) {
+  const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
+  const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
+
+  const trunkH = Math.max(0.1, height * 0.6);
+  const trunkThickness = 0.7 + rootRatio * 0.9;
+
+  const shapeRatio = (leafArea + 0.1) / (height + 0.1);
+  const canopyBase = 0.2 + leafRatio * 0.6;
+  const verticalF = 0.4 + 0.6 / (1 + shapeRatio);
+  const canopyX = canopyBase * (1 + shapeRatio * 0.15);
+  const canopyY = canopyBase * verticalF;
+
+  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX };
 }
 
 export function createRenderer3D(
@@ -39,17 +67,17 @@ export function createRenderer3D(
   scene.add(terrainMesh);
 
   // ── Plants (instanced meshes) ──
-  const MAX_PLANTS = GRID * GRID;
+  const MAX_INSTANCES = GRID * GRID + MAX_DYING;
 
   const trunkGeo = new THREE.CylinderGeometry(0.05, 0.1, 1, 6);
   const trunks = new THREE.InstancedMesh(
     trunkGeo,
     new THREE.MeshLambertMaterial(),
-    MAX_PLANTS,
+    MAX_INSTANCES,
   );
   trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   trunks.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_PLANTS * 3),
+    new Float32Array(MAX_INSTANCES * 3),
     3,
   );
   trunks.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -61,17 +89,21 @@ export function createRenderer3D(
   const canopies = new THREE.InstancedMesh(
     canopyGeo,
     new THREE.MeshLambertMaterial(),
-    MAX_PLANTS,
+    MAX_INSTANCES,
   );
   canopies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   canopies.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_PLANTS * 3),
+    new Float32Array(MAX_INSTANCES * 3),
     3,
   );
   canopies.instanceColor.setUsage(THREE.DynamicDrawUsage);
   canopies.count = 0;
   canopies.frustumCulled = false;
   scene.add(canopies);
+
+  // ── Dying plant animation state ──
+  let prevSnapshots = new Map<number, PlantSnapshot>();
+  const dyingPlants = new Map<number, DyingPlant>();
 
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
@@ -188,59 +220,131 @@ export function createRenderer3D(
     colorAttr.needsUpdate = true;
   }
 
+  function plantColor(speciesId: number, genome: Genome) {
+    const sc = world.speciesColors.get(speciesId);
+    const gr = 0.2 + genome.rootPriority * 0.6;
+    const gg = 0.3 + genome.leafSize * 0.5;
+    const gb = 0.2 + genome.heightPriority * 0.6;
+    return {
+      cr: sc ? sc.r * 0.7 + gr * 0.3 : gr,
+      cg: sc ? sc.g * 0.7 + gg * 0.3 : gg,
+      cb: sc ? sc.b * 0.7 + gb * 0.3 : gb,
+    };
+  }
+
+  function writeInstance(
+    idx: number,
+    wx: number, wz: number,
+    sil: ReturnType<typeof computeSilhouette>,
+    cr: number, cg: number, cb: number,
+    tiltAngle: number, tiltDir: number,
+    trunkMtx: Float32Array, trunkClr: Float32Array,
+    canopyMtx: Float32Array, canopyClr: Float32Array,
+  ): void {
+    // ── Trunk ──
+    dummy.position.set(wx, sil.trunkH * 0.5, wz);
+    dummy.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
+    dummy.rotation.set(
+      Math.sin(tiltDir) * tiltAngle,
+      0,
+      Math.cos(tiltDir) * tiltAngle,
+    );
+    dummy.updateMatrix();
+    dummy.matrix.toArray(trunkMtx, idx * 16);
+
+    // ── Canopy ──
+    dummy.position.set(wx, sil.trunkH + sil.canopyY * 0.3, wz);
+    dummy.scale.set(sil.canopyX, sil.canopyY, sil.canopyZ);
+    dummy.updateMatrix();
+    dummy.matrix.toArray(canopyMtx, idx * 16);
+
+    // ── Color ──
+    const ci = idx * 3;
+    trunkClr[ci] = cr * 0.5;
+    trunkClr[ci + 1] = cg * 0.4;
+    trunkClr[ci + 2] = cb * 0.3;
+    canopyClr[ci] = cr;
+    canopyClr[ci + 1] = cg;
+    canopyClr[ci + 2] = cb;
+  }
+
   function updatePlants(): void {
     const trunkMtx = trunks.instanceMatrix.array as Float32Array;
     const trunkClr = trunks.instanceColor!.array as Float32Array;
     const canopyMtx = canopies.instanceMatrix.array as Float32Array;
     const canopyClr = canopies.instanceColor!.array as Float32Array;
 
+    // ── Detect deaths: plants in prev snapshot but no longer in world ──
+    for (const [id, snap] of prevSnapshots) {
+      if (!world.plants.has(id)) {
+        dyingPlants.set(id, { ...snap, progress: 0 });
+      }
+    }
+
+    // ── Build new snapshots + render live plants ──
+    const newSnapshots = new Map<number, PlantSnapshot>();
     let idx = 0;
 
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
 
+      newSnapshots.set(plant.id, {
+        x: plant.x, y: plant.y,
+        height: plant.height, rootDepth: plant.rootDepth,
+        leafArea: plant.leafArea, speciesId: plant.speciesId,
+        genome: { ...plant.genome },
+      });
+
       const wx = plant.x - HALF + 0.5;
       const wz = plant.y - HALF + 0.5;
-      const h = plant.height;
-      const leafRatio = plant.leafArea / SIM.MAX_LEAF_AREA;
+      const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea);
+      const { cr, cg, cb } = plantColor(plant.speciesId, plant.genome);
 
-      // ── Trunk ──
-      const trunkH = Math.max(0.1, h * 0.6);
-      dummy.position.set(wx, trunkH * 0.5, wz);
-      dummy.scale.set(1, trunkH, 1);
-      dummy.rotation.set(0, 0, 0);
-      dummy.updateMatrix();
-      dummy.matrix.toArray(trunkMtx, idx * 16);
-
-      // ── Canopy ──
-      const canopyS = 0.2 + leafRatio * 0.6;
-      dummy.position.set(wx, trunkH + canopyS * 0.3, wz);
-      dummy.scale.set(canopyS, canopyS, canopyS);
-      dummy.updateMatrix();
-      dummy.matrix.toArray(canopyMtx, idx * 16);
-
-      // ── Species color blended with genome variation ──
-      const sc = world.speciesColors.get(plant.speciesId);
-      const g = plant.genome;
-      const gr = 0.2 + g.rootPriority * 0.6;
-      const gg = 0.3 + g.leafSize * 0.5;
-      const gb = 0.2 + g.heightPriority * 0.6;
-
-      const cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-      const cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-      const cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-
-      const ci = idx * 3;
-      trunkClr[ci] = cr * 0.5;
-      trunkClr[ci + 1] = cg * 0.4;
-      trunkClr[ci + 2] = cb * 0.3;
-
-      canopyClr[ci] = cr;
-      canopyClr[ci + 1] = cg;
-      canopyClr[ci + 2] = cb;
-
+      writeInstance(idx, wx, wz, sil, cr, cg, cb, 0, 0,
+        trunkMtx, trunkClr, canopyMtx, canopyClr);
       idx++;
     }
+
+    prevSnapshots = newSnapshots;
+
+    // ── Render dying plants ──
+    const toRemove: number[] = [];
+    for (const [id, dp] of dyingPlants) {
+      dp.progress += 1 / DEATH_ANIM_FRAMES;
+      if (dp.progress >= 1) { toRemove.push(id); continue; }
+      if (idx >= MAX_INSTANCES) continue;
+
+      const wx = dp.x - HALF + 0.5;
+      const wz = dp.y - HALF + 0.5;
+      const shrink = 1 - dp.progress;
+
+      // Silhouette scaled down by shrink
+      const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea);
+      const sil = {
+        trunkH: raw.trunkH * shrink,
+        trunkThickness: raw.trunkThickness * shrink,
+        canopyX: raw.canopyX * shrink,
+        canopyY: raw.canopyY * shrink,
+        canopyZ: raw.canopyZ * shrink,
+      };
+
+      // Tilt starts at progress 0.3
+      const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
+      const tiltAngle = tiltProgress * (Math.PI / 3);
+      const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
+
+      // Brown-out: lerp original color → brown
+      const { cr: origR, cg: origG, cb: origB } = plantColor(dp.speciesId, dp.genome);
+      const p = dp.progress;
+      const cr = origR * (1 - p) + 0.35 * p;
+      const cg = origG * (1 - p) + 0.20 * p;
+      const cb = origB * (1 - p) + 0.08 * p;
+
+      writeInstance(idx, wx, wz, sil, cr, cg, cb, tiltAngle, tiltDir,
+        trunkMtx, trunkClr, canopyMtx, canopyClr);
+      idx++;
+    }
+    for (const id of toRemove) dyingPlants.delete(id);
 
     trunks.count = idx;
     canopies.count = idx;
