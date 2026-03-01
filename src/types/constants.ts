@@ -7,6 +7,7 @@ export const SIM = {
   MAX_WATER: 10.0,
   WATER_ABSORPTION_PER_ROOT: 0.4,
   TRANSPIRATION_PER_LEAF: 0.2,
+  ROOT_COMPETITION_RATE: 0.06,
 
   // Nutrients
   MAX_NUTRIENTS: 10.0,
@@ -16,6 +17,7 @@ export const SIM = {
   // Light
   BASE_LIGHT: 1.0,
   SHADOW_REDUCTION: 0.15,
+  SHADOW_HEIGHT_SCALE: 3.0,
   MIN_LIGHT: 0.1,
 
   // Energy / Photosynthesis

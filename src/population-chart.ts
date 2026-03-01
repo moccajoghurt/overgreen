@@ -1,10 +1,17 @@
-import { History, SpeciesColor } from './types';
+import { History, SpeciesColor, SEASON_LENGTH, YEAR_LENGTH } from './types';
 
 const TOP_N = 8;
 const STICKY_TICKS = 50;
 const GRID_COLOR = 'rgba(255,255,255,0.07)';
 const LABEL_COLOR = 'rgba(255,255,255,0.35)';
 const LABEL_FONT = '10px monospace';
+const SEASON_LABELS = ['Spring', 'Summer', 'Autumn', 'Winter'];
+const SEASON_COLORS = [
+  'rgba(100,200,100,0.08)', // Spring — green tint
+  'rgba(230,200,50,0.08)',  // Summer — yellow tint
+  'rgba(200,130,50,0.08)',  // Autumn — orange tint
+  'rgba(130,170,230,0.10)', // Winter — blue tint
+];
 
 interface TrackedSpecies {
   speciesId: number;
@@ -94,6 +101,39 @@ export function createPopulationChart(container: HTMLElement) {
     // Clear
     ctx.clearRect(0, 0, w, h);
 
+    // Season background bands
+    const firstTick = snaps[0].tick;
+    const lastTick = snaps[snaps.length - 1].tick;
+    const tickRange = lastTick - firstTick;
+    if (tickRange > 0) {
+      // Find the first season boundary at or before firstTick
+      const firstSeasonStart = Math.floor(firstTick / SEASON_LENGTH) * SEASON_LENGTH;
+      for (let sTick = firstSeasonStart; sTick < lastTick; sTick += SEASON_LENGTH) {
+        const sEnd = sTick + SEASON_LENGTH;
+        const clampStart = Math.max(sTick, firstTick);
+        const clampEnd = Math.min(sEnd, lastTick);
+        if (clampStart >= clampEnd) continue;
+
+        const x0 = pad.left + ((clampStart - firstTick) / tickRange) * plotW;
+        const x1 = pad.left + ((clampEnd - firstTick) / tickRange) * plotW;
+        const seasonIdx = Math.floor((sTick % YEAR_LENGTH) / SEASON_LENGTH);
+
+        // Background band
+        ctx.fillStyle = SEASON_COLORS[seasonIdx];
+        ctx.fillRect(x0, pad.top, x1 - x0, plotH);
+
+        // Label at center of visible portion
+        const bandW = x1 - x0;
+        if (bandW > 40) {
+          ctx.fillStyle = 'rgba(255,255,255,0.2)';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(SEASON_LABELS[seasonIdx], x0 + bandW / 2, pad.top + 2);
+        }
+      }
+    }
+
     // Grid lines
     ctx.strokeStyle = GRID_COLOR;
     ctx.lineWidth = 1;
@@ -159,9 +199,6 @@ export function createPopulationChart(container: HTMLElement) {
     ctx.fillStyle = LABEL_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const firstTick = snaps[0].tick;
-    const lastTick = snaps[snaps.length - 1].tick;
-    const tickRange = lastTick - firstTick;
     const xStep = niceStep(tickRange, 5);
     if (xStep > 0) {
       const startLabel = Math.ceil(firstTick / xStep) * xStep;

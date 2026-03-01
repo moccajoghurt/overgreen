@@ -58,7 +58,7 @@ function phaseCalculateLight(world: World): void {
       const myPlant = cell.plantId !== null ? world.plants.get(cell.plantId) : null;
       const myHeight = myPlant?.alive ? myPlant.height : 0;
 
-      let shadeCount = 0;
+      let shadeSum = 0;
       for (const [dx, dy] of NEIGHBORS) {
         const nx = x + dx;
         const ny = y + dy;
@@ -67,14 +67,16 @@ function phaseCalculateLight(world: World): void {
         if (neighbor.plantId === null) continue;
         const nPlant = world.plants.get(neighbor.plantId);
         if (nPlant && nPlant.alive && nPlant.height > myHeight) {
-          shadeCount++;
+          // Shade scales with height difference — towering neighbors shade more
+          const diff = nPlant.height - myHeight;
+          shadeSum += SIM.SHADOW_REDUCTION * Math.min(1, diff / SIM.SHADOW_HEIGHT_SCALE);
         }
       }
       const rawBase = cell.terrainType === TerrainType.Hill
         ? Math.min(1.0, SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS)
         : SIM.BASE_LIGHT;
       const baseLight = rawBase * world.environment.lightMult;
-      cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeCount * SIM.SHADOW_REDUCTION);
+      cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeSum);
     }
   }
 }
@@ -88,8 +90,26 @@ function phaseUpdatePlants(world: World): void {
     // Leaves create water demand (transpiration), roots determine absorption capacity
     const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
     const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
-    const waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
+    let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
     cell.waterLevel -= waterAbsorbed;
+
+    // Root competition: deep roots drain water from neighboring cells
+    let remainingDemand = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
+    if (remainingDemand > 0.01) {
+      const drainRate = plant.rootDepth / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
+      for (const [dx, dy] of NEIGHBORS) {
+        if (remainingDemand <= 0.01) break;
+        const nx = plant.x + dx;
+        const ny = plant.y + dy;
+        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        const nc = world.grid[ny][nx];
+        const drained = Math.min(remainingDemand, nc.waterLevel * drainRate);
+        nc.waterLevel -= drained;
+        waterAbsorbed += drained;
+        remainingDemand -= drained;
+      }
+    }
+
     const waterFraction = waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
     plant.lastWaterAbsorbed = waterAbsorbed;
 
@@ -144,11 +164,12 @@ function phaseUpdatePlants(world: World): void {
         plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
       }
 
-      // 3f. Seed spawning
+      // 3f. Seed spawning — taller plants disperse further
+      const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / 3);
       const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
       for (let i = 0; i < seedsToSpawn; i++) {
-        const dx = Math.floor(Math.random() * (SIM.SEED_RANGE_MAX * 2 + 1)) - SIM.SEED_RANGE_MAX;
-        const dy = Math.floor(Math.random() * (SIM.SEED_RANGE_MAX * 2 + 1)) - SIM.SEED_RANGE_MAX;
+        const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
+        const dy = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
         if (dx === 0 && dy === 0) continue;
         const tx = plant.x + dx;
         const ty = plant.y + dy;

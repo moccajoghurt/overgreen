@@ -133,8 +133,8 @@
 
       <div style="margin-top:4px;"><b style="color:#ee8">2. Light &amp; shadows</b></div>
       All cells start at light = 1.0.<br>
-      Each taller neighbor (8 surrounding cells)<br>
-      reduces light by 0.15. Floor: 0.1.
+      Each taller neighbor shades proportionally:<br>
+      &minus;0.15 &times; min(1, heightDiff/3). Floor: 0.1.
 
       <div style="margin-top:4px;"><b style="color:#6c6">3. Plant update</b></div>
 
@@ -142,6 +142,8 @@
       need = leafArea &times; 0.2 (transpiration)<br>
       canAbsorb = rootDepth &times; 0.4<br>
       absorbed = min(need, canAbsorb, cell water)<br>
+      If unmet demand remains, deep roots drain<br>
+      neighbor cells (6% &times; rootDepth/maxRoot).<br>
       waterFraction = absorbed / need
 
       <div style="margin:2px 0;"><u>Photosynthesis</u></div>
@@ -169,7 +171,7 @@
 
       <div style="margin:2px 0;"><u>Seed spawning</u></div>
       seeds = &lfloor;seedBudget / 0.8&rfloor;<br>
-      Each seed lands randomly within 1&ndash;3 cells.<br>
+      Range = 3 + &lfloor;height/3&rfloor; cells.<br>
       Seedling starts: h/r/l=0.5, energy=2.0.<br>
       Genome = parent &plusmn; 0.05 per gene.
 

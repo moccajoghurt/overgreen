@@ -10,7 +10,7 @@ const SEASON_TARGETS: Record<Season, [number, number, number]> = {
   [Season.Spring]: [1.2, 1.0, 1.0],
   [Season.Summer]: [0.8, 1.15, 1.0],
   [Season.Autumn]: [1.0, 0.85, 1.0],
-  [Season.Winter]: [0.6, 0.7, 2.0],
+  [Season.Winter]: [0.6, 0.5, 3.0],
 };
 
 function computeSeasonModifiers(env: Environment): void {
