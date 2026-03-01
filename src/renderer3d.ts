@@ -371,5 +371,17 @@ export function createRenderer3D(
     };
   }
 
-  return { render, cellAt, projectToScreen, canvas: webgl.domElement };
+  function moveTo(gridX: number, gridY: number): void {
+    const wx = gridX - HALF + 0.5;
+    const wz = gridY - HALF + 0.5;
+    const wy = getCellElevation(
+      Math.max(0, Math.min(GRID - 1, Math.round(gridX))),
+      Math.max(0, Math.min(GRID - 1, Math.round(gridY))),
+    );
+    const offset = camera.position.clone().sub(controls.target);
+    controls.target.set(wx, wy, wz);
+    camera.position.copy(controls.target).add(offset);
+  }
+
+  return { render, cellAt, projectToScreen, moveTo, canvas: webgl.domElement };
 }

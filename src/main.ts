@@ -18,7 +18,7 @@ const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
 const history = createHistory();
-const genomePanel = createGenomePanel(document.getElementById('genomes-container')!);
+const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
