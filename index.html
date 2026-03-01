@@ -14,9 +14,9 @@
     }
     #sidebar h1 { font-size: 18px; color: #8f8; }
     #canvas-container {
-      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex: 1; position: relative; overflow: hidden;
     }
-    canvas { image-rendering: pixelated; border: 1px solid #333; }
+    canvas { display: block; }
     button {
       padding: 4px 12px; cursor: pointer;
       background: #333; color: #ccc; border: 1px solid #555;
@@ -50,6 +50,10 @@
       <div>Tick: <span id="tick-label">0</span></div>
       <div>Plants: <span id="plant-count">0</span></div>
     </div>
+    <div id="leaderboard" style="font-size:11px; line-height:1.4; flex-shrink:0;">
+      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Species Leaderboard</div>
+      <div id="leaderboard-list"></div>
+    </div>
     <div class="inspector" id="inspector">Click a cell to inspect...</div>
     <div id="rules" style="font-size:10px; line-height:1.5; color:#aaa; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
 
@@ -60,18 +64,28 @@
       mutations &mdash; natural selection in real time.
 
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Legend</div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-        <span style="display:inline-block;width:12px;height:12px;background:hsl(30,40%,55%);border:1px solid #555;flex-shrink:0;"></span> Dry soil
-        <span style="display:inline-block;width:12px;height:12px;background:hsl(25,50%,25%);border:1px solid #555;flex-shrink:0;"></span> Wet soil
-        <span style="display:inline-block;width:12px;height:12px;background:hsl(20,50%,20%);border:1px solid #555;flex-shrink:0;"></span> Nutrient-rich
+      <div style="margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between;"><span>dry</span><span>wet</span></div>
+        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, hsl(30,40%,55%), hsl(25,50%,25%));"></div>
       </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:5px;height:5px;background:hsl(120,70%,50%);position:absolute;top:3px;left:3px;"></span></span> Seedling
-        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:10px;height:10px;background:hsl(120,70%,35%);position:absolute;top:0;left:0;"></span></span> Mature
-        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:12px;height:12px;background:hsl(120,70%,20%);position:absolute;top:-1px;left:-1px;"></span></span> Tall tree
-        <span style="display:inline-block;width:12px;height:12px;background:rgba(0,0,0,0.3);border:1px solid #555;flex-shrink:0;"></span> Shaded
+      <div style="margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between;"><span>low nutrients</span><span>high</span></div>
+        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, hsl(28,45%,40%), hsl(20,50%,15%));"></div>
       </div>
-      <span style="color:#666">Size = leaf area &middot; Darkness = height</span>
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Plant color = genome</div>
+      <div style="margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">R</b></span><span>high <b style="color:#c96">R</b> root</span></div>
+        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(204,77,51));"></div>
+      </div>
+      <div style="margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">L</b></span><span>high <b style="color:#c96">L</b> leaf</span></div>
+        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(51,204,51));"></div>
+      </div>
+      <div style="margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">H</b></span><span>high <b style="color:#c96">H</b> height</span></div>
+        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(51,77,204));"></div>
+      </div>
+      <span style="color:#666">Canopy size = leaf area &middot; Trunk height = plant height</span>
 
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Each Tick</div>
 
@@ -88,10 +102,11 @@
 
       <div style="margin-top:4px;"><b style="color:#6c6">3. Plant update</b></div>
 
-      <div style="margin:2px 0;"><u>Water absorption</u></div>
-      demand = rootDepth &times; 0.4<br>
-      Takes min(demand, cell water).<br>
-      waterFraction = absorbed / demand
+      <div style="margin:2px 0;"><u>Water (transpiration)</u></div>
+      need = leafArea &times; 0.2 (transpiration)<br>
+      canAbsorb = rootDepth &times; 0.4<br>
+      absorbed = min(need, canAbsorb, cell water)<br>
+      waterFraction = absorbed / need
 
       <div style="margin:2px 0;"><u>Photosynthesis</u></div>
       energy = light &times; leafArea &times; 0.5<br>
@@ -133,9 +148,9 @@
 
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Genome</div>
       4 genes, each 0&ndash;1:<br>
-      <b style="color:#c96">R</b> Root priority &mdash; more water access<br>
+      <b style="color:#c96">R</b> Root priority &mdash; water absorption capacity<br>
       <b style="color:#c96">H</b> Height priority &mdash; reach light, cast shade<br>
-      <b style="color:#c96">L</b> Leaf size &mdash; more energy, more water use<br>
+      <b style="color:#c96">L</b> Leaf size &mdash; more energy, but transpires more water<br>
       <b style="color:#c96">S</b> Seed investment &mdash; reproduce vs. grow<br>
       <br>
       Seeds mutate each gene by &plusmn;0.05.<br>
@@ -150,9 +165,7 @@
 
     </div>
   </div>
-  <div id="canvas-container">
-    <canvas id="canvas"></canvas>
-  </div>
+  <div id="canvas-container"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

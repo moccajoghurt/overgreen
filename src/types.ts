@@ -1,12 +1,12 @@
 export const GRID_WIDTH = 80;
 export const GRID_HEIGHT = 80;
-export const CELL_PX = 8;
 
 export const SIM = {
   // Water
   BASE_WATER_RECHARGE: 0.4,
   MAX_WATER: 10.0,
   WATER_ABSORPTION_PER_ROOT: 0.4,
+  TRANSPIRATION_PER_LEAF: 0.2,
 
   // Nutrients
   MAX_NUTRIENTS: 10.0,
@@ -48,6 +48,12 @@ export const SIM = {
   MAX_AGE: 500,
 } as const;
 
+export interface SpeciesColor {
+  r: number;
+  g: number;
+  b: number;
+}
+
 export interface Genome {
   rootPriority: number;
   heightPriority: number;
@@ -57,6 +63,7 @@ export interface Genome {
 
 export interface Plant {
   id: number;
+  speciesId: number;
   x: number;
   y: number;
   height: number;
@@ -80,6 +87,7 @@ export interface Cell {
   nutrients: number;
   lightLevel: number;
   plantId: number | null;
+  lastSpeciesId: number | null;
 }
 
 export interface World {
@@ -89,4 +97,11 @@ export interface World {
   plants: Map<number, Plant>;
   tick: number;
   nextPlantId: number;
+  nextSpeciesId: number;
+  speciesColors: Map<number, SpeciesColor>;
+}
+
+export interface Renderer {
+  render(selectedCell: { x: number; y: number } | null): void;
+  cellAt(canvasX: number, canvasY: number): { x: number; y: number } | null;
 }

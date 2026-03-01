@@ -1,4 +1,25 @@
-import { Cell, Genome, Plant, SIM, World } from './types';
+import { Cell, Genome, Plant, SIM, SpeciesColor, World } from './types';
+
+function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return { r: r + m, g: g + m, b: b + m };
+}
+
+function generateSpeciesColor(speciesId: number): SpeciesColor {
+  const hue = (speciesId * 137.508) % 360;
+  const s = 0.65 + (speciesId % 3) * 0.1;
+  const l = 0.45 + (speciesId % 5) * 0.05;
+  return hsl2rgb(hue, s, l);
+}
 
 export function createWorld(width: number, height: number): World {
   const grid: Cell[][] = [];
@@ -13,11 +34,12 @@ export function createWorld(width: number, height: number): World {
         nutrients: 1 + Math.random() * 3,
         lightLevel: SIM.BASE_LIGHT,
         plantId: null,
+        lastSpeciesId: null,
       });
     }
     grid.push(row);
   }
-  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1 };
+  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map() };
 }
 
 function randomGenome(): Genome {
@@ -29,9 +51,9 @@ function randomGenome(): Genome {
   };
 }
 
-function createPlant(id: number, x: number, y: number, genome: Genome): Plant {
+function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number): Plant {
   return {
-    id, x, y, genome,
+    id, speciesId, x, y, genome,
     height: 1, rootDepth: 1, leafArea: 1,
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
@@ -48,10 +70,13 @@ export function seedInitialPlants(world: World, count: number): void {
     const y = Math.floor(Math.random() * world.height);
     if (world.grid[y][x].plantId !== null) continue;
 
+    const speciesId = world.nextSpeciesId++;
+    world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
     const id = world.nextPlantId++;
-    const plant = createPlant(id, x, y, randomGenome());
+    const plant = createPlant(id, x, y, randomGenome(), speciesId);
     world.plants.set(id, plant);
     world.grid[y][x].plantId = id;
+    world.grid[y][x].lastSpeciesId = speciesId;
     placed++;
   }
 }
@@ -113,11 +138,13 @@ function phaseUpdatePlants(world: World): void {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
 
-    // 3a. Water absorption
-    const waterDemand = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
-    const waterAbsorbed = Math.min(waterDemand, cell.waterLevel);
+    // 3a. Water absorption (transpiration model)
+    // Leaves create water demand (transpiration), roots determine absorption capacity
+    const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
+    const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
+    const waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
     cell.waterLevel -= waterAbsorbed;
-    const waterFraction = waterDemand > 0.01 ? waterAbsorbed / waterDemand : 0;
+    const waterFraction = waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
     plant.lastWaterAbsorbed = waterAbsorbed;
 
     // 3b. Photosynthesis
@@ -168,7 +195,7 @@ function phaseUpdatePlants(world: World): void {
 
         const childId = world.nextPlantId++;
         const child: Plant = {
-          id: childId, x: tx, y: ty,
+          id: childId, speciesId: plant.speciesId, x: tx, y: ty,
           height: 0.5, rootDepth: 0.5, leafArea: 0.5,
           energy: SIM.SEED_INITIAL_ENERGY, age: 0, alive: true,
           genome: mutateGenome(plant.genome),
@@ -177,6 +204,7 @@ function phaseUpdatePlants(world: World): void {
         };
         world.plants.set(childId, child);
         world.grid[ty][tx].plantId = childId;
+        world.grid[ty][tx].lastSpeciesId = plant.speciesId;
       }
 
       plant.energy -= surplus; // back to ~1.0 reserve

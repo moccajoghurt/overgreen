@@ -1,23 +1,30 @@
 import { GRID_WIDTH, GRID_HEIGHT } from './types';
 import { createWorld, seedInitialPlants, tickWorld } from './simulation';
-import { createRenderer } from './renderer';
+import { createRenderer3D } from './renderer3d';
 import { initControls, updateInspector } from './controls';
+import { updateLeaderboard } from './leaderboard';
 
-const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
 seedInitialPlants(world, 40);
 
-const renderer = createRenderer(canvas, world);
-const controls = initControls(canvas, renderer, world);
+const renderer = createRenderer3D(container, world);
+const controls = initControls(renderer.canvas, renderer, world);
 
 const tickLabel = document.getElementById('tick-label')!;
 const plantCount = document.getElementById('plant-count')!;
+
+let lastLeaderboardTick = -1;
 
 function updateUI(): void {
   tickLabel.textContent = String(world.tick);
   plantCount.textContent = String(world.plants.size);
   if (controls.selectedCell) {
     updateInspector(world, controls);
+  }
+  if (world.tick !== lastLeaderboardTick) {
+    updateLeaderboard(world);
+    lastLeaderboardTick = world.tick;
   }
 }
 
