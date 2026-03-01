@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, World, Renderer, Genome, TerrainType } from './types';
+import { SIM, World, Renderer, Genome, TerrainType, Season, Environment } from './types';
 
 const GRID = 80;
 const HALF = GRID / 2;
@@ -9,6 +9,8 @@ const MAX_DYING = 200;
 const GROWTH_ANIM_FRAMES = 60; // ~1s at 60fps
 const SEED_FLIGHT_FRAMES = 36; // ~0.6s at 60fps
 const MAX_SEEDS = 400;
+const WEATHER_PARTICLE_COUNT = 300;
+const WEATHER_SPREAD = 50;
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -39,6 +41,13 @@ interface FlyingSeed {
   progress: number; // 0→1 over SEED_FLIGHT_FRAMES
   startY: number;   // world-space Y of arc start (parent canopy height)
   arcPeak: number;   // peak height of the parabolic arc
+}
+
+interface WeatherParticle {
+  x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;
+  life: number;
+  phase: number;
 }
 
 function easeOutCubic(t: number): number {
@@ -236,6 +245,57 @@ export function createRenderer3D(
   seeds.frustumCulled = false;
   scene.add(seeds);
 
+  // ── Weather particles (instanced meshes, one per season effect) ──
+  type WeatherType = 'snow' | 'rain' | 'mote' | 'leaf';
+
+  function createWeatherMesh(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+  ): THREE.InstancedMesh {
+    const mesh = new THREE.InstancedMesh(geo, mat, WEATHER_PARTICLE_COUNT);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(WEATHER_PARTICLE_COUNT * 3), 3,
+    );
+    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  const snowGeo = new THREE.CircleGeometry(0.06, 4);
+  snowGeo.rotateX(-Math.PI / 2);
+  const snowMesh = createWeatherMesh(snowGeo,
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
+
+  const rainGeo = new THREE.PlaneGeometry(0.02, 0.3);
+  const rainMesh = createWeatherMesh(rainGeo,
+    new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, depthWrite: false }));
+
+  const moteGeo = new THREE.CircleGeometry(0.08, 6);
+  const moteMesh = createWeatherMesh(moteGeo,
+    new THREE.MeshBasicMaterial({
+      color: 0xffee88, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }));
+
+  const leafGeo = new THREE.PlaneGeometry(0.12, 0.08);
+  const leafMesh = createWeatherMesh(leafGeo,
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+
+  function makeParticlePool(): WeatherParticle[] {
+    return Array.from({ length: WEATHER_PARTICLE_COUNT }, () => ({
+      x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0,
+      phase: Math.random() * Math.PI * 2,
+    }));
+  }
+
+  const snowParticles = makeParticlePool();
+  const rainParticles = makeParticlePool();
+  const moteParticles = makeParticlePool();
+  const leafParticles = makeParticlePool();
+
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
     new THREE.BoxGeometry(1, 0.05, 1),
@@ -359,6 +419,39 @@ export function createRenderer3D(
             tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
             tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
           }
+        }
+
+        // Season tint
+        const env = world.environment;
+        const seasonColors = [
+          [0.3, 0.6, 0.3],  // Spring: green
+          [0.6, 0.5, 0.2],  // Summer: golden
+          [0.5, 0.35, 0.2], // Autumn: orange-brown
+          [0.3, 0.35, 0.5], // Winter: blue-grey
+        ];
+        const sc0 = seasonColors[env.season];
+        const sc1 = seasonColors[(env.season + 1) % 4];
+        const st = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+        const sr = sc0[0] + (sc1[0] - sc0[0]) * st;
+        const sg = sc0[1] + (sc1[1] - sc0[1]) * st;
+        const sb = sc0[2] + (sc1[2] - sc0[2]) * st;
+        tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
+        tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
+        tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
+
+        // Weather overlay
+        const overlayVal = env.weatherOverlay[row * GRID + col];
+        if (overlayVal === 1) {
+          // Drought: desaturate + warm shift
+          const avg = (tmpColor.r + tmpColor.g + tmpColor.b) / 3;
+          tmpColor.r = lerp(tmpColor.r, avg + 0.1, 0.4);
+          tmpColor.g = lerp(tmpColor.g, avg - 0.02, 0.4);
+          tmpColor.b = lerp(tmpColor.b, avg - 0.08, 0.4);
+        } else if (overlayVal === 2) {
+          // Burning: bright orange-red
+          tmpColor.r = lerp(tmpColor.r, 0.9, 0.7);
+          tmpColor.g = lerp(tmpColor.g, 0.3, 0.7);
+          tmpColor.b = lerp(tmpColor.b, 0.05, 0.7);
         }
 
         // 6 vertices per cell, 3 floats per vertex
@@ -652,13 +745,157 @@ export function createRenderer3D(
   }
 
   // ═══════════════════════════════════════════════════════
+  // Weather particles
+  // ═══════════════════════════════════════════════════════
+
+  function getSeasonIntensity(targetSeason: Season, env: Environment): number {
+    if (env.season === targetSeason) {
+      return Math.sin(env.seasonProgress * Math.PI);
+    }
+    // Short fade tail into the next season
+    const nextSeason = (targetSeason + 1) % 4 as Season;
+    if (env.season === nextSeason && env.seasonProgress < 0.15) {
+      return (0.15 - env.seasonProgress) / 0.15 * 0.3;
+    }
+    return 0;
+  }
+
+  function respawnParticle(p: WeatherParticle, camTarget: THREE.Vector3, type: WeatherType): void {
+    p.x = camTarget.x + (Math.random() - 0.5) * WEATHER_SPREAD * 2;
+    p.z = camTarget.z + (Math.random() - 0.5) * WEATHER_SPREAD * 2;
+    p.y = 2 + Math.random() * 23;
+    p.life = 1.0;
+    p.phase = Math.random() * Math.PI * 2;
+    switch (type) {
+      case 'snow':
+        p.vx = (Math.random() - 0.5) * 0.02;
+        p.vy = -0.03 - Math.random() * 0.02;
+        p.vz = (Math.random() - 0.5) * 0.02;
+        break;
+      case 'rain':
+        p.vx = 0.01;
+        p.vy = -0.4 - Math.random() * 0.1;
+        p.vz = 0.005;
+        break;
+      case 'mote':
+        p.vx = (Math.random() - 0.5) * 0.01;
+        p.vy = -0.005 - Math.random() * 0.005;
+        p.vz = (Math.random() - 0.5) * 0.01;
+        break;
+      case 'leaf':
+        p.vx = 0.02 + Math.random() * 0.02;
+        p.vy = -0.04 - Math.random() * 0.03;
+        p.vz = (Math.random() - 0.5) * 0.015;
+        break;
+    }
+  }
+
+  function updateOneEffect(
+    particles: WeatherParticle[],
+    mesh: THREE.InstancedMesh,
+    intensity: number,
+    camTarget: THREE.Vector3,
+    type: WeatherType,
+  ): void {
+    if (intensity < 0.01) {
+      mesh.count = 0;
+      return;
+    }
+
+    (mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(1, intensity * 0.8 + 0.2);
+
+    const activeCount = Math.floor(WEATHER_PARTICLE_COUNT * intensity);
+    const mtx = mesh.instanceMatrix.array as Float32Array;
+    const clr = mesh.instanceColor!.array as Float32Array;
+    const camQuat = camera.quaternion;
+    let idx = 0;
+
+    for (let i = 0; i < activeCount; i++) {
+      const p = particles[i];
+
+      if (p.life <= 0 || p.y < -1) {
+        respawnParticle(p, camTarget, type);
+      }
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.life -= 0.003;
+      p.phase += 0.05;
+
+      // Per-type motion
+      if (type === 'snow') {
+        p.x += Math.sin(p.phase) * 0.008;
+        p.z += Math.cos(p.phase * 0.7) * 0.006;
+      } else if (type === 'leaf') {
+        p.x += Math.sin(p.phase * 1.2) * 0.012;
+        p.z += Math.cos(p.phase * 0.8) * 0.008;
+      }
+
+      dummy.position.set(p.x, p.y, p.z);
+
+      if (type === 'leaf') {
+        dummy.rotation.set(p.phase, p.phase * 0.7, p.phase * 0.3);
+        dummy.scale.setScalar(1);
+      } else {
+        // Billboard: face camera
+        dummy.quaternion.copy(camQuat);
+        dummy.scale.setScalar(1);
+      }
+
+      dummy.updateMatrix();
+      dummy.matrix.toArray(mtx, idx * 16);
+
+      const ci = idx * 3;
+      if (type === 'leaf') {
+        const hue = Math.sin(p.phase * 137) * 0.5 + 0.5;
+        clr[ci]     = 0.6 + hue * 0.3;
+        clr[ci + 1] = 0.2 + hue * 0.2;
+        clr[ci + 2] = 0.05;
+      } else if (type === 'snow') {
+        clr[ci] = 0.95; clr[ci + 1] = 0.97; clr[ci + 2] = 1.0;
+      } else if (type === 'rain') {
+        clr[ci] = 0.5; clr[ci + 1] = 0.7; clr[ci + 2] = 0.85;
+      } else {
+        clr[ci] = 1.0; clr[ci + 1] = 0.95; clr[ci + 2] = 0.6;
+      }
+
+      idx++;
+    }
+
+    mesh.count = idx;
+    if (idx > 0) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor!.needsUpdate = true;
+    }
+  }
+
+  function updateWeatherParticles(): void {
+    const env = world.environment;
+    const camTarget = controls.target;
+
+    updateOneEffect(snowParticles, snowMesh, getSeasonIntensity(Season.Winter, env), camTarget, 'snow');
+    updateOneEffect(rainParticles, rainMesh, getSeasonIntensity(Season.Spring, env), camTarget, 'rain');
+    updateOneEffect(moteParticles, moteMesh, getSeasonIntensity(Season.Summer, env), camTarget, 'mote');
+    updateOneEffect(leafParticles, leafMesh, getSeasonIntensity(Season.Autumn, env), camTarget, 'leaf');
+  }
+
+  // ═══════════════════════════════════════════════════════
   // Public API (Renderer interface)
   // ═══════════════════════════════════════════════════════
 
   function render(selectedCell: { x: number; y: number } | null): void {
+    // Adjust directional light by season
+    const env = world.environment;
+    const warmth = env.season === Season.Summer ? 0.12
+      : env.season === Season.Winter ? -0.08 : 0;
+    dirLight.color.setHSL(40 / 360 + warmth * 0.05, 0.3 + warmth, 0.8 + warmth * 0.1);
+    dirLight.intensity = Math.max(0.5, env.lightMult);
+
     updateTerrainColors();
     updatePlants();
     updateSeeds();
+    updateWeatherParticles();
 
     if (selectedCell) {
       selectMesh.visible = true;
@@ -693,5 +930,22 @@ export function createRenderer3D(
     return { x: cx, y: cy };
   }
 
-  return { render, cellAt, canvas: webgl.domElement };
+  const projVec = new THREE.Vector3();
+
+  function projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null {
+    const cx = Math.max(0, Math.min(GRID - 1, Math.round(gridX)));
+    const cy = Math.max(0, Math.min(GRID - 1, Math.round(gridY)));
+    const elev = getCellElevation(cx, cy);
+    projVec.set(gridX - HALF + 0.5, elev + 1.5, gridY - HALF + 0.5);
+    projVec.project(camera);
+    if (projVec.z > 1) return null; // behind camera
+    const w = webgl.domElement.clientWidth;
+    const h = webgl.domElement.clientHeight;
+    return {
+      x: (projVec.x * 0.5 + 0.5) * w,
+      y: (-projVec.y * 0.5 + 0.5) * h,
+    };
+  }
+
+  return { render, cellAt, projectToScreen, canvas: webgl.domElement };
 }

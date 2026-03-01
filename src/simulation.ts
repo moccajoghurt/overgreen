@@ -1,4 +1,8 @@
-import { Cell, Genome, Plant, SIM, SpeciesColor, TerrainType, World } from './types';
+import {
+  Cell, Genome, Plant, SIM, SpeciesColor, TerrainType, World,
+  Season, SEASON_LENGTH, YEAR_LENGTH, SEASON_NAMES,
+  Environment, GRID_WIDTH, GRID_HEIGHT,
+} from './types';
 import { generateSpeciesName } from './species-names';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
@@ -193,7 +197,12 @@ export function createWorld(width: number, height: number): World {
   generateRocks(grid, width, height);
   assignTerrainProperties(grid, elevation, width, height);
 
-  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map(), speciesNames: new Map(), seedEvents: [] };
+  return {
+    width, height, grid, plants: new Map(), tick: 0,
+    nextPlantId: 1, nextSpeciesId: 1,
+    speciesColors: new Map(), speciesNames: new Map(),
+    seedEvents: [], environment: createEnvironment(), environmentEvents: [],
+  };
 }
 
 function randomGenome(): Genome {
@@ -257,11 +266,217 @@ const NEIGHBORS = [
   [-1,  1], [0,  1], [1,  1],
 ];
 
+// ── Environment / Seasons ──
+
+function createEnvironment(): Environment {
+  return {
+    season: Season.Spring,
+    seasonProgress: 0,
+    yearCount: 0,
+    waterMult: 1.2,
+    lightMult: 1.0,
+    leafMaintenanceMult: 1.0,
+    droughts: [],
+    fires: [],
+    weatherOverlay: new Uint8Array(GRID_WIDTH * GRID_HEIGHT),
+  };
+}
+
+// Season target values: [water, light, leafMaint]
+const SEASON_TARGETS: Record<Season, [number, number, number]> = {
+  [Season.Spring]: [1.2, 1.0, 1.0],
+  [Season.Summer]: [0.8, 1.15, 1.0],
+  [Season.Autumn]: [1.0, 0.85, 1.0],
+  [Season.Winter]: [0.6, 0.7, 2.0],
+};
+
+function computeSeasonModifiers(env: Environment): void {
+  const cur = SEASON_TARGETS[env.season];
+  const next = SEASON_TARGETS[((env.season + 1) % 4) as Season];
+  // Cosine interpolation for smooth transitions
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  env.waterMult = cur[0] + (next[0] - cur[0]) * t;
+  env.lightMult = cur[1] + (next[1] - cur[1]) * t;
+  env.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
+}
+
+function spawnDrought(world: World): void {
+  const centerX = Math.floor(Math.random() * world.width);
+  const centerY = Math.floor(Math.random() * world.height);
+  const radius = 8 + Math.floor(Math.random() * 13); // 8-20
+  const duration = 30 + Math.floor(Math.random() * 41); // 30-70 ticks
+  const intensity = 0.6 + Math.random() * 0.35; // 0.6-0.95
+  world.environment.droughts.push({ centerX, centerY, radius, intensity, ticksRemaining: duration });
+  world.environmentEvents.push({
+    type: 'drought_start',
+    message: `Drought struck near (${centerX}, ${centerY})`,
+  });
+}
+
+function advanceDroughts(world: World): void {
+  const droughts = world.environment.droughts;
+  for (let i = droughts.length - 1; i >= 0; i--) {
+    droughts[i].ticksRemaining--;
+    if (droughts[i].ticksRemaining <= 0) {
+      world.environmentEvents.push({
+        type: 'drought_end',
+        message: `Drought ended near (${droughts[i].centerX}, ${droughts[i].centerY})`,
+      });
+      droughts.splice(i, 1);
+    }
+  }
+}
+
+function spawnFire(world: World): void {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const x = Math.floor(Math.random() * world.width);
+    const y = Math.floor(Math.random() * world.height);
+    const cell = world.grid[y][x];
+    if (cell.plantId === null || cell.waterLevel > 2.0) continue;
+    if (cell.terrainType === TerrainType.River) continue;
+
+    const fire = { cells: new Set([`${x},${y}`]), ticksRemaining: 8 + Math.floor(Math.random() * 9) };
+    world.environment.fires.push(fire);
+    killPlantByFire(world, x, y);
+    world.environmentEvents.push({ type: 'fire_start', message: `Fire ignited near (${x}, ${y})` });
+    return;
+  }
+}
+
+function killPlantByFire(world: World, x: number, y: number): void {
+  const cell = world.grid[y][x];
+  if (cell.plantId === null) return;
+  const plant = world.plants.get(cell.plantId);
+  if (plant && plant.alive) {
+    plant.alive = false;
+    plant.energy = 0;
+    cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
+    cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
+  }
+}
+
+function advanceFires(world: World): void {
+  const fires = world.environment.fires;
+  for (let i = fires.length - 1; i >= 0; i--) {
+    const fire = fires[i];
+    fire.ticksRemaining--;
+
+    // Spread from current burning cells
+    const newCells = new Set<string>();
+    for (const key of fire.cells) {
+      const [fx, fy] = key.split(',').map(Number);
+      for (const [dx, dy] of NEIGHBORS) {
+        const nx = fx + dx;
+        const ny = fy + dy;
+        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        const nKey = `${nx},${ny}`;
+        if (fire.cells.has(nKey)) continue;
+
+        const cell = world.grid[ny][nx];
+        if (cell.terrainType === TerrainType.River) continue;
+        if (cell.plantId === null) continue;
+        const plant = world.plants.get(cell.plantId);
+        if (!plant || !plant.alive) continue;
+
+        const waterResist = cell.waterLevel / SIM.MAX_WATER;
+        const leafFuel = plant.leafArea / SIM.MAX_LEAF_AREA;
+        const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
+        if (Math.random() < spreadChance) {
+          newCells.add(nKey);
+          killPlantByFire(world, nx, ny);
+        }
+      }
+    }
+
+    fire.cells = newCells;
+    if (fire.ticksRemaining <= 0 || fire.cells.size === 0) {
+      world.environmentEvents.push({ type: 'fire_end', message: 'Fire extinguished' });
+      fires.splice(i, 1);
+    }
+  }
+}
+
+function rebuildWeatherOverlay(world: World): void {
+  const overlay = world.environment.weatherOverlay;
+  overlay.fill(0);
+  for (const d of world.environment.droughts) {
+    const r2 = d.radius * d.radius;
+    const minY = Math.max(0, d.centerY - d.radius);
+    const maxY = Math.min(world.height - 1, d.centerY + d.radius);
+    const minX = Math.max(0, d.centerX - d.radius);
+    const maxX = Math.min(world.width - 1, d.centerX + d.radius);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const dx = x - d.centerX;
+        const dy = y - d.centerY;
+        if (dx * dx + dy * dy < r2) {
+          overlay[y * world.width + x] = 1;
+        }
+      }
+    }
+  }
+  for (const fire of world.environment.fires) {
+    for (const key of fire.cells) {
+      const [fx, fy] = key.split(',').map(Number);
+      overlay[fy * world.width + fx] = 2;
+    }
+  }
+}
+
+function phaseEnvironment(world: World): void {
+  const env = world.environment;
+  const tickInYear = world.tick % YEAR_LENGTH;
+  const newSeason = Math.floor(tickInYear / SEASON_LENGTH) as Season;
+
+  if (newSeason !== env.season) {
+    env.season = newSeason;
+    if (tickInYear === 0 && world.tick > 0) env.yearCount++;
+    world.environmentEvents.push({
+      type: 'season_change',
+      message: `${SEASON_NAMES[newSeason]} has arrived (Year ${env.yearCount + 1})`,
+    });
+  }
+  env.seasonProgress = (tickInYear % SEASON_LENGTH) / SEASON_LENGTH;
+  computeSeasonModifiers(env);
+
+  // Drought spawning (summer only)
+  if (env.season === Season.Summer && Math.random() < 0.008) {
+    spawnDrought(world);
+  }
+
+  // Fire spawning (summer, after 30% progress)
+  if (env.season === Season.Summer && env.seasonProgress > 0.3 && Math.random() < 0.005) {
+    spawnFire(world);
+  }
+
+  advanceDroughts(world);
+  advanceFires(world);
+  rebuildWeatherOverlay(world);
+}
+
+// ── Simulation phases ──
+
 function phaseRechargeWater(world: World): void {
+  const env = world.environment;
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
-      cell.waterLevel = Math.min(cell.waterLevel + cell.waterRechargeRate, SIM.MAX_WATER);
+      let recharge = cell.waterRechargeRate * env.waterMult;
+
+      // Drought: reduce recharge + evaporate water
+      for (const d of env.droughts) {
+        const dx = x - d.centerX;
+        const dy = y - d.centerY;
+        const dist2 = dx * dx + dy * dy;
+        const r2 = d.radius * d.radius;
+        if (dist2 < r2) {
+          const falloff = 1 - Math.sqrt(dist2) / d.radius;
+          recharge *= 1 - falloff * d.intensity;
+          cell.waterLevel = Math.max(0, cell.waterLevel - falloff * 0.3);
+        }
+      }
+
+      cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - SIM.NUTRIENT_DECAY);
     }
   }
@@ -302,9 +517,10 @@ function phaseCalculateLight(world: World): void {
           shadeCount++;
         }
       }
-      const baseLight = cell.terrainType === TerrainType.Hill
+      const rawBase = cell.terrainType === TerrainType.Hill
         ? Math.min(1.0, SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS)
         : SIM.BASE_LIGHT;
+      const baseLight = rawBase * world.environment.lightMult;
       cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeCount * SIM.SHADOW_REDUCTION);
     }
   }
@@ -331,11 +547,18 @@ function phaseUpdatePlants(world: World): void {
     plant.lastLightReceived = cell.lightLevel;
     plant.lastEnergyProduced = energyProduced;
 
-    // 3c. Maintenance cost
+    // 3c. Maintenance cost (with seasonal leaf penalty + root insulation)
+    let leafMaint = plant.leafArea * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
+    if (world.environment.leafMaintenanceMult > 1.01) {
+      // Root insulation: deep roots reduce winter leaf penalty (up to 80%)
+      const rootInsulation = Math.min(0.8, plant.rootDepth / SIM.MAX_ROOT_DEPTH * 0.8);
+      const penalty = leafMaint - plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
+      leafMaint -= penalty * rootInsulation;
+    }
     const maintenance = SIM.MAINTENANCE_BASE
       + plant.height * SIM.MAINTENANCE_PER_HEIGHT
       + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
-      + plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
+      + leafMaint;
     plant.lastMaintenanceCost = maintenance;
 
     // 3d. Energy budget
@@ -426,6 +649,8 @@ function phaseDecomposition(world: World): void {
 
 export function tickWorld(world: World): void {
   world.seedEvents.length = 0;
+  world.environmentEvents.length = 0;
+  phaseEnvironment(world);
   phaseRechargeWater(world);
   phaseCalculateLight(world);
   phaseUpdatePlants(world);

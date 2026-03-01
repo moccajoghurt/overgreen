@@ -13,6 +13,7 @@ export function createHistory(): History {
     snapshots: [],
     species: new Map(),
     events: [],
+    eventSeq: 0,
     prevPopulations: new Map(),
     prevDominant: null,
     firedAgeMilestones: new Set(),
@@ -157,7 +158,16 @@ export function recordTick(history: History, world: World): void {
     }
   }
 
-  // 8. Save for next tick
+  // 8. Environment events
+  for (const envEvt of world.environmentEvents) {
+    pushEvent(history, {
+      tick: world.tick,
+      type: envEvt.type,
+      message: envEvt.message,
+    });
+  }
+
+  // 9. Save for next tick
   history.prevPopulations = populations;
 }
 
@@ -166,6 +176,7 @@ function pushEvent(history: History, event: SimEvent): void {
   if (history.events.length > MAX_EVENTS) {
     history.events.shift();
   }
+  history.eventSeq++;
 }
 
 function sumValues(map: Map<number, number>): number {

@@ -8,18 +8,24 @@ const TYPE_STYLES: Record<SimEventType, string> = {
   notable_age: 'color:#8cf',
   dominance_shift: 'color:#fd8',
   mass_extinction: 'color:#f44; font-weight:bold',
+  season_change: 'color:#adf',
+  drought_start: 'color:#fa4',
+  drought_end: 'color:#fa4',
+  fire_start: 'color:#f44; font-weight:bold',
+  fire_end: 'color:#f84',
 };
 
 export function createEventTicker(container: HTMLElement) {
-  let lastCount = 0;
+  let lastSeq = 0;
 
   function update(history: History, speciesColors: Map<number, SpeciesColor>): void {
     const events = history.events;
-    if (events.length === lastCount) return;
+    if (history.eventSeq === lastSeq) return;
 
     // Prepend new events (newest first)
-    const newEvents = events.slice(lastCount);
-    lastCount = events.length;
+    const count = Math.min(history.eventSeq - lastSeq, events.length);
+    const newEvents = events.slice(-count);
+    lastSeq = history.eventSeq;
 
     for (let i = newEvents.length - 1; i >= 0; i--) {
       const evt = newEvents[i];

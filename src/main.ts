@@ -1,4 +1,4 @@
-import { GRID_WIDTH, GRID_HEIGHT } from './types';
+import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES } from './types';
 import { createWorld, seedInitialPlants, tickWorld } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls, updateInspector } from './controls';
@@ -7,6 +7,7 @@ import { createHistory, recordTick } from './history';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
 import { createEventTicker } from './event-ticker';
+import { createCommentary } from './commentary';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -19,6 +20,7 @@ const history = createHistory();
 const chart = createPopulationChart(document.getElementById('chart-container')!);
 const traitChart = createTraitChart(document.getElementById('trait-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
+const commentary = createCommentary(container);
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
@@ -36,12 +38,16 @@ chartTabs.forEach(tab => {
 
 const tickLabel = document.getElementById('tick-label')!;
 const plantCount = document.getElementById('plant-count')!;
+const seasonLabel = document.getElementById('season-label')!;
+const yearLabel = document.getElementById('year-label')!;
 
 let lastLeaderboardTick = -1;
 
 function updateUI(): void {
   tickLabel.textContent = String(world.tick);
   plantCount.textContent = String(world.plants.size);
+  seasonLabel.textContent = SEASON_NAMES[world.environment.season];
+  yearLabel.textContent = String(world.environment.yearCount + 1);
   if (controls.selectedCell) {
     updateInspector(world, controls);
   }
@@ -52,6 +58,7 @@ function updateUI(): void {
   chart.update(history, world.speciesColors);
   traitChart.update(history);
   ticker.update(history, world.speciesColors);
+  commentary.update(history, world.speciesColors, world, renderer);
 }
 
 let lastTickTime = 0;

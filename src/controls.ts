@@ -75,6 +75,11 @@ export function updateInspector(world: World, controls: Controls): void {
   text += `Nutrients: ${cell.nutrients.toFixed(1)}\n`;
   text += `Light: ${cell.lightLevel.toFixed(2)}\n`;
 
+  const env = world.environment;
+  const overlayVal = env.weatherOverlay[y * world.width + x];
+  if (overlayVal === 1) text += `  [DROUGHT]\n`;
+  else if (overlayVal === 2) text += `  [BURNING]\n`;
+
   if (cell.plantId !== null) {
     const plant = world.plants.get(cell.plantId);
     if (plant) {

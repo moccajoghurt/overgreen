@@ -119,6 +119,8 @@ export interface World {
   speciesColors: Map<number, SpeciesColor>;
   speciesNames: Map<number, string>;
   seedEvents: SeedEvent[];
+  environment: Environment;
+  environmentEvents: EnvironmentEvent[];
 }
 
 export interface SeedEvent {
@@ -133,6 +135,56 @@ export interface SeedEvent {
 export interface Renderer {
   render(selectedCell: { x: number; y: number } | null): void;
   cellAt(canvasX: number, canvasY: number): { x: number; y: number } | null;
+  projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null;
+}
+
+// ── Seasons / Environment ──
+
+export enum Season {
+  Spring = 0,
+  Summer = 1,
+  Autumn = 2,
+  Winter = 3,
+}
+
+export const SEASON_LENGTH = 125;
+export const YEAR_LENGTH = 500;
+
+export const SEASON_NAMES: Record<Season, string> = {
+  [Season.Spring]: 'Spring',
+  [Season.Summer]: 'Summer',
+  [Season.Autumn]: 'Autumn',
+  [Season.Winter]: 'Winter',
+};
+
+export interface DroughtPatch {
+  centerX: number;
+  centerY: number;
+  radius: number;
+  intensity: number; // 0-1
+  ticksRemaining: number;
+}
+
+export interface FireEvent {
+  cells: Set<string>; // "x,y" of actively burning cells
+  ticksRemaining: number;
+}
+
+export interface Environment {
+  season: Season;
+  seasonProgress: number; // 0-1 within current season
+  yearCount: number;
+  waterMult: number;
+  lightMult: number;
+  leafMaintenanceMult: number;
+  droughts: DroughtPatch[];
+  fires: FireEvent[];
+  weatherOverlay: Uint8Array; // GRID_WIDTH * GRID_HEIGHT, 0=normal 1=drought 2=burning
+}
+
+export interface EnvironmentEvent {
+  type: 'season_change' | 'drought_start' | 'drought_end' | 'fire_start' | 'fire_end';
+  message: string;
 }
 
 // ── History / Analytics ──
@@ -157,7 +209,12 @@ export type SimEventType =
   | 'population_record'
   | 'notable_age'
   | 'dominance_shift'
-  | 'mass_extinction';
+  | 'mass_extinction'
+  | 'season_change'
+  | 'drought_start'
+  | 'drought_end'
+  | 'fire_start'
+  | 'fire_end';
 
 export interface SimEvent {
   tick: number;
@@ -170,6 +227,7 @@ export interface History {
   snapshots: TickSnapshot[];
   species: Map<number, SpeciesRecord>;
   events: SimEvent[];
+  eventSeq: number;
   prevPopulations: Map<number, number>;
   prevDominant: number | null;
   firedAgeMilestones: Set<string>; // "speciesId-threshold"
