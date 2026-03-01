@@ -10,7 +10,7 @@
     #sidebar {
       width: 260px; padding: 12px;
       display: flex; flex-direction: column; gap: 8px;
-      overflow-y: auto;
+      overflow-y: auto; flex-shrink: 0;
     }
     #sidebar h1 { font-size: 18px; color: #8f8; }
     #canvas-container {
@@ -27,7 +27,9 @@
     .stats { font-size: 12px; line-height: 1.6; }
     .inspector {
       font-size: 12px; line-height: 1.5; white-space: pre-wrap;
-      background: #222; padding: 8px; border-radius: 4px; min-height: 120px;
+      background: #222; padding: 8px; border-radius: 4px;
+      min-height: 120px; max-height: 200px; overflow-y: auto;
+      flex-shrink: 0;
     }
     label { font-size: 12px; }
     input[type="range"] { width: 100%; }
@@ -49,68 +51,103 @@
       <div>Plants: <span id="plant-count">0</span></div>
     </div>
     <div class="inspector" id="inspector">Click a cell to inspect...</div>
-    <div style="font-size:11px; line-height:1.6; color:#aaa; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
+    <div id="rules" style="font-size:10px; line-height:1.5; color:#aaa; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
+
       <div style="color:#8f8; font-size:12px; margin-bottom:4px;">What is this?</div>
-      <div style="color:#aaa; font-size:10px; line-height:1.5; margin-bottom:8px;">
-        An ecosystem where plants live, grow,
-        compete, and evolve on their own.<br><br>
-        Every tick, each plant harvests
-        <b style="color:#ee8">light</b> and
-        <b style="color:#68c">water</b> to produce energy.
-        It spends that energy on growing
-        bigger or dropping seeds nearby.<br><br>
-        The catch: resources are limited.
-        Tall plants steal light from neighbors.
-        Big roots drain local water.
-        When a plant can't sustain itself,
-        it dies and decomposes into nutrients.<br><br>
-        Each seed carries its parent's DNA
-        with tiny random mutations.
-        Over hundreds of ticks, natural selection
-        shapes the population &mdash; you're watching
-        evolution happen in real time.
+      An ecosystem where plants grow, compete
+      for resources, and evolve. Each seed
+      inherits its parent's DNA with small
+      mutations &mdash; natural selection in real time.
+
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Legend</div>
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+        <span style="display:inline-block;width:12px;height:12px;background:hsl(30,40%,55%);border:1px solid #555;flex-shrink:0;"></span> Dry soil
+        <span style="display:inline-block;width:12px;height:12px;background:hsl(25,50%,25%);border:1px solid #555;flex-shrink:0;"></span> Wet soil
+        <span style="display:inline-block;width:12px;height:12px;background:hsl(20,50%,20%);border:1px solid #555;flex-shrink:0;"></span> Nutrient-rich
       </div>
-    </div>
-    <div style="font-size:11px; line-height:1.6; color:#999; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
-      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Legend</div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:hsl(30,40%,55%); border:1px solid #555;"></span> Dry soil
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:5px;height:5px;background:hsl(120,70%,50%);position:absolute;top:3px;left:3px;"></span></span> Seedling
+        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:10px;height:10px;background:hsl(120,70%,35%);position:absolute;top:0;left:0;"></span></span> Mature
+        <span style="display:inline-block;width:12px;height:12px;background:#333;position:relative;border:1px solid #555;flex-shrink:0;"><span style="display:block;width:12px;height:12px;background:hsl(120,70%,20%);position:absolute;top:-1px;left:-1px;"></span></span> Tall tree
+        <span style="display:inline-block;width:12px;height:12px;background:rgba(0,0,0,0.3);border:1px solid #555;flex-shrink:0;"></span> Shaded
       </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:hsl(25,50%,25%); border:1px solid #555;"></span> Wet soil
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:hsl(20,50%,20%); border:1px solid #555;"></span> Nutrient-rich soil
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:#333; position:relative;"><span style="display:block;width:6px;height:6px;background:hsl(120,70%,50%);position:absolute;top:4px;left:4px;"></span></span> Seedling <span style="color:#666">(small, bright)</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:#333; position:relative;"><span style="display:block;width:12px;height:12px;background:hsl(120,70%,35%);position:absolute;top:1px;left:1px;"></span></span> Mature plant <span style="color:#666">(large, mid)</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-        <span style="display:inline-block; width:14px; height:14px; background:#333; position:relative;"><span style="display:block;width:14px;height:14px;background:hsl(120,70%,20%);position:absolute;top:0;left:0;"></span></span> Tall tree <span style="color:#666">(full, dark)</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-        <span style="display:inline-block; width:14px; height:14px; background:#333; position:relative;"><span style="display:block;width:14px;height:14px;background:rgba(0,0,0,0.3);position:absolute;top:0;left:0;"></span></span> Shaded area
-      </div>
-      <div style="color:#8f8; font-size:12px; margin:6px 0 4px;">Genome</div>
-      <div style="color:#aaa; font-size:10px; line-height:1.5;">
-        Each plant has 4 genes (0&ndash;1) that<br>
-        control how it spends energy:<br><br>
-        <b style="color:#c96">R</b> Roots &mdash; water access<br>
-        <b style="color:#c96">H</b> Height &mdash; reach light, shade others<br>
-        <b style="color:#c96">L</b> Leaves &mdash; more energy, more water use<br>
-        <b style="color:#c96">S</b> Seeds &mdash; reproduce vs. grow<br><br>
-        R+H+L split the <i>growth</i> budget.<br>
-        S splits energy between growing and<br>
-        making seeds. High S = many offspring<br>
-        but stays small. Low S = grows big<br>
-        but reproduces slowly.<br><br>
-        Seeds inherit genes with small random<br>
-        tweaks. Over time, different strategies<br>
-        emerge and compete.
-      </div>
+      <span style="color:#666">Size = leaf area &middot; Darkness = height</span>
+
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Each Tick</div>
+
+      <b style="color:#68c">1. Water recharge</b><br>
+      Each cell regenerates water per tick.<br>
+      Rate varies by cell (~0.28&ndash;0.52).<br>
+      Max water per cell: 10.<br>
+      Nutrients decay slowly (&minus;0.02/tick).
+
+      <div style="margin-top:4px;"><b style="color:#ee8">2. Light &amp; shadows</b></div>
+      All cells start at light = 1.0.<br>
+      Each taller neighbor (8 surrounding cells)<br>
+      reduces light by 0.15. Floor: 0.1.
+
+      <div style="margin-top:4px;"><b style="color:#6c6">3. Plant update</b></div>
+
+      <div style="margin:2px 0;"><u>Water absorption</u></div>
+      demand = rootDepth &times; 0.4<br>
+      Takes min(demand, cell water).<br>
+      waterFraction = absorbed / demand
+
+      <div style="margin:2px 0;"><u>Photosynthesis</u></div>
+      energy = light &times; leafArea &times; 0.5<br>
+      &nbsp; &times; waterFraction<br>
+      &nbsp; &times; (1 + nutrients &times; 0.15)
+
+      <div style="margin:2px 0;"><u>Maintenance cost</u></div>
+      0.05 + height&times;0.05<br>
+      &nbsp; + rootDepth&times;0.03 + leafArea&times;0.04<br>
+      <span style="color:#666">Bigger plants cost more to sustain.</span>
+
+      <div style="margin:2px 0;"><u>Energy budget</u></div>
+      energy += produced &minus; maintenance<br>
+      If energy &gt; 1.0, the surplus is split:
+
+      <div style="margin:2px 0;"><u>Growth vs. Seeds (gene S)</u></div>
+      seedBudget = surplus &times; <b style="color:#c96">S</b><br>
+      growthBudget = surplus &minus; seedBudget
+
+      <div style="margin:2px 0;"><u>Growth allocation (genes R/H/L)</u></div>
+      <b style="color:#c96">R</b>, <b style="color:#c96">H</b>, <b style="color:#c96">L</b> are normalized to sum to 1.<br>
+      Each stat grows by its share &times; 30%.<br>
+      Max: height=10, roots=10, leaves=8.
+
+      <div style="margin:2px 0;"><u>Seed spawning</u></div>
+      seeds = &lfloor;seedBudget / 0.8&rfloor;<br>
+      Each seed lands randomly within 1&ndash;3 cells.<br>
+      Seedling starts: h/r/l=0.5, energy=2.0.<br>
+      Genome = parent &plusmn; 0.05 per gene.
+
+      <div style="margin-top:4px;"><b style="color:#c66">4. Death</b></div>
+      energy &le; 0 &rarr; starvation<br>
+      age &ge; 500 &rarr; old age
+
+      <div style="margin-top:4px;"><b style="color:#ca6">5. Decomposition</b></div>
+      Dead plant enriches its cell:<br>
+      +2.0 water, +1.5 + height&times;0.3 nutrients.<br>
+      Max nutrients per cell: 10.
+
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Genome</div>
+      4 genes, each 0&ndash;1:<br>
+      <b style="color:#c96">R</b> Root priority &mdash; more water access<br>
+      <b style="color:#c96">H</b> Height priority &mdash; reach light, cast shade<br>
+      <b style="color:#c96">L</b> Leaf size &mdash; more energy, more water use<br>
+      <b style="color:#c96">S</b> Seed investment &mdash; reproduce vs. grow<br>
+      <br>
+      Seeds mutate each gene by &plusmn;0.05.<br>
+      Over generations, strategies diverge.
+
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Initial Conditions</div>
+      80&times;80 grid, 40 random plants.<br>
+      Water per cell: 3&ndash;7 (random).<br>
+      Nutrients per cell: 1&ndash;4 (random).<br>
+      Starting plants: h/r/l=1, energy=3.<br>
+      Starting genes: random 0.1&ndash;0.9.
+
     </div>
   </div>
   <div id="canvas-container">
