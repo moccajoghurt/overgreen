@@ -39,7 +39,7 @@ export function createWorld(width: number, height: number): World {
     }
     grid.push(row);
   }
-  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map() };
+  return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map(), seedEvents: [] };
 }
 
 function randomGenome(): Genome {
@@ -205,6 +205,11 @@ function phaseUpdatePlants(world: World): void {
         world.plants.set(childId, child);
         world.grid[ty][tx].plantId = childId;
         world.grid[ty][tx].lastSpeciesId = plant.speciesId;
+        world.seedEvents.push({
+          parentX: plant.x, parentY: plant.y,
+          childX: tx, childY: ty,
+          childId, speciesId: plant.speciesId,
+        });
       }
 
       plant.energy -= surplus; // back to ~1.0 reserve
@@ -241,6 +246,7 @@ function phaseDecomposition(world: World): void {
 }
 
 export function tickWorld(world: World): void {
+  world.seedEvents.length = 0;
   phaseRechargeWater(world);
   phaseCalculateLight(world);
   phaseUpdatePlants(world);

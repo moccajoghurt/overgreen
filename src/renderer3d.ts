@@ -6,6 +6,9 @@ const GRID = 80;
 const HALF = GRID / 2;
 const DEATH_ANIM_FRAMES = 90; // ~1.5s at 60fps
 const MAX_DYING = 200;
+const GROWTH_ANIM_FRAMES = 60; // ~1s at 60fps
+const SEED_FLIGHT_FRAMES = 36; // ~0.6s at 60fps
+const MAX_SEEDS = 400;
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -19,6 +22,27 @@ interface PlantSnapshot {
 
 interface DyingPlant extends PlantSnapshot {
   progress: number; // 0→1
+}
+
+interface GrowingPlant {
+  plantId: number;
+  progress: number; // 0→1 over GROWTH_ANIM_FRAMES
+}
+
+interface FlyingSeed {
+  parentX: number;
+  parentY: number;
+  childX: number;
+  childY: number;
+  childId: number;
+  speciesId: number;
+  progress: number; // 0→1 over SEED_FLIGHT_FRAMES
+  startY: number;   // world-space Y of arc start (parent canopy height)
+  arcPeak: number;   // peak height of the parabolic arc
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
 }
 
 function computeSilhouette(height: number, rootDepth: number, leafArea: number, leafGenome: number) {
@@ -138,6 +162,28 @@ export function createRenderer3D(
   // ── Dying plant animation state ──
   let prevSnapshots = new Map<number, PlantSnapshot>();
   const dyingPlants = new Map<number, DyingPlant>();
+
+  // ── Seed flight & growth animation state ──
+  const growingPlants = new Map<number, GrowingPlant>();
+  const flyingSeeds: FlyingSeed[] = [];
+  let lastProcessedTick = -1;
+
+  // ── Seed particles (instanced mesh) ──
+  const seedGeo = new THREE.SphereGeometry(0.08, 4, 4);
+  const seeds = new THREE.InstancedMesh(
+    seedGeo,
+    new THREE.MeshLambertMaterial(),
+    MAX_SEEDS,
+  );
+  seeds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  seeds.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_SEEDS * 3),
+    3,
+  );
+  seeds.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  seeds.count = 0;
+  seeds.frustumCulled = false;
+  scene.add(seeds);
 
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
@@ -330,9 +376,45 @@ export function createRenderer3D(
     const canopy2Mtx = canopies2.instanceMatrix.array as Float32Array;
     const canopy2Clr = canopies2.instanceColor!.array as Float32Array;
 
+    // ── Ingest seed events (once per simulation tick) ──
+    if (world.tick !== lastProcessedTick) {
+      lastProcessedTick = world.tick;
+      for (const evt of world.seedEvents) {
+        let parentHeight = 1.0;
+        // Find parent by position
+        for (const p of world.plants.values()) {
+          if (p.x === evt.parentX && p.y === evt.parentY && p.alive) {
+            parentHeight = p.height;
+            break;
+          }
+        }
+        const startY = Math.max(0.1, parentHeight * 0.35);
+        const dx = Math.abs(evt.childX - evt.parentX);
+        const dy = Math.abs(evt.childY - evt.parentY);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const arcPeak = Math.max(1.5, startY * 0.5 + dist * 0.5);
+        flyingSeeds.push({
+          parentX: evt.parentX, parentY: evt.parentY,
+          childX: evt.childX, childY: evt.childY,
+          childId: evt.childId, speciesId: evt.speciesId,
+          progress: 0, startY, arcPeak,
+        });
+      }
+    }
+
+    // ── Build set of plants whose seeds are still in flight ──
+    const flyingChildIds = new Set(flyingSeeds.map(fs => fs.childId));
+
+    // ── Clean up flying seeds for plants that no longer exist ──
+    for (let i = flyingSeeds.length - 1; i >= 0; i--) {
+      if (!world.plants.has(flyingSeeds[i].childId)) {
+        flyingSeeds.splice(i, 1);
+      }
+    }
+
     // ── Detect deaths: plants in prev snapshot but no longer in world ──
     for (const [id, snap] of prevSnapshots) {
-      if (!world.plants.has(id)) {
+      if (!world.plants.has(id) && !flyingChildIds.has(id)) {
         dyingPlants.set(id, { ...snap, progress: 0 });
       }
     }
@@ -351,9 +433,30 @@ export function createRenderer3D(
         genome: { ...plant.genome },
       });
 
+      // Skip rendering if seed is still in flight
+      if (flyingChildIds.has(plant.id)) continue;
+
       const wx = plant.x - HALF + 0.5;
       const wz = plant.y - HALF + 0.5;
       const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome.leafSize);
+
+      // Apply growth animation scale
+      const growing = growingPlants.get(plant.id);
+      if (growing) {
+        growing.progress += 1 / GROWTH_ANIM_FRAMES;
+        if (growing.progress >= 1) {
+          growingPlants.delete(plant.id);
+        } else {
+          const s = Math.max(0.05, easeOutCubic(growing.progress));
+          sil.trunkH *= s;
+          sil.trunkThickness *= s;
+          sil.canopyX *= s;
+          sil.canopyY *= s;
+          sil.canopyZ *= s;
+          sil.blob2 *= s;
+        }
+      }
+
       const { cr, cg, cb } = plantColor(plant.speciesId, plant.genome);
 
       writeInstance(idx, wx, wz, sil, cr, cg, cb, 0, 0,
@@ -414,6 +517,61 @@ export function createRenderer3D(
     canopies2.instanceColor!.needsUpdate = true;
   }
 
+  function updateSeeds(): void {
+    const seedMtx = seeds.instanceMatrix.array as Float32Array;
+    const seedClr = seeds.instanceColor!.array as Float32Array;
+    let seedIdx = 0;
+
+    for (let i = flyingSeeds.length - 1; i >= 0; i--) {
+      const fs = flyingSeeds[i];
+      fs.progress += 1 / SEED_FLIGHT_FRAMES;
+
+      if (fs.progress >= 1) {
+        // Seed landed — start growth animation
+        if (world.plants.has(fs.childId)) {
+          growingPlants.set(fs.childId, { plantId: fs.childId, progress: 0 });
+        }
+        flyingSeeds.splice(i, 1);
+        continue;
+      }
+
+      if (seedIdx >= MAX_SEEDS) continue;
+
+      // Parabolic arc from parent → child
+      const t = fs.progress;
+      const wx0 = fs.parentX - HALF + 0.5;
+      const wz0 = fs.parentY - HALF + 0.5;
+      const wx1 = fs.childX - HALF + 0.5;
+      const wz1 = fs.childY - HALF + 0.5;
+
+      const x = lerp(wx0, wx1, t);
+      const z = lerp(wz0, wz1, t);
+      const arcHeight = 4 * fs.arcPeak * t * (1 - t);
+      const y = lerp(fs.startY, 0.1, t) + arcHeight;
+
+      dummy.position.set(x, y, z);
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      dummy.matrix.toArray(seedMtx, seedIdx * 16);
+
+      // Brownish seed color with species tint
+      const sc = world.speciesColors.get(fs.speciesId);
+      const ci = seedIdx * 3;
+      seedClr[ci]     = sc ? sc.r * 0.4 + 0.3 : 0.5;
+      seedClr[ci + 1] = sc ? sc.g * 0.4 + 0.2 : 0.35;
+      seedClr[ci + 2] = sc ? sc.b * 0.4 + 0.1 : 0.2;
+
+      seedIdx++;
+    }
+
+    seeds.count = seedIdx;
+    if (seedIdx > 0) {
+      seeds.instanceMatrix.needsUpdate = true;
+      seeds.instanceColor!.needsUpdate = true;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════
   // Public API (Renderer interface)
   // ═══════════════════════════════════════════════════════
@@ -421,6 +579,7 @@ export function createRenderer3D(
   function render(selectedCell: { x: number; y: number } | null): void {
     updateTerrainColors();
     updatePlants();
+    updateSeeds();
 
     if (selectedCell) {
       selectMesh.visible = true;

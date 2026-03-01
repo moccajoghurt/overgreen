@@ -99,6 +99,16 @@ export interface World {
   nextPlantId: number;
   nextSpeciesId: number;
   speciesColors: Map<number, SpeciesColor>;
+  seedEvents: SeedEvent[];
+}
+
+export interface SeedEvent {
+  parentX: number;
+  parentY: number;
+  childX: number;
+  childY: number;
+  childId: number;
+  speciesId: number;
 }
 
 export interface Renderer {
