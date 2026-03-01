@@ -42,13 +42,28 @@
     </div>
     <div>
       <label>Speed: <span id="speed-label">5</span> ticks/sec</label>
-      <input type="range" id="speed-slider" min="1" max="10" value="3" />
+      <input type="range" id="speed-slider" min="1" max="50" value="3" />
     </div>
     <div class="stats">
       <div>Tick: <span id="tick-label">0</span></div>
       <div>Plants: <span id="plant-count">0</span></div>
     </div>
     <div class="inspector" id="inspector">Click a cell to inspect...</div>
+    <div class="rules" style="font-size:11px; line-height:1.5; color:#999; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
+      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">How it works</div>
+      Each cell has <b style="color:#68c">water</b> and <b style="color:#ca6">nutrients</b>.<br>
+      Plants absorb water through <b>roots</b>,<br>
+      harvest <b style="color:#ee8">light</b> through <b>leaves</b>,<br>
+      and grow <b>taller</b> to outcompete neighbors.<br><br>
+      Tall plants <b>shade</b> shorter ones.<br>
+      Roots <b>drain</b> local water.<br>
+      Dead plants <b>decompose</b> and enrich the soil.<br><br>
+      Each plant carries a <b style="color:#8f8">genome</b> that<br>
+      controls how it allocates energy between<br>
+      roots, height, leaves, and seeds.<br>
+      Seeds inherit the parent's genome<br>
+      with small <b>mutations</b> &mdash; evolution emerges.
+    </div>
   </div>
   <div id="canvas-container">
     <canvas id="canvas"></canvas>
