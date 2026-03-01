@@ -126,13 +126,22 @@ function phaseUpdatePlants(world: World): void {
       // Growth: normalize priorities
       const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
       if (total > 0) {
-        const rootGrowth = growthBudget * (plant.genome.rootPriority / total) * SIM.GROWTH_EFFICIENCY;
-        const heightGrowth = growthBudget * (plant.genome.heightPriority / total) * SIM.GROWTH_EFFICIENCY;
-        const leafGrowth = growthBudget * (plant.genome.leafSize / total) * SIM.GROWTH_EFFICIENCY;
+        const rFrac = plant.genome.rootPriority / total;
+        const hFrac = plant.genome.heightPriority / total;
+        const lFrac = plant.genome.leafSize / total;
 
-        plant.rootDepth = Math.min(SIM.MAX_ROOT_DEPTH, plant.rootDepth + rootGrowth);
-        plant.height = Math.min(SIM.MAX_HEIGHT, plant.height + heightGrowth);
-        plant.leafArea = Math.min(SIM.MAX_LEAF_AREA, plant.leafArea + leafGrowth);
+        const rootGrowth = growthBudget * rFrac * SIM.GROWTH_EFFICIENCY;
+        const heightGrowth = growthBudget * hFrac * SIM.GROWTH_EFFICIENCY;
+        const leafGrowth = growthBudget * lFrac * SIM.GROWTH_EFFICIENCY;
+
+        // Cap max stats by genome priority — low investment = lower ceiling
+        const maxRoot = SIM.MAX_ROOT_DEPTH * (0.3 + 0.7 * rFrac);
+        const maxHeight = SIM.MAX_HEIGHT * (0.3 + 0.7 * hFrac);
+        const maxLeaf = SIM.MAX_LEAF_AREA * (0.3 + 0.7 * lFrac);
+
+        plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
+        plant.height = Math.min(maxHeight, plant.height + heightGrowth);
+        plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
       }
 
       // 3f. Seed spawning
