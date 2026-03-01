@@ -97,7 +97,7 @@ export function recordTick(history: History, world: World): void {
         pushEvent(history, {
           tick: world.tick,
           type: 'extinction',
-          message: `${spName(world, speciesId)} went extinct (lived ${world.tick - rec.firstSeenTick} ticks)`,
+          message: `${spName(world, speciesId)} went extinct (${populations.size} species remain)`,
           speciesId,
         });
       }
