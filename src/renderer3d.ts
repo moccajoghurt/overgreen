@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, World, Renderer, Genome } from './types';
+import { SIM, World, Renderer, Genome, TerrainType } from './types';
 
 const GRID = 80;
 const HALF = GRID / 2;
@@ -107,6 +107,57 @@ export function createRenderer3D(
   const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
   scene.add(terrainMesh);
+
+  // ── Apply terrain elevation ──
+  const ELEV_SCALE = 4.0;
+
+  // Build 81×81 corner elevation grid by averaging adjacent cells
+  const cornerSize = GRID + 1;
+  const corners = new Float32Array(cornerSize * cornerSize);
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let sum = 0, count = 0;
+      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+        const gx = cx + dx;
+        const gy = cy + dy;
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          sum += world.grid[gy][gx].elevation;
+          count++;
+        }
+      }
+      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE;
+    }
+  }
+
+  // Apply elevation to terrain vertex Y positions
+  // PlaneGeometry.toNonIndexed() per cell: 6 vertices (2 triangles)
+  // Winding: tri1 = (a, c, b), tri2 = (c, d, b) where
+  //   a=top-left, b=top-right, c=bottom-left, d=bottom-right
+  const posAttr = terrainGeo.attributes.position;
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const base = (row * GRID + col) * 6;
+      const eTL = corners[row * cornerSize + col];
+      const eTR = corners[row * cornerSize + col + 1];
+      const eBL = corners[(row + 1) * cornerSize + col];
+      const eBR = corners[(row + 1) * cornerSize + col + 1];
+
+      // tri1: a(TL), c(BL), b(TR)
+      posAttr.setY(base + 0, eTL);
+      posAttr.setY(base + 1, eBL);
+      posAttr.setY(base + 2, eTR);
+      // tri2: c(BL), d(BR), b(TR)
+      posAttr.setY(base + 3, eBL);
+      posAttr.setY(base + 4, eBR);
+      posAttr.setY(base + 5, eTR);
+    }
+  }
+  posAttr.needsUpdate = true;
+  terrainGeo.computeVertexNormals();
+
+  function getCellElevation(cx: number, cy: number): number {
+    return world.grid[cy][cx].elevation * ELEV_SCALE;
+  }
 
   // ── Plants (instanced meshes) ──
   const MAX_INSTANCES = GRID * GRID + MAX_DYING;
@@ -248,14 +299,38 @@ export function createRenderer3D(
       for (let col = 0; col < GRID; col++) {
         const cell = world.grid[row][col];
 
-        // Soil HSL (same formula as the 2D renderer)
-        const waterRatio = cell.waterLevel / SIM.MAX_WATER;
-        const nutrientRatio = cell.nutrients / SIM.MAX_NUTRIENTS;
-        const h = (lerp(30, 25, waterRatio) - nutrientRatio * 5) / 360;
-        const s = lerp(40, 50, waterRatio) / 100;
-        const l = Math.max(10, lerp(55, 25, waterRatio) - nutrientRatio * 5) / 100;
-
-        tmpColor.setHSL(h, s, l);
+        switch (cell.terrainType) {
+          case TerrainType.River: {
+            const depth = 0.6 + (cell.waterLevel / SIM.MAX_WATER) * 0.4;
+            tmpColor.setHSL(210 / 360, 0.55, 0.25 * depth);
+            break;
+          }
+          case TerrainType.Rock: {
+            const rockVar = 0.9 + cell.elevation * 0.2;
+            tmpColor.setHSL(30 / 360, 0.08, 0.35 * rockVar);
+            break;
+          }
+          case TerrainType.Hill: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(35, 28, wr) - nr * 5) / 360,
+              lerp(35, 45, wr) / 100,
+              Math.max(10, lerp(60, 30, wr) - nr * 3) / 100,
+            );
+            break;
+          }
+          default: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(30, 25, wr) - nr * 5) / 360,
+              lerp(40, 50, wr) / 100,
+              Math.max(10, lerp(55, 25, wr) - nr * 5) / 100,
+            );
+            break;
+          }
+        }
 
         // Bake shadow into terrain color
         const light = cell.lightLevel;
@@ -314,7 +389,7 @@ export function createRenderer3D(
 
   function writeInstance(
     idx: number,
-    wx: number, wz: number,
+    wx: number, wz: number, baseY: number,
     sil: ReturnType<typeof computeSilhouette>,
     cr: number, cg: number, cb: number,
     tiltAngle: number, tiltDir: number,
@@ -323,7 +398,7 @@ export function createRenderer3D(
     canopy2Mtx: Float32Array, canopy2Clr: Float32Array,
   ): void {
     // ── Trunk ──
-    dummy.position.set(wx, sil.trunkH * 0.5, wz);
+    dummy.position.set(wx, baseY + sil.trunkH * 0.5, wz);
     dummy.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
     dummy.rotation.set(
       Math.sin(tiltDir) * tiltAngle,
@@ -334,7 +409,7 @@ export function createRenderer3D(
     dummy.matrix.toArray(trunkMtx, idx * 16);
 
     // ── Primary canopy (overlaps trunk top) ──
-    const canopyCenterY = sil.trunkH - sil.canopyY * 0.3;
+    const canopyCenterY = baseY + sil.trunkH - sil.canopyY * 0.3;
     dummy.position.set(wx, canopyCenterY, wz);
     dummy.scale.set(sil.canopyX, sil.canopyY, sil.canopyZ);
     dummy.rotation.set(0, 0, 0);
@@ -344,7 +419,7 @@ export function createRenderer3D(
     // ── Secondary canopy blob (offset, 70% scale) ──
     dummy.position.set(
       wx + 0.15 * sil.canopyX,
-      canopyCenterY - sil.canopyY * 0.1,
+      canopyCenterY - sil.canopyY * 0.1, // canopyCenterY already includes baseY
       wz + 0.15 * sil.canopyZ,
     );
     dummy.scale.set(sil.canopyX * sil.blob2, sil.canopyY * sil.blob2, sil.canopyZ * sil.blob2);
@@ -458,8 +533,9 @@ export function createRenderer3D(
       }
 
       const { cr, cg, cb } = plantColor(plant.speciesId, plant.genome);
+      const baseY = getCellElevation(plant.x, plant.y);
 
-      writeInstance(idx, wx, wz, sil, cr, cg, cb, 0, 0,
+      writeInstance(idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
         trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
       idx++;
     }
@@ -500,7 +576,8 @@ export function createRenderer3D(
       const cg = origG * (1 - p) + 0.20 * p;
       const cb = origB * (1 - p) + 0.08 * p;
 
-      writeInstance(idx, wx, wz, sil, cr, cg, cb, tiltAngle, tiltDir,
+      const baseY = getCellElevation(dp.x, dp.y);
+      writeInstance(idx, wx, wz, baseY, sil, cr, cg, cb, tiltAngle, tiltDir,
         trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
       idx++;
     }
@@ -543,11 +620,13 @@ export function createRenderer3D(
       const wz0 = fs.parentY - HALF + 0.5;
       const wx1 = fs.childX - HALF + 0.5;
       const wz1 = fs.childY - HALF + 0.5;
+      const parentElev = getCellElevation(fs.parentX, fs.parentY);
+      const childElev = getCellElevation(fs.childX, fs.childY);
 
       const x = lerp(wx0, wx1, t);
       const z = lerp(wz0, wz1, t);
       const arcHeight = 4 * fs.arcPeak * t * (1 - t);
-      const y = lerp(fs.startY, 0.1, t) + arcHeight;
+      const y = lerp(parentElev + fs.startY, childElev + 0.1, t) + arcHeight;
 
       dummy.position.set(x, y, z);
       dummy.scale.set(1, 1, 1);
@@ -585,7 +664,7 @@ export function createRenderer3D(
       selectMesh.visible = true;
       selectMesh.position.set(
         selectedCell.x - HALF + 0.5,
-        0.02,
+        getCellElevation(selectedCell.x, selectedCell.y) + 0.02,
         selectedCell.y - HALF + 0.5,
       );
     } else {

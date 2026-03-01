@@ -1,4 +1,4 @@
-import { Cell, Genome, Plant, SIM, SpeciesColor, World } from './types';
+import { Cell, Genome, Plant, SIM, SpeciesColor, TerrainType, World } from './types';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -21,6 +21,147 @@ function generateSpeciesColor(speciesId: number): SpeciesColor {
   return hsl2rgb(hue, s, l);
 }
 
+// ── Terrain generation ──
+
+function valueNoise(w: number, h: number, octaves: number, persistence: number): number[][] {
+  const result: number[][] = Array.from({ length: h }, () => new Array(w).fill(0));
+  let amplitude = 1.0;
+  let totalAmplitude = 0;
+
+  for (let oct = 0; oct < octaves; oct++) {
+    const gridSize = 8 * Math.pow(2, oct);
+    const coarseW = Math.ceil(w / gridSize) + 2;
+    const coarseH = Math.ceil(h / gridSize) + 2;
+    const coarse: number[][] = Array.from({ length: coarseH }, () =>
+      Array.from({ length: coarseW }, () => Math.random()),
+    );
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const gx = x / gridSize;
+        const gy = y / gridSize;
+        const ix = Math.floor(gx);
+        const iy = Math.floor(gy);
+        const fx = gx - ix;
+        const fy = gy - iy;
+        const sx = fx * fx * (3 - 2 * fx);
+        const sy = fy * fy * (3 - 2 * fy);
+
+        const top = coarse[iy][ix] + (coarse[iy][ix + 1] - coarse[iy][ix]) * sx;
+        const bot = coarse[iy + 1][ix] + (coarse[iy + 1][ix + 1] - coarse[iy + 1][ix]) * sx;
+        result[y][x] += (top + (bot - top) * sy) * amplitude;
+      }
+    }
+    totalAmplitude += amplitude;
+    amplitude *= persistence;
+  }
+
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      result[y][x] /= totalAmplitude;
+
+  return result;
+}
+
+function generateRiver(
+  grid: Cell[][], elevation: number[][], w: number, h: number,
+): void {
+  const horizontal = Math.random() < 0.5;
+  let x: number, y: number;
+
+  if (horizontal) {
+    x = 0;
+    y = Math.floor(h * 0.2 + Math.random() * h * 0.6);
+  } else {
+    x = Math.floor(w * 0.2 + Math.random() * w * 0.6);
+    y = 0;
+  }
+
+  const visited = new Set<number>();
+
+  while (x >= 0 && x < w && y >= 0 && y < h) {
+    // Mark 3-cell-wide river
+    for (let d = -1; d <= 1; d++) {
+      const rx = horizontal ? x : x + d;
+      const ry = horizontal ? y + d : y;
+      if (rx >= 0 && rx < w && ry >= 0 && ry < h) {
+        const cell = grid[ry][rx];
+        cell.terrainType = TerrainType.River;
+        cell.waterRechargeRate = SIM.RIVER_WATER_RECHARGE;
+        cell.waterLevel = SIM.MAX_WATER;
+        cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + SIM.RIVER_NUTRIENT_BONUS);
+        cell.elevation = Math.max(0, cell.elevation - 0.2);
+      }
+    }
+
+    const key = y * w + x;
+    if (visited.has(key)) break;
+    visited.add(key);
+
+    if (horizontal) {
+      x += 1;
+      const drift = Math.random() < 0.6 ? 0 : (Math.random() < 0.5 ? -1 : 1);
+      if (y > 0 && y < h - 1 && x < w) {
+        const elevUp = elevation[y - 1][x];
+        const elevDown = elevation[y + 1][x];
+        y += drift + (elevDown < elevUp ? 1 : elevUp < elevDown ? -1 : 0);
+      } else {
+        y += drift;
+      }
+      y = Math.max(0, Math.min(h - 1, y));
+    } else {
+      y += 1;
+      const drift = Math.random() < 0.6 ? 0 : (Math.random() < 0.5 ? -1 : 1);
+      if (x > 0 && x < w - 1 && y < h) {
+        const elevLeft = elevation[y][x - 1];
+        const elevRight = elevation[y][x + 1];
+        x += drift + (elevRight < elevLeft ? 1 : elevLeft < elevRight ? -1 : 0);
+      } else {
+        x += drift;
+      }
+      x = Math.max(0, Math.min(w - 1, x));
+    }
+  }
+}
+
+function generateRocks(grid: Cell[][], w: number, h: number): void {
+  const rockNoise = valueNoise(w, h, 2, 0.5);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cell = grid[y][x];
+      if (cell.terrainType !== TerrainType.Soil) continue;
+      if (rockNoise[y][x] > 0.72) {
+        cell.terrainType = TerrainType.Rock;
+        cell.waterRechargeRate = SIM.ROCK_WATER_RECHARGE;
+        cell.nutrients = Math.min(cell.nutrients, SIM.ROCK_NUTRIENT_MAX);
+      }
+    }
+  }
+}
+
+function assignTerrainProperties(
+  grid: Cell[][], elevation: number[][], w: number, h: number,
+): void {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cell = grid[y][x];
+      if (cell.terrainType === TerrainType.River) continue; // already set
+      cell.elevation = elevation[y][x];
+
+      if (cell.terrainType === TerrainType.Soil && cell.elevation > 0.65) {
+        cell.terrainType = TerrainType.Hill;
+        cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
+      }
+
+      if (cell.terrainType === TerrainType.Soil) {
+        const valleyBonus = 1.0 + (1.0 - cell.elevation) * 0.3;
+        cell.waterRechargeRate *= valleyBonus;
+        cell.nutrients += (1.0 - cell.elevation) * 1.5;
+      }
+    }
+  }
+}
+
 export function createWorld(width: number, height: number): World {
   const grid: Cell[][] = [];
   for (let y = 0; y < height; y++) {
@@ -29,6 +170,8 @@ export function createWorld(width: number, height: number): World {
       row.push({
         x,
         y,
+        elevation: 0.5,
+        terrainType: TerrainType.Soil,
         waterLevel: 3 + Math.random() * 4,
         waterRechargeRate: SIM.BASE_WATER_RECHARGE * (0.7 + Math.random() * 0.6),
         nutrients: 1 + Math.random() * 3,
@@ -39,6 +182,16 @@ export function createWorld(width: number, height: number): World {
     }
     grid.push(row);
   }
+
+  // Terrain generation
+  const elevation = valueNoise(width, height, 3, 0.5);
+  const riverCount = 1 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < riverCount; i++) {
+    generateRiver(grid, elevation, width, height);
+  }
+  generateRocks(grid, width, height);
+  assignTerrainProperties(grid, elevation, width, height);
+
   return { width, height, grid, plants: new Map(), tick: 0, nextPlantId: 1, nextSpeciesId: 1, speciesColors: new Map(), seedEvents: [] };
 }
 
@@ -69,6 +222,8 @@ export function seedInitialPlants(world: World, count: number): void {
     const x = Math.floor(Math.random() * world.width);
     const y = Math.floor(Math.random() * world.height);
     if (world.grid[y][x].plantId !== null) continue;
+    const t = world.grid[y][x].terrainType;
+    if (t === TerrainType.River || t === TerrainType.Rock) continue;
 
     const speciesId = world.nextSpeciesId++;
     world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
@@ -107,6 +262,22 @@ function phaseRechargeWater(world: World): void {
       cell.nutrients = Math.max(0, cell.nutrients - SIM.NUTRIENT_DECAY);
     }
   }
+
+  // River seepage: river cells share water with neighbors
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.grid[y][x];
+      if (cell.terrainType !== TerrainType.River) continue;
+      for (const [dx, dy] of NEIGHBORS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        const neighbor = world.grid[ny][nx];
+        if (neighbor.terrainType === TerrainType.River) continue;
+        neighbor.waterLevel = Math.min(SIM.MAX_WATER, neighbor.waterLevel + SIM.RIVER_SEEPAGE);
+      }
+    }
+  }
 }
 
 function phaseCalculateLight(world: World): void {
@@ -128,7 +299,10 @@ function phaseCalculateLight(world: World): void {
           shadeCount++;
         }
       }
-      cell.lightLevel = Math.max(SIM.MIN_LIGHT, SIM.BASE_LIGHT - shadeCount * SIM.SHADOW_REDUCTION);
+      const baseLight = cell.terrainType === TerrainType.Hill
+        ? Math.min(1.0, SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS)
+        : SIM.BASE_LIGHT;
+      cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeCount * SIM.SHADOW_REDUCTION);
     }
   }
 }
@@ -192,6 +366,8 @@ function phaseUpdatePlants(world: World): void {
         const ty = plant.y + dy;
         if (tx < 0 || tx >= world.width || ty < 0 || ty >= world.height) continue;
         if (world.grid[ty][tx].plantId !== null) continue;
+        const tt = world.grid[ty][tx].terrainType;
+        if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
 
         const childId = world.nextPlantId++;
         const child: Plant = {

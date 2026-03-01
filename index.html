@@ -63,6 +63,20 @@
       inherits its parent's DNA with small
       mutations &mdash; natural selection in real time.
 
+      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Terrain</div>
+      <div style="margin-bottom:4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:hsl(210,55%,25%);border:1px solid #555;vertical-align:middle;"></span>
+        <b>River</b> &mdash; High water (1.2/tick), seeps to neighbors. No planting.
+      </div>
+      <div style="margin-bottom:4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:hsl(30,8%,35%);border:1px solid #555;vertical-align:middle;"></span>
+        <b>Rock</b> &mdash; Barely any water (0.08/tick), low nutrients. No planting.
+      </div>
+      <div style="margin-bottom:4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:hsl(35,40%,45%);border:1px solid #555;vertical-align:middle;"></span>
+        <b>Hill</b> &mdash; +15% light, but 30% less water. Elevated terrain.
+      </div>
+
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Legend</div>
       <div style="margin-bottom:4px;">
         <div style="display:flex; justify-content:space-between;"><span>dry</span><span>wet</span></div>
@@ -158,8 +172,9 @@
 
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Initial Conditions</div>
       80&times;80 grid, 40 random plants.<br>
-      Water per cell: 3&ndash;7 (random).<br>
-      Nutrients per cell: 1&ndash;4 (random).<br>
+      Terrain: procedural elevation + 1&ndash;2 rivers,
+      rocky patches, hills. Rivers block planting
+      but enrich nearby soil via seepage.<br>
       Starting plants: h/r/l=1, energy=3.<br>
       Starting genes: random 0.1&ndash;0.9.
 

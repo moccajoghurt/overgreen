@@ -1,6 +1,13 @@
 export const GRID_WIDTH = 80;
 export const GRID_HEIGHT = 80;
 
+export enum TerrainType {
+  Soil = 0,
+  River = 1,
+  Rock = 2,
+  Hill = 3,
+}
+
 export const SIM = {
   // Water
   BASE_WATER_RECHARGE: 0.4,
@@ -46,6 +53,15 @@ export const SIM = {
 
   // Age
   MAX_AGE: 500,
+
+  // Terrain
+  RIVER_WATER_RECHARGE: 1.2,
+  ROCK_WATER_RECHARGE: 0.08,
+  ROCK_NUTRIENT_MAX: 0.5,
+  HILL_LIGHT_BONUS: 0.15,
+  HILL_WATER_PENALTY: 0.7,
+  RIVER_SEEPAGE: 0.15,
+  RIVER_NUTRIENT_BONUS: 2.0,
 } as const;
 
 export interface SpeciesColor {
@@ -82,6 +98,8 @@ export interface Plant {
 export interface Cell {
   x: number;
   y: number;
+  elevation: number;
+  terrainType: TerrainType;
   waterLevel: number;
   waterRechargeRate: number;
   nutrients: number;
