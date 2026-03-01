@@ -89,6 +89,7 @@ export interface Plant {
   age: number;
   genome: Genome;
   alive: boolean;
+  causeOfDeath?: 'fire';
   lastLightReceived: number;
   lastWaterAbsorbed: number;
   lastEnergyProduced: number;
@@ -119,8 +120,16 @@ export interface World {
   speciesColors: Map<number, SpeciesColor>;
   speciesNames: Map<number, string>;
   seedEvents: SeedEvent[];
+  fireDeathEvents: FireDeathEvent[];
   environment: Environment;
   environmentEvents: EnvironmentEvent[];
+}
+
+export interface FireDeathEvent {
+  id: number;
+  x: number; y: number;
+  height: number; rootDepth: number; leafArea: number;
+  speciesId: number; genome: Genome;
 }
 
 export interface SeedEvent {
@@ -166,8 +175,8 @@ export interface DroughtPatch {
 }
 
 export interface FireEvent {
-  cells: Set<string>; // "x,y" of actively burning cells
-  ticksRemaining: number;
+  cells: Map<string, number>; // "x,y" -> burn ticks remaining per cell
+  ticksRemaining: number;    // overall fire duration (controls spreading)
 }
 
 export interface Environment {
@@ -179,7 +188,9 @@ export interface Environment {
   leafMaintenanceMult: number;
   droughts: DroughtPatch[];
   fires: FireEvent[];
-  weatherOverlay: Uint8Array; // GRID_WIDTH * GRID_HEIGHT, 0=normal 1=drought 2=burning
+  scorchedCells: Map<string, number>; // "x,y" -> ticks remaining
+  parchedCells: Map<string, number>;  // "x,y" -> ticks remaining
+  weatherOverlay: Uint8Array; // GRID_WIDTH * GRID_HEIGHT, 0=normal 1=drought 2=burning 3=scorched 4=parched
 }
 
 export interface EnvironmentEvent {

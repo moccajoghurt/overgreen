@@ -1,5 +1,5 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES } from './types';
-import { createWorld, seedInitialPlants, tickWorld } from './simulation';
+import { createWorld, seedInitialPlants, tickWorld, spawnFire } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls, updateInspector } from './controls';
 import { updateLeaderboard } from './leaderboard';
@@ -83,3 +83,10 @@ function loop(now: number): void {
 }
 
 requestAnimationFrame(loop);
+
+// Debug: press F to spawn a fire
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'f' || e.key === 'F') {
+    spawnFire(world);
+  }
+});

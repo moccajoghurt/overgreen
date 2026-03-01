@@ -201,7 +201,7 @@ export function createWorld(width: number, height: number): World {
     width, height, grid, plants: new Map(), tick: 0,
     nextPlantId: 1, nextSpeciesId: 1,
     speciesColors: new Map(), speciesNames: new Map(),
-    seedEvents: [], environment: createEnvironment(), environmentEvents: [],
+    seedEvents: [], fireDeathEvents: [], environment: createEnvironment(), environmentEvents: [],
   };
 }
 
@@ -278,6 +278,8 @@ function createEnvironment(): Environment {
     leafMaintenanceMult: 1.0,
     droughts: [],
     fires: [],
+    scorchedCells: new Map(),
+    parchedCells: new Map(),
     weatherOverlay: new Uint8Array(GRID_WIDTH * GRID_HEIGHT),
   };
 }
@@ -318,16 +320,32 @@ function advanceDroughts(world: World): void {
   for (let i = droughts.length - 1; i >= 0; i--) {
     droughts[i].ticksRemaining--;
     if (droughts[i].ticksRemaining <= 0) {
+      // Mark affected cells as parched
+      const d = droughts[i];
+      const r2 = d.radius * d.radius;
+      const minY = Math.max(0, d.centerY - d.radius);
+      const maxY = Math.min(world.height - 1, d.centerY + d.radius);
+      const minX = Math.max(0, d.centerX - d.radius);
+      const maxX = Math.min(world.width - 1, d.centerX + d.radius);
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const dx = x - d.centerX;
+          const dy = y - d.centerY;
+          if (dx * dx + dy * dy < r2) {
+            world.environment.parchedCells.set(`${x},${y}`, 60);
+          }
+        }
+      }
       world.environmentEvents.push({
         type: 'drought_end',
-        message: `Drought ended near (${droughts[i].centerX}, ${droughts[i].centerY})`,
+        message: `Drought ended near (${d.centerX}, ${d.centerY})`,
       });
       droughts.splice(i, 1);
     }
   }
 }
 
-function spawnFire(world: World): void {
+export function spawnFire(world: World): void {
   for (let attempt = 0; attempt < 20; attempt++) {
     const x = Math.floor(Math.random() * world.width);
     const y = Math.floor(Math.random() * world.height);
@@ -335,7 +353,7 @@ function spawnFire(world: World): void {
     if (cell.plantId === null || cell.waterLevel > 2.0) continue;
     if (cell.terrainType === TerrainType.River) continue;
 
-    const fire = { cells: new Set([`${x},${y}`]), ticksRemaining: 8 + Math.floor(Math.random() * 9) };
+    const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: 8 + Math.floor(Math.random() * 9) };
     world.environment.fires.push(fire);
     killPlantByFire(world, x, y);
     world.environmentEvents.push({ type: 'fire_start', message: `Fire ignited near (${x}, ${y})` });
@@ -348,7 +366,15 @@ function killPlantByFire(world: World, x: number, y: number): void {
   if (cell.plantId === null) return;
   const plant = world.plants.get(cell.plantId);
   if (plant && plant.alive) {
+    world.fireDeathEvents.push({
+      id: plant.id,
+      x: plant.x, y: plant.y,
+      height: plant.height, rootDepth: plant.rootDepth,
+      leafArea: plant.leafArea, speciesId: plant.speciesId,
+      genome: { ...plant.genome },
+    });
     plant.alive = false;
+    plant.causeOfDeath = 'fire';
     plant.energy = 0;
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
@@ -361,35 +387,49 @@ function advanceFires(world: World): void {
     const fire = fires[i];
     fire.ticksRemaining--;
 
-    // Spread from current burning cells
-    const newCells = new Set<string>();
-    for (const key of fire.cells) {
-      const [fx, fy] = key.split(',').map(Number);
-      for (const [dx, dy] of NEIGHBORS) {
-        const nx = fx + dx;
-        const ny = fy + dy;
-        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
-        const nKey = `${nx},${ny}`;
-        if (fire.cells.has(nKey)) continue;
+    // Decay existing burning cells and spread to neighbors
+    const toScorch: string[] = [];
+    for (const [key, remaining] of fire.cells) {
+      if (remaining <= 1) {
+        toScorch.push(key);
+        fire.cells.delete(key);
+        continue;
+      }
+      fire.cells.set(key, remaining - 1);
 
-        const cell = world.grid[ny][nx];
-        if (cell.terrainType === TerrainType.River) continue;
-        if (cell.plantId === null) continue;
-        const plant = world.plants.get(cell.plantId);
-        if (!plant || !plant.alive) continue;
+      // Spread from this cell
+      if (fire.ticksRemaining > 0) {
+        const [fx, fy] = key.split(',').map(Number);
+        for (const [dx, dy] of NEIGHBORS) {
+          const nx = fx + dx;
+          const ny = fy + dy;
+          if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+          const nKey = `${nx},${ny}`;
+          if (fire.cells.has(nKey)) continue;
 
-        const waterResist = cell.waterLevel / SIM.MAX_WATER;
-        const leafFuel = plant.leafArea / SIM.MAX_LEAF_AREA;
-        const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
-        if (Math.random() < spreadChance) {
-          newCells.add(nKey);
-          killPlantByFire(world, nx, ny);
+          const cell = world.grid[ny][nx];
+          if (cell.terrainType === TerrainType.River) continue;
+          if (cell.plantId === null) continue;
+          const plant = world.plants.get(cell.plantId);
+          if (!plant || !plant.alive) continue;
+
+          const waterResist = cell.waterLevel / SIM.MAX_WATER;
+          const leafFuel = plant.leafArea / SIM.MAX_LEAF_AREA;
+          const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
+          if (Math.random() < spreadChance) {
+            fire.cells.set(nKey, 3 + Math.floor(Math.random() * 3)); // burn 3-5 ticks
+            killPlantByFire(world, nx, ny);
+          }
         }
       }
     }
 
-    fire.cells = newCells;
-    if (fire.ticksRemaining <= 0 || fire.cells.size === 0) {
+    // Mark burned-out cells as scorched
+    for (const key of toScorch) {
+      world.environment.scorchedCells.set(key, 80);
+    }
+
+    if (fire.cells.size === 0) {
       world.environmentEvents.push({ type: 'fire_end', message: 'Fire extinguished' });
       fires.splice(i, 1);
     }
@@ -416,10 +456,22 @@ function rebuildWeatherOverlay(world: World): void {
     }
   }
   for (const fire of world.environment.fires) {
-    for (const key of fire.cells) {
+    for (const [key] of fire.cells) {
       const [fx, fy] = key.split(',').map(Number);
       overlay[fy * world.width + fx] = 2;
     }
+  }
+  // Scorched ground (only if not already burning or drought)
+  for (const [key] of world.environment.scorchedCells) {
+    const [sx, sy] = key.split(',').map(Number);
+    const idx = sy * world.width + sx;
+    if (overlay[idx] === 0) overlay[idx] = 3;
+  }
+  // Parched ground (only if not already occupied)
+  for (const [key] of world.environment.parchedCells) {
+    const [px, py] = key.split(',').map(Number);
+    const idx = py * world.width + px;
+    if (overlay[idx] === 0) overlay[idx] = 4;
   }
 }
 
@@ -451,6 +503,17 @@ function phaseEnvironment(world: World): void {
 
   advanceDroughts(world);
   advanceFires(world);
+
+  // Decay scorched and parched cells
+  for (const [key, remaining] of world.environment.scorchedCells) {
+    if (remaining <= 1) world.environment.scorchedCells.delete(key);
+    else world.environment.scorchedCells.set(key, remaining - 1);
+  }
+  for (const [key, remaining] of world.environment.parchedCells) {
+    if (remaining <= 1) world.environment.parchedCells.delete(key);
+    else world.environment.parchedCells.set(key, remaining - 1);
+  }
+
   rebuildWeatherOverlay(world);
 }
 

@@ -9,6 +9,7 @@ const MAX_DYING = 200;
 const GROWTH_ANIM_FRAMES = 60; // ~1s at 60fps
 const SEED_FLIGHT_FRAMES = 36; // ~0.6s at 60fps
 const MAX_SEEDS = 400;
+const BURN_ANIM_FRAMES = 40; // ~0.67s at 60fps
 const WEATHER_PARTICLE_COUNT = 300;
 const WEATHER_SPREAD = 50;
 
@@ -20,10 +21,15 @@ interface PlantSnapshot {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
+  causeOfDeath?: 'fire';
 }
 
 interface DyingPlant extends PlantSnapshot {
   progress: number; // 0→1
+}
+
+interface BurningPlant extends PlantSnapshot {
+  progress: number; // 0→1 over BURN_ANIM_FRAMES
 }
 
 interface GrowingPlant {
@@ -222,6 +228,7 @@ export function createRenderer3D(
   // ── Dying plant animation state ──
   let prevSnapshots = new Map<number, PlantSnapshot>();
   const dyingPlants = new Map<number, DyingPlant>();
+  const burningPlants = new Map<number, BurningPlant>();
 
   // ── Seed flight & growth animation state ──
   const growingPlants = new Map<number, GrowingPlant>();
@@ -295,6 +302,59 @@ export function createRenderer3D(
   const rainParticles = makeParticlePool();
   const moteParticles = makeParticlePool();
   const leafParticles = makeParticlePool();
+
+  // ── Fire / ember / dust particles ──
+  const FIRE_PARTICLE_COUNT = 400;
+  const DUST_PARTICLE_COUNT = 300;
+
+  interface EventParticle {
+    x: number; y: number; z: number;
+    vx: number; vy: number; vz: number;
+    life: number; maxLife: number;
+  }
+
+  function createParticleMesh(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    count: number,
+  ): THREE.InstancedMesh {
+    const mesh = new THREE.InstancedMesh(geo, mat, count);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(count * 3), 3,
+    );
+    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  function makeEventParticlePool(count: number): EventParticle[] {
+    return Array.from({ length: count }, () => ({
+      x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1,
+    }));
+  }
+
+  const fireMesh = createParticleMesh(
+    new THREE.PlaneGeometry(0.12, 0.18),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    FIRE_PARTICLE_COUNT,
+  );
+  const emberMesh = createParticleMesh(
+    new THREE.CircleGeometry(0.03, 4),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    FIRE_PARTICLE_COUNT,
+  );
+  const dustMesh = createParticleMesh(
+    new THREE.CircleGeometry(0.05, 4),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.6 }),
+    DUST_PARTICLE_COUNT,
+  );
+
+  const fireParticles = makeEventParticlePool(FIRE_PARTICLE_COUNT);
+  const emberParticles = makeEventParticlePool(FIRE_PARTICLE_COUNT);
+  const dustParticles = makeEventParticlePool(DUST_PARTICLE_COUNT);
 
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
@@ -452,6 +512,24 @@ export function createRenderer3D(
           tmpColor.r = lerp(tmpColor.r, 0.9, 0.7);
           tmpColor.g = lerp(tmpColor.g, 0.3, 0.7);
           tmpColor.b = lerp(tmpColor.b, 0.05, 0.7);
+        } else if (overlayVal === 3) {
+          // Scorched: dark charcoal/ash, fading over time
+          const key = `${col},${row}`;
+          const remaining = env.scorchedCells.get(key) ?? 0;
+          const intensity = Math.min(1, remaining / 40);
+          const blend = 0.6 * intensity;
+          tmpColor.r = lerp(tmpColor.r, 0.12, blend);
+          tmpColor.g = lerp(tmpColor.g, 0.08, blend);
+          tmpColor.b = lerp(tmpColor.b, 0.06, blend);
+        } else if (overlayVal === 4) {
+          // Parched: pale dry earth, fading over time
+          const key = `${col},${row}`;
+          const remaining = env.parchedCells.get(key) ?? 0;
+          const intensity = Math.min(1, remaining / 30);
+          const blend = 0.4 * intensity;
+          tmpColor.r = lerp(tmpColor.r, 0.55, blend);
+          tmpColor.g = lerp(tmpColor.g, 0.42, blend);
+          tmpColor.b = lerp(tmpColor.b, 0.28, blend);
         }
 
         // 6 vertices per cell, 3 floats per vertex
@@ -580,9 +658,23 @@ export function createRenderer3D(
       }
     }
 
+    // ── Ingest fire death events (accumulated across ticks) ──
+    const fireDeathIds = new Set<number>();
+    for (const evt of world.fireDeathEvents) {
+      fireDeathIds.add(evt.id);
+      burningPlants.set(evt.id, {
+        x: evt.x, y: evt.y,
+        height: evt.height, rootDepth: evt.rootDepth,
+        leafArea: evt.leafArea, speciesId: evt.speciesId,
+        genome: { ...evt.genome },
+        progress: 0,
+      });
+    }
+    world.fireDeathEvents.length = 0;
+
     // ── Detect deaths: plants in prev snapshot but no longer in world ──
     for (const [id, snap] of prevSnapshots) {
-      if (!world.plants.has(id) && !flyingChildIds.has(id)) {
+      if (!world.plants.has(id) && !flyingChildIds.has(id) && !fireDeathIds.has(id)) {
         dyingPlants.set(id, { ...snap, progress: 0 });
       }
     }
@@ -675,6 +767,47 @@ export function createRenderer3D(
       idx++;
     }
     for (const id of toRemove) dyingPlants.delete(id);
+
+    // ── Render burning plants (fire deaths) ──
+    const burnToRemove: number[] = [];
+    for (const [id, bp] of burningPlants) {
+      bp.progress += 1 / BURN_ANIM_FRAMES;
+      if (bp.progress >= 1) {
+        // Transition to normal dying animation
+        burnToRemove.push(id);
+        dyingPlants.set(id, { ...bp, progress: 0 });
+        continue;
+      }
+      if (idx >= MAX_INSTANCES) continue;
+
+      const wx = bp.x - HALF + 0.5;
+      const wz = bp.y - HALF + 0.5;
+      const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome.leafSize);
+
+      // Slight shrink as it burns (to 70% at end)
+      const burnShrink = 1 - bp.progress * 0.3;
+      const sil = {
+        trunkH: raw.trunkH * burnShrink,
+        trunkThickness: raw.trunkThickness * burnShrink,
+        canopyX: raw.canopyX * burnShrink,
+        canopyY: raw.canopyY * burnShrink,
+        canopyZ: raw.canopyZ * burnShrink,
+        blob2: raw.blob2 * burnShrink,
+      };
+
+      // Flickering fire colors: orange-yellow → dark red/charcoal
+      const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
+      const t = bp.progress;
+      const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);
+      const cg = lerp(0.6, 0.05, t) * (0.7 + flicker * 0.3);
+      const cb = lerp(0.1, 0.02, t);
+
+      const baseY = getCellElevation(bp.x, bp.y);
+      writeInstance(idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
+        trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+      idx++;
+    }
+    for (const id of burnToRemove) burningPlants.delete(id);
 
     trunks.count = idx;
     canopies.count = idx;
@@ -881,6 +1014,226 @@ export function createRenderer3D(
   }
 
   // ═══════════════════════════════════════════════════════
+  // Fire / ember / dust particles
+  // ═══════════════════════════════════════════════════════
+
+  function updateFireParticles(): void {
+    const env = world.environment;
+
+    // Collect all burning cell positions
+    const sources: Array<{ wx: number; wz: number; baseY: number }> = [];
+    for (const fire of env.fires) {
+      for (const [key] of fire.cells) {
+        const [fx, fy] = key.split(',').map(Number);
+        sources.push({
+          wx: fx - HALF + 0.5,
+          wz: fy - HALF + 0.5,
+          baseY: getCellElevation(fx, fy),
+        });
+      }
+    }
+    // Also include burning plant positions (renderer-only state)
+    for (const [, bp] of burningPlants) {
+      sources.push({
+        wx: bp.x - HALF + 0.5,
+        wz: bp.y - HALF + 0.5,
+        baseY: getCellElevation(bp.x, bp.y),
+      });
+    }
+
+    if (sources.length === 0) {
+      fireMesh.count = 0;
+      emberMesh.count = 0;
+      return;
+    }
+
+    // ── Flame particles ──
+    const fMtx = fireMesh.instanceMatrix.array as Float32Array;
+    const fClr = fireMesh.instanceColor!.array as Float32Array;
+    let fIdx = 0;
+    const spawnRate = Math.min(sources.length * 3, FIRE_PARTICLE_COUNT);
+
+    for (let i = 0; i < FIRE_PARTICLE_COUNT; i++) {
+      const p = fireParticles[i];
+      if (p.life <= 0 && i < spawnRate) {
+        const src = sources[Math.floor(Math.random() * sources.length)];
+        p.x = src.wx + (Math.random() - 0.5) * 0.4;
+        p.z = src.wz + (Math.random() - 0.5) * 0.4;
+        p.y = src.baseY + Math.random() * 0.5;
+        p.vx = (Math.random() - 0.5) * 0.01;
+        p.vy = 0.04 + Math.random() * 0.06;
+        p.vz = (Math.random() - 0.5) * 0.01;
+        p.maxLife = 0.5 + Math.random() * 0.5;
+        p.life = p.maxLife;
+      }
+      if (p.life <= 0) continue;
+
+      p.x += p.vx + Math.sin(performance.now() * 0.02 + i) * 0.005;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.life -= 0.02;
+      if (fIdx >= FIRE_PARTICLE_COUNT) continue;
+
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.quaternion.copy(camera.quaternion);
+      const scale = 0.5 + (p.life / p.maxLife) * 0.5;
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      dummy.matrix.toArray(fMtx, fIdx * 16);
+
+      // Yellow → orange → dark red
+      const t = 1 - (p.life / p.maxLife);
+      const ci = fIdx * 3;
+      fClr[ci]     = lerp(1.0, 0.6, t);
+      fClr[ci + 1] = lerp(0.9, 0.1, t);
+      fClr[ci + 2] = lerp(0.3, 0.02, t);
+      fIdx++;
+    }
+
+    fireMesh.count = fIdx;
+    if (fIdx > 0) {
+      fireMesh.instanceMatrix.needsUpdate = true;
+      fireMesh.instanceColor!.needsUpdate = true;
+    }
+
+    // ── Ember particles ──
+    const eMtx = emberMesh.instanceMatrix.array as Float32Array;
+    const eClr = emberMesh.instanceColor!.array as Float32Array;
+    let eIdx = 0;
+    const emberSpawnRate = Math.min(sources.length * 2, FIRE_PARTICLE_COUNT);
+
+    for (let i = 0; i < FIRE_PARTICLE_COUNT; i++) {
+      const p = emberParticles[i];
+      if (p.life <= 0 && i < emberSpawnRate) {
+        const src = sources[Math.floor(Math.random() * sources.length)];
+        p.x = src.wx + (Math.random() - 0.5) * 0.6;
+        p.z = src.wz + (Math.random() - 0.5) * 0.6;
+        p.y = src.baseY + 0.5 + Math.random() * 1.5;
+        p.vx = (Math.random() - 0.5) * 0.03;
+        p.vy = 0.02 + Math.random() * 0.04;
+        p.vz = (Math.random() - 0.5) * 0.03;
+        p.maxLife = 1.0 + Math.random() * 1.0;
+        p.life = p.maxLife;
+      }
+      if (p.life <= 0) continue;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.vx += (Math.random() - 0.5) * 0.002;
+      p.vz += (Math.random() - 0.5) * 0.002;
+      p.life -= 0.01;
+      if (eIdx >= FIRE_PARTICLE_COUNT) continue;
+
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.quaternion.copy(camera.quaternion);
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      dummy.matrix.toArray(eMtx, eIdx * 16);
+
+      // Twinkling bright orange/white
+      const twinkle = Math.sin(performance.now() * 0.05 + i * 3) * 0.5 + 0.5;
+      const ci = eIdx * 3;
+      eClr[ci]     = 1.0;
+      eClr[ci + 1] = 0.4 + twinkle * 0.4;
+      eClr[ci + 2] = twinkle * 0.2;
+      eIdx++;
+    }
+
+    emberMesh.count = eIdx;
+    if (eIdx > 0) {
+      emberMesh.instanceMatrix.needsUpdate = true;
+      emberMesh.instanceColor!.needsUpdate = true;
+    }
+  }
+
+  function updateDroughtParticles(): void {
+    const env = world.environment;
+    if (env.droughts.length === 0) {
+      dustMesh.count = 0;
+      return;
+    }
+
+    // Collect drought cell positions near camera
+    const camTarget = controls.target;
+    const sources: Array<{ wx: number; wz: number; baseY: number }> = [];
+    const overlay = env.weatherOverlay;
+
+    // Sample drought cells near camera (avoid scanning entire grid)
+    const cx = Math.round(camTarget.x + HALF - 0.5);
+    const cz = Math.round(camTarget.z + HALF - 0.5);
+    const range = 20;
+    for (let dy = -range; dy <= range; dy += 2) {
+      for (let dx = -range; dx <= range; dx += 2) {
+        const gx = cx + dx;
+        const gy = cz + dy;
+        if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) continue;
+        if (overlay[gy * GRID + gx] === 1) {
+          sources.push({
+            wx: gx - HALF + 0.5,
+            wz: gy - HALF + 0.5,
+            baseY: getCellElevation(gx, gy),
+          });
+        }
+      }
+    }
+
+    if (sources.length === 0) {
+      dustMesh.count = 0;
+      return;
+    }
+
+    const dMtx = dustMesh.instanceMatrix.array as Float32Array;
+    const dClr = dustMesh.instanceColor!.array as Float32Array;
+    let dIdx = 0;
+    const spawnRate = Math.min(sources.length, DUST_PARTICLE_COUNT);
+
+    for (let i = 0; i < DUST_PARTICLE_COUNT; i++) {
+      const p = dustParticles[i];
+      if (p.life <= 0 && i < spawnRate) {
+        const src = sources[Math.floor(Math.random() * sources.length)];
+        p.x = src.wx + (Math.random() - 0.5) * 1.0;
+        p.z = src.wz + (Math.random() - 0.5) * 1.0;
+        p.y = src.baseY + Math.random() * 0.3;
+        p.vx = (Math.random() - 0.5) * 0.008;
+        p.vy = 0.008 + Math.random() * 0.015;
+        p.vz = (Math.random() - 0.5) * 0.008;
+        p.maxLife = 1.5 + Math.random() * 1.5;
+        p.life = p.maxLife;
+      }
+      if (p.life <= 0) continue;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.vx += (Math.random() - 0.5) * 0.001;
+      p.vz += (Math.random() - 0.5) * 0.001;
+      p.life -= 0.006;
+      if (dIdx >= DUST_PARTICLE_COUNT) continue;
+
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.quaternion.copy(camera.quaternion);
+      dummy.scale.setScalar(0.6 + (p.life / p.maxLife) * 0.4);
+      dummy.updateMatrix();
+      dummy.matrix.toArray(dMtx, dIdx * 16);
+
+      // Earthy brownish-tan
+      const ci = dIdx * 3;
+      const fade = p.life / p.maxLife;
+      dClr[ci]     = 0.6 * fade;
+      dClr[ci + 1] = 0.45 * fade;
+      dClr[ci + 2] = 0.25 * fade;
+      dIdx++;
+    }
+
+    dustMesh.count = dIdx;
+    if (dIdx > 0) {
+      dustMesh.instanceMatrix.needsUpdate = true;
+      dustMesh.instanceColor!.needsUpdate = true;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
   // Public API (Renderer interface)
   // ═══════════════════════════════════════════════════════
 
@@ -896,6 +1249,8 @@ export function createRenderer3D(
     updatePlants();
     updateSeeds();
     updateWeatherParticles();
+    updateFireParticles();
+    updateDroughtParticles();
 
     if (selectedCell) {
       selectMesh.visible = true;
