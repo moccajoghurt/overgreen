@@ -6,7 +6,8 @@
   <title>Overgreen</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; color: #ccc; font-family: monospace; display: flex; height: 100vh; }
+    body { background: #1a1a1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; height: 100vh; }
+    #top-row { display: flex; flex: 1; min-height: 0; }
     #sidebar {
       width: 260px; padding: 12px;
       display: flex; flex-direction: column; gap: 8px;
@@ -33,9 +34,38 @@
     }
     label { font-size: 12px; }
     input[type="range"] { width: 100%; }
+    #bottom-panel {
+      height: 160px; flex-shrink: 0;
+      display: flex; background: #1e1e1e;
+      border-top: 1px solid #333;
+    }
+    #chart-container {
+      flex: 7; position: relative; overflow: hidden;
+    }
+    #chart-container canvas { width: 100%; height: 100%; display: block; }
+    #ticker-container {
+      flex: 3; overflow-y: auto;
+      border-left: 1px solid #333;
+      padding: 6px; font-size: 11px; line-height: 1.4;
+    }
+    #ticker-list .event {
+      padding: 2px 0; display: flex; align-items: baseline; gap: 4px;
+    }
+    #ticker-list .event-dot {
+      display: inline-block; width: 6px; height: 6px;
+      border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+    }
+    #ticker-list .event-new {
+      animation: ticker-fade 0.6s ease-out;
+    }
+    @keyframes ticker-fade {
+      from { background: rgba(136,255,136,0.12); }
+      to { background: transparent; }
+    }
   </style>
 </head>
 <body>
+  <div id="top-row">
   <div id="sidebar">
     <h1>Overgreen</h1>
     <div class="btn-group">
@@ -76,30 +106,6 @@
         <span style="display:inline-block;width:10px;height:10px;background:hsl(35,40%,45%);border:1px solid #555;vertical-align:middle;"></span>
         <b>Hill</b> &mdash; +15% light, but 30% less water. Elevated terrain.
       </div>
-
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Legend</div>
-      <div style="margin-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;"><span>dry</span><span>wet</span></div>
-        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, hsl(30,40%,55%), hsl(25,50%,25%));"></div>
-      </div>
-      <div style="margin-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;"><span>low nutrients</span><span>high</span></div>
-        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, hsl(28,45%,40%), hsl(20,50%,15%));"></div>
-      </div>
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Plant color = genome</div>
-      <div style="margin-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">R</b></span><span>high <b style="color:#c96">R</b> root</span></div>
-        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(204,77,51));"></div>
-      </div>
-      <div style="margin-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">L</b></span><span>high <b style="color:#c96">L</b> leaf</span></div>
-        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(51,204,51));"></div>
-      </div>
-      <div style="margin-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;"><span>low <b style="color:#c96">H</b></span><span>high <b style="color:#c96">H</b> height</span></div>
-        <div style="height:10px; border:1px solid #555; background:linear-gradient(to right, rgb(51,77,51), rgb(51,77,204));"></div>
-      </div>
-      <span style="color:#666">Canopy size = leaf area &middot; Trunk height = plant height</span>
 
       <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Each Tick</div>
 
@@ -181,6 +187,14 @@
     </div>
   </div>
   <div id="canvas-container"></div>
+  </div>
+  <div id="bottom-panel">
+    <div id="chart-container"></div>
+    <div id="ticker-container">
+      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Events</div>
+      <div id="ticker-list"></div>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

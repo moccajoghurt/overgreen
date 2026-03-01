@@ -133,3 +133,43 @@ export interface Renderer {
   render(selectedCell: { x: number; y: number } | null): void;
   cellAt(canvasX: number, canvasY: number): { x: number; y: number } | null;
 }
+
+// ── History / Analytics ──
+
+export interface TickSnapshot {
+  tick: number;
+  populations: Map<number, number>; // speciesId → alive count
+}
+
+export interface SpeciesRecord {
+  speciesId: number;
+  firstSeenTick: number;
+  lastSeenTick: number;
+  maxPopulation: number;
+  maxPopulationTick: number;
+  extinct: boolean;
+}
+
+export type SimEventType =
+  | 'extinction'
+  | 'population_record'
+  | 'notable_age'
+  | 'dominance_shift'
+  | 'mass_extinction';
+
+export interface SimEvent {
+  tick: number;
+  type: SimEventType;
+  message: string;
+  speciesId?: number;
+}
+
+export interface History {
+  snapshots: TickSnapshot[];
+  species: Map<number, SpeciesRecord>;
+  events: SimEvent[];
+  prevPopulations: Map<number, number>;
+  prevDominant: number | null;
+  firedAgeMilestones: Set<string>; // "speciesId-threshold"
+  firedPopMilestones: Set<string>; // "speciesId-threshold"
+}
