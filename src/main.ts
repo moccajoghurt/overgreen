@@ -2,7 +2,6 @@ import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES } from './types';
 import { createWorld, seedInitialPlants, tickWorld, spawnFire } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls, updateInspector } from './controls';
-import { updateLeaderboard } from './leaderboard';
 import { createHistory, recordTick } from './history';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
@@ -43,8 +42,6 @@ const plantCount = document.getElementById('plant-count')!;
 const seasonLabel = document.getElementById('season-label')!;
 const yearLabel = document.getElementById('year-label')!;
 
-let lastLeaderboardTick = -1;
-
 function updateUI(): void {
   tickLabel.textContent = String(world.tick);
   plantCount.textContent = String(world.plants.size);
@@ -52,10 +49,6 @@ function updateUI(): void {
   yearLabel.textContent = String(world.environment.yearCount + 1);
   if (controls.selectedCell) {
     updateInspector(world, controls);
-  }
-  if (world.tick !== lastLeaderboardTick) {
-    updateLeaderboard(world);
-    lastLeaderboardTick = world.tick;
   }
   genomePanel.update(world);
   chart.update(history, world.speciesColors);
