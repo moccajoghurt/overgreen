@@ -1,7 +1,7 @@
 import { GRID_WIDTH, GRID_HEIGHT } from './types';
 import { createWorld, seedInitialPlants, tickWorld } from './simulation';
 import { createRenderer } from './renderer';
-import { initControls, updateInspector, Controls } from './controls';
+import { initControls, updateInspector } from './controls';
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -21,16 +21,18 @@ function updateUI(): void {
   }
 }
 
-function loop(): void {
-  const ext = controls as Controls & { stepRequested?: boolean };
+let lastTickTime = 0;
 
+function loop(now: number): void {
   if (!controls.paused) {
-    for (let i = 0; i < controls.ticksPerFrame; i++) {
+    if (now - lastTickTime >= controls.tickInterval) {
       tickWorld(world);
+      lastTickTime = now;
     }
-  } else if (ext.stepRequested) {
+  } else if (controls.stepRequested) {
     tickWorld(world);
-    ext.stepRequested = false;
+    controls.stepRequested = false;
+    lastTickTime = now;
   }
 
   renderer.render(controls.selectedCell);

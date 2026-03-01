@@ -4,7 +4,7 @@ export const CELL_PX = 8;
 
 export const SIM = {
   // Water
-  BASE_WATER_RECHARGE: 0.3,
+  BASE_WATER_RECHARGE: 0.4,
   MAX_WATER: 10.0,
   WATER_ABSORPTION_PER_ROOT: 0.4,
 
@@ -20,7 +20,7 @@ export const SIM = {
 
   // Energy / Photosynthesis
   PHOTOSYNTHESIS_RATE: 0.5,
-  MAINTENANCE_BASE: 0.1,
+  MAINTENANCE_BASE: 0.05,
   MAINTENANCE_PER_HEIGHT: 0.05,
   MAINTENANCE_PER_ROOT: 0.03,
   MAINTENANCE_PER_LEAF: 0.04,
@@ -32,10 +32,10 @@ export const SIM = {
   GROWTH_EFFICIENCY: 0.3,
 
   // Reproduction
-  SEED_ENERGY_COST: 2.0,
+  SEED_ENERGY_COST: 0.8,
   SEED_RANGE_MIN: 1,
   SEED_RANGE_MAX: 3,
-  SEED_INITIAL_ENERGY: 1.5,
+  SEED_INITIAL_ENERGY: 2.0,
   MUTATION_RATE: 0.05,
 
   // Death / Decomposition

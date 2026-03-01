@@ -3,7 +3,8 @@ import { Renderer } from './renderer';
 
 export interface Controls {
   paused: boolean;
-  ticksPerFrame: number;
+  tickInterval: number; // ms between ticks
+  stepRequested: boolean;
   selectedCell: { x: number; y: number } | null;
 }
 
@@ -14,7 +15,8 @@ export function initControls(
 ): Controls {
   const controls: Controls = {
     paused: false,
-    ticksPerFrame: 1,
+    tickInterval: 200,
+    stepRequested: false,
     selectedCell: null,
   };
 
@@ -33,13 +35,20 @@ export function initControls(
       controls.paused = true;
       btnPlayPause.textContent = 'Play';
     }
-    // main loop handles the single step via a flag
-    (controls as Controls & { stepRequested?: boolean }).stepRequested = true;
+    controls.stepRequested = true;
   });
 
+  // Slider: 1 (slow, 500ms) to 10 (fast, 20ms). Default 3 = 200ms.
+  speedSlider.value = '3';
+  speedLabel.textContent = '5';
+  const intervalFromSlider = (v: number) => Math.round(500 / v);
+  controls.tickInterval = intervalFromSlider(3);
+
   speedSlider.addEventListener('input', () => {
-    controls.ticksPerFrame = parseInt(speedSlider.value, 10);
-    speedLabel.textContent = speedSlider.value;
+    const v = parseInt(speedSlider.value, 10);
+    controls.tickInterval = intervalFromSlider(v);
+    const tps = Math.round(1000 / controls.tickInterval);
+    speedLabel.textContent = String(tps);
   });
 
   canvas.addEventListener('click', (e) => {
