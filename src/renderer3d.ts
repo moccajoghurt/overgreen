@@ -21,20 +21,25 @@ interface DyingPlant extends PlantSnapshot {
   progress: number; // 0→1
 }
 
-function computeSilhouette(height: number, rootDepth: number, leafArea: number) {
+function computeSilhouette(height: number, rootDepth: number, leafArea: number, leafGenome: number) {
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
 
   const trunkH = Math.max(0.1, height * 0.35);
   const trunkThickness = 0.8 + rootRatio * 0.9;
 
-  const shapeRatio = (leafArea + 0.1) / (height + 0.1);
-  const canopyBase = 0.5 + leafRatio * 1.2;
-  const verticalF = 0.4 + 0.6 / (1 + shapeRatio);
-  const canopyX = canopyBase * (1 + shapeRatio * 0.15);
-  const canopyY = canopyBase * verticalF;
+  const canopyBase = 0.1 + leafRatio * 1.6;
 
-  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX };
+  // leafGenome controls crown aspect ratio:
+  // high leaf gene → wide & flat (spreading oak), low → narrow & tall (cypress)
+  const spread = 0.6 + leafGenome * 0.9;        // 0.6 … 1.5
+  const canopyX = canopyBase * spread;
+  const canopyY = canopyBase * (1.0 / spread);   // inverse: wide=flat, narrow=tall
+
+  // secondary blob scale: lush for high leaf, nearly absent for low
+  const blob2 = 0.2 + leafGenome * 0.6;         // 0.2 … 0.8
+
+  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2 };
 }
 
 function makeRoughSphere(radius: number, detail: number, jitter: number): THREE.BufferGeometry {
@@ -296,7 +301,7 @@ export function createRenderer3D(
       canopyCenterY - sil.canopyY * 0.1,
       wz + 0.15 * sil.canopyZ,
     );
-    dummy.scale.set(sil.canopyX * 0.7, sil.canopyY * 0.7, sil.canopyZ * 0.7);
+    dummy.scale.set(sil.canopyX * sil.blob2, sil.canopyY * sil.blob2, sil.canopyZ * sil.blob2);
     dummy.updateMatrix();
     dummy.matrix.toArray(canopy2Mtx, idx * 16);
 
@@ -348,7 +353,7 @@ export function createRenderer3D(
 
       const wx = plant.x - HALF + 0.5;
       const wz = plant.y - HALF + 0.5;
-      const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea);
+      const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome.leafSize);
       const { cr, cg, cb } = plantColor(plant.speciesId, plant.genome);
 
       writeInstance(idx, wx, wz, sil, cr, cg, cb, 0, 0,
@@ -370,13 +375,14 @@ export function createRenderer3D(
       const shrink = 1 - dp.progress;
 
       // Silhouette scaled down by shrink
-      const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea);
+      const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome.leafSize);
       const sil = {
         trunkH: raw.trunkH * shrink,
         trunkThickness: raw.trunkThickness * shrink,
         canopyX: raw.canopyX * shrink,
         canopyY: raw.canopyY * shrink,
         canopyZ: raw.canopyZ * shrink,
+        blob2: raw.blob2 * shrink,
       };
 
       // Tilt starts at progress 0.3
