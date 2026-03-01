@@ -35,7 +35,7 @@
     label { font-size: 12px; }
     input[type="range"] { width: 100%; }
     #bottom-panel {
-      height: 160px; flex-shrink: 0;
+      height: 190px; flex-shrink: 0;
       display: flex; background: #1e1e1e;
       border-top: 1px solid #333;
     }
@@ -54,10 +54,10 @@
     }
     .chart-tab:hover { color: #aaa; }
     .chart-tab.active { color: #8f8; border-bottom-color: #8f8; }
-    #chart-container, #trait-container {
+    #genomes-container, #population-container, #traits-container {
       flex: 1; position: relative; overflow: hidden;
     }
-    #chart-container canvas, #trait-container canvas { width: 100%; height: 100%; display: block; }
+    #genomes-container canvas, #population-container canvas, #traits-container canvas { width: 100%; height: 100%; display: block; }
     #ticker-container {
       flex: 3; overflow-y: auto;
       border-left: 1px solid #333;
@@ -206,11 +206,13 @@
   <div id="bottom-panel">
     <div id="charts-wrapper">
       <div id="chart-tabs">
-        <button class="chart-tab active" data-chart="population">Population</button>
+        <button class="chart-tab active" data-chart="genomes">Genomes</button>
+        <button class="chart-tab" data-chart="population">Population</button>
         <button class="chart-tab" data-chart="traits">Traits</button>
       </div>
-      <div id="chart-container"></div>
-      <div id="trait-container" style="display:none"></div>
+      <div id="genomes-container"></div>
+      <div id="population-container" style="display:none"></div>
+      <div id="traits-container" style="display:none"></div>
     </div>
     <div id="ticker-container">
       <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Events</div>

@@ -161,7 +161,7 @@ export function updatePlants(state: RendererState): void {
 
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
-    const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome.leafSize);
+    const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome);
 
     // Apply growth animation scale
     const growing = growingPlants.get(plant.id);
@@ -201,7 +201,7 @@ export function updatePlants(state: RendererState): void {
     const wz = dp.y - HALF + 0.5;
     const shrink = 1 - dp.progress;
 
-    const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome.leafSize);
+    const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
     const sil = {
       trunkH: raw.trunkH * shrink,
       trunkThickness: raw.trunkThickness * shrink,
@@ -241,7 +241,7 @@ export function updatePlants(state: RendererState): void {
 
     const wx = bp.x - HALF + 0.5;
     const wz = bp.y - HALF + 0.5;
-    const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome.leafSize);
+    const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
 
     const burnShrink = 1 - bp.progress * 0.3;
     const sil = {

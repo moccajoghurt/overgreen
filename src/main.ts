@@ -6,6 +6,7 @@ import { updateLeaderboard } from './leaderboard';
 import { createHistory, recordTick } from './history';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
+import { createGenomePanel } from './genome-panel';
 import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 
@@ -17,22 +18,23 @@ const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
 const history = createHistory();
-const chart = createPopulationChart(document.getElementById('chart-container')!);
-const traitChart = createTraitChart(document.getElementById('trait-container')!);
+const genomePanel = createGenomePanel(document.getElementById('genomes-container')!);
+const chart = createPopulationChart(document.getElementById('population-container')!);
+const traitChart = createTraitChart(document.getElementById('traits-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
 const commentary = createCommentary(container);
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
-const chartContainer = document.getElementById('chart-container')!;
-const traitContainer = document.getElementById('trait-container')!;
+const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #population-container, #traits-container');
 chartTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     chartTabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const which = tab.dataset.chart;
-    chartContainer.style.display = which === 'population' ? '' : 'none';
-    traitContainer.style.display = which === 'traits' ? '' : 'none';
+    chartContainers.forEach(c => {
+      c.style.display = c.id === which + '-container' ? '' : 'none';
+    });
   });
 });
 
@@ -55,6 +57,7 @@ function updateUI(): void {
     updateLeaderboard(world);
     lastLeaderboardTick = world.tick;
   }
+  genomePanel.update(world);
   chart.update(history, world.speciesColors);
   traitChart.update(history);
   ticker.update(history, world.speciesColors);

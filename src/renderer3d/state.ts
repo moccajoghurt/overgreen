@@ -128,20 +128,26 @@ export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-export function computeSilhouette(height: number, rootDepth: number, leafArea: number, leafGenome: number) {
+export function computeSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
 
-  const trunkH = Math.max(0.1, height * 0.35);
-  const trunkThickness = 0.8 + rootRatio * 0.9;
+  // Taller plants = taller trunks; deep roots = thick trunk (baobab effect)
+  const trunkH = Math.max(0.1, height * 0.4);
+  const trunkThickness = 0.4 + rootRatio * 2.0;
 
-  const canopyBase = 0.1 + leafRatio * 1.6;
+  // Canopy size driven by actual leaf growth
+  const canopyBase = 0.05 + leafRatio * 2.0;
 
-  const spread = 0.6 + leafGenome * 0.9;
+  // Canopy shape driven by genome strategy:
+  // High leafSize → wide & flat (acacia/umbrella)
+  // High heightPriority → narrow & tall (spruce/conical)
+  const spread = Math.max(0.25, 0.6 + genome.leafSize * 0.9 - genome.heightPriority * 0.5);
   const canopyX = canopyBase * spread;
-  const canopyY = canopyBase * (1.0 / spread);
+  const canopyY = canopyBase / spread;
 
-  const blob2 = 0.2 + leafGenome * 0.6;
+  // Leafy plants get fuller, multi-blob canopy; others are sparser
+  const blob2 = 0.1 + genome.leafSize * 0.7;
 
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2 };
 }
