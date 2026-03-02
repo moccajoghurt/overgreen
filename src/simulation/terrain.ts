@@ -154,8 +154,10 @@ export function createEnvironment(): Environment {
     leafMaintenanceMult: 1.0,
     droughts: [],
     fires: [],
+    diseases: [],
     scorchedCells: new Map(),
     parchedCells: new Map(),
+    diseasedCells: new Map(),
     weatherOverlay: new Uint8Array(GRID_WIDTH * GRID_HEIGHT),
   };
 }

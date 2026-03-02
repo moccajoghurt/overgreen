@@ -1,9 +1,10 @@
 import {
   SIM, TerrainType, World,
   Season, SEASON_LENGTH, YEAR_LENGTH, SEASON_NAMES,
-  Environment,
+  Environment, DiseaseEvent,
 } from '../types';
 import { NEIGHBORS } from './neighbors';
+import { genomeDistance } from './plants';
 
 // Season target values: [water, light, leafMaint]
 const SEASON_TARGETS: Record<Season, [number, number, number]> = {
@@ -163,6 +164,178 @@ function advanceFires(world: World): void {
   }
 }
 
+export function spawnDisease(world: World, forceAt?: { x: number; y: number }): void {
+  const R = SIM.DISEASE_SCAN_RADIUS;
+
+  if (forceAt) {
+    // Debug: force-spawn at specific location
+    const cell = world.grid[forceAt.y][forceAt.x];
+    let targetPlant = cell.plantId !== null ? world.plants.get(cell.plantId) : undefined;
+    if (!targetPlant || !targetPlant.alive) {
+      // Find any nearby alive plant
+      for (const plant of world.plants.values()) {
+        if (plant.alive) { targetPlant = plant; break; }
+      }
+    }
+    if (!targetPlant) return;
+
+    const duration = SIM.DISEASE_EVENT_DURATION_MIN +
+      Math.floor(Math.random() * (SIM.DISEASE_EVENT_DURATION_MAX - SIM.DISEASE_EVENT_DURATION_MIN));
+    const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
+      Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
+    const disease: DiseaseEvent = {
+      targetGenome: { ...targetPlant.genome },
+      cells: new Map([[`${targetPlant.x},${targetPlant.y}`, cellDur]]),
+      ticksRemaining: duration,
+      originX: targetPlant.x,
+      originY: targetPlant.y,
+      patientZeroSpeciesId: targetPlant.speciesId,
+      killCount: 0,
+    };
+    world.environment.diseases.push(disease);
+    world.environmentEvents.push({
+      type: 'disease_start',
+      message: `Blight outbreak near (${targetPlant.x}, ${targetPlant.y})`,
+    });
+    return;
+  }
+
+  // Sample up to 20 random occupied cells and find one with high uniformity
+  let bestX = -1, bestY = -1, bestUniformity = 0;
+  let bestPlantId = -1;
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const x = Math.floor(Math.random() * world.width);
+    const y = Math.floor(Math.random() * world.height);
+    const cell = world.grid[y][x];
+    if (cell.plantId === null) continue;
+    const plant = world.plants.get(cell.plantId);
+    if (!plant || !plant.alive) continue;
+
+    // Scan radius for uniformity
+    let similar = 0, total = 0;
+    const minY = Math.max(0, y - R);
+    const maxY = Math.min(world.height - 1, y + R);
+    const minX = Math.max(0, x - R);
+    const maxX = Math.min(world.width - 1, x + R);
+    for (let sy = minY; sy <= maxY; sy++) {
+      for (let sx = minX; sx <= maxX; sx++) {
+        const sc = world.grid[sy][sx];
+        if (sc.plantId === null) continue;
+        const sp = world.plants.get(sc.plantId);
+        if (!sp || !sp.alive) continue;
+        total++;
+        if (genomeDistance(plant.genome, sp.genome) < 0.20) {
+          similar++;
+        }
+      }
+    }
+
+    if (total < 3) continue;
+    const uniformity = similar / total;
+    if (uniformity > bestUniformity) {
+      bestUniformity = uniformity;
+      bestX = x;
+      bestY = y;
+      bestPlantId = cell.plantId;
+    }
+  }
+
+  if (bestUniformity < SIM.DISEASE_MIN_UNIFORMITY || bestPlantId < 0) return;
+
+  const patient = world.plants.get(bestPlantId)!;
+  const duration = SIM.DISEASE_EVENT_DURATION_MIN +
+    Math.floor(Math.random() * (SIM.DISEASE_EVENT_DURATION_MAX - SIM.DISEASE_EVENT_DURATION_MIN));
+  const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
+    Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
+  const disease: DiseaseEvent = {
+    targetGenome: { ...patient.genome },
+    cells: new Map([[`${bestX},${bestY}`, cellDur]]),
+    ticksRemaining: duration,
+    originX: bestX,
+    originY: bestY,
+    patientZeroSpeciesId: patient.speciesId,
+    killCount: 0,
+  };
+  world.environment.diseases.push(disease);
+  world.environmentEvents.push({
+    type: 'disease_start',
+    message: `Blight outbreak near (${bestX}, ${bestY})`,
+  });
+}
+
+function advanceDiseases(world: World): void {
+  const diseases = world.environment.diseases;
+
+  for (let i = diseases.length - 1; i >= 0; i--) {
+    const disease = diseases[i];
+
+    // Decay existing infected cells
+    const toScar: string[] = [];
+    for (const [key, remaining] of disease.cells) {
+      if (remaining <= 1) {
+        toScar.push(key);
+        disease.cells.delete(key);
+        continue;
+      }
+      disease.cells.set(key, remaining - 1);
+    }
+
+    // Mark expired cells as blight scars
+    for (const key of toScar) {
+      world.environment.diseasedCells.set(key, SIM.DISEASE_SCAR_DURATION);
+    }
+
+    // Spread to 8-neighbors while disease still active
+    if (disease.ticksRemaining > 0) {
+      const newCells: Array<[string, number]> = [];
+      for (const [key] of disease.cells) {
+        const [fx, fy] = key.split(',').map(Number);
+        for (const [dx, dy] of NEIGHBORS) {
+          const nx = fx + dx;
+          const ny = fy + dy;
+          if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+          const nKey = `${nx},${ny}`;
+          if (disease.cells.has(nKey)) continue;
+
+          const cell = world.grid[ny][nx];
+          if (cell.plantId === null) continue;
+          const plant = world.plants.get(cell.plantId);
+          if (!plant || !plant.alive) continue;
+
+          const dist = genomeDistance(disease.targetGenome, plant.genome);
+          if (dist >= SIM.DISEASE_DISTANCE_THRESHOLD) continue;
+
+          const susceptibility = Math.max(0, 1 - dist / SIM.DISEASE_DISTANCE_THRESHOLD);
+          const spreadChance = SIM.DISEASE_SPREAD_BASE * susceptibility * susceptibility;
+          if (Math.random() < spreadChance) {
+            const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
+              Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
+            newCells.push([nKey, cellDur]);
+          }
+        }
+      }
+      for (const [key, dur] of newCells) {
+        if (!disease.cells.has(key)) {
+          disease.cells.set(key, dur);
+        }
+      }
+    }
+
+    disease.ticksRemaining--;
+
+    // Remove disease when expired and no cells remain
+    if (disease.ticksRemaining <= 0 && disease.cells.size === 0) {
+      const spName = world.speciesNames.get(disease.patientZeroSpeciesId) ?? `Sp ${disease.patientZeroSpeciesId}`;
+      world.environmentEvents.push({
+        type: 'disease_end',
+        message: `Blight ended near (${disease.originX}, ${disease.originY}) — ${disease.killCount} ${spName} killed`,
+      });
+      diseases.splice(i, 1);
+    }
+  }
+}
+
 function rebuildWeatherOverlay(world: World): void {
   const overlay = world.environment.weatherOverlay;
   overlay.fill(0);
@@ -200,6 +373,20 @@ function rebuildWeatherOverlay(world: World): void {
     const idx = py * world.width + px;
     if (overlay[idx] === 0) overlay[idx] = 4;
   }
+  // Actively diseased cells
+  for (const disease of world.environment.diseases) {
+    for (const [key] of disease.cells) {
+      const [dx, dy] = key.split(',').map(Number);
+      const idx = dy * world.width + dx;
+      if (overlay[idx] === 0) overlay[idx] = 5;
+    }
+  }
+  // Blight scar (only if not already occupied)
+  for (const [key] of world.environment.diseasedCells) {
+    const [bx, by] = key.split(',').map(Number);
+    const idx = by * world.width + bx;
+    if (overlay[idx] === 0) overlay[idx] = 6;
+  }
 }
 
 export function phaseEnvironment(world: World): void {
@@ -228,8 +415,15 @@ export function phaseEnvironment(world: World): void {
     spawnFire(world);
   }
 
+  // Disease spawning (not in winter, after min tick, max 2 concurrent)
+  if (env.season !== Season.Winter && world.tick >= SIM.DISEASE_SPAWN_MIN_TICK
+      && env.diseases.length < 2 && Math.random() < SIM.DISEASE_SPAWN_CHANCE) {
+    spawnDisease(world);
+  }
+
   advanceDroughts(world);
   advanceFires(world);
+  advanceDiseases(world);
 
   // Decay scorched and parched cells
   for (const [key, remaining] of world.environment.scorchedCells) {
@@ -239,6 +433,10 @@ export function phaseEnvironment(world: World): void {
   for (const [key, remaining] of world.environment.parchedCells) {
     if (remaining <= 1) world.environment.parchedCells.delete(key);
     else world.environment.parchedCells.set(key, remaining - 1);
+  }
+  for (const [key, remaining] of world.environment.diseasedCells) {
+    if (remaining <= 1) world.environment.diseasedCells.delete(key);
+    else world.environment.diseasedCells.set(key, remaining - 1);
   }
 
   rebuildWeatherOverlay(world);

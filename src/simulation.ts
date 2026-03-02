@@ -5,7 +5,7 @@ import { phaseEnvironment } from './simulation/environment';
 
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants } from './simulation/plants';
-export { spawnFire } from './simulation/environment';
+export { spawnFire, spawnDisease } from './simulation/environment';
 
 // ── Simulation phases ──
 
@@ -116,9 +116,8 @@ function phaseUpdatePlants(world: World): void {
     // 3b. Photosynthesis
     const rawEnergy = cell.lightLevel * plant.leafArea * SIM.PHOTOSYNTHESIS_RATE;
     const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
-    const energyProduced = rawEnergy * waterFraction * nutrientBonus;
+    let energyProduced = rawEnergy * waterFraction * nutrientBonus;
     plant.lastLightReceived = cell.lightLevel;
-    plant.lastEnergyProduced = energyProduced;
 
     // 3c. Maintenance cost (with seasonal leaf penalty + root insulation)
     let leafMaint = plant.leafArea * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
@@ -128,10 +127,23 @@ function phaseUpdatePlants(world: World): void {
       const penalty = leafMaint - plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
       leafMaint -= penalty * rootInsulation;
     }
-    const maintenance = SIM.MAINTENANCE_BASE
+    let maintenance = SIM.MAINTENANCE_BASE
       + plant.height * SIM.MAINTENANCE_PER_HEIGHT
       + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
       + leafMaint;
+
+    // Disease penalty: reduced photosynthesis + energy drain
+    const cellKey = `${plant.x},${plant.y}`;
+    let isDiseased = false;
+    for (const disease of world.environment.diseases) {
+      if (disease.cells.has(cellKey)) { isDiseased = true; break; }
+    }
+    if (isDiseased) {
+      energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
+      maintenance += SIM.DISEASE_DRAIN_PER_TICK;
+    }
+
+    plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
 
     // 3d. Energy budget
@@ -211,10 +223,25 @@ function phaseDeath(world: World): void {
     if (!plant.alive) continue;
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= SIM.MAX_AGE) {
       plant.alive = false;
+
+      // Check if this plant is in a diseased cell
+      let cause: 'starvation' | 'age' | 'disease' = plant.age >= SIM.MAX_AGE ? 'age' : 'starvation';
+      if (cause === 'starvation') {
+        const cellKey = `${plant.x},${plant.y}`;
+        for (const disease of world.environment.diseases) {
+          if (disease.cells.has(cellKey)) {
+            cause = 'disease';
+            plant.causeOfDeath = 'disease';
+            disease.killCount++;
+            break;
+          }
+        }
+      }
+
       world.deathEvents.push({
         id: plant.id,
         speciesId: plant.speciesId,
-        cause: plant.age >= SIM.MAX_AGE ? 'age' : 'starvation',
+        cause,
         age: plant.age,
       });
     }

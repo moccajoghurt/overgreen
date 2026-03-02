@@ -81,6 +81,8 @@ export function updateInspector(world: World, controls: Controls): void {
   else if (overlayVal === 2) text += `  [BURNING]\n`;
   else if (overlayVal === 3) text += `  [SCORCHED]\n`;
   else if (overlayVal === 4) text += `  [PARCHED]\n`;
+  else if (overlayVal === 5) text += `  [DISEASED]\n`;
+  else if (overlayVal === 6) text += `  [BLIGHTED]\n`;
 
   if (cell.plantId !== null) {
     const plant = world.plants.get(cell.plantId);

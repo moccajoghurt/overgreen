@@ -24,6 +24,14 @@ function generateSpeciesColor(speciesId: number): SpeciesColor {
   return hsl2rgb(hue, s, l);
 }
 
+export function genomeDistance(a: Genome, b: Genome): number {
+  const dr = a.rootPriority - b.rootPriority;
+  const dh = a.heightPriority - b.heightPriority;
+  const dl = a.leafSize - b.leafSize;
+  const ds = a.seedInvestment - b.seedInvestment;
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds);
+}
+
 export function randomGenome(): Genome {
   return {
     rootPriority: 0.1 + Math.random() * 0.8,

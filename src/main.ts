@@ -1,5 +1,5 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES } from './types';
-import { createWorld, seedInitialPlants, tickWorld, spawnFire } from './simulation';
+import { createWorld, seedInitialPlants, tickWorld, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls, updateInspector } from './controls';
 import { createHistory, recordTick } from './history';
@@ -96,5 +96,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === 'd' || e.key === 'D') {
     diagLogger.downloadReport();
+  }
+  if (e.key === 'b' || e.key === 'B') {
+    const cx = Math.floor(world.width / 2);
+    const cy = Math.floor(world.height / 2);
+    spawnDisease(world, { x: cx, y: cy });
   }
 });

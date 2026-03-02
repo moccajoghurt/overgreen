@@ -13,6 +13,8 @@ const TYPE_STYLES: Record<SimEventType, string> = {
   drought_end: 'color:#fa4',
   fire_start: 'color:#f44; font-weight:bold',
   fire_end: 'color:#f84',
+  disease_start: 'color:#8b0; font-weight:bold',
+  disease_end: 'color:#8b0',
 };
 
 export function createEventTicker(container: HTMLElement) {

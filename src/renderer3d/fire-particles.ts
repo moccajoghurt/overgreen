@@ -1,6 +1,6 @@
 import {
   RendererState, HALF, GRID,
-  FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT,
+  FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   lerp,
 } from './state';
 
@@ -218,5 +218,92 @@ export function updateDroughtParticles(state: RendererState): void {
   if (dIdx > 0) {
     dustMesh.instanceMatrix.needsUpdate = true;
     dustMesh.instanceColor!.needsUpdate = true;
+  }
+}
+
+export function updateDiseaseParticles(state: RendererState): void {
+  const { world, dummy, camera, sporeMesh, sporeParticles, controls, getCellElevation } = state;
+  const env = world.environment;
+
+  if (env.diseases.length === 0) {
+    sporeMesh.count = 0;
+    return;
+  }
+
+  // Collect diseased cell positions near camera
+  const camTarget = controls.target;
+  const sources: Array<{ wx: number; wz: number; baseY: number }> = [];
+  const overlay = env.weatherOverlay;
+
+  const cx = Math.round(camTarget.x + HALF - 0.5);
+  const cz = Math.round(camTarget.z + HALF - 0.5);
+  const range = 20;
+  for (let dy = -range; dy <= range; dy += 2) {
+    for (let dx = -range; dx <= range; dx += 2) {
+      const gx = cx + dx;
+      const gy = cz + dy;
+      if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) continue;
+      if (overlay[gy * GRID + gx] === 5) {
+        sources.push({
+          wx: gx - HALF + 0.5,
+          wz: gy - HALF + 0.5,
+          baseY: getCellElevation(gx, gy),
+        });
+      }
+    }
+  }
+
+  if (sources.length === 0) {
+    sporeMesh.count = 0;
+    return;
+  }
+
+  const sMtx = sporeMesh.instanceMatrix.array as Float32Array;
+  const sClr = sporeMesh.instanceColor!.array as Float32Array;
+  let sIdx = 0;
+  const spawnRate = Math.min(sources.length * 2, SPORE_PARTICLE_COUNT);
+
+  for (let i = 0; i < SPORE_PARTICLE_COUNT; i++) {
+    const p = sporeParticles[i];
+    if (p.life <= 0 && i < spawnRate) {
+      const src = sources[Math.floor(Math.random() * sources.length)];
+      p.x = src.wx + (Math.random() - 0.5) * 0.6;
+      p.z = src.wz + (Math.random() - 0.5) * 0.6;
+      p.y = src.baseY + Math.random() * 0.4;
+      p.vx = (Math.random() - 0.5) * 0.004;
+      p.vy = 0.01 + Math.random() * 0.02;
+      p.vz = (Math.random() - 0.5) * 0.004;
+      p.maxLife = 1.5 + Math.random() * 1.0;
+      p.life = p.maxLife;
+    }
+    if (p.life <= 0) continue;
+
+    // Gentle sinusoidal wobble
+    p.x += p.vx + Math.sin(performance.now() * 0.003 + i * 1.7) * 0.002;
+    p.y += p.vy;
+    p.z += p.vz + Math.cos(performance.now() * 0.003 + i * 2.3) * 0.002;
+    p.life -= 0.008;
+    if (sIdx >= SPORE_PARTICLE_COUNT) continue;
+
+    dummy.position.set(p.x, p.y, p.z);
+    dummy.quaternion.copy(camera.quaternion);
+    const scale = 0.4 + (p.life / p.maxLife) * 0.6;
+    dummy.scale.setScalar(scale);
+    dummy.updateMatrix();
+    dummy.matrix.toArray(sMtx, sIdx * 16);
+
+    // Sickly yellow-green fading to dark brown
+    const t = 1 - (p.life / p.maxLife);
+    const ci = sIdx * 3;
+    sClr[ci]     = lerp(0.55, 0.35, t);
+    sClr[ci + 1] = lerp(0.65, 0.25, t);
+    sClr[ci + 2] = lerp(0.15, 0.08, t);
+    sIdx++;
+  }
+
+  sporeMesh.count = sIdx;
+  if (sIdx > 0) {
+    sporeMesh.instanceMatrix.needsUpdate = true;
+    sporeMesh.instanceColor!.needsUpdate = true;
   }
 }

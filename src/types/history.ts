@@ -25,7 +25,9 @@ export type SimEventType =
   | 'drought_start'
   | 'drought_end'
   | 'fire_start'
-  | 'fire_end';
+  | 'fire_end'
+  | 'disease_start'
+  | 'disease_end';
 
 export interface SimEvent {
   tick: number;

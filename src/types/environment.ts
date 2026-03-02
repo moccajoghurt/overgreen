@@ -30,6 +30,16 @@ export interface FireEvent {
   ticksRemaining: number;    // overall fire duration (controls spreading)
 }
 
+export interface DiseaseEvent {
+  targetGenome: { rootPriority: number; heightPriority: number; leafSize: number; seedInvestment: number };
+  cells: Map<string, number>; // "x,y" -> ticks remaining per cell
+  ticksRemaining: number;
+  originX: number;
+  originY: number;
+  patientZeroSpeciesId: number;
+  killCount: number;
+}
+
 export interface Environment {
   season: Season;
   seasonProgress: number; // 0-1 within current season
@@ -39,12 +49,14 @@ export interface Environment {
   leafMaintenanceMult: number;
   droughts: DroughtPatch[];
   fires: FireEvent[];
+  diseases: DiseaseEvent[];
   scorchedCells: Map<string, number>; // "x,y" -> ticks remaining
   parchedCells: Map<string, number>;  // "x,y" -> ticks remaining
-  weatherOverlay: Uint8Array; // GRID_WIDTH * GRID_HEIGHT, 0=normal 1=drought 2=burning 3=scorched 4=parched
+  diseasedCells: Map<string, number>; // "x,y" -> ticks remaining (blight scar)
+  weatherOverlay: Uint8Array; // GRID_WIDTH * GRID_HEIGHT, 0=normal 1=drought 2=burning 3=scorched 4=parched 5=diseased 6=blight scar
 }
 
 export interface EnvironmentEvent {
-  type: 'season_change' | 'drought_start' | 'drought_end' | 'fire_start' | 'fire_end';
+  type: 'season_change' | 'drought_start' | 'drought_end' | 'fire_start' | 'fire_end' | 'disease_start' | 'disease_end';
   message: string;
 }

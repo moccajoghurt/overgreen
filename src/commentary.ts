@@ -11,6 +11,7 @@ function shouldShow(event: SimEvent): boolean {
     case 'extinction': return true;
     case 'fire_start': return true;
     case 'drought_start': return true;
+    case 'disease_start': return true;
     case 'season_change': return true;
     case 'population_record': {
       const m = event.message.match(/reached (\d+)/);
@@ -29,7 +30,8 @@ function isGeneral(event: SimEvent): boolean {
   return event.type === 'season_change'
     || event.type === 'mass_extinction'
     || event.type === 'drought_end'
-    || event.type === 'fire_end';
+    || event.type === 'fire_end'
+    || event.type === 'disease_end';
 }
 
 /** Parse "(x, y)" coordinates from event message */
@@ -42,6 +44,7 @@ function accentColor(event: SimEvent, speciesColors: Map<number, SpeciesColor>):
   if (event.type === 'mass_extinction') return '#f44';
   if (event.type === 'fire_start' || event.type === 'fire_end') return '#f80';
   if (event.type === 'drought_start' || event.type === 'drought_end') return '#c90';
+  if (event.type === 'disease_start' || event.type === 'disease_end') return '#8b0';
   if (event.type === 'season_change') return '#8cf';
   if (event.speciesId != null) {
     const sc = speciesColors.get(event.speciesId);
@@ -131,7 +134,7 @@ export function createCommentary(container: HTMLElement) {
     item.style.transform = 'translate(-50%, -100%)';
     posOverlay.appendChild(item);
 
-    const holdMs = 3500;
+    const holdMs = (event.type === 'fire_start' || event.type === 'disease_start') ? 5000 : 3500;
     const tracked: PositionedItem = {
       el: item,
       gridX,
@@ -149,7 +152,7 @@ export function createCommentary(container: HTMLElement) {
   }
 
   function scheduleRemoval(item: HTMLElement, event: SimEvent): void {
-    const holdMs = (event.type === 'mass_extinction' || event.type === 'fire_start') ? 5000 : 3500;
+    const holdMs = (event.type === 'mass_extinction' || event.type === 'fire_start' || event.type === 'disease_start') ? 5000 : 3500;
     const fadeMs = 600;
     setTimeout(() => {
       item.style.animation = `commentary-out ${fadeMs}ms ease-in forwards`;
@@ -211,7 +214,7 @@ export function createCommentary(container: HTMLElement) {
           }
 
           // Location-based events (fire, drought): parse coords from message
-          if (!pos && (evt.type === 'fire_start' || evt.type === 'drought_start')) {
+          if (!pos && (evt.type === 'fire_start' || evt.type === 'drought_start' || evt.type === 'disease_start')) {
             pos = parseMessageCoords(evt.message);
           }
 

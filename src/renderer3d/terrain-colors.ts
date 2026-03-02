@@ -133,6 +133,20 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.r = lerp(tmpColor.r, 0.55, blend);
         tmpColor.g = lerp(tmpColor.g, 0.42, blend);
         tmpColor.b = lerp(tmpColor.b, 0.28, blend);
+      } else if (overlayVal === 5) {
+        // Active disease: sickly yellow-green
+        tmpColor.r = lerp(tmpColor.r, 0.45, 0.5);
+        tmpColor.g = lerp(tmpColor.g, 0.50, 0.5);
+        tmpColor.b = lerp(tmpColor.b, 0.08, 0.5);
+      } else if (overlayVal === 6) {
+        // Blight scar: fading pale sickly
+        const key = `${col},${row}`;
+        const remaining = env.diseasedCells.get(key) ?? 0;
+        const intensity = Math.min(1, remaining / SIM.DISEASE_SCAR_DURATION);
+        const blend = 0.35 * intensity;
+        tmpColor.r = lerp(tmpColor.r, 0.40, blend);
+        tmpColor.g = lerp(tmpColor.g, 0.42, blend);
+        tmpColor.b = lerp(tmpColor.b, 0.12, blend);
       }
 
       // 6 vertices per cell, 3 floats per vertex

@@ -1,4 +1,4 @@
-import { Genome } from '../types';
+import { Genome, GRID_WIDTH } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
@@ -250,8 +250,15 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
-    const { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
+    let { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
     const baseY = getCellElevation(plant.x, plant.y);
+
+    // Desaturate diseased plant canopies toward sickly yellow-brown
+    if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === 5) {
+      cr = lerp(cr, 0.50, 0.45);
+      cg = lerp(cg, 0.45, 0.45);
+      cb = lerp(cb, 0.10, 0.45);
+    }
 
     writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0,
       trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);

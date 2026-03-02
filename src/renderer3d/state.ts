@@ -18,6 +18,7 @@ export const WEATHER_PARTICLE_COUNT = 300;
 export const WEATHER_SPREAD = 50;
 export const FIRE_PARTICLE_COUNT = 400;
 export const DUST_PARTICLE_COUNT = 300;
+export const SPORE_PARTICLE_COUNT = 250;
 
 // ── Animation interfaces ──
 
@@ -25,7 +26,7 @@ export interface PlantSnapshot {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
-  causeOfDeath?: 'fire';
+  causeOfDeath?: 'fire' | 'disease';
 }
 
 export interface DyingPlant extends PlantSnapshot {
@@ -114,9 +115,11 @@ export interface RendererState {
   fireMesh: THREE.InstancedMesh;
   emberMesh: THREE.InstancedMesh;
   dustMesh: THREE.InstancedMesh;
+  sporeMesh: THREE.InstancedMesh;
   fireParticles: EventParticle[];
   emberParticles: EventParticle[];
   dustParticles: EventParticle[];
+  sporeParticles: EventParticle[];
 }
 
 // ── Pure helpers ──

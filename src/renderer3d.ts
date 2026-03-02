@@ -4,13 +4,13 @@ import { World, Renderer, Season } from './types';
 import {
   RendererState, WeatherParticle, EventParticle,
   GRID, HALF, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS,
-  WEATHER_PARTICLE_COUNT, FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT,
+  WEATHER_PARTICLE_COUNT, FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   makeRoughSphere,
 } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
-import { updateFireParticles, updateDroughtParticles } from './renderer3d/fire-particles';
+import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } from './renderer3d/fire-particles';
 
 export function createRenderer3D(
   container: HTMLElement,
@@ -217,6 +217,11 @@ export function createRenderer3D(
     new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.6 }),
     DUST_PARTICLE_COUNT,
   );
+  const sporeMesh = createParticleMesh(
+    new THREE.CircleGeometry(0.04, 5),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.7 }),
+    SPORE_PARTICLE_COUNT,
+  );
 
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
@@ -300,9 +305,11 @@ export function createRenderer3D(
     fireMesh,
     emberMesh,
     dustMesh,
+    sporeMesh,
     fireParticles: makeEventParticlePool(FIRE_PARTICLE_COUNT),
     emberParticles: makeEventParticlePool(FIRE_PARTICLE_COUNT),
     dustParticles: makeEventParticlePool(DUST_PARTICLE_COUNT),
+    sporeParticles: makeEventParticlePool(SPORE_PARTICLE_COUNT),
   };
 
   // ═══════════════════════════════════════════════════════
@@ -322,6 +329,7 @@ export function createRenderer3D(
     updateWeatherParticles(state);
     updateFireParticles(state);
     updateDroughtParticles(state);
+    updateDiseaseParticles(state);
 
     if (selectedCell) {
       selectMesh.visible = true;

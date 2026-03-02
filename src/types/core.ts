@@ -32,7 +32,7 @@ export interface Plant {
   age: number;
   genome: Genome;
   alive: boolean;
-  causeOfDeath?: 'fire';
+  causeOfDeath?: 'fire' | 'disease';
   lastLightReceived: number;
   lastWaterAbsorbed: number;
   lastEnergyProduced: number;
@@ -73,7 +73,7 @@ export interface World {
 export interface DeathEvent {
   id: number;
   speciesId: number;
-  cause: 'starvation' | 'age' | 'fire';
+  cause: 'starvation' | 'age' | 'fire' | 'disease';
   age: number;
 }
 
