@@ -1,4 +1,6 @@
 import { World, SpeciesColor, Renderer } from './types';
+import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { createFloatingLabels } from './floating-labels';
 
 const TRAITS = [
   { key: 'rootPriority' as const, label: 'Root', color: '#c96' },
@@ -7,20 +9,6 @@ const TRAITS = [
   { key: 'seedInvestment' as const, label: 'Seed', color: '#c6c' },
 ];
 
-const LABEL_HOLD_MS = 5000;
-const LABEL_FADE_MS = 600;
-
-interface FloatingLabel {
-  el: HTMLElement;
-  gridX: number;
-  gridY: number;
-  expireTime: number;
-  fadeStarted: boolean;
-}
-
-function scToRgb(sc: SpeciesColor): string {
-  return `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`;
-}
 
 /** Convert short hex like #c96 to rgba with alpha */
 function hexToRgba(hex: string, alpha: number): string {
@@ -65,14 +53,10 @@ export function createGenomePanel(
 
   container.appendChild(wrapper);
 
-  // Floating label overlay
-  const labelOverlay = document.createElement('div');
-  labelOverlay.style.cssText = `
-    position:absolute; top:0; left:0; width:100%; height:100%;
-    pointer-events:none; z-index:11; overflow:hidden;
-  `;
-  mapContainer.appendChild(labelOverlay);
-  const activeLabels: FloatingLabel[] = [];
+  // Floating labels
+  const labels = createFloatingLabels(mapContainer, renderer, {
+    zIndex: 11, holdMs: 5000, fadeMs: 600, animPrefix: 'genome-label', maxLabels: 0,
+  });
 
   // Inject styles
   const style = document.createElement('style');
@@ -117,62 +101,16 @@ export function createGenomePanel(
     }
     .genome-count-header:hover { color:#aaa !important; }
     .genome-count-header.active { border-bottom-color:#888; color:#ccc !important; }
-    @keyframes genome-label-in {
-      from { opacity:0; transform:translate(-50%, -100%) translateY(6px); }
-      to   { opacity:1; transform:translate(-50%, -100%) translateY(0); }
-    }
-    @keyframes genome-label-out {
-      from { opacity:1; }
-      to   { opacity:0; }
-    }
   `;
   document.head.appendChild(style);
 
-  function speciesCentroid(world: World, speciesId: number): { x: number; y: number } | null {
-    let sx = 0, sy = 0, count = 0;
-    for (const plant of world.plants.values()) {
-      if (plant.alive && plant.speciesId === speciesId) {
-        sx += plant.x;
-        sy += plant.y;
-        count++;
-      }
-    }
-    return count > 0 ? { x: sx / count, y: sy / count } : null;
-  }
-
-  function showLabel(name: string, rgb: string, gridX: number, gridY: number): void {
-    for (let i = activeLabels.length - 1; i >= 0; i--) {
-      activeLabels[i].el.remove();
-      activeLabels.splice(i, 1);
-    }
-
-    const el = document.createElement('div');
-    el.style.cssText = `
-      position:absolute; transform:translate(-50%, -100%);
-      background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
-      border-left:3px solid ${rgb};
-      padding:5px 10px; border-radius:0 4px 4px 0;
-      color:${rgb}; font-family:monospace; font-size:13px; font-weight:bold;
-      text-shadow:0 1px 3px rgba(0,0,0,0.7);
-      white-space:nowrap;
-      animation:genome-label-in 0.3s ease-out;
-    `;
-    el.textContent = name;
-    labelOverlay.appendChild(el);
-
-    activeLabels.push({
-      el, gridX, gridY,
-      expireTime: performance.now() + LABEL_HOLD_MS,
-      fadeStarted: false,
-    });
-  }
 
   function handleRowClick(speciesId: number, name: string, color: SpeciesColor): void {
     if (!lastWorld) return;
     const pos = speciesCentroid(lastWorld, speciesId);
     if (!pos) return;
     renderer.moveTo(pos.x, pos.y);
-    showLabel(name, scToRgb(color), pos.x, pos.y);
+    labels.show(name, speciesColorToRgb(color), pos.x, pos.y);
   }
 
   // Track rows so we can update in-place instead of recreating DOM
@@ -188,7 +126,7 @@ export function createGenomePanel(
     rowSpeciesOrder = [];
 
     for (const sp of data) {
-      const rgb = scToRgb(sp.color);
+      const rgb = speciesColorToRgb(sp.color);
       const row = document.createElement('div');
       row.className = 'genome-row';
       row.addEventListener('click', () => handleRowClick(sp.speciesId, sp.name, sp.color));
@@ -281,29 +219,7 @@ export function createGenomePanel(
   function update(world: World): void {
     lastWorld = world;
 
-    // Update floating labels every frame
-    const now = performance.now();
-    for (let i = activeLabels.length - 1; i >= 0; i--) {
-      const label = activeLabels[i];
-      if (now >= label.expireTime && !label.fadeStarted) {
-        label.fadeStarted = true;
-        label.el.style.animation = `genome-label-out ${LABEL_FADE_MS}ms ease-in forwards`;
-        setTimeout(() => {
-          label.el.remove();
-          const idx = activeLabels.indexOf(label);
-          if (idx >= 0) activeLabels.splice(idx, 1);
-        }, LABEL_FADE_MS);
-        continue;
-      }
-      const screen = renderer.projectToScreen(label.gridX, label.gridY);
-      if (screen) {
-        label.el.style.left = `${screen.x}px`;
-        label.el.style.top = `${screen.y}px`;
-        label.el.style.display = '';
-      } else {
-        label.el.style.display = 'none';
-      }
-    }
+    labels.updatePositions();
 
     // Rebuild table on new ticks
     if (world.tick === lastRenderedTick) return;
@@ -380,7 +296,7 @@ export function createGenomePanel(
 
   function destroy(): void {
     wrapper.remove();
-    labelOverlay.remove();
+    labels.destroy();
     style.remove();
   }
 

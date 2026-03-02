@@ -1,4 +1,6 @@
 import { History, SpeciesColor, SimEvent, World, Renderer } from './types';
+import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { createFloatingLabels } from './floating-labels';
 
 const MAX_GENERAL = 2;
 const MAX_POSITIONED = 4;
@@ -14,6 +16,9 @@ function shouldShow(event: SimEvent): boolean {
     case 'disease_start': return true;
     case 'season_change': return true;
     case 'era_change': return true;
+    case 'herbivore_spawn': return true;
+    case 'herbivore_boom': return true;
+    case 'herbivore_crash': return true;
     case 'population_record': {
       const m = event.message.match(/reached (\d+)/);
       return m ? parseInt(m[1]) >= 100 : false;
@@ -33,7 +38,10 @@ function isGeneral(event: SimEvent): boolean {
     || event.type === 'mass_extinction'
     || event.type === 'drought_end'
     || event.type === 'fire_end'
-    || event.type === 'disease_end';
+    || event.type === 'disease_end'
+    || event.type === 'herbivore_spawn'
+    || event.type === 'herbivore_boom'
+    || event.type === 'herbivore_crash';
 }
 
 /** Parse "(x, y)" coordinates from event message */
@@ -48,10 +56,12 @@ function accentColor(event: SimEvent, speciesColors: Map<number, SpeciesColor>):
   if (event.type === 'fire_start' || event.type === 'fire_end') return '#f80';
   if (event.type === 'drought_start' || event.type === 'drought_end') return '#c90';
   if (event.type === 'disease_start' || event.type === 'disease_end') return '#8b0';
+  if (event.type === 'herbivore_spawn' || event.type === 'herbivore_boom') return '#c86';
+  if (event.type === 'herbivore_crash') return '#a54';
   if (event.type === 'season_change') return '#8cf';
   if (event.speciesId != null) {
     const sc = speciesColors.get(event.speciesId);
-    if (sc) return `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`;
+    if (sc) return speciesColorToRgb(sc);
   }
   return '#d4a030';
 }
@@ -66,18 +76,10 @@ const ITEM_CSS = `
   animation:commentary-in 0.4s ease-out;
 `;
 
-interface PositionedItem {
-  el: HTMLElement;
-  gridX: number;
-  gridY: number;
-  expireTime: number;
-  fadeStarted: boolean;
-}
-
 export function createCommentary(container: HTMLElement) {
   let lastEventSeq = 0;
   let lastShowTime = 0;
-  const positionedItems: PositionedItem[] = [];
+  let posLabels: ReturnType<typeof createFloatingLabels> | null = null;
 
   // General commentary: top-center
   const topOverlay = document.createElement('div');
@@ -88,23 +90,11 @@ export function createCommentary(container: HTMLElement) {
   `;
   container.appendChild(topOverlay);
 
-  // Positioned commentary: full container for absolute placement
-  const posOverlay = document.createElement('div');
-  posOverlay.style.cssText = `
-    position:absolute; top:0; left:0; width:100%; height:100%;
-    pointer-events:none; z-index:10; overflow:hidden;
-  `;
-  container.appendChild(posOverlay);
-
   const style = document.createElement('style');
   style.textContent = `
     @keyframes commentary-in {
       from { opacity:0; transform:translateY(8px); }
       to   { opacity:1; transform:translateY(0); }
-    }
-    @keyframes commentary-out {
-      from { opacity:1; }
-      to   { opacity:0; }
     }
   `;
   document.head.appendChild(style);
@@ -132,26 +122,10 @@ export function createCommentary(container: HTMLElement) {
     gridX: number,
     gridY: number,
   ): void {
+    if (!posLabels) return;
     const item = makeItem(event, speciesColors);
-    item.style.position = 'absolute';
-    item.style.transform = 'translate(-50%, -100%)';
-    posOverlay.appendChild(item);
-
     const holdMs = (event.type === 'fire_start' || event.type === 'disease_start') ? 5000 : 3500;
-    const tracked: PositionedItem = {
-      el: item,
-      gridX,
-      gridY,
-      expireTime: performance.now() + holdMs,
-      fadeStarted: false,
-    };
-    positionedItems.push(tracked);
-
-    // Limit positioned items
-    while (positionedItems.length > MAX_POSITIONED) {
-      const old = positionedItems.shift()!;
-      old.el.remove();
-    }
+    posLabels.showElement(item, gridX, gridY, holdMs);
   }
 
   function scheduleRemoval(item: HTMLElement, event: SimEvent): void {
@@ -163,18 +137,6 @@ export function createCommentary(container: HTMLElement) {
     }, holdMs);
   }
 
-  /** Find average grid position of a species' alive plants */
-  function speciesCentroid(world: World, speciesId: number): { x: number; y: number } | null {
-    let sx = 0, sy = 0, count = 0;
-    for (const plant of world.plants.values()) {
-      if (plant.alive && plant.speciesId === speciesId) {
-        sx += plant.x;
-        sy += plant.y;
-        count++;
-      }
-    }
-    return count > 0 ? { x: sx / count, y: sy / count } : null;
-  }
 
   /** Find a specific plant by ID (parsed from message) */
   function findPlantPosition(world: World, event: SimEvent): { x: number; y: number } | null {
@@ -192,6 +154,13 @@ export function createCommentary(container: HTMLElement) {
     world: World,
     renderer: Renderer,
   ): void {
+    // Lazily create positioned labels (needs renderer)
+    if (!posLabels) {
+      posLabels = createFloatingLabels(container, renderer, {
+        zIndex: 10, holdMs: 3500, fadeMs: 600, animPrefix: 'commentary', maxLabels: MAX_POSITIONED,
+      });
+    }
+
     const events = history.events;
 
     // Process new events
@@ -238,38 +207,12 @@ export function createCommentary(container: HTMLElement) {
       }
     }
 
-    // Update positioned items: project to screen + handle expiry
-    const now = performance.now();
-    for (let i = positionedItems.length - 1; i >= 0; i--) {
-      const item = positionedItems[i];
-
-      // Fade out when expired
-      if (now >= item.expireTime && !item.fadeStarted) {
-        item.fadeStarted = true;
-        item.el.style.animation = 'commentary-out 600ms ease-in forwards';
-        setTimeout(() => {
-          item.el.remove();
-          const idx = positionedItems.indexOf(item);
-          if (idx >= 0) positionedItems.splice(idx, 1);
-        }, 600);
-        continue;
-      }
-
-      // Project grid position to screen
-      const screen = renderer.projectToScreen(item.gridX, item.gridY);
-      if (screen) {
-        item.el.style.left = `${screen.x}px`;
-        item.el.style.top = `${screen.y}px`;
-        item.el.style.display = '';
-      } else {
-        item.el.style.display = 'none';
-      }
-    }
+    posLabels.updatePositions();
   }
 
   function destroy(): void {
     topOverlay.remove();
-    posOverlay.remove();
+    posLabels?.destroy();
     style.remove();
   }
 

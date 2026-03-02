@@ -10,6 +10,7 @@ import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
 import { createTerrain, createPlantMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 
 export function createRenderer3D(
   container: HTMLElement,
@@ -53,6 +54,10 @@ export function createRenderer3D(
   scene.add(weather.rainMesh);
   scene.add(weather.moteMesh);
   scene.add(weather.leafMesh);
+
+  // ── Herbivores ──
+  const herbivoreMesh = createHerbivoreMesh();
+  scene.add(herbivoreMesh);
 
   // ── Event particles (fire, ember, dust, spore) ──
   const events = createEventMeshes();
@@ -137,6 +142,9 @@ export function createRenderer3D(
     lastPlantTick: -1,
     ...weather,
     ...events,
+    herbivoreMesh,
+    prevHerbivoreSnapshots: new Map(),
+    dyingHerbivores: new Map(),
     skyDome,
     ambientLight,
     dirLight,
@@ -200,6 +208,7 @@ export function createRenderer3D(
     updatePlants(state);
     updateSeeds(state);
     updateWeatherParticles(state);
+    updateHerbivores(state);
     updateFireParticles(state);
     updateDroughtParticles(state);
     updateDiseaseParticles(state);

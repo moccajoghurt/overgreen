@@ -4,6 +4,7 @@ export interface TickSnapshot {
   tick: number;
   populations: Map<number, number>; // speciesId → alive count
   traitAverages: { root: number; height: number; leaf: number; seed: number };
+  herbivoreCount: number;
 }
 
 export interface SpeciesRecord {
@@ -28,7 +29,10 @@ export type SimEventType =
   | 'fire_start'
   | 'fire_end'
   | 'disease_start'
-  | 'disease_end';
+  | 'disease_end'
+  | 'herbivore_spawn'
+  | 'herbivore_boom'
+  | 'herbivore_crash';
 
 export interface SimEvent {
   tick: number;
@@ -46,4 +50,5 @@ export interface History {
   prevDominant: number | null;
   firedAgeMilestones: Set<string>; // "speciesId-threshold"
   firedPopMilestones: Set<string>; // "speciesId-threshold"
+  prevHerbivoreCount: number;
 }

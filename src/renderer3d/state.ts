@@ -5,6 +5,7 @@ import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
 import type { RockFormations } from './rocks';
+import type { HerbivoreSnapshot, DyingHerbivore } from './herbivores';
 
 // ── Constants ──
 
@@ -146,6 +147,11 @@ export interface RendererState {
 
   // Rock formations
   rockFormations: RockFormations;
+
+  // Herbivores
+  herbivoreMesh: THREE.InstancedMesh;
+  prevHerbivoreSnapshots: Map<number, HerbivoreSnapshot>;
+  dyingHerbivores: Map<number, DyingHerbivore>;
 }
 
 // ── Pure helpers ──

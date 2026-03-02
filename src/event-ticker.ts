@@ -16,6 +16,9 @@ const TYPE_STYLES: Record<SimEventType, string> = {
   fire_end: 'color:#f84',
   disease_start: 'color:#8b0; font-weight:bold',
   disease_end: 'color:#8b0',
+  herbivore_spawn: 'color:#c86; font-weight:bold',
+  herbivore_boom: 'color:#e90',
+  herbivore_crash: 'color:#a54',
 };
 
 export function createEventTicker(container: HTMLElement) {

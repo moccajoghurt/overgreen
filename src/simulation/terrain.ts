@@ -203,5 +203,7 @@ export function createWorld(width: number, height: number): World {
     speciesColors: new Map(), speciesNames: new Map(),
     seedEvents: [], fireDeathEvents: [], deathEvents: [], seedsAttempted: 0,
     environment: createEnvironment(), environmentEvents: [],
+    herbivores: new Map(), nextHerbivoreId: 1,
+    herbivoreDeathEvents: [], herbivoreBirthEvents: [],
   };
 }

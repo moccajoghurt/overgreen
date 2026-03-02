@@ -18,6 +18,7 @@ export function createHistory(): History {
     prevDominant: null,
     firedAgeMilestones: new Set(),
     firedPopMilestones: new Set(),
+    prevHerbivoreCount: 0,
   };
 }
 
@@ -147,8 +148,14 @@ function detectAgeMilestones(history: History, world: World): void {
 export function recordTick(history: History, world: World): void {
   const { populations, totalAlive, traitAverages } = countPopulations(world);
 
+  // Count herbivores
+  let herbivoreCount = 0;
+  for (const h of world.herbivores.values()) {
+    if (h.alive) herbivoreCount++;
+  }
+
   // Store snapshot (ring buffer)
-  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages });
+  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, herbivoreCount });
   if (history.snapshots.length > MAX_SNAPSHOTS) {
     history.snapshots.shift();
   }
@@ -203,6 +210,31 @@ export function recordTick(history: History, world: World): void {
       message: envEvt.message,
     });
   }
+
+  // Herbivore events
+  const prevH = history.prevHerbivoreCount;
+  if (prevH === 0 && herbivoreCount > 0) {
+    pushEvent(history, {
+      tick: world.tick,
+      type: 'herbivore_spawn',
+      message: `A herd of deer appeared (${herbivoreCount})`,
+    });
+  }
+  if (prevH < 50 && herbivoreCount >= 50) {
+    pushEvent(history, {
+      tick: world.tick,
+      type: 'herbivore_boom',
+      message: `Deer population booming (${herbivoreCount})`,
+    });
+  }
+  if (prevH > 20 && herbivoreCount < prevH * 0.5) {
+    pushEvent(history, {
+      tick: world.tick,
+      type: 'herbivore_crash',
+      message: `Deer population crashed to ${herbivoreCount}`,
+    });
+  }
+  history.prevHerbivoreCount = herbivoreCount;
 
   // Save for next tick
   history.prevPopulations = populations;

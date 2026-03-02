@@ -105,5 +105,15 @@ export function updateInspector(world: World, controls: Controls): void {
     }
   }
 
+  // Herbivores at this cell
+  for (const h of world.herbivores.values()) {
+    if (h.x === x && h.y === y && h.alive) {
+      text += `\n\n[Deer #${h.id}]  Age: ${h.age}`;
+      text += `\nEnergy: ${h.energy.toFixed(1)}`;
+      text += `\nGenome: Spd=${h.genome.speed.toFixed(2)} App=${h.genome.appetite.toFixed(2)} Hrd=${h.genome.herdInstinct.toFixed(2)} Rep=${h.genome.reproduction.toFixed(2)}`;
+      text += `\nGrazed +${h.lastEnergyGained.toFixed(2)}  Maint -${h.lastMaintenanceCost.toFixed(2)}`;
+    }
+  }
+
   el.textContent = text;
 }

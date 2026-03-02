@@ -3,6 +3,7 @@ import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import { mutateGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
 import { getEffectiveEraMultipliers } from './simulation/eras';
+import { phaseHerbivores } from './simulation/herbivores';
 
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants } from './simulation/plants';
@@ -28,7 +29,7 @@ function phaseRechargeWater(world: World): void {
         if (dist2 < r2) {
           const falloff = 1 - Math.sqrt(dist2) / d.radius;
           recharge *= 1 - falloff * d.intensity;
-          cell.waterLevel = Math.max(0, cell.waterLevel - falloff * 0.3);
+          cell.waterLevel = Math.max(0, cell.waterLevel - falloff * SIM.DROUGHT_EVAPORATION_RATE);
         }
       }
 
@@ -163,7 +164,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
   }
 
   // Seed spawning — taller plants disperse further
-  const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / 3);
+  const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / SIM.SEED_RANGE_HEIGHT_DIVISOR);
   const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
   for (let i = 0; i < seedsToSpawn; i++) {
     world.seedsAttempted++;
@@ -184,7 +185,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
       energy: SIM.SEED_INITIAL_ENERGY * eraSeedEnergyMult, age: 0, alive: true,
       genome: mutateGenome(plant.genome, eraMutationRate),
       lastLightReceived: 0, lastWaterAbsorbed: 0,
-      lastEnergyProduced: 0, lastMaintenanceCost: 0,
+      lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
     };
     world.plants.set(childId, child);
     world.grid[ty][tx].plantId = childId;
@@ -208,12 +209,13 @@ function phaseUpdatePlants(world: World): void {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
 
-    // Check disease status once
+    // Check disease status once and store on plant
     const cellKey = `${plant.x},${plant.y}`;
     let isDiseased = false;
     for (const disease of world.environment.diseases) {
       if (disease.cells.has(cellKey)) { isDiseased = true; break; }
     }
+    plant.isDiseased = isDiseased;
 
     const waterFraction = absorbWater(plant, cell, world);
     const energyProduced = photosynthesize(plant, cell, waterFraction, isDiseased);
@@ -242,14 +244,13 @@ function phaseDeath(world: World): void {
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= SIM.MAX_AGE) {
       plant.alive = false;
 
-      // Check if this plant is in a diseased cell
+      // Use disease flag computed in phaseUpdatePlants
       let cause: 'starvation' | 'age' | 'disease' = plant.age >= SIM.MAX_AGE ? 'age' : 'starvation';
-      if (cause === 'starvation') {
-        const cellKey = `${plant.x},${plant.y}`;
+      if (cause === 'starvation' && plant.isDiseased) {
+        cause = 'disease';
+        plant.causeOfDeath = 'disease';
         for (const disease of world.environment.diseases) {
-          if (disease.cells.has(cellKey)) {
-            cause = 'disease';
-            plant.causeOfDeath = 'disease';
+          if (disease.cells.has(`${plant.x},${plant.y}`)) {
             disease.killCount++;
             break;
           }
@@ -291,6 +292,7 @@ export function tickWorld(world: World): void {
   phaseRechargeWater(world);
   phaseCalculateLight(world);
   phaseUpdatePlants(world);
+  phaseHerbivores(world);
   phaseDeath(world);
   phaseDecomposition(world);
   world.tick++;

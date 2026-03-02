@@ -1,4 +1,5 @@
 import { Environment, EnvironmentEvent } from './environment';
+import { Herbivore, HerbivoreDeathEvent, HerbivoreBirthEvent } from './herbivore';
 
 export enum TerrainType {
   Soil = 0,
@@ -37,6 +38,7 @@ export interface Plant {
   lastWaterAbsorbed: number;
   lastEnergyProduced: number;
   lastMaintenanceCost: number;
+  isDiseased: boolean;
 }
 
 export interface Cell {
@@ -68,6 +70,10 @@ export interface World {
   seedsAttempted: number;
   environment: Environment;
   environmentEvents: EnvironmentEvent[];
+  herbivores: Map<number, Herbivore>;
+  nextHerbivoreId: number;
+  herbivoreDeathEvents: HerbivoreDeathEvent[];
+  herbivoreBirthEvents: HerbivoreBirthEvent[];
 }
 
 export interface DeathEvent {

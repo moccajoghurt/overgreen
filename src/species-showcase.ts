@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { World, Plant, Renderer } from './types';
 import { computeSilhouette, plantHash, makeRoughSphere } from './renderer3d/state';
 import { naturalCanopyColor, naturalTrunkColor } from './renderer3d/plants';
+import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { createFloatingLabels } from './floating-labels';
 
 // ── Constants ──
 
@@ -9,8 +11,6 @@ const CANVAS_SIZE = 100;
 const RENDER_SIZE = 128;
 const UPDATE_EVERY_N_TICKS = 10;
 const MAX_REBUILDS_PER_UPDATE = 3;
-const LABEL_HOLD_MS = 5000;
-const LABEL_FADE_MS = 600;
 
 // ── Types ──
 
@@ -33,14 +33,6 @@ interface CachedEntry {
 }
 
 // ── Showcase ──
-
-interface FloatingLabel {
-  el: HTMLElement;
-  gridX: number;
-  gridY: number;
-  expireTime: number;
-  fadeStarted: boolean;
-}
 
 export function createShowcase(
   container: HTMLElement,
@@ -90,66 +82,11 @@ export function createShowcase(
   const listEl = document.createElement('div');
   container.appendChild(listEl);
 
-  // Floating label overlay (on the map canvas)
-  const labelOverlay = document.createElement('div');
-  labelOverlay.style.cssText = `
-    position:absolute; top:0; left:0; width:100%; height:100%;
-    pointer-events:none; z-index:12; overflow:hidden;
-  `;
-  mapContainer.appendChild(labelOverlay);
-  const activeLabels: FloatingLabel[] = [];
+  // Floating labels
+  const labels = createFloatingLabels(mapContainer, renderer, {
+    zIndex: 12, holdMs: 5000, fadeMs: 600, animPrefix: 'showcase-label', maxLabels: 0,
+  });
   let lastWorld: World | null = null;
-
-  // Inject label animation styles
-  const styleEl = document.createElement('style');
-  styleEl.textContent = `
-    @keyframes showcase-label-in {
-      from { opacity:0; transform:translate(-50%, -100%) translateY(6px); }
-      to   { opacity:1; transform:translate(-50%, -100%) translateY(0); }
-    }
-    @keyframes showcase-label-out {
-      from { opacity:1; }
-      to   { opacity:0; }
-    }
-  `;
-  document.head.appendChild(styleEl);
-
-  function speciesCentroid(world: World, speciesId: number): { x: number; y: number } | null {
-    let sx = 0, sy = 0, count = 0;
-    for (const plant of world.plants.values()) {
-      if (plant.alive && plant.speciesId === speciesId) {
-        sx += plant.x;
-        sy += plant.y;
-        count++;
-      }
-    }
-    return count > 0 ? { x: sx / count, y: sy / count } : null;
-  }
-
-  function showLabel(name: string, rgb: string, gridX: number, gridY: number): void {
-    for (let i = activeLabels.length - 1; i >= 0; i--) {
-      activeLabels[i].el.remove();
-      activeLabels.splice(i, 1);
-    }
-    const el = document.createElement('div');
-    el.style.cssText = `
-      position:absolute; transform:translate(-50%, -100%);
-      background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
-      border-left:3px solid ${rgb};
-      padding:5px 10px; border-radius:0 4px 4px 0;
-      color:${rgb}; font-family:monospace; font-size:13px; font-weight:bold;
-      text-shadow:0 1px 3px rgba(0,0,0,0.7);
-      white-space:nowrap;
-      animation:showcase-label-in 0.3s ease-out;
-    `;
-    el.textContent = name;
-    labelOverlay.appendChild(el);
-    activeLabels.push({
-      el, gridX, gridY,
-      expireTime: performance.now() + LABEL_HOLD_MS,
-      fadeStarted: false,
-    });
-  }
 
   function handleEntryClick(speciesId: number): void {
     if (!lastWorld) return;
@@ -157,11 +94,9 @@ export function createShowcase(
     if (!pos) return;
     renderer.moveTo(pos.x, pos.y);
     const sc = lastWorld.speciesColors.get(speciesId);
-    const rgb = sc
-      ? `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`
-      : '#888';
+    const rgb = sc ? speciesColorToRgb(sc) : '#888';
     const name = lastWorld.speciesNames.get(speciesId) ?? `Sp ${speciesId}`;
-    showLabel(name, rgb, pos.x, pos.y);
+    labels.show(name, rgb, pos.x, pos.y);
   }
 
   function getTopSpecies(world: World): SpeciesEntry[] {
@@ -433,29 +368,7 @@ export function createShowcase(
   function update(world: World): void {
     lastWorld = world;
 
-    // Update floating label positions every frame
-    const now = performance.now();
-    for (let i = activeLabels.length - 1; i >= 0; i--) {
-      const label = activeLabels[i];
-      if (now >= label.expireTime && !label.fadeStarted) {
-        label.fadeStarted = true;
-        label.el.style.animation = `showcase-label-out ${LABEL_FADE_MS}ms ease-in forwards`;
-        setTimeout(() => {
-          label.el.remove();
-          const idx = activeLabels.indexOf(label);
-          if (idx >= 0) activeLabels.splice(idx, 1);
-        }, LABEL_FADE_MS);
-        continue;
-      }
-      const screen = renderer.projectToScreen(label.gridX, label.gridY);
-      if (screen) {
-        label.el.style.left = `${screen.x}px`;
-        label.el.style.top = `${screen.y}px`;
-        label.el.style.display = '';
-      } else {
-        label.el.style.display = 'none';
-      }
-    }
+    labels.updatePositions();
 
     if (world.tick - lastUpdateTick < UPDATE_EVERY_N_TICKS) return;
     lastUpdateTick = world.tick;
@@ -505,9 +418,7 @@ export function createShowcase(
 
       // Update labels
       const sc = world.speciesColors.get(sp.speciesId);
-      const rgb = sc
-        ? `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`
-        : '#888';
+      const rgb = sc ? speciesColorToRgb(sc) : '#888';
       entry.dotEl.style.background = rgb;
       entry.nameEl.textContent = world.speciesNames.get(sp.speciesId) ?? `Sp ${sp.speciesId}`;
       entry.nameEl.style.color = rgb;

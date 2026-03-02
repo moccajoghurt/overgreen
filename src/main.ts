@@ -52,10 +52,12 @@ const plantCount = document.getElementById('plant-count')!;
 const seasonLabel = document.getElementById('season-label')!;
 const yearLabel = document.getElementById('year-label')!;
 const eraLabel = document.getElementById('era-label')!;
+const herbivoreCount = document.getElementById('herbivore-count')!;
 
 function updateUI(): void {
   tickLabel.textContent = String(world.tick);
   plantCount.textContent = String(world.plants.size);
+  herbivoreCount.textContent = String(world.herbivores.size);
   seasonLabel.textContent = SEASON_NAMES[world.environment.season];
   yearLabel.textContent = String(world.environment.yearCount + 1);
   eraLabel.textContent = ERA_NAMES[world.environment.era.current];
