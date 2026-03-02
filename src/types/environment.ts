@@ -57,6 +57,9 @@ export interface Environment {
   waterMult: number;
   lightMult: number;
   leafMaintenanceMult: number;
+  growthMult: number;
+  seedMult: number;
+  leafDecayRate: number;
   droughts: DroughtPatch[];
   fires: FireEvent[];
   diseases: DiseaseEvent[];

@@ -6,12 +6,12 @@ import {
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
 
-// Season target values: [water, light, leafMaint]
-const SEASON_TARGETS: Record<Season, [number, number, number]> = {
-  [Season.Spring]: [1.2, 1.0, 1.0],
-  [Season.Summer]: [0.8, 1.15, 1.0],
-  [Season.Autumn]: [1.0, 0.85, 1.0],
-  [Season.Winter]: [0.6, 0.5, 3.0],
+// Season target values: [water, light, leafMaint, growth, seed, leafDecay]
+const SEASON_TARGETS: Record<Season, [number, number, number, number, number, number]> = {
+  [Season.Spring]: [1.2, 1.0, 1.0, 1.3, 1.0, 0.0],
+  [Season.Summer]: [0.8, 1.15, 1.0, 1.0, 1.0, 0.0],
+  [Season.Autumn]: [1.0, 0.85, 1.0, 0.5, 0.3, 0.01],
+  [Season.Winter]: [0.6, 0.5, 3.0, 0.0, 0.0, 0.03],
 };
 
 function computeSeasonModifiers(env: Environment): void {
@@ -22,6 +22,9 @@ function computeSeasonModifiers(env: Environment): void {
   env.waterMult = cur[0] + (next[0] - cur[0]) * t;
   env.lightMult = cur[1] + (next[1] - cur[1]) * t;
   env.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
+  env.growthMult = cur[3] + (next[3] - cur[3]) * t;
+  env.seedMult = cur[4] + (next[4] - cur[4]) * t;
+  env.leafDecayRate = cur[5] + (next[5] - cur[5]) * t;
 }
 
 function spawnDrought(world: World): void {

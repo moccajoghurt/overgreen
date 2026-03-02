@@ -133,8 +133,9 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
 }
 
 function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): void {
-  const seedBudget = surplus * plant.genome.seedInvestment;
-  const growthBudget = surplus - seedBudget;
+  const env = world.environment;
+  const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
+  const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
 
   // Growth: normalize priorities
   const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
@@ -190,7 +191,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): vo
     });
   }
 
-  plant.energy -= surplus;
+  plant.energy -= (seedBudget + growthBudget);
 }
 
 function phaseUpdatePlants(world: World): void {
@@ -212,6 +213,11 @@ function phaseUpdatePlants(world: World): void {
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
     plant.energy += energyProduced - maintenance;
+
+    // Seasonal leaf decay (autumn/winter leaf loss)
+    if (world.environment.leafDecayRate > 0) {
+      plant.leafArea = Math.max(0.1, plant.leafArea - world.environment.leafDecayRate);
+    }
 
     if (plant.energy > 1.0) {
       allocateGrowthAndSeeds(plant, plant.energy - 1.0, world);
