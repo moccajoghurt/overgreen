@@ -11,6 +11,7 @@ import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createShowcase } from './species-showcase';
+import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -22,6 +23,12 @@ const controls = initControls(renderer.canvas, renderer, world);
 const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
 colorToggle.addEventListener('change', () => {
   renderer.setColorMode(colorToggle.checked ? 'species' : 'natural');
+});
+
+const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
+const labelsToggle = document.getElementById('labels-toggle') as HTMLInputElement;
+labelsToggle.addEventListener('change', () => {
+  speciesLabels.setVisible(labelsToggle.checked);
 });
 
 const history = createHistory();
@@ -70,6 +77,7 @@ function updateUI(): void {
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   showcase.update(world);
+  speciesLabels.update(world);
 }
 
 let lastTickTime = 0;
@@ -95,6 +103,7 @@ function loop(now: number): void {
   }
 
   renderer.render(controls.selectedCell);
+  speciesLabels.updatePositions();
 
   // Only update UI when simulation has ticked or selected cell changed
   const selChanged = controls.selectedCell !== lastUISelectedCell;
