@@ -1,3 +1,5 @@
+import { WeatherOverlay } from '../types';
+import { parseKey } from '../simulation/neighbors';
 import {
   RendererState, HALF, GRID,
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
@@ -12,7 +14,7 @@ export function updateFireParticles(state: RendererState): void {
   const sources: Array<{ wx: number; wz: number; baseY: number }> = [];
   for (const fire of env.fires) {
     for (const [key] of fire.cells) {
-      const [fx, fy] = key.split(',').map(Number);
+      const [fx, fy] = parseKey(key);
       sources.push({
         wx: fx - HALF + 0.5,
         wz: fy - HALF + 0.5,
@@ -156,7 +158,7 @@ export function updateDroughtParticles(state: RendererState): void {
       const gx = cx + dx;
       const gy = cz + dy;
       if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) continue;
-      if (overlay[gy * GRID + gx] === 1) {
+      if (overlay[gy * GRID + gx] === WeatherOverlay.Drought) {
         sources.push({
           wx: gx - HALF + 0.5,
           wz: gy - HALF + 0.5,
@@ -243,7 +245,7 @@ export function updateDiseaseParticles(state: RendererState): void {
       const gx = cx + dx;
       const gy = cz + dy;
       if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) continue;
-      if (overlay[gy * GRID + gx] === 5) {
+      if (overlay[gy * GRID + gx] === WeatherOverlay.Diseased) {
         sources.push({
           wx: gx - HALF + 0.5,
           wz: gy - HALF + 0.5,

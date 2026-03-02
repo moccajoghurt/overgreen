@@ -1,4 +1,4 @@
-import { Genome, GRID_WIDTH } from '../types';
+import { Genome, GRID_WIDTH, WeatherOverlay } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
@@ -254,7 +254,7 @@ export function updatePlants(state: RendererState): void {
     const baseY = getCellElevation(plant.x, plant.y);
 
     // Desaturate diseased plant canopies toward sickly yellow-brown
-    if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === 5) {
+    if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
       cr = lerp(cr, 0.50, 0.45);
       cg = lerp(cg, 0.45, 0.45);
       cb = lerp(cb, 0.10, 0.45);

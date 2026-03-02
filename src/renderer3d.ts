@@ -1,28 +1,22 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season } from './types';
-import {
-  RendererState, WeatherParticle, EventParticle,
-  GRID, HALF, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS,
-  WEATHER_PARTICLE_COUNT, FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
-  makeRoughSphere,
-} from './renderer3d/state';
+import { RendererState, GRID, HALF } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
 import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } from './renderer3d/fire-particles';
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
-import { createRockFormations } from './renderer3d/rocks';
 import { createDistantEnvironment } from './renderer3d/environment';
+import { createTerrain, createPlantMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 
 export function createRenderer3D(
   container: HTMLElement,
   world: World,
 ): Renderer & { canvas: HTMLCanvasElement } {
-  // ── Scene ──
+  // ── Scene & lights ──
   const scene = new THREE.Scene();
-  // No static background — sky dome provides the backdrop
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
   scene.add(ambientLight);
@@ -33,77 +27,11 @@ export function createRenderer3D(
   // ── Sky dome & fog ──
   const skyDome = createSkyDome(scene);
 
-  // ── Terrain (non-indexed plane with per-cell vertex colors) ──
-  const baseTerrain = new THREE.PlaneGeometry(GRID, GRID, GRID, GRID);
-  baseTerrain.rotateX(-Math.PI / 2);
-  const terrainGeo = baseTerrain.toNonIndexed();
-  baseTerrain.dispose();
-
-  const vertexCount = terrainGeo.attributes.position.count;
-  const colorArray = new Float32Array(vertexCount * 3);
-  const colorAttr = new THREE.BufferAttribute(colorArray, 3);
-  colorAttr.setUsage(THREE.DynamicDrawUsage);
-  terrainGeo.setAttribute('color', colorAttr);
-
-  const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-  scene.add(terrainMesh);
-
-  // ── Rock formations (compute height overlay before terrain) ──
-  const rockFormations = createRockFormations(world);
-  const rockOverlay = rockFormations.heightOverlay;
-
-  // ── Apply terrain elevation (no edge falloff) ──
-  const cornerSize = GRID + 1;
-  const corners = new Float32Array(cornerSize * cornerSize);
-  for (let cy = 0; cy <= GRID; cy++) {
-    for (let cx = 0; cx <= GRID; cx++) {
-      let sum = 0, count = 0;
-      let rockSum = 0;
-      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
-        const gx = cx + dx;
-        const gy = cy + dy;
-        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-          sum += world.grid[gy][gx].elevation;
-          rockSum += rockOverlay[gy * GRID + gx];
-          count++;
-        }
-      }
-      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE + rockSum / count;
-    }
-  }
-
-  const posAttr = terrainGeo.attributes.position;
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      const base = (row * GRID + col) * 6;
-      const eTL = corners[row * cornerSize + col];
-      const eTR = corners[row * cornerSize + col + 1];
-      const eBL = corners[(row + 1) * cornerSize + col];
-      const eBR = corners[(row + 1) * cornerSize + col + 1];
-
-      posAttr.setY(base + 0, eTL);
-      posAttr.setY(base + 1, eBL);
-      posAttr.setY(base + 2, eTR);
-      posAttr.setY(base + 3, eBL);
-      posAttr.setY(base + 4, eBR);
-      posAttr.setY(base + 5, eTR);
-    }
-  }
-  posAttr.needsUpdate = true;
-  terrainGeo.computeVertexNormals();
-
-  function getCellElevation(cx: number, cy: number): number {
-    return world.grid[cy][cx].elevation * ELEV_SCALE + rockOverlay[cy * GRID + cx];
-  }
-
-  // ── Extended ground plane (beneath terrain, hidden by fog at edges) ──
-  const groundGeo = new THREE.PlaneGeometry(256, 256);
-  groundGeo.rotateX(-Math.PI / 2);
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0x3a5a2a });
-  const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-  groundMesh.position.y = -0.3;
-  scene.add(groundMesh);
+  // ── Terrain ──
+  const terrain = createTerrain(world);
+  scene.add(terrain.terrainMesh);
+  scene.add(terrain.groundMesh);
+  const { colorArray, colorAttr, getCellElevation, groundMat, rockFormations } = terrain;
 
   // ── Distant environment (hills + forest ring) ──
   const distantEnvironment = createDistantEnvironment(scene);
@@ -112,145 +40,26 @@ export function createRenderer3D(
   const waterSurface = createWaterSurface(world);
   scene.add(waterSurface.mesh);
 
-  // ── Plants (instanced meshes) ──
-  const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
-  const trunks = new THREE.InstancedMesh(
-    trunkGeo, new THREE.MeshLambertMaterial(), MAX_INSTANCES,
-  );
-  trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  trunks.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_INSTANCES * 3), 3,
-  );
-  trunks.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  trunks.count = 0;
-  trunks.frustumCulled = false;
-  scene.add(trunks);
+  // ── Plants ──
+  const plants = createPlantMeshes();
+  scene.add(plants.trunks);
+  scene.add(plants.canopies);
+  scene.add(plants.canopies2);
+  scene.add(plants.seeds);
 
-  const canopyGeo = makeRoughSphere(0.5, 2, 0.25);
-  const canopies = new THREE.InstancedMesh(
-    canopyGeo, new THREE.MeshLambertMaterial(), MAX_INSTANCES,
-  );
-  canopies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  canopies.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_INSTANCES * 3), 3,
-  );
-  canopies.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  canopies.count = 0;
-  canopies.frustumCulled = false;
-  scene.add(canopies);
+  // ── Weather particles ──
+  const weather = createWeatherMeshes();
+  scene.add(weather.snowMesh);
+  scene.add(weather.rainMesh);
+  scene.add(weather.moteMesh);
+  scene.add(weather.leafMesh);
 
-  const canopy2Geo = makeRoughSphere(0.5, 2, 0.25);
-  const canopies2 = new THREE.InstancedMesh(
-    canopy2Geo, new THREE.MeshLambertMaterial(), MAX_INSTANCES,
-  );
-  canopies2.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  canopies2.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_INSTANCES * 3), 3,
-  );
-  canopies2.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  canopies2.count = 0;
-  canopies2.frustumCulled = false;
-  scene.add(canopies2);
-
-  // ── Seed particles (instanced mesh) ──
-  const seedGeo = new THREE.SphereGeometry(0.08, 4, 4);
-  const seeds = new THREE.InstancedMesh(
-    seedGeo, new THREE.MeshLambertMaterial(), MAX_SEEDS,
-  );
-  seeds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  seeds.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_SEEDS * 3), 3,
-  );
-  seeds.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  seeds.count = 0;
-  seeds.frustumCulled = false;
-  scene.add(seeds);
-
-  // ── Weather particles (instanced meshes, one per season effect) ──
-  function createWeatherMesh(
-    geo: THREE.BufferGeometry, mat: THREE.Material,
-  ): THREE.InstancedMesh {
-    const mesh = new THREE.InstancedMesh(geo, mat, WEATHER_PARTICLE_COUNT);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(WEATHER_PARTICLE_COUNT * 3), 3,
-    );
-    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-    return mesh;
-  }
-
-  const snowGeo = new THREE.CircleGeometry(0.06, 4);
-  snowGeo.rotateX(-Math.PI / 2);
-  const snowMesh = createWeatherMesh(snowGeo,
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
-
-  const rainGeo = new THREE.PlaneGeometry(0.02, 0.3);
-  const rainMesh = createWeatherMesh(rainGeo,
-    new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, depthWrite: false }));
-
-  const moteGeo = new THREE.CircleGeometry(0.08, 6);
-  const moteMesh = createWeatherMesh(moteGeo,
-    new THREE.MeshBasicMaterial({
-      color: 0xffee88, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }));
-
-  const leafGeo = new THREE.PlaneGeometry(0.12, 0.08);
-  const leafMesh = createWeatherMesh(leafGeo,
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
-
-  function makeParticlePool(): WeatherParticle[] {
-    return Array.from({ length: WEATHER_PARTICLE_COUNT }, () => ({
-      x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0,
-      phase: Math.random() * Math.PI * 2,
-    }));
-  }
-
-  // ── Fire / ember / dust particles ──
-  function createParticleMesh(
-    geo: THREE.BufferGeometry, mat: THREE.Material, count: number,
-  ): THREE.InstancedMesh {
-    const mesh = new THREE.InstancedMesh(geo, mat, count);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(count * 3), 3,
-    );
-    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-    return mesh;
-  }
-
-  function makeEventParticlePool(count: number): EventParticle[] {
-    return Array.from({ length: count }, () => ({
-      x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1,
-    }));
-  }
-
-  const fireMesh = createParticleMesh(
-    new THREE.PlaneGeometry(0.12, 0.18),
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
-    FIRE_PARTICLE_COUNT,
-  );
-  const emberMesh = createParticleMesh(
-    new THREE.CircleGeometry(0.03, 4),
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
-    FIRE_PARTICLE_COUNT,
-  );
-  const dustMesh = createParticleMesh(
-    new THREE.CircleGeometry(0.05, 4),
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.6 }),
-    DUST_PARTICLE_COUNT,
-  );
-  const sporeMesh = createParticleMesh(
-    new THREE.CircleGeometry(0.04, 5),
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.7 }),
-    SPORE_PARTICLE_COUNT,
-  );
+  // ── Event particles (fire, ember, dust, spore) ──
+  const events = createEventMeshes();
+  scene.add(events.fireMesh);
+  scene.add(events.emberMesh);
+  scene.add(events.dustMesh);
+  scene.add(events.sporeMesh);
 
   // ── Selection highlight ──
   const selectMesh = new THREE.Mesh(
@@ -313,32 +122,18 @@ export function createRenderer3D(
     colorArray,
     colorAttr,
     getCellElevation,
-    trunks,
-    canopies,
-    canopies2,
-    seeds,
+    trunks: plants.trunks,
+    canopies: plants.canopies,
+    canopies2: plants.canopies2,
+    seeds: plants.seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),
     burningPlants: new Map(),
     growingPlants: new Map(),
     flyingSeeds: [],
     lastProcessedTick: -1,
-    snowMesh,
-    rainMesh,
-    moteMesh,
-    leafMesh,
-    snowParticles: makeParticlePool(),
-    rainParticles: makeParticlePool(),
-    moteParticles: makeParticlePool(),
-    leafParticles: makeParticlePool(),
-    fireMesh,
-    emberMesh,
-    dustMesh,
-    sporeMesh,
-    fireParticles: makeEventParticlePool(FIRE_PARTICLE_COUNT),
-    emberParticles: makeEventParticlePool(FIRE_PARTICLE_COUNT),
-    dustParticles: makeEventParticlePool(DUST_PARTICLE_COUNT),
-    sporeParticles: makeEventParticlePool(SPORE_PARTICLE_COUNT),
+    ...weather,
+    ...events,
     skyDome,
     ambientLight,
     dirLight,
@@ -368,8 +163,8 @@ export function createRenderer3D(
       : ((env.season + 1) % 4) === Season.Winter ? 25 : 40;
     dirLight.position.y = seasonSunHeight + (nextSunHeight - seasonSunHeight) * t;
 
-    // Seasonal ambient light: brighter in winter (overcast diffuse), dimmer in summer (stronger shadows)
-    const ambientTargets = [0.55, 0.45, 0.50, 0.60]; // Spring, Summer, Autumn, Winter
+    // Seasonal ambient light
+    const ambientTargets = [0.55, 0.45, 0.50, 0.60];
     const a0 = ambientTargets[env.season];
     const a1 = ambientTargets[(env.season + 1) % 4];
     ambientLight.intensity = a0 + (a1 - a0) * t;
@@ -382,10 +177,10 @@ export function createRenderer3D(
 
     // Update ground plane color seasonally
     const groundColors: [number, number, number][] = [
-      [0.25, 0.38, 0.18], // Spring: fresh grass
-      [0.22, 0.35, 0.14], // Summer: deep green
-      [0.35, 0.30, 0.15], // Autumn: golden-green
-      [0.25, 0.28, 0.22], // Winter: muted grey-green
+      [0.25, 0.38, 0.18],
+      [0.22, 0.35, 0.14],
+      [0.35, 0.30, 0.15],
+      [0.25, 0.28, 0.22],
     ];
     const gc0 = groundColors[env.season];
     const gc1 = groundColors[(env.season + 1) % 4];
@@ -395,7 +190,7 @@ export function createRenderer3D(
       gc0[2] + (gc1[2] - gc0[2]) * t,
     );
 
-    // Update water animation (now needs sun direction + fog color)
+    // Update water animation
     waterSurface.update(env, skyDome.getSunDirection(), skyDome.getFogColor());
 
     updateTerrainColors(state);
@@ -428,7 +223,7 @@ export function createRenderer3D(
     ndcMouse.y = -(canvasY / webgl.domElement.clientHeight) * 2 + 1;
 
     raycaster.setFromCamera(ndcMouse, camera);
-    const hits = raycaster.intersectObject(terrainMesh);
+    const hits = raycaster.intersectObject(terrain.terrainMesh);
     if (hits.length === 0) return null;
 
     const p = hits[0].point;

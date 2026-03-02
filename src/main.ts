@@ -66,18 +66,20 @@ function updateUI(): void {
 
 let lastTickTime = 0;
 
+function doTick(): void {
+  tickWorld(world);
+  recordTick(history, world);
+  diagLogger.recordTick(world);
+}
+
 function loop(now: number): void {
   if (!controls.paused) {
     if (now - lastTickTime >= controls.tickInterval) {
-      tickWorld(world);
-      recordTick(history, world);
-      diagLogger.recordTick(world);
+      doTick();
       lastTickTime = now;
     }
   } else if (controls.stepRequested) {
-    tickWorld(world);
-    recordTick(history, world);
-    diagLogger.recordTick(world);
+    doTick();
     controls.stepRequested = false;
     lastTickTime = now;
   }

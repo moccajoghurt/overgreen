@@ -1,5 +1,5 @@
-import { Plant, SIM, TerrainType, World } from './types';
-import { NEIGHBORS } from './simulation/neighbors';
+import { Cell, Plant, SIM, TerrainType, World } from './types';
+import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import { mutateGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
 
@@ -42,7 +42,7 @@ function phaseRechargeWater(world: World): void {
       for (const [dx, dy] of NEIGHBORS) {
         const nx = x + dx;
         const ny = y + dy;
-        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        if (!inBounds(nx, ny, world.width, world.height)) continue;
         const neighbor = world.grid[ny][nx];
         if (neighbor.terrainType === TerrainType.River) continue;
         neighbor.waterLevel = Math.min(SIM.MAX_WATER, neighbor.waterLevel + SIM.RIVER_SEEPAGE);
@@ -62,7 +62,7 @@ function phaseCalculateLight(world: World): void {
       for (const [dx, dy] of NEIGHBORS) {
         const nx = x + dx;
         const ny = y + dy;
-        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        if (!inBounds(nx, ny, world.width, world.height)) continue;
         const neighbor = world.grid[ny][nx];
         if (neighbor.plantId === null) continue;
         const nPlant = world.plants.get(neighbor.plantId);
@@ -81,139 +81,142 @@ function phaseCalculateLight(world: World): void {
   }
 }
 
+function absorbWater(plant: Plant, cell: Cell, world: World): number {
+  const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
+  const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
+  let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
+  cell.waterLevel -= waterAbsorbed;
+
+  // Root competition: deep roots drain water from neighboring cells
+  let remainingDemand = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
+  if (remainingDemand > 0.01) {
+    const drainRate = plant.rootDepth / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
+    for (const [dx, dy] of NEIGHBORS) {
+      if (remainingDemand <= 0.01) break;
+      const nx = plant.x + dx;
+      const ny = plant.y + dy;
+      if (!inBounds(nx, ny, world.width, world.height)) continue;
+      const nc = world.grid[ny][nx];
+      const drained = Math.min(remainingDemand, nc.waterLevel * drainRate);
+      nc.waterLevel -= drained;
+      waterAbsorbed += drained;
+      remainingDemand -= drained;
+    }
+  }
+
+  plant.lastWaterAbsorbed = waterAbsorbed;
+  return waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
+}
+
+function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean): number {
+  const rawEnergy = cell.lightLevel * plant.leafArea * SIM.PHOTOSYNTHESIS_RATE;
+  const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
+  let energyProduced = rawEnergy * waterFraction * nutrientBonus;
+  plant.lastLightReceived = cell.lightLevel;
+  if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
+  return energyProduced;
+}
+
+function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): number {
+  let leafMaint = plant.leafArea * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
+  if (world.environment.leafMaintenanceMult > 1.01) {
+    const rootInsulation = Math.min(0.8, plant.rootDepth / SIM.MAX_ROOT_DEPTH * 0.8);
+    const penalty = leafMaint - plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
+    leafMaint -= penalty * rootInsulation;
+  }
+  let maintenance = SIM.MAINTENANCE_BASE
+    + plant.height * SIM.MAINTENANCE_PER_HEIGHT
+    + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
+    + leafMaint;
+  if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
+  return maintenance;
+}
+
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): void {
+  const seedBudget = surplus * plant.genome.seedInvestment;
+  const growthBudget = surplus - seedBudget;
+
+  // Growth: normalize priorities
+  const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
+  if (total > 0) {
+    const rFrac = plant.genome.rootPriority / total;
+    const hFrac = plant.genome.heightPriority / total;
+    const lFrac = plant.genome.leafSize / total;
+
+    const rootGrowth = growthBudget * rFrac * SIM.GROWTH_EFFICIENCY;
+    const heightGrowth = growthBudget * hFrac * SIM.GROWTH_EFFICIENCY;
+    const leafGrowth = growthBudget * lFrac * SIM.GROWTH_EFFICIENCY;
+
+    const maxRoot = SIM.MAX_ROOT_DEPTH * (0.3 + 0.7 * rFrac);
+    const maxHeight = SIM.MAX_HEIGHT * (0.3 + 0.7 * hFrac);
+    const maxLeaf = SIM.MAX_LEAF_AREA * (0.3 + 0.7 * lFrac);
+
+    plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
+    plant.height = Math.min(maxHeight, plant.height + heightGrowth);
+    plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
+  }
+
+  // Seed spawning — taller plants disperse further
+  const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / 3);
+  const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
+  for (let i = 0; i < seedsToSpawn; i++) {
+    world.seedsAttempted++;
+    const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
+    const dy = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
+    if (dx === 0 && dy === 0) continue;
+    const tx = plant.x + dx;
+    const ty = plant.y + dy;
+    if (!inBounds(tx, ty, world.width, world.height)) continue;
+    if (world.grid[ty][tx].plantId !== null) continue;
+    const tt = world.grid[ty][tx].terrainType;
+    if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
+
+    const childId = world.nextPlantId++;
+    const child: Plant = {
+      id: childId, speciesId: plant.speciesId, x: tx, y: ty,
+      height: 0.5, rootDepth: 0.5, leafArea: 0.5,
+      energy: SIM.SEED_INITIAL_ENERGY, age: 0, alive: true,
+      genome: mutateGenome(plant.genome),
+      lastLightReceived: 0, lastWaterAbsorbed: 0,
+      lastEnergyProduced: 0, lastMaintenanceCost: 0,
+    };
+    world.plants.set(childId, child);
+    world.grid[ty][tx].plantId = childId;
+    world.grid[ty][tx].lastSpeciesId = plant.speciesId;
+    world.seedEvents.push({
+      parentX: plant.x, parentY: plant.y,
+      childX: tx, childY: ty,
+      childId, speciesId: plant.speciesId,
+    });
+  }
+
+  plant.energy -= surplus;
+}
+
 function phaseUpdatePlants(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
 
-    // 3a. Water absorption (transpiration model)
-    // Leaves create water demand (transpiration), roots determine absorption capacity
-    const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
-    const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
-    let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
-    cell.waterLevel -= waterAbsorbed;
-
-    // Root competition: deep roots drain water from neighboring cells
-    let remainingDemand = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
-    if (remainingDemand > 0.01) {
-      const drainRate = plant.rootDepth / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
-      for (const [dx, dy] of NEIGHBORS) {
-        if (remainingDemand <= 0.01) break;
-        const nx = plant.x + dx;
-        const ny = plant.y + dy;
-        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
-        const nc = world.grid[ny][nx];
-        const drained = Math.min(remainingDemand, nc.waterLevel * drainRate);
-        nc.waterLevel -= drained;
-        waterAbsorbed += drained;
-        remainingDemand -= drained;
-      }
-    }
-
-    const waterFraction = waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
-    plant.lastWaterAbsorbed = waterAbsorbed;
-
-    // 3b. Photosynthesis
-    const rawEnergy = cell.lightLevel * plant.leafArea * SIM.PHOTOSYNTHESIS_RATE;
-    const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
-    let energyProduced = rawEnergy * waterFraction * nutrientBonus;
-    plant.lastLightReceived = cell.lightLevel;
-
-    // 3c. Maintenance cost (with seasonal leaf penalty + root insulation)
-    let leafMaint = plant.leafArea * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
-    if (world.environment.leafMaintenanceMult > 1.01) {
-      // Root insulation: deep roots reduce winter leaf penalty (up to 80%)
-      const rootInsulation = Math.min(0.8, plant.rootDepth / SIM.MAX_ROOT_DEPTH * 0.8);
-      const penalty = leafMaint - plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
-      leafMaint -= penalty * rootInsulation;
-    }
-    let maintenance = SIM.MAINTENANCE_BASE
-      + plant.height * SIM.MAINTENANCE_PER_HEIGHT
-      + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
-      + leafMaint;
-
-    // Disease penalty: reduced photosynthesis + energy drain
+    // Check disease status once
     const cellKey = `${plant.x},${plant.y}`;
     let isDiseased = false;
     for (const disease of world.environment.diseases) {
       if (disease.cells.has(cellKey)) { isDiseased = true; break; }
     }
-    if (isDiseased) {
-      energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
-      maintenance += SIM.DISEASE_DRAIN_PER_TICK;
-    }
+
+    const waterFraction = absorbWater(plant, cell, world);
+    const energyProduced = photosynthesize(plant, cell, waterFraction, isDiseased);
+    const maintenance = calculateMaintenance(plant, world, isDiseased);
 
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
-
-    // 3d. Energy budget
     plant.energy += energyProduced - maintenance;
 
-    // 3e. Growth & reproduction allocation
     if (plant.energy > 1.0) {
-      const surplus = plant.energy - 1.0;
-      const seedBudget = surplus * plant.genome.seedInvestment;
-      const growthBudget = surplus - seedBudget;
-
-      // Growth: normalize priorities
-      const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
-      if (total > 0) {
-        const rFrac = plant.genome.rootPriority / total;
-        const hFrac = plant.genome.heightPriority / total;
-        const lFrac = plant.genome.leafSize / total;
-
-        const rootGrowth = growthBudget * rFrac * SIM.GROWTH_EFFICIENCY;
-        const heightGrowth = growthBudget * hFrac * SIM.GROWTH_EFFICIENCY;
-        const leafGrowth = growthBudget * lFrac * SIM.GROWTH_EFFICIENCY;
-
-        // Cap max stats by genome priority — low investment = lower ceiling
-        const maxRoot = SIM.MAX_ROOT_DEPTH * (0.3 + 0.7 * rFrac);
-        const maxHeight = SIM.MAX_HEIGHT * (0.3 + 0.7 * hFrac);
-        const maxLeaf = SIM.MAX_LEAF_AREA * (0.3 + 0.7 * lFrac);
-
-        plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
-        plant.height = Math.min(maxHeight, plant.height + heightGrowth);
-        plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
-      }
-
-      // 3f. Seed spawning — taller plants disperse further
-      const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / 3);
-      const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
-      for (let i = 0; i < seedsToSpawn; i++) {
-        world.seedsAttempted++;
-        const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
-        const dy = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
-        if (dx === 0 && dy === 0) continue;
-        const tx = plant.x + dx;
-        const ty = plant.y + dy;
-        if (tx < 0 || tx >= world.width || ty < 0 || ty >= world.height) continue;
-        if (world.grid[ty][tx].plantId !== null) continue;
-        const tt = world.grid[ty][tx].terrainType;
-        if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
-
-        const childId = world.nextPlantId++;
-        const child: Plant = {
-          id: childId, speciesId: plant.speciesId, x: tx, y: ty,
-          height: 0.5, rootDepth: 0.5, leafArea: 0.5,
-          energy: SIM.SEED_INITIAL_ENERGY, age: 0, alive: true,
-          genome: mutateGenome(plant.genome),
-          lastLightReceived: 0, lastWaterAbsorbed: 0,
-          lastEnergyProduced: 0, lastMaintenanceCost: 0,
-        };
-        world.plants.set(childId, child);
-        world.grid[ty][tx].plantId = childId;
-        world.grid[ty][tx].lastSpeciesId = plant.speciesId;
-        world.seedEvents.push({
-          parentX: plant.x, parentY: plant.y,
-          childX: tx, childY: ty,
-          childId, speciesId: plant.speciesId,
-        });
-      }
-
-      plant.energy -= surplus; // back to ~1.0 reserve
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world);
     }
 
-    // 3g. Age
     plant.age++;
   }
 }

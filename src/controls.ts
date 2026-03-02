@@ -1,4 +1,4 @@
-import { SIM, World, Renderer } from './types';
+import { SIM, World, Renderer, WeatherOverlay } from './types';
 
 export interface Controls {
   paused: boolean;
@@ -77,12 +77,12 @@ export function updateInspector(world: World, controls: Controls): void {
 
   const env = world.environment;
   const overlayVal = env.weatherOverlay[y * world.width + x];
-  if (overlayVal === 1) text += `  [DROUGHT]\n`;
-  else if (overlayVal === 2) text += `  [BURNING]\n`;
-  else if (overlayVal === 3) text += `  [SCORCHED]\n`;
-  else if (overlayVal === 4) text += `  [PARCHED]\n`;
-  else if (overlayVal === 5) text += `  [DISEASED]\n`;
-  else if (overlayVal === 6) text += `  [BLIGHTED]\n`;
+  if (overlayVal === WeatherOverlay.Drought) text += `  [DROUGHT]\n`;
+  else if (overlayVal === WeatherOverlay.Burning) text += `  [BURNING]\n`;
+  else if (overlayVal === WeatherOverlay.Scorched) text += `  [SCORCHED]\n`;
+  else if (overlayVal === WeatherOverlay.Parched) text += `  [PARCHED]\n`;
+  else if (overlayVal === WeatherOverlay.Diseased) text += `  [DISEASED]\n`;
+  else if (overlayVal === WeatherOverlay.Blighted) text += `  [BLIGHTED]\n`;
 
   if (cell.plantId !== null) {
     const plant = world.plants.get(cell.plantId);

@@ -1,5 +1,15 @@
 // ── Seasons / Environment ──
 
+export const enum WeatherOverlay {
+  None = 0,
+  Drought = 1,
+  Burning = 2,
+  Scorched = 3,
+  Parched = 4,
+  Diseased = 5,
+  Blighted = 6,
+}
+
 export enum Season {
   Spring = 0,
   Summer = 1,

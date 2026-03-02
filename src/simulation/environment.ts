@@ -1,9 +1,9 @@
 import {
-  SIM, TerrainType, World,
+  SIM, TerrainType, World, Plant,
   Season, SEASON_LENGTH, YEAR_LENGTH, SEASON_NAMES,
-  Environment, DiseaseEvent,
+  Environment, DiseaseEvent, WeatherOverlay,
 } from '../types';
-import { NEIGHBORS } from './neighbors';
+import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
 
 // Season target values: [water, light, leafMaint]
@@ -27,8 +27,8 @@ function computeSeasonModifiers(env: Environment): void {
 function spawnDrought(world: World): void {
   const centerX = Math.floor(Math.random() * world.width);
   const centerY = Math.floor(Math.random() * world.height);
-  const radius = 8 + Math.floor(Math.random() * 13); // 8-20
-  const duration = 30 + Math.floor(Math.random() * 41); // 30-70 ticks
+  const radius = randomIntRange(8, 21); // 8-20
+  const duration = randomIntRange(30, 71); // 30-70 ticks
   const intensity = 0.6 + Math.random() * 0.35; // 0.6-0.95
   world.environment.droughts.push({ centerX, centerY, radius, intensity, ticksRemaining: duration });
   world.environmentEvents.push({
@@ -75,7 +75,7 @@ export function spawnFire(world: World): void {
     if (cell.plantId === null || cell.waterLevel > 2.0) continue;
     if (cell.terrainType === TerrainType.River) continue;
 
-    const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: 8 + Math.floor(Math.random() * 9) };
+    const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: randomIntRange(8, 17) };
     world.environment.fires.push(fire);
     killPlantByFire(world, x, y);
     world.environmentEvents.push({ type: 'fire_start', message: `Fire ignited near (${x}, ${y})` });
@@ -127,11 +127,11 @@ function advanceFires(world: World): void {
 
       // Spread from this cell
       if (fire.ticksRemaining > 0) {
-        const [fx, fy] = key.split(',').map(Number);
+        const [fx, fy] = parseKey(key);
         for (const [dx, dy] of NEIGHBORS) {
           const nx = fx + dx;
           const ny = fy + dy;
-          if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+          if (!inBounds(nx, ny, world.width, world.height)) continue;
           const nKey = `${nx},${ny}`;
           if (fire.cells.has(nKey)) continue;
 
@@ -145,7 +145,7 @@ function advanceFires(world: World): void {
           const leafFuel = plant.leafArea / SIM.MAX_LEAF_AREA;
           const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
           if (Math.random() < spreadChance) {
-            fire.cells.set(nKey, 3 + Math.floor(Math.random() * 3)); // burn 3-5 ticks
+            fire.cells.set(nKey, randomIntRange(3, 6)); // burn 3-5 ticks
             killPlantByFire(world, nx, ny);
           }
         }
@@ -164,6 +164,25 @@ function advanceFires(world: World): void {
   }
 }
 
+function emitDisease(world: World, patient: Plant, originX: number, originY: number): void {
+  const duration = randomIntRange(SIM.DISEASE_EVENT_DURATION_MIN, SIM.DISEASE_EVENT_DURATION_MAX);
+  const cellDur = randomIntRange(SIM.DISEASE_CELL_DURATION_MIN, SIM.DISEASE_CELL_DURATION_MAX);
+  const disease: DiseaseEvent = {
+    targetGenome: { ...patient.genome },
+    cells: new Map([[`${originX},${originY}`, cellDur]]),
+    ticksRemaining: duration,
+    originX,
+    originY,
+    patientZeroSpeciesId: patient.speciesId,
+    killCount: 0,
+  };
+  world.environment.diseases.push(disease);
+  world.environmentEvents.push({
+    type: 'disease_start',
+    message: `Blight outbreak near (${originX}, ${originY})`,
+  });
+}
+
 export function spawnDisease(world: World, forceAt?: { x: number; y: number }): void {
   const R = SIM.DISEASE_SCAN_RADIUS;
 
@@ -178,25 +197,7 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
       }
     }
     if (!targetPlant) return;
-
-    const duration = SIM.DISEASE_EVENT_DURATION_MIN +
-      Math.floor(Math.random() * (SIM.DISEASE_EVENT_DURATION_MAX - SIM.DISEASE_EVENT_DURATION_MIN));
-    const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
-      Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
-    const disease: DiseaseEvent = {
-      targetGenome: { ...targetPlant.genome },
-      cells: new Map([[`${targetPlant.x},${targetPlant.y}`, cellDur]]),
-      ticksRemaining: duration,
-      originX: targetPlant.x,
-      originY: targetPlant.y,
-      patientZeroSpeciesId: targetPlant.speciesId,
-      killCount: 0,
-    };
-    world.environment.diseases.push(disease);
-    world.environmentEvents.push({
-      type: 'disease_start',
-      message: `Blight outbreak near (${targetPlant.x}, ${targetPlant.y})`,
-    });
+    emitDisease(world, targetPlant, targetPlant.x, targetPlant.y);
     return;
   }
 
@@ -244,24 +245,7 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
   if (bestUniformity < SIM.DISEASE_MIN_UNIFORMITY || bestPlantId < 0) return;
 
   const patient = world.plants.get(bestPlantId)!;
-  const duration = SIM.DISEASE_EVENT_DURATION_MIN +
-    Math.floor(Math.random() * (SIM.DISEASE_EVENT_DURATION_MAX - SIM.DISEASE_EVENT_DURATION_MIN));
-  const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
-    Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
-  const disease: DiseaseEvent = {
-    targetGenome: { ...patient.genome },
-    cells: new Map([[`${bestX},${bestY}`, cellDur]]),
-    ticksRemaining: duration,
-    originX: bestX,
-    originY: bestY,
-    patientZeroSpeciesId: patient.speciesId,
-    killCount: 0,
-  };
-  world.environment.diseases.push(disease);
-  world.environmentEvents.push({
-    type: 'disease_start',
-    message: `Blight outbreak near (${bestX}, ${bestY})`,
-  });
+  emitDisease(world, patient, bestX, bestY);
 }
 
 function advanceDiseases(world: World): void {
@@ -290,11 +274,11 @@ function advanceDiseases(world: World): void {
     if (disease.ticksRemaining > 0) {
       const newCells: Array<[string, number]> = [];
       for (const [key] of disease.cells) {
-        const [fx, fy] = key.split(',').map(Number);
+        const [fx, fy] = parseKey(key);
         for (const [dx, dy] of NEIGHBORS) {
           const nx = fx + dx;
           const ny = fy + dy;
-          if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+          if (!inBounds(nx, ny, world.width, world.height)) continue;
           const nKey = `${nx},${ny}`;
           if (disease.cells.has(nKey)) continue;
 
@@ -338,7 +322,7 @@ function advanceDiseases(world: World): void {
 
 function rebuildWeatherOverlay(world: World): void {
   const overlay = world.environment.weatherOverlay;
-  overlay.fill(0);
+  overlay.fill(WeatherOverlay.None);
   for (const d of world.environment.droughts) {
     const r2 = d.radius * d.radius;
     const minY = Math.max(0, d.centerY - d.radius);
@@ -350,42 +334,42 @@ function rebuildWeatherOverlay(world: World): void {
         const dx = x - d.centerX;
         const dy = y - d.centerY;
         if (dx * dx + dy * dy < r2) {
-          overlay[y * world.width + x] = 1;
+          overlay[y * world.width + x] = WeatherOverlay.Drought;
         }
       }
     }
   }
   for (const fire of world.environment.fires) {
     for (const [key] of fire.cells) {
-      const [fx, fy] = key.split(',').map(Number);
-      overlay[fy * world.width + fx] = 2;
+      const [fx, fy] = parseKey(key);
+      overlay[fy * world.width + fx] = WeatherOverlay.Burning;
     }
   }
   // Scorched ground (only if not already burning or drought)
   for (const [key] of world.environment.scorchedCells) {
-    const [sx, sy] = key.split(',').map(Number);
+    const [sx, sy] = parseKey(key);
     const idx = sy * world.width + sx;
-    if (overlay[idx] === 0) overlay[idx] = 3;
+    if (overlay[idx] === WeatherOverlay.None) overlay[idx] = WeatherOverlay.Scorched;
   }
   // Parched ground (only if not already occupied)
   for (const [key] of world.environment.parchedCells) {
-    const [px, py] = key.split(',').map(Number);
+    const [px, py] = parseKey(key);
     const idx = py * world.width + px;
-    if (overlay[idx] === 0) overlay[idx] = 4;
+    if (overlay[idx] === WeatherOverlay.None) overlay[idx] = WeatherOverlay.Parched;
   }
   // Actively diseased cells
   for (const disease of world.environment.diseases) {
     for (const [key] of disease.cells) {
-      const [dx, dy] = key.split(',').map(Number);
+      const [dx, dy] = parseKey(key);
       const idx = dy * world.width + dx;
-      if (overlay[idx] === 0) overlay[idx] = 5;
+      if (overlay[idx] === WeatherOverlay.None) overlay[idx] = WeatherOverlay.Diseased;
     }
   }
   // Blight scar (only if not already occupied)
   for (const [key] of world.environment.diseasedCells) {
-    const [bx, by] = key.split(',').map(Number);
+    const [bx, by] = parseKey(key);
     const idx = by * world.width + bx;
-    if (overlay[idx] === 0) overlay[idx] = 6;
+    if (overlay[idx] === WeatherOverlay.None) overlay[idx] = WeatherOverlay.Blighted;
   }
 }
 
@@ -425,19 +409,10 @@ export function phaseEnvironment(world: World): void {
   advanceFires(world);
   advanceDiseases(world);
 
-  // Decay scorched and parched cells
-  for (const [key, remaining] of world.environment.scorchedCells) {
-    if (remaining <= 1) world.environment.scorchedCells.delete(key);
-    else world.environment.scorchedCells.set(key, remaining - 1);
-  }
-  for (const [key, remaining] of world.environment.parchedCells) {
-    if (remaining <= 1) world.environment.parchedCells.delete(key);
-    else world.environment.parchedCells.set(key, remaining - 1);
-  }
-  for (const [key, remaining] of world.environment.diseasedCells) {
-    if (remaining <= 1) world.environment.diseasedCells.delete(key);
-    else world.environment.diseasedCells.set(key, remaining - 1);
-  }
+  // Decay scorched, parched, and blight scar cells
+  decayMap(world.environment.scorchedCells);
+  decayMap(world.environment.parchedCells);
+  decayMap(world.environment.diseasedCells);
 
   rebuildWeatherOverlay(world);
 }

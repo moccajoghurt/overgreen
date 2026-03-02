@@ -1,4 +1,4 @@
-import { SIM, TerrainType } from '../types';
+import { SIM, TerrainType, WeatherOverlay } from '../types';
 import { RendererState, GRID, lerp } from './state';
 
 export function updateTerrainColors(state: RendererState): void {
@@ -105,18 +105,18 @@ export function updateTerrainColors(state: RendererState): void {
 
       // Weather overlay
       const overlayVal = env.weatherOverlay[row * GRID + col];
-      if (overlayVal === 1) {
+      if (overlayVal === WeatherOverlay.Drought) {
         // Drought: desaturate + warm shift
         const avg = (tmpColor.r + tmpColor.g + tmpColor.b) / 3;
         tmpColor.r = lerp(tmpColor.r, avg + 0.1, 0.4);
         tmpColor.g = lerp(tmpColor.g, avg - 0.02, 0.4);
         tmpColor.b = lerp(tmpColor.b, avg - 0.08, 0.4);
-      } else if (overlayVal === 2) {
+      } else if (overlayVal === WeatherOverlay.Burning) {
         // Burning: bright orange-red
         tmpColor.r = lerp(tmpColor.r, 0.9, 0.7);
         tmpColor.g = lerp(tmpColor.g, 0.3, 0.7);
         tmpColor.b = lerp(tmpColor.b, 0.05, 0.7);
-      } else if (overlayVal === 3) {
+      } else if (overlayVal === WeatherOverlay.Scorched) {
         // Scorched: dark charcoal/ash, fading over time
         const key = `${col},${row}`;
         const remaining = env.scorchedCells.get(key) ?? 0;
@@ -125,7 +125,7 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.r = lerp(tmpColor.r, 0.12, blend);
         tmpColor.g = lerp(tmpColor.g, 0.08, blend);
         tmpColor.b = lerp(tmpColor.b, 0.06, blend);
-      } else if (overlayVal === 4) {
+      } else if (overlayVal === WeatherOverlay.Parched) {
         // Parched: pale dry earth, fading over time
         const key = `${col},${row}`;
         const remaining = env.parchedCells.get(key) ?? 0;
@@ -134,12 +134,12 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.r = lerp(tmpColor.r, 0.55, blend);
         tmpColor.g = lerp(tmpColor.g, 0.42, blend);
         tmpColor.b = lerp(tmpColor.b, 0.28, blend);
-      } else if (overlayVal === 5) {
+      } else if (overlayVal === WeatherOverlay.Diseased) {
         // Active disease: sickly yellow-green
         tmpColor.r = lerp(tmpColor.r, 0.45, 0.5);
         tmpColor.g = lerp(tmpColor.g, 0.50, 0.5);
         tmpColor.b = lerp(tmpColor.b, 0.08, 0.5);
-      } else if (overlayVal === 6) {
+      } else if (overlayVal === WeatherOverlay.Blighted) {
         // Blight scar: fading pale sickly
         const key = `${col},${row}`;
         const remaining = env.diseasedCells.get(key) ?? 0;
