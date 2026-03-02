@@ -1,4 +1,5 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
+import { NEIGHBORS, inBounds } from '../simulation/neighbors';
 import { RendererState, GRID, lerp } from './state';
 
 /**
@@ -32,6 +33,23 @@ export function updateTerrainColors(state: RendererState): void {
 
   const arr = colorArray;
   const env = world.environment;
+
+  // Pre-compute allelopathy zone buffer (strength per cell from nearby allelopathic plants)
+  const allelZone = new Float32Array(GRID * GRID);
+  for (const plant of world.plants.values()) {
+    if (!plant.alive || plant.genome.allelopathy <= 0.2) continue;
+    const strength = Math.min(1, (plant.genome.allelopathy - 0.2) * 1.5);
+    // Own cell: full strength
+    allelZone[plant.y * GRID + plant.x] = Math.max(allelZone[plant.y * GRID + plant.x], strength);
+    // Neighbor cells: half strength
+    for (const [dx, dy] of NEIGHBORS) {
+      const nx = plant.x + dx;
+      const ny = plant.y + dy;
+      if (!inBounds(nx, ny, world.width, world.height)) continue;
+      const idx = ny * GRID + nx;
+      allelZone[idx] = Math.max(allelZone[idx], strength * 0.5);
+    }
+  }
 
   // Hoist season-invariant computations out of the per-cell loop
   const seasonColorsData = [
@@ -125,6 +143,14 @@ export function updateTerrainColors(state: RendererState): void {
             tmpColor.g = tmpColor.g * 0.95 + 0.02;
             tmpColor.b *= 0.90;
           }
+        }
+
+        // Allelopathy zone: purple-brown chemical tint
+        const allelStr = allelZone[row * GRID + col];
+        if (allelStr > 0) {
+          tmpColor.r = lerp(tmpColor.r, 0.28, allelStr * 0.25);
+          tmpColor.g = lerp(tmpColor.g, 0.12, allelStr * 0.35);
+          tmpColor.b = lerp(tmpColor.b, 0.22, allelStr * 0.2);
         }
       }
 

@@ -82,7 +82,7 @@ interface DiagnosticSnapshot {
     speciesId: number;
     name: string;
     count: number;
-    avgGenome: { root: number; height: number; leaf: number; seed: number };
+    avgGenome: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
     avgEnergy: number;
   }>;
 }
@@ -190,6 +190,7 @@ function computeSnapshot(
   const speciesBuckets = new Map<number, {
     count: number; sumEnergy: number;
     sumRoot: number; sumHeight: number; sumLeaf: number; sumSeed: number;
+    sumAllelo: number; sumDef: number;
   }>();
   const strategySet = new Set<string>();
 
@@ -216,11 +217,13 @@ function computeSnapshot(
     const h = plant.genome.heightPriority;
     const l = plant.genome.leafSize;
     const s = plant.genome.seedInvestment;
+    const a = plant.genome.allelopathy;
+    const d = plant.genome.defense;
     sumRoot += r; sumHeight += h; sumLeaf += l; sumSeed += s;
     sumRootSq += r * r; sumHeightSq += h * h;
     sumLeafSq += l * l; sumSeedSq += s * s;
 
-    const stratKey = `${Math.round(r * 10)},${Math.round(h * 10)},${Math.round(l * 10)},${Math.round(s * 10)}`;
+    const stratKey = `${Math.round(r * 10)},${Math.round(h * 10)},${Math.round(l * 10)},${Math.round(s * 10)},${Math.round(a * 10)},${Math.round(d * 10)}`;
     strategySet.add(stratKey);
 
     const cell = world.grid[plant.y][plant.x];
@@ -233,12 +236,13 @@ function computeSnapshot(
 
     let bucket = speciesBuckets.get(plant.speciesId);
     if (!bucket) {
-      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0 };
+      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumAllelo: 0, sumDef: 0 };
       speciesBuckets.set(plant.speciesId, bucket);
     }
     bucket.count++;
     bucket.sumEnergy += plant.energy;
     bucket.sumRoot += r; bucket.sumHeight += h; bucket.sumLeaf += l; bucket.sumSeed += s;
+    bucket.sumAllelo += a; bucket.sumDef += d;
   }
 
   // PASS 2: Grid scan for resource state
@@ -289,6 +293,8 @@ function computeSnapshot(
         height: b.sumHeight / b.count,
         leaf: b.sumLeaf / b.count,
         seed: b.sumSeed / b.count,
+        allelo: b.sumAllelo / b.count,
+        def: b.sumDef / b.count,
       },
       avgEnergy: b.sumEnergy / b.count,
     }));

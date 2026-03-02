@@ -1,5 +1,5 @@
 import {
-  Herbivore, HerbivoreGenome, HERB, TerrainType, World, Season, WeatherOverlay,
+  Herbivore, HerbivoreGenome, HERB, SIM, TerrainType, World, Season, WeatherOverlay,
 } from '../types';
 import { NEIGHBORS, inBounds } from './neighbors';
 
@@ -94,6 +94,7 @@ function moveHerbivore(h: Herbivore, world: World): void {
     let score = 0;
 
     // Food score: scan for plants in radius around this neighbor
+    // Defense penalizes attractiveness (herbivores learn to avoid defended plants)
     for (let ry = -HERB.FOOD_SEARCH_RADIUS; ry <= HERB.FOOD_SEARCH_RADIUS; ry++) {
       for (let rx = -HERB.FOOD_SEARCH_RADIUS; rx <= HERB.FOOD_SEARCH_RADIUS; rx++) {
         const sx = nx + rx;
@@ -104,7 +105,8 @@ function moveHerbivore(h: Herbivore, world: World): void {
           const plant = world.plants.get(cell.plantId);
           if (plant && plant.alive) {
             const dist = Math.abs(rx) + Math.abs(ry);
-            score += plant.leafArea / (1 + dist);
+            const defPenalty = 1 - plant.genome.defense * 0.5;
+            score += (plant.leafArea * defPenalty) / (1 + dist);
           }
         }
       }
@@ -158,8 +160,11 @@ function grazeHerbivore(h: Herbivore, world: World): void {
     return;
   }
 
-  const grazeAmount = HERB.BASE_GRAZE_AMOUNT * (0.5 + h.genome.appetite * 0.5);
-  const available = plant.leafArea - HERB.MIN_LEAF_AFTER_GRAZE;
+  const rawGraze = HERB.BASE_GRAZE_AMOUNT * (0.5 + h.genome.appetite * 0.5);
+  // Defense reduces effective grazing
+  const grazeAmount = rawGraze * (1 - plant.genome.defense * SIM.DEFENSE_GRAZE_REDUCTION);
+  const minLeaf = HERB.MIN_LEAF_AFTER_GRAZE * plant.genome.defense;
+  const available = plant.leafArea - minLeaf;
   if (available <= 0) {
     h.lastEnergyGained = 0;
     return;
@@ -167,9 +172,13 @@ function grazeHerbivore(h: Herbivore, world: World): void {
 
   const consumed = Math.min(grazeAmount, available);
   plant.leafArea -= consumed;
+  plant.energy -= HERB.TRAMPLE_DAMAGE * (1 - plant.genome.defense);
   const energyGained = consumed * HERB.ENERGY_PER_LEAF;
   h.energy = Math.min(HERB.MAX_ENERGY, h.energy + energyGained);
   h.lastEnergyGained = energyGained;
+
+  // Thorns/toxins damage the herbivore
+  h.energy -= plant.genome.defense * SIM.DEFENSE_HERBIVORE_DAMAGE;
 }
 
 function metabolizeHerbivore(h: Herbivore, world: World): void {
@@ -243,9 +252,13 @@ export function phaseHerbivores(world: World): void {
   world.herbivoreDeathEvents.length = 0;
   world.herbivoreBirthEvents.length = 0;
 
-  // Auto-spawn initial herd at SPAWN_MIN_TICK if none exist
-  if (world.tick === HERB.SPAWN_MIN_TICK && world.herbivores.size === 0) {
-    seedInitialHerbivores(world, HERB.INITIAL_COUNT);
+  // Spawn initial herd or respawn after extinction
+  if (world.tick >= HERB.SPAWN_MIN_TICK && world.herbivores.size === 0) {
+    if (world.tick === HERB.SPAWN_MIN_TICK) {
+      seedInitialHerbivores(world, HERB.INITIAL_COUNT);
+    } else if (world.tick % HERB.RESPAWN_INTERVAL === 0) {
+      seedInitialHerbivores(world, HERB.RESPAWN_COUNT);
+    }
   }
 
   // Process each alive herbivore

@@ -9,6 +9,8 @@ const TRAITS = [
   { key: 'height' as const, label: 'Height', color: '#69c' },
   { key: 'leaf' as const, label: 'Leaf', color: '#6c6' },
   { key: 'seed' as const, label: 'Seed', color: '#c6c' },
+  { key: 'allelo' as const, label: 'Allelo', color: '#96c' },
+  { key: 'def' as const, label: 'Def', color: '#c66' },
 ];
 
 export function createTraitChart(container: HTMLElement) {

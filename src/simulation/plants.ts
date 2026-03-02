@@ -29,7 +29,9 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const dh = a.heightPriority - b.heightPriority;
   const dl = a.leafSize - b.leafSize;
   const ds = a.seedInvestment - b.seedInvestment;
-  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds);
+  const da = a.allelopathy - b.allelopathy;
+  const dd = a.defense - b.defense;
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + da * da + dd * dd);
 }
 
 export function randomGenome(): Genome {
@@ -38,6 +40,8 @@ export function randomGenome(): Genome {
     heightPriority: 0.1 + Math.random() * 0.8,
     leafSize: 0.1 + Math.random() * 0.8,
     seedInvestment: 0.1 + Math.random() * 0.8,
+    allelopathy: 0.1 + Math.random() * 0.8,
+    defense: 0.1 + Math.random() * 0.8,
   };
 }
 
@@ -60,6 +64,8 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
     heightPriority: mutate(parent.heightPriority),
     leafSize: mutate(parent.leafSize),
     seedInvestment: mutate(parent.seedInvestment),
+    allelopathy: mutate(parent.allelopathy),
+    defense: mutate(parent.defense),
   };
 }
 

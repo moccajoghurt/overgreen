@@ -43,13 +43,13 @@ function sumValues(map: Map<number, number>): number {
 interface PopulationSnapshot {
   populations: Map<number, number>;
   totalAlive: number;
-  traitAverages: { root: number; height: number; leaf: number; seed: number };
+  traitAverages: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
 }
 
 function countPopulations(world: World): PopulationSnapshot {
   const populations = new Map<number, number>();
   let totalAlive = 0;
-  let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0;
+  let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumAllelo = 0, sumDef = 0;
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     populations.set(plant.speciesId, (populations.get(plant.speciesId) ?? 0) + 1);
@@ -58,11 +58,13 @@ function countPopulations(world: World): PopulationSnapshot {
     sumHeight += plant.genome.heightPriority;
     sumLeaf += plant.genome.leafSize;
     sumSeed += plant.genome.seedInvestment;
+    sumAllelo += plant.genome.allelopathy;
+    sumDef += plant.genome.defense;
   }
 
   const traitAverages = totalAlive > 0
-    ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive }
-    : { root: 0, height: 0, leaf: 0, seed: 0 };
+    ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive, allelo: sumAllelo / totalAlive, def: sumDef / totalAlive }
+    : { root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0 };
 
   return { populations, totalAlive, traitAverages };
 }

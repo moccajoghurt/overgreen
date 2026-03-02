@@ -7,6 +7,8 @@ const TRAITS = [
   { key: 'heightPriority' as const, label: 'Height', color: '#69c' },
   { key: 'leafSize' as const, label: 'Leaf', color: '#6c6' },
   { key: 'seedInvestment' as const, label: 'Seed', color: '#c6c' },
+  { key: 'allelopathy' as const, label: 'Allelo', color: '#96c' },
+  { key: 'defense' as const, label: 'Def', color: '#c66' },
 ];
 
 
@@ -226,12 +228,12 @@ export function createGenomePanel(
     lastRenderedTick = world.tick;
 
     // Gather all species (no limit)
-    const buckets = new Map<number, { count: number; root: number; height: number; leaf: number; seed: number }>();
+    const buckets = new Map<number, { count: number; root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>();
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
       let b = buckets.get(plant.speciesId);
       if (!b) {
-        b = { count: 0, root: 0, height: 0, leaf: 0, seed: 0 };
+        b = { count: 0, root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0 };
         buckets.set(plant.speciesId, b);
       }
       b.count++;
@@ -239,6 +241,8 @@ export function createGenomePanel(
       b.height += plant.genome.heightPriority;
       b.leaf += plant.genome.leafSize;
       b.seed += plant.genome.seedInvestment;
+      b.allelo += plant.genome.allelopathy;
+      b.def += plant.genome.defense;
     }
 
     const sorted = [...buckets.entries()].sort((a, b) => b[1].count - a[1].count);
@@ -252,6 +256,8 @@ export function createGenomePanel(
         heightPriority: b.height / b.count,
         leafSize: b.leaf / b.count,
         seedInvestment: b.seed / b.count,
+        allelopathy: b.allelo / b.count,
+        defense: b.def / b.count,
       } as Record<string, number>,
     }));
 

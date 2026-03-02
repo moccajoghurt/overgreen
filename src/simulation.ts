@@ -133,7 +133,9 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   let maintenance = SIM.MAINTENANCE_BASE
     + plant.height * SIM.MAINTENANCE_PER_HEIGHT
     + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
-    + leafMaint;
+    + leafMaint
+    + plant.genome.allelopathy * SIM.ALLELOPATHY_MAINTENANCE_RATE
+    + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE;
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
   return maintenance;
 }
@@ -224,6 +226,23 @@ function phaseUpdatePlants(world: World): void {
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
     plant.energy += energyProduced - maintenance;
+
+    // Allelopathy: damage neighboring plants via chemical suppression
+    if (plant.genome.allelopathy > 0.1) {
+      const allelStrength = plant.genome.allelopathy * (0.5 + 0.5 * plant.rootDepth / SIM.MAX_ROOT_DEPTH);
+      const damage = allelStrength * SIM.ALLELOPATHY_DAMAGE_RATE;
+      for (const [dx, dy] of NEIGHBORS) {
+        const nx = plant.x + dx;
+        const ny = plant.y + dy;
+        if (!inBounds(nx, ny, world.width, world.height)) continue;
+        const nc = world.grid[ny][nx];
+        if (nc.plantId === null) continue;
+        const neighbor = world.plants.get(nc.plantId);
+        if (neighbor && neighbor.alive) {
+          neighbor.energy -= damage;
+        }
+      }
+    }
 
     // Seasonal leaf decay (autumn/winter leaf loss)
     if (world.environment.leafDecayRate > 0) {

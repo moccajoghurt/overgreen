@@ -94,6 +94,11 @@ export function naturalTrunkColor(genome: Genome, out: { tr: number; tg: number;
   g -= seedInvestment * 0.02;
   b -= seedInvestment * 0.02;
 
+  // defense high → dark charcoal-grey bark (thick, armored)
+  r -= genome.defense * 0.12;
+  g -= genome.defense * 0.08;
+  b -= genome.defense * 0.02;
+
   out.tr = Math.max(0.12, Math.min(0.50, r));
   out.tg = Math.max(0.08, Math.min(0.38, g));
   out.tb = Math.max(0.04, Math.min(0.28, b));

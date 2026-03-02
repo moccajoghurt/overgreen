@@ -189,9 +189,9 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   const heightMult = 0.35 + genome.heightPriority * 0.15 - genome.rootPriority * 0.08;
   const trunkH = Math.max(0.1, height * heightMult);
 
-  // Trunk thickness: rootPriority → very fat (baobab), seedInvestment → thinner
+  // Trunk thickness: rootPriority → very fat (baobab), seedInvestment → thinner, defense → much thicker (armored bark)
   const trunkThickness = Math.max(0.15,
-    0.3 + rootRatio * 2.5 - genome.seedInvestment * 0.4);
+    0.3 + rootRatio * 2.5 - genome.seedInvestment * 0.4 + genome.defense * 1.5);
 
   // Canopy size driven by actual leaf growth; seedInvestment → smaller individual blobs
   const canopyBase = 0.05 + leafRatio * 2.0 - genome.seedInvestment * leafRatio * 0.5;

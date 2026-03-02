@@ -9,6 +9,10 @@ const ADJECTIVES: string[][] = [
   ['Broad', 'Lush', 'Verdant', 'Wide', 'Leafy', 'Shaded'],
   // seedInvestment
   ['Prolific', 'Spreading', 'Fertile', 'Drifting', 'Scattering', 'Restless'],
+  // allelopathy
+  ['Toxic', 'Bitter', 'Acrid', 'Caustic', 'Noxious', 'Pungent'],
+  // defense
+  ['Thorny', 'Armored', 'Barbed', 'Spiny', 'Guarded', 'Bristled'],
 ];
 
 const NOUNS: string[][] = [
@@ -20,6 +24,10 @@ const NOUNS: string[][] = [
   ['Canopy', 'Crowns', 'Fronds', 'Leaves', 'Boughs', 'Fans'],
   // seedInvestment
   ['Seeders', 'Drifters', 'Sowers', 'Casters', 'Wanderers', 'Floaters'],
+  // allelopathy
+  ['Wards', 'Banes', 'Blighters', 'Hazards', 'Taints', 'Plagues'],
+  // defense
+  ['Thorns', 'Shields', 'Bristles', 'Spines', 'Armors', 'Barbs'],
 ];
 
 export function generateSpeciesName(genome: Genome, speciesId: number): string {
@@ -28,12 +36,14 @@ export function generateSpeciesName(genome: Genome, speciesId: number): string {
     genome.heightPriority,
     genome.leafSize,
     genome.seedInvestment,
+    genome.allelopathy,
+    genome.defense,
   ];
 
   // Find dominant and second trait
   let first = 0, second = 1;
   if (traits[second] > traits[first]) { const t = first; first = second; second = t; }
-  for (let i = 2; i < 4; i++) {
+  for (let i = 2; i < traits.length; i++) {
     if (traits[i] > traits[first]) {
       second = first;
       first = i;
