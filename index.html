@@ -32,6 +32,7 @@
       min-height: 120px; max-height: 200px; overflow-y: auto;
       flex-shrink: 0;
     }
+    #showcase::-webkit-scrollbar { display: none; }
     label { font-size: 12px; }
     input[type="range"] { width: 100%; }
     #bottom-panel {
@@ -101,112 +102,7 @@
       <div>Plants: <span id="plant-count">0</span></div>
     </div>
     <div class="inspector" id="inspector">Click a cell to inspect...</div>
-    <div id="rules" style="font-size:10px; line-height:1.5; color:#aaa; border-top:1px solid #333; padding-top:8px; margin-top:4px;">
-
-      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">What is this?</div>
-      An ecosystem where plants grow, compete
-      for resources, and evolve. Each seed
-      inherits its parent's DNA with small
-      mutations &mdash; natural selection in real time.
-
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Terrain</div>
-      <div style="margin-bottom:4px;">
-        <span style="display:inline-block;width:10px;height:10px;background:hsl(210,55%,25%);border:1px solid #555;vertical-align:middle;"></span>
-        <b>River</b> &mdash; High water (1.2/tick), seeps +0.3/tick to neighbors. No planting.
-      </div>
-      <div style="margin-bottom:4px;">
-        <span style="display:inline-block;width:10px;height:10px;background:hsl(30,8%,35%);border:1px solid #555;vertical-align:middle;"></span>
-        <b>Rock</b> &mdash; Barely any water (0.08/tick), low nutrients. No planting.
-      </div>
-      <div style="margin-bottom:4px;">
-        <span style="display:inline-block;width:10px;height:10px;background:hsl(35,40%,45%);border:1px solid #555;vertical-align:middle;"></span>
-        <b>Hill</b> &mdash; +30% light, but 60% less water. Elevated terrain.
-      </div>
-
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Each Tick</div>
-
-      <b style="color:#68c">1. Water recharge</b><br>
-      Each cell regenerates water per tick.<br>
-      Rate varies by cell (~0.18&ndash;0.33).<br>
-      Max water per cell: 10.<br>
-      Nutrients decay slowly (&minus;0.02/tick).
-
-      <div style="margin-top:4px;"><b style="color:#ee8">2. Light &amp; shadows</b></div>
-      All cells start at light = 1.0.<br>
-      Each taller neighbor shades proportionally:<br>
-      &minus;0.3 &times; min(1, heightDiff/1.5). Floor: 0.1.
-
-      <div style="margin-top:4px;"><b style="color:#6c6">3. Plant update</b></div>
-
-      <div style="margin:2px 0;"><u>Water (transpiration)</u></div>
-      need = leafArea &times; 0.4 (transpiration)<br>
-      canAbsorb = rootDepth &times; 0.4<br>
-      absorbed = min(need, canAbsorb, cell water)<br>
-      If unmet demand remains, deep roots drain<br>
-      neighbor cells (6% &times; rootDepth/maxRoot).<br>
-      waterFraction = absorbed / need
-
-      <div style="margin:2px 0;"><u>Photosynthesis</u></div>
-      shadeTol = (1 &minus; leafGene) &times; 0.3<br>
-      effLight = min(1, light + shadeTol)<br>
-      energy = effLight &times; leafArea &times; 0.5<br>
-      &nbsp; &times; waterFraction<br>
-      &nbsp; &times; (1 + nutrients &times; 0.15)<br>
-      <span style="color:#666">Low-leaf plants tolerate shade better.</span>
-
-      <div style="margin:2px 0;"><u>Maintenance cost</u></div>
-      0.05 + height&times;0.05<br>
-      &nbsp; + rootDepth&times;0.03 + leafArea&times;0.04<br>
-      <span style="color:#666">Bigger plants cost more to sustain.</span>
-
-      <div style="margin:2px 0;"><u>Energy budget</u></div>
-      energy += produced &minus; maintenance<br>
-      If energy &gt; 1.0, the surplus is split:
-
-      <div style="margin:2px 0;"><u>Growth vs. Seeds (gene S)</u></div>
-      seedBudget = surplus &times; <b style="color:#c96">S</b><br>
-      growthBudget = surplus &minus; seedBudget
-
-      <div style="margin:2px 0;"><u>Growth allocation (genes R/H/L)</u></div>
-      <b style="color:#c96">R</b>, <b style="color:#c96">H</b>, <b style="color:#c96">L</b> are normalized to sum to 1.<br>
-      Each stat grows by its share &times; 30%.<br>
-      Max for each stat = base max &times; its gene fraction.<br>
-      <span style="color:#666">Specialization unlocks higher caps.</span>
-
-      <div style="margin:2px 0;"><u>Seed spawning</u></div>
-      seeds = &lfloor;seedBudget / 0.8&rfloor;<br>
-      Range = 3 + &lfloor;height/3&rfloor; cells.<br>
-      Seedling starts: h/r/l=0.5, energy=2.0.<br>
-      Genome = parent &plusmn; 0.05 per gene.
-
-      <div style="margin-top:4px;"><b style="color:#c66">4. Death</b></div>
-      energy &le; 0 &rarr; starvation<br>
-      age &ge; 500 &rarr; old age
-
-      <div style="margin-top:4px;"><b style="color:#ca6">5. Decomposition</b></div>
-      Dead plant enriches its cell:<br>
-      +2.0 water, +1.5 + height&times;0.3 nutrients.<br>
-      Max nutrients per cell: 10.
-
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Genome</div>
-      4 genes, each 0&ndash;1:<br>
-      <b style="color:#c96">R</b> Root priority &mdash; water absorption capacity<br>
-      <b style="color:#c96">H</b> Height priority &mdash; reach light, cast shade<br>
-      <b style="color:#c96">L</b> Leaf size &mdash; more energy, needs more water &amp; sun<br>
-      <b style="color:#c96">S</b> Seed investment &mdash; reproduce vs. grow<br>
-      <br>
-      Seeds mutate each gene by &plusmn;0.05.<br>
-      Over generations, strategies diverge.
-
-      <div style="color:#8f8; font-size:12px; margin:8px 0 4px;">Initial Conditions</div>
-      80&times;80 grid, 40 random plants.<br>
-      Terrain: procedural elevation + 1&ndash;2 rivers,
-      rocky patches, hills. Rivers block planting
-      but enrich nearby soil via seepage.<br>
-      Starting plants: h/r/l=1, energy=3.<br>
-      Starting genes: random 0.1&ndash;0.9.
-
-    </div>
+    <div id="showcase" style="flex:1; overflow-y:auto; border-top:1px solid #333; padding-top:8px; margin-top:4px; scrollbar-width:none;"></div>
   </div>
   <div id="canvas-container"></div>
   </div>

@@ -5,7 +5,7 @@ import {
   computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp, plantHash,
 } from './state';
 
-function naturalCanopyColor(genome: Genome) {
+export function naturalCanopyColor(genome: Genome) {
   const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
   // Base: mid-forest green
   let r = 0.16;
@@ -35,7 +35,7 @@ function naturalCanopyColor(genome: Genome) {
   };
 }
 
-function naturalTrunkColor(genome: Genome) {
+export function naturalTrunkColor(genome: Genome) {
   const { rootPriority, heightPriority, leafSize } = genome;
   // Base: bark brown
   let r = 0.28;
