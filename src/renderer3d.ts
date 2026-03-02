@@ -145,6 +145,8 @@ export function createRenderer3D(
     herbivoreMesh,
     prevHerbivoreSnapshots: new Map(),
     dyingHerbivores: new Map(),
+    movingHerbivores: new Map(),
+    lastHerbivoreTick: -1,
     skyDome,
     ambientLight,
     dirLight,
