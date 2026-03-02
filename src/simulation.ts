@@ -88,7 +88,8 @@ function phaseCalculateLight(world: World): void {
 }
 
 function absorbWater(plant: Plant, cell: Cell, world: World): number {
-  const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
+  const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
+  const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF;
   const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
   let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
   cell.waterLevel -= waterAbsorbed;
@@ -115,7 +116,9 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
 }
 
 function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean): number {
-  const rawEnergy = cell.lightLevel * plant.leafArea * SIM.PHOTOSYNTHESIS_RATE;
+  const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
+  const heightLightBonus = plant.height / SIM.MAX_HEIGHT * SIM.HEIGHT_LIGHT_BONUS;
+  const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
   const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
@@ -124,10 +127,11 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 }
 
 function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): number {
-  let leafMaint = plant.leafArea * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
+  const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
+  let leafMaint = effectiveLeaf * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
   if (world.environment.leafMaintenanceMult > 1.01) {
     const rootInsulation = Math.min(0.8, plant.rootDepth / SIM.MAX_ROOT_DEPTH * 0.8);
-    const penalty = leafMaint - plant.leafArea * SIM.MAINTENANCE_PER_LEAF;
+    const penalty = leafMaint - effectiveLeaf * SIM.MAINTENANCE_PER_LEAF;
     leafMaint -= penalty * rootInsulation;
   }
   let maintenance = SIM.MAINTENANCE_BASE
