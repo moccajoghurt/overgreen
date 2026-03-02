@@ -1,5 +1,46 @@
 // ── Seasons / Environment ──
 
+export enum ClimateEra {
+  Temperate = 0,
+  Arid = 1,
+  Lush = 2,
+  IceAge = 3,
+  Volatile = 4,
+  Fertile = 5,
+}
+
+export interface EraMultipliers {
+  waterMult: number;
+  lightMult: number;
+  leafMaintMult: number;
+  growthMult: number;
+  seedMult: number;
+  shadowMult: number;
+  nutrientDecayMult: number;
+  mutationMult: number;
+  seedEnergyMult: number;
+  droughtMult: number;
+  fireMult: number;
+  diseaseMult: number;
+  maxDiseases: number;
+}
+
+export interface EraDefinition {
+  multipliers: EraMultipliers;
+  durationMin: number;
+  durationMax: number;
+}
+
+export interface EraState {
+  current: ClimateEra;
+  previous: ClimateEra | null;
+  ticksInEra: number;
+  eraDuration: number;
+  transitioning: boolean;
+  transitionTick: number; // 0..200 during transition
+  prevMultipliers: EraMultipliers | null;
+}
+
 export const enum WeatherOverlay {
   None = 0,
   Drought = 1,
@@ -60,6 +101,7 @@ export interface Environment {
   growthMult: number;
   seedMult: number;
   leafDecayRate: number;
+  era: EraState;
   droughts: DroughtPatch[];
   fires: FireEvent[];
   diseases: DiseaseEvent[];
@@ -70,6 +112,6 @@ export interface Environment {
 }
 
 export interface EnvironmentEvent {
-  type: 'season_change' | 'drought_start' | 'drought_end' | 'fire_start' | 'fire_end' | 'disease_start' | 'disease_end';
+  type: 'season_change' | 'era_change' | 'drought_start' | 'drought_end' | 'fire_start' | 'fire_end' | 'disease_start' | 'disease_end';
   message: string;
 }

@@ -22,6 +22,7 @@ export type SimEventType =
   | 'dominance_shift'
   | 'mass_extinction'
   | 'season_change'
+  | 'era_change'
   | 'drought_start'
   | 'drought_end'
   | 'fire_start'

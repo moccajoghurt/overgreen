@@ -51,9 +51,10 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
   };
 }
 
-export function mutateGenome(parent: Genome): Genome {
+export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
+  const rate = mutationRate ?? SIM.MUTATION_RATE;
   const mutate = (val: number) =>
-    Math.max(0.01, Math.min(0.99, val + (Math.random() * 2 - 1) * SIM.MUTATION_RATE));
+    Math.max(0.01, Math.min(0.99, val + (Math.random() * 2 - 1) * rate));
   return {
     rootPriority: mutate(parent.rootPriority),
     heightPriority: mutate(parent.heightPriority),

@@ -2,6 +2,7 @@ import { Cell, Plant, SIM, TerrainType, World } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import { mutateGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
+import { getEffectiveEraMultipliers } from './simulation/eras';
 
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants } from './simulation/plants';
@@ -11,6 +12,8 @@ export { spawnFire, spawnDisease } from './simulation/environment';
 
 function phaseRechargeWater(world: World): void {
   const env = world.environment;
+  const eraMults = getEffectiveEraMultipliers(env.era);
+  const nutrientDecay = SIM.NUTRIENT_DECAY * eraMults.nutrientDecayMult;
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
@@ -30,7 +33,7 @@ function phaseRechargeWater(world: World): void {
       }
 
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
-      cell.nutrients = Math.max(0, cell.nutrients - SIM.NUTRIENT_DECAY);
+      cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
     }
   }
 
@@ -52,6 +55,8 @@ function phaseRechargeWater(world: World): void {
 }
 
 function phaseCalculateLight(world: World): void {
+  const eraMults = getEffectiveEraMultipliers(world.environment.era);
+  const shadowReduction = SIM.SHADOW_REDUCTION * eraMults.shadowMult;
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
@@ -69,7 +74,7 @@ function phaseCalculateLight(world: World): void {
         if (nPlant && nPlant.alive && nPlant.height > myHeight) {
           // Shade scales with height difference — towering neighbors shade more
           const diff = nPlant.height - myHeight;
-          shadeSum += SIM.SHADOW_REDUCTION * Math.min(1, diff / SIM.SHADOW_HEIGHT_SCALE);
+          shadeSum += shadowReduction * Math.min(1, diff / SIM.SHADOW_HEIGHT_SCALE);
         }
       }
       const rawBase = cell.terrainType === TerrainType.Hill
@@ -132,7 +137,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): void {
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, eraMutationRate: number, eraSeedEnergyMult: number): void {
   const env = world.environment;
   const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
   const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
@@ -176,8 +181,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): vo
     const child: Plant = {
       id: childId, speciesId: plant.speciesId, x: tx, y: ty,
       height: 0.5, rootDepth: 0.5, leafArea: 0.5,
-      energy: SIM.SEED_INITIAL_ENERGY, age: 0, alive: true,
-      genome: mutateGenome(plant.genome),
+      energy: SIM.SEED_INITIAL_ENERGY * eraSeedEnergyMult, age: 0, alive: true,
+      genome: mutateGenome(plant.genome, eraMutationRate),
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0,
     };
@@ -195,6 +200,10 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): vo
 }
 
 function phaseUpdatePlants(world: World): void {
+  const eraMults = getEffectiveEraMultipliers(world.environment.era);
+  const eraMutationRate = SIM.MUTATION_RATE * eraMults.mutationMult;
+  const eraSeedEnergyMult = eraMults.seedEnergyMult;
+
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
@@ -220,7 +229,7 @@ function phaseUpdatePlants(world: World): void {
     }
 
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, eraMutationRate, eraSeedEnergyMult);
     }
 
     plant.age++;

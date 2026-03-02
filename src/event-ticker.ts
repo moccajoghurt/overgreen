@@ -9,6 +9,7 @@ const TYPE_STYLES: Record<SimEventType, string> = {
   dominance_shift: 'color:#fd8',
   mass_extinction: 'color:#f44; font-weight:bold',
   season_change: 'color:#adf',
+  era_change: 'color:#d4a030; font-weight:bold',
   drought_start: 'color:#fa4',
   drought_end: 'color:#fa4',
   fire_start: 'color:#f44; font-weight:bold',
