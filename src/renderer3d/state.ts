@@ -113,6 +113,12 @@ export interface RendererState {
   lastTerrainTick: number;
   lastTerrainColorMode: 'natural' | 'species';
   lastPlantTick: number;
+  lastPlantColorMode: 'natural' | 'species';
+
+  // Performance: cached plant base colors (keyed by plant id, invalidated on colorMode change)
+  plantColorCache: Map<number, { cr: number; cg: number; cb: number; tr: number; tg: number; tb: number }>;
+  // Performance: double-buffered snapshot maps to avoid per-tick allocation
+  nextSnapshots: Map<number, PlantSnapshot>;
 
   // Weather meshes & particles
   snowMesh: THREE.InstancedMesh;

@@ -5,7 +5,11 @@ import {
   computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp, plantHash,
 } from './state';
 
-export function naturalCanopyColor(genome: Genome) {
+// ── Reusable output objects (avoid per-plant allocations in hot path) ──
+const _clr = { cr: 0, cg: 0, cb: 0, tr: 0, tg: 0, tb: 0 };
+const _season = { cr: 0, cg: 0, cb: 0 };
+
+export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number; cb: number }) {
   const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
 
   // Compute normalized dominance for nonlinear archetype accents
@@ -59,14 +63,12 @@ export function naturalCanopyColor(genome: Genome) {
     b += strength * 0.06;
   }
 
-  return {
-    cr: Math.max(0.06, Math.min(0.45, r)),
-    cg: Math.max(0.18, Math.min(0.72, g)),
-    cb: Math.max(0.04, Math.min(0.30, b)),
-  };
+  out.cr = Math.max(0.06, Math.min(0.45, r));
+  out.cg = Math.max(0.18, Math.min(0.72, g));
+  out.cb = Math.max(0.04, Math.min(0.30, b));
 }
 
-export function naturalTrunkColor(genome: Genome) {
+export function naturalTrunkColor(genome: Genome, out: { tr: number; tg: number; tb: number }) {
   const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
   // Base: bark brown
   let r = 0.28;
@@ -92,73 +94,81 @@ export function naturalTrunkColor(genome: Genome) {
   g -= seedInvestment * 0.02;
   b -= seedInvestment * 0.02;
 
-  return {
-    tr: Math.max(0.12, Math.min(0.50, r)),
-    tg: Math.max(0.08, Math.min(0.38, g)),
-    tb: Math.max(0.04, Math.min(0.28, b)),
-  };
+  out.tr = Math.max(0.12, Math.min(0.50, r));
+  out.tg = Math.max(0.08, Math.min(0.38, g));
+  out.tb = Math.max(0.04, Math.min(0.28, b));
 }
+
+/** Seasonal color targets (constant, no need to allocate per call) */
+const SEASON_TARGETS = [
+  [0.30, 0.55, 0.15], // Spring: fresh green
+  [0, 0, 0],          // Summer: placeholder (identity — filled per call)
+  [0.70, 0.18, 0.04], // Autumn: vivid orange-red
+  [0.35, 0.28, 0.20], // Winter: gray-brown bark
+] as const;
 
 function seasonalCanopyColor(
   cr: number, cg: number, cb: number,
   env: { season: Season; seasonProgress: number },
-): { cr: number; cg: number; cb: number } {
+  out: { cr: number; cg: number; cb: number },
+): void {
   const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
 
-  const seasonTargets: [number, number, number][] = [
-    [0.30, 0.55, 0.15], // Spring: fresh green
-    [cr,   cg,   cb  ], // Summer: identity
-    [0.70, 0.18, 0.04], // Autumn: vivid orange-red
-    [0.35, 0.28, 0.20], // Winter: gray-brown bark
-  ];
-
-  const c0 = seasonTargets[env.season];
-  const c1 = seasonTargets[(env.season + 1) % 4];
-  const tr = c0[0] + (c1[0] - c0[0]) * t;
-  const tg = c0[1] + (c1[1] - c0[1]) * t;
-  const tb = c0[2] + (c1[2] - c0[2]) * t;
+  const s0 = env.season;
+  const s1 = (env.season + 1) % 4;
+  const c0r = s0 === 1 ? cr : SEASON_TARGETS[s0][0];
+  const c0g = s0 === 1 ? cg : SEASON_TARGETS[s0][1];
+  const c0b = s0 === 1 ? cb : SEASON_TARGETS[s0][2];
+  const c1r = s1 === 1 ? cr : SEASON_TARGETS[s1][0];
+  const c1g = s1 === 1 ? cg : SEASON_TARGETS[s1][1];
+  const c1b = s1 === 1 ? cb : SEASON_TARGETS[s1][2];
+  const tr = c0r + (c1r - c0r) * t;
+  const tg = c0g + (c1g - c0g) * t;
+  const tb = c0b + (c1b - c0b) * t;
 
   let blendStrength: number;
   if (env.season === Season.Summer) {
-    blendStrength = 0.05 + t * 0.15; // warm up toward end of summer
+    blendStrength = 0.05 + t * 0.15;
   } else if (env.season === Season.Autumn) {
-    blendStrength = 0.7 * t + 0.25; // strong from the start, nearly full by end
+    blendStrength = 0.7 * t + 0.25;
   } else if (env.season === Season.Winter) {
     blendStrength = 0.6;
   } else {
     blendStrength = 0.5 * (1 - t);
   }
 
-  return {
-    cr: lerp(cr, tr, blendStrength),
-    cg: lerp(cg, tg, blendStrength),
-    cb: lerp(cb, tb, blendStrength),
-  };
+  out.cr = lerp(cr, tr, blendStrength);
+  out.cg = lerp(cg, tg, blendStrength);
+  out.cb = lerp(cb, tb, blendStrength);
 }
 
-function computePlantColors(state: RendererState, speciesId: number, genome: Genome) {
+/**
+ * Get base plant colors, using per-plant cache to avoid recomputation.
+ * Cache is invalidated when colorMode changes.
+ */
+function getPlantColors(state: RendererState, plantId: number, speciesId: number, genome: Genome) {
+  const cached = state.plantColorCache.get(plantId);
+  if (cached) return cached;
+
   if (state.colorMode === 'natural') {
-    const canopy = naturalCanopyColor(genome);
-    const trunk = naturalTrunkColor(genome);
-    return { ...canopy, ...trunk };
+    naturalCanopyColor(genome, _clr);
+    naturalTrunkColor(genome, _clr as any);
+  } else {
+    const sc = state.world.speciesColors.get(speciesId);
+    const gr = 0.2 + genome.rootPriority * 0.6;
+    const gg = 0.3 + genome.leafSize * 0.5;
+    const gb = 0.2 + genome.heightPriority * 0.6;
+    _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
+    _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
+    _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
+    _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
+    _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
+    _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
   }
 
-  // Species mode: current behavior
-  const sc = state.world.speciesColors.get(speciesId);
-  const gr = 0.2 + genome.rootPriority * 0.6;
-  const gg = 0.3 + genome.leafSize * 0.5;
-  const gb = 0.2 + genome.heightPriority * 0.6;
-  const cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-  const cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-  const cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-
-  const barkR = 0.28, barkG = 0.18, barkB = 0.10;
-  return {
-    cr, cg, cb,
-    tr: barkR * 0.85 + cr * 0.15,
-    tg: barkG * 0.85 + cg * 0.15,
-    tb: barkB * 0.85 + cb * 0.15,
-  };
+  const entry = { cr: _clr.cr, cg: _clr.cg, cb: _clr.cb, tr: _clr.tr, tg: _clr.tg, tb: _clr.tb };
+  state.plantColorCache.set(plantId, entry);
+  return entry;
 }
 
 function writeInstance(
@@ -203,6 +213,7 @@ function writeBranchesAndCanopies(
   branchScale: number,
   brMtx: Float32Array, brClr: Float32Array,
   canopyMtx: Float32Array, canopyClr: Float32Array,
+  branchLOD: number,
 ): { branchCount: number; canopyCount: number } {
   const { dummy } = state;
   const vis = sil.branchVisibility * branchScale;
@@ -213,8 +224,10 @@ function writeBranchesAndCanopies(
 
   // ── Level 1: Primary branches ──
   // leafSize → many (bushy), heightPriority → few (conifer), seedInvestment → moderate-many
-  const primaryCount = Math.max(2, Math.min(6,
+  const rawPrimaryCount = Math.max(2, Math.min(6,
     Math.round(2 + genome.leafSize * 3 - genome.heightPriority * 2 + genome.seedInvestment * 1.5)));
+  // LOD: reduce primaries when zoomed out
+  const primaryCount = branchLOD < 1 ? Math.max(2, Math.round(rawPrimaryCount * branchLOD)) : rawPrimaryCount;
 
   // Tilt from vertical: leafSize → near-horizontal, heightPriority → near-vertical
   const primaryTilt = Math.max(0.15, Math.min(1.5,
@@ -230,9 +243,10 @@ function writeBranchesAndCanopies(
   const primaryThickness = sil.trunkThickness * (
     0.30 + genome.rootPriority * 0.35 - genome.seedInvestment * 0.15);
 
-  // Secondary count per primary
-  const secondaryPerPrimary = Math.max(0, Math.min(2,
+  // Secondary count per primary (LOD: skip secondaries when zoomed out)
+  const rawSecondary = Math.max(0, Math.min(2,
     Math.round(genome.leafSize * 2.0 - genome.heightPriority * 1.2 + genome.seedInvestment * 0.5 - 0.2)));
+  const secondaryPerPrimary = branchLOD < 0.6 ? 0 : rawSecondary;
 
   // Per-tip canopy sizing: archetype-aware volume distribution
   const totalTips = Math.min(MAX_BRANCHES_PER_PLANT,
@@ -458,6 +472,12 @@ export function updatePlants(state: RendererState): void {
   if (!hasTicked && !hasAnimations) return;
   state.lastPlantTick = world.tick;
 
+  // Invalidate color cache when colorMode changes
+  if (state.colorMode !== state.lastPlantColorMode) {
+    state.plantColorCache.clear();
+    state.lastPlantColorMode = state.colorMode;
+  }
+
   const trunkMtx = trunks.instanceMatrix.array as Float32Array;
   const trunkClr = trunks.instanceColor!.array as Float32Array;
   const canopyMtx = canopies.instanceMatrix.array as Float32Array;
@@ -469,12 +489,12 @@ export function updatePlants(state: RendererState): void {
   if (world.tick !== state.lastProcessedTick) {
     state.lastProcessedTick = world.tick;
     for (const evt of world.seedEvents) {
+      // O(1) parent lookup via grid cell instead of scanning all plants
       let parentHeight = 1.0;
-      for (const p of world.plants.values()) {
-        if (p.x === evt.parentX && p.y === evt.parentY && p.alive) {
-          parentHeight = p.height;
-          break;
-        }
+      const cell = world.grid[evt.parentY]?.[evt.parentX];
+      if (cell?.plantId != null) {
+        const parent = world.plants.get(cell.plantId);
+        if (parent?.alive) parentHeight = parent.height;
       }
       const startY = Math.max(0.1, parentHeight * 0.35);
       const dx = Math.abs(evt.childX - evt.parentX);
@@ -509,7 +529,7 @@ export function updatePlants(state: RendererState): void {
       x: evt.x, y: evt.y,
       height: evt.height, rootDepth: evt.rootDepth,
       leafArea: evt.leafArea, speciesId: evt.speciesId,
-      genome: { ...evt.genome },
+      genome: evt.genome,
       progress: 0,
     });
   }
@@ -527,8 +547,14 @@ export function updatePlants(state: RendererState): void {
   const foliageFactor = computeSeasonalFoliageFactor(env);
   const canopyScale = Math.max(0.05, foliageFactor);
 
-  // ── Build new snapshots + render live plants ──
-  const newSnapshots = new Map<number, typeof state.prevSnapshots extends Map<number, infer V> ? V : never>();
+  // ── Camera-distance LOD for branches ──
+  const camPos = state.camera.position;
+  const camDist = Math.sqrt(camPos.x * camPos.x + camPos.y * camPos.y + camPos.z * camPos.z);
+  const branchLOD = camDist < 40 ? 1.0 : camDist < 70 ? (70 - camDist) / 30 : 0.3;
+
+  // ── Reuse snapshot map (swap instead of allocating new) ──
+  const newSnapshots = state.nextSnapshots;
+  newSnapshots.clear();
   let idx = 0;
   let branchIdx = 0;
   let canopyIdx = 0;
@@ -536,11 +562,12 @@ export function updatePlants(state: RendererState): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
 
+    // Reference genome directly (immutable per plant — no need to copy)
     newSnapshots.set(plant.id, {
       x: plant.x, y: plant.y,
       height: plant.height, rootDepth: plant.rootDepth,
       leafArea: plant.leafArea, speciesId: plant.speciesId,
-      genome: { ...plant.genome },
+      genome: plant.genome,
     });
 
     // Skip rendering if seed is still in flight
@@ -574,11 +601,13 @@ export function updatePlants(state: RendererState): void {
     sil.canopyY *= canopyScale;
     sil.canopyZ *= canopyScale;
 
-    let { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
+    // Use cached base colors + apply seasonal shift
+    const colors = getPlantColors(state, plant.id, plant.speciesId, plant.genome);
+    let { cr, cg, cb } = colors;
+    const { tr, tg, tb } = colors;
 
-    // Apply seasonal canopy color shift
-    const sc = seasonalCanopyColor(cr, cg, cb, env);
-    cr = sc.cr; cg = sc.cg; cb = sc.cb;
+    seasonalCanopyColor(cr, cg, cb, env, _season);
+    cr = _season.cr; cg = _season.cg; cb = _season.cb;
 
     const baseY = getCellElevation(plant.x, plant.y);
 
@@ -593,12 +622,14 @@ export function updatePlants(state: RendererState): void {
       trunkMtx, trunkClr);
     const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
       wx, wz, baseY, sil, plant.genome, tr, tg, tb, cr, cg, cb, branchScale,
-      brMtx, brClr, canopyMtx, canopyClr);
+      brMtx, brClr, canopyMtx, canopyClr, branchLOD);
     branchIdx += liveResult.branchCount;
     canopyIdx += liveResult.canopyCount;
     idx++;
   }
 
+  // Swap snapshot buffers
+  state.nextSnapshots = state.prevSnapshots;
   state.prevSnapshots = newSnapshots;
 
   // ── Render dying plants ──
@@ -626,22 +657,36 @@ export function updatePlants(state: RendererState): void {
     const tiltAngle = tiltProgress * (Math.PI / 3);
     const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
 
-    const orig = computePlantColors(state, dp.speciesId, dp.genome);
-    const sOrig = seasonalCanopyColor(orig.cr, orig.cg, orig.cb, env);
+    // Dying plants: compute colors directly (few of these, not worth caching)
+    naturalCanopyColor(dp.genome, _clr);
+    naturalTrunkColor(dp.genome, _clr as any);
+    if (state.colorMode !== 'natural') {
+      const sc = world.speciesColors.get(dp.speciesId);
+      const gr = 0.2 + dp.genome.rootPriority * 0.6;
+      const gg = 0.3 + dp.genome.leafSize * 0.5;
+      const gb = 0.2 + dp.genome.heightPriority * 0.6;
+      _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
+      _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
+      _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
+      _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
+      _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
+      _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
+    }
+    seasonalCanopyColor(_clr.cr, _clr.cg, _clr.cb, env, _season);
     const p = dp.progress;
-    const cr = sOrig.cr * (1 - p) + 0.35 * p;
-    const cg = sOrig.cg * (1 - p) + 0.20 * p;
-    const cb = sOrig.cb * (1 - p) + 0.08 * p;
-    const tr = orig.tr * (1 - p) + 0.20 * p;
-    const tg = orig.tg * (1 - p) + 0.12 * p;
-    const tb = orig.tb * (1 - p) + 0.06 * p;
+    const cr = _season.cr * (1 - p) + 0.35 * p;
+    const cg = _season.cg * (1 - p) + 0.20 * p;
+    const cb = _season.cb * (1 - p) + 0.08 * p;
+    const tr = _clr.tr * (1 - p) + 0.20 * p;
+    const tg = _clr.tg * (1 - p) + 0.12 * p;
+    const tb = _clr.tb * (1 - p) + 0.06 * p;
 
     const baseY = getCellElevation(dp.x, dp.y);
     writeInstance(state, idx, wx, wz, baseY, sil, tr, tg, tb, tiltAngle, tiltDir,
       trunkMtx, trunkClr);
     const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
       wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
-      brMtx, brClr, canopyMtx, canopyClr);
+      brMtx, brClr, canopyMtx, canopyClr, branchLOD);
     branchIdx += dyingResult.branchCount;
     canopyIdx += dyingResult.canopyCount;
     idx++;
@@ -684,7 +729,7 @@ export function updatePlants(state: RendererState): void {
       trunkMtx, trunkClr);
     const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
       wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
-      brMtx, brClr, canopyMtx, canopyClr);
+      brMtx, brClr, canopyMtx, canopyClr, branchLOD);
     branchIdx += burnResult.branchCount;
     canopyIdx += burnResult.canopyCount;
     idx++;

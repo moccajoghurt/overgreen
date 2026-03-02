@@ -127,8 +127,12 @@ export function createShowcase(
     const group = new THREE.Group();
     const { genome } = plant;
     const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, genome);
-    const { cr, cg, cb } = naturalCanopyColor(genome);
-    const { tr, tg, tb } = naturalTrunkColor(genome);
+    const _c = { cr: 0, cg: 0, cb: 0 };
+    const _t = { tr: 0, tg: 0, tb: 0 };
+    naturalCanopyColor(genome, _c);
+    naturalTrunkColor(genome, _t);
+    const { cr, cg, cb } = _c;
+    const { tr, tg, tb } = _t;
 
     const trunkColor = new THREE.Color(tr, tg, tb);
     const canopyColor = new THREE.Color(cr, cg, cb);

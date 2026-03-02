@@ -121,7 +121,7 @@ export function createPlantMeshes(): PlantMeshes {
   const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
   const trunks = createInstancedMesh(trunkGeo, MAX_INSTANCES);
 
-  const canopyGeo = makeRoughSphere(0.5, 2, 0.25);
+  const canopyGeo = makeRoughSphere(0.5, 1, 0.25);
   const canopies = createInstancedMesh(canopyGeo, MAX_BRANCH_INSTANCES);
 
   const branchGeo = new THREE.CylinderGeometry(0.04, 0.09, 1, 5);
