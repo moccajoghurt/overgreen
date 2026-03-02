@@ -18,6 +18,8 @@ export const GROWTH_ANIM_FRAMES = 60;
 export const SEED_FLIGHT_FRAMES = 36;
 export const MAX_SEEDS = 400;
 export const BURN_ANIM_FRAMES = 40;
+export const MAX_BRANCHES_PER_PLANT = 12;
+export const MAX_BRANCH_INSTANCES = MAX_INSTANCES * MAX_BRANCHES_PER_PLANT;
 export const SNOW_PARTICLE_COUNT = 1200;
 export const RAIN_PARTICLE_COUNT = 800;
 export const MOTE_PARTICLE_COUNT = 500;
@@ -96,9 +98,7 @@ export interface RendererState {
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
   canopies2: THREE.InstancedMesh;
-  branches1: THREE.InstancedMesh;
-  branches2: THREE.InstancedMesh;
-  branches3: THREE.InstancedMesh;
+  branches: THREE.InstancedMesh;
 
   // Seed mesh
   seeds: THREE.InstancedMesh;
@@ -186,19 +186,11 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   // Leafy plants get fuller, multi-blob canopy; others are sparser
   const blob2 = 0.1 + genome.leafSize * 0.7;
 
-  // ── Branches ──
-  // Length scales with trunk height and leaf spread
-  const branchLength = trunkH * (0.15 + genome.leafSize * 0.25);
-  // Thickness proportional to trunk, boosted by root investment
-  const branchThickness = trunkThickness * (0.15 + genome.rootPriority * 0.15);
-  // Tilt angle (radians from vertical): leafy = outward, tall = upward
-  const branchTilt = Math.max(0.5, Math.min(1.2,
-    0.6 + genome.leafSize * 0.5 - genome.heightPriority * 0.35));
   // Hide branches on seedlings/small plants
   const branchVisibility = Math.max(0, Math.min(1, (trunkH - 0.2) * 3));
 
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2,
-    branchLength, branchThickness, branchTilt, branchVisibility };
+    branchVisibility };
 }
 
 export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {

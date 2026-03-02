@@ -45,9 +45,7 @@ export function createRenderer3D(
   scene.add(plants.trunks);
   scene.add(plants.canopies);
   scene.add(plants.canopies2);
-  scene.add(plants.branches1);
-  scene.add(plants.branches2);
-  scene.add(plants.branches3);
+  scene.add(plants.branches);
   scene.add(plants.seeds);
 
   // ── Weather particles ──
@@ -128,9 +126,7 @@ export function createRenderer3D(
     trunks: plants.trunks,
     canopies: plants.canopies,
     canopies2: plants.canopies2,
-    branches1: plants.branches1,
-    branches2: plants.branches2,
-    branches3: plants.branches3,
+    branches: plants.branches,
     seeds: plants.seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),

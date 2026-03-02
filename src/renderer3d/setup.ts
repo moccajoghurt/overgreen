@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { World } from '../types';
 import {
-  GRID, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS,
+  GRID, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS, MAX_BRANCH_INSTANCES,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
@@ -100,9 +100,7 @@ export interface PlantMeshes {
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
   canopies2: THREE.InstancedMesh;
-  branches1: THREE.InstancedMesh;
-  branches2: THREE.InstancedMesh;
-  branches3: THREE.InstancedMesh;
+  branches: THREE.InstancedMesh;
   seeds: THREE.InstancedMesh;
 }
 
@@ -130,15 +128,13 @@ export function createPlantMeshes(): PlantMeshes {
   const canopy2Geo = makeRoughSphere(0.5, 2, 0.25);
   const canopies2 = createInstancedMesh(canopy2Geo, MAX_INSTANCES);
 
-  const branchGeo = new THREE.CylinderGeometry(0.03, 0.06, 1, 4);
-  const branches1 = createInstancedMesh(branchGeo, MAX_INSTANCES);
-  const branches2 = createInstancedMesh(branchGeo, MAX_INSTANCES);
-  const branches3 = createInstancedMesh(branchGeo, MAX_INSTANCES);
+  const branchGeo = new THREE.CylinderGeometry(0.04, 0.09, 1, 5);
+  const branches = createInstancedMesh(branchGeo, MAX_BRANCH_INSTANCES);
 
   const seedGeo = new THREE.SphereGeometry(0.08, 4, 4);
   const seeds = createInstancedMesh(seedGeo, MAX_SEEDS);
 
-  return { trunks, canopies, canopies2, branches1, branches2, branches3, seeds };
+  return { trunks, canopies, canopies2, branches, seeds };
 }
 
 // ── Weather meshes ──

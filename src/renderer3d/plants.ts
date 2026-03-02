@@ -1,6 +1,6 @@
 import { Genome, GRID_WIDTH, WeatherOverlay, Season } from '../types';
 import {
-  RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
+  RendererState, HALF, MAX_INSTANCES, MAX_SEEDS, MAX_BRANCHES_PER_PLANT,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
   computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp, plantHash,
 } from './state';
@@ -125,27 +125,17 @@ function computePlantColors(state: RendererState, speciesId: number, genome: Gen
   };
 }
 
-// Attachment fractions along trunk for 3 branches
-const BRANCH_ATTACH = [0.40, 0.65, 0.90];
-// Base angular separation (radians, ~120° apart)
-const BRANCH_BASE_ANGLE = [0, 2.094, 4.189];
-
 function writeInstance(
   state: RendererState,
   idx: number,
-  plantId: number,
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
   cr: number, cg: number, cb: number,
   tr: number, tg: number, tb: number,
   tiltAngle: number, tiltDir: number,
-  branchScale: number,
   trunkMtx: Float32Array, trunkClr: Float32Array,
   canopyMtx: Float32Array, canopyClr: Float32Array,
   canopy2Mtx: Float32Array, canopy2Clr: Float32Array,
-  br1Mtx: Float32Array, br1Clr: Float32Array,
-  br2Mtx: Float32Array, br2Clr: Float32Array,
-  br3Mtx: Float32Array, br3Clr: Float32Array,
 ): void {
   const { dummy } = state;
 
@@ -178,54 +168,6 @@ function writeInstance(
   dummy.updateMatrix();
   dummy.matrix.toArray(canopy2Mtx, idx * 16);
 
-  // ── Branches ──
-  const brMtxArr = [br1Mtx, br2Mtx, br3Mtx];
-  const brClrArr = [br1Clr, br2Clr, br3Clr];
-  const vis = sil.branchVisibility * branchScale;
-
-  for (let i = 0; i < 3; i++) {
-    const attachJitter = (plantHash(plantId, i * 10 + 1) - 0.5) * 0.15;
-    const attachFrac = BRANCH_ATTACH[i] + attachJitter;
-    const attachY = baseY + sil.trunkH * attachFrac;
-
-    const angleJitter = (plantHash(plantId, i * 10 + 2) - 0.5) * 0.8;
-    const angle = BRANCH_BASE_ANGLE[i] + angleJitter;
-
-    const tilt = sil.branchTilt;
-    const len = sil.branchLength * vis;
-    const thick = sil.branchThickness * vis;
-
-    // Branch direction vector (from trunk outward+upward)
-    const sinT = Math.sin(tilt);
-    const cosT = Math.cos(tilt);
-    const dirX = Math.sin(angle) * sinT;
-    const dirY = cosT;
-    const dirZ = Math.cos(angle) * sinT;
-
-    // Position at midpoint of branch
-    dummy.position.set(
-      wx + dirX * len * 0.5,
-      attachY + dirY * len * 0.5,
-      wz + dirZ * len * 0.5,
-    );
-    dummy.scale.set(thick, len, thick);
-
-    // Orient cylinder along branch direction
-    // CylinderGeometry default axis is Y-up; rotate to align with (dirX, dirY, dirZ)
-    dummy.rotation.set(0, 0, 0);
-    dummy.rotateY(angle);
-    dummy.rotateZ(tilt);
-
-    dummy.updateMatrix();
-    dummy.matrix.toArray(brMtxArr[i], idx * 16);
-
-    // Branch color = trunk bark color
-    const ci = idx * 3;
-    brClrArr[i][ci]     = tr;
-    brClrArr[i][ci + 1] = tg;
-    brClrArr[i][ci + 2] = tb;
-  }
-
   // ── Colors ──
   const ci = idx * 3;
 
@@ -241,8 +183,141 @@ function writeInstance(
   canopy2Clr[ci + 2] = cb;
 }
 
+/** Writes recursive 2-level branch segments for one plant. Returns number of segments written. */
+function writeBranches(
+  state: RendererState,
+  branchIdx: number,
+  plantId: number,
+  wx: number, wz: number, baseY: number,
+  sil: ReturnType<typeof computeSilhouette>,
+  genome: Genome,
+  tr: number, tg: number, tb: number,
+  branchScale: number,
+  brMtx: Float32Array, brClr: Float32Array,
+): number {
+  const { dummy } = state;
+  const vis = sil.branchVisibility * branchScale;
+  if (vis < 0.01) return 0;
+
+  let count = 0;
+
+  // ── Level 1: Primary branches ──
+  const primaryCount = Math.max(2, Math.min(5,
+    Math.round(3 + genome.leafSize * 2 - genome.heightPriority * 1)));
+
+  // Tilt from vertical: leafy → outward, tall → upward
+  const primaryTilt = Math.max(0.3, Math.min(1.3,
+    0.8 + genome.leafSize * 0.5 - genome.heightPriority * 0.5));
+
+  // Branch length and thickness from genome
+  const primaryLength = sil.trunkH * (0.25 + genome.leafSize * 0.30 + genome.rootPriority * 0.10);
+  const primaryThickness = sil.trunkThickness * (0.35 + genome.rootPriority * 0.25);
+
+  // Secondary count per primary
+  const secondaryPerPrimary = Math.max(0, Math.min(2,
+    Math.round(0.5 + genome.leafSize * 1.5 - genome.heightPriority * 0.8)));
+
+  for (let i = 0; i < primaryCount; i++) {
+    if (count >= MAX_BRANCHES_PER_PLANT) break;
+
+    // Attach height: evenly distributed between 45-90% of trunk height with jitter
+    const baseFrac = 0.45 + (i / Math.max(1, primaryCount - 1)) * 0.45;
+    const attachJitter = (plantHash(plantId, i * 10 + 1) - 0.5) * 0.10;
+    const attachFrac = Math.max(0.40, Math.min(0.95, baseFrac + attachJitter));
+    const attachY = baseY + sil.trunkH * attachFrac;
+
+    // Angle around trunk: evenly spaced + jitter
+    const baseAngle = (i / primaryCount) * Math.PI * 2;
+    const angleJitter = (plantHash(plantId, i * 10 + 2) - 0.5) * 0.8;
+    const angle = baseAngle + angleJitter;
+
+    // Per-branch length/tilt jitter
+    const lenJitter = 0.85 + plantHash(plantId, i * 10 + 3) * 0.30;
+    const len = primaryLength * lenJitter * vis;
+    const thick = primaryThickness * vis;
+    const tilt = primaryTilt + (plantHash(plantId, i * 10 + 4) - 0.5) * 0.2;
+
+    // Direction vector
+    const sinT = Math.sin(tilt);
+    const cosT = Math.cos(tilt);
+    const dirX = Math.sin(angle) * sinT;
+    const dirY = cosT;
+    const dirZ = Math.cos(angle) * sinT;
+
+    // Position at midpoint of branch
+    dummy.position.set(
+      wx + dirX * len * 0.5,
+      attachY + dirY * len * 0.5,
+      wz + dirZ * len * 0.5,
+    );
+    dummy.scale.set(thick, len, thick);
+    dummy.rotation.set(0, 0, 0);
+    dummy.rotateY(angle);
+    dummy.rotateX(tilt);
+    dummy.updateMatrix();
+
+    const bIdx = branchIdx + count;
+    dummy.matrix.toArray(brMtx, bIdx * 16);
+    const ci = bIdx * 3;
+    brClr[ci]     = tr;
+    brClr[ci + 1] = tg;
+    brClr[ci + 2] = tb;
+    count++;
+
+    // ── Level 2: Secondary branches (fork from primary) ──
+    for (let j = 0; j < secondaryPerPrimary; j++) {
+      if (count >= MAX_BRANCHES_PER_PLANT) break;
+
+      // Attach 70-95% along parent
+      const secAttachFrac = 0.70 + plantHash(plantId, i * 10 + j * 5 + 50) * 0.25;
+      const secBaseX = wx + dirX * len * secAttachFrac;
+      const secBaseY = attachY + dirY * len * secAttachFrac;
+      const secBaseZ = wz + dirZ * len * secAttachFrac;
+
+      // Diverge from parent by 0.5-1.2 rad, alternating left/right
+      const side = j % 2 === 0 ? 1 : -1;
+      const diverge = 0.5 + plantHash(plantId, i * 10 + j * 5 + 51) * 0.7;
+      const secAngle = angle + side * diverge;
+      const secTilt = Math.min(1.5, tilt + 0.15 + plantHash(plantId, i * 10 + j * 5 + 52) * 0.2);
+
+      // Secondary length/thickness: 50-70% of parent
+      const secLenFrac = 0.50 + plantHash(plantId, i * 10 + j * 5 + 53) * 0.20;
+      const secLen = len * secLenFrac;
+      const secThickFrac = 0.50 + plantHash(plantId, i * 10 + j * 5 + 54) * 0.20;
+      const secThick = thick * secThickFrac;
+
+      const sinS = Math.sin(secTilt);
+      const cosS = Math.cos(secTilt);
+      const sDirX = Math.sin(secAngle) * sinS;
+      const sDirY = cosS;
+      const sDirZ = Math.cos(secAngle) * sinS;
+
+      dummy.position.set(
+        secBaseX + sDirX * secLen * 0.5,
+        secBaseY + sDirY * secLen * 0.5,
+        secBaseZ + sDirZ * secLen * 0.5,
+      );
+      dummy.scale.set(secThick, secLen, secThick);
+      dummy.rotation.set(0, 0, 0);
+      dummy.rotateY(secAngle);
+      dummy.rotateX(secTilt);
+      dummy.updateMatrix();
+
+      const sIdx = branchIdx + count;
+      dummy.matrix.toArray(brMtx, sIdx * 16);
+      const sci = sIdx * 3;
+      brClr[sci]     = tr;
+      brClr[sci + 1] = tg;
+      brClr[sci + 2] = tb;
+      count++;
+    }
+  }
+
+  return count;
+}
+
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, canopies2, branches1, branches2, branches3,
+  const { world, trunks, canopies, canopies2, branches,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   const trunkMtx = trunks.instanceMatrix.array as Float32Array;
@@ -251,12 +326,8 @@ export function updatePlants(state: RendererState): void {
   const canopyClr = canopies.instanceColor!.array as Float32Array;
   const canopy2Mtx = canopies2.instanceMatrix.array as Float32Array;
   const canopy2Clr = canopies2.instanceColor!.array as Float32Array;
-  const br1Mtx = branches1.instanceMatrix.array as Float32Array;
-  const br1Clr = branches1.instanceColor!.array as Float32Array;
-  const br2Mtx = branches2.instanceMatrix.array as Float32Array;
-  const br2Clr = branches2.instanceColor!.array as Float32Array;
-  const br3Mtx = branches3.instanceMatrix.array as Float32Array;
-  const br3Clr = branches3.instanceColor!.array as Float32Array;
+  const brMtx = branches.instanceMatrix.array as Float32Array;
+  const brClr = branches.instanceColor!.array as Float32Array;
 
   // ── Ingest seed events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
@@ -322,6 +393,7 @@ export function updatePlants(state: RendererState): void {
   // ── Build new snapshots + render live plants ──
   const newSnapshots = new Map<number, typeof state.prevSnapshots extends Map<number, infer V> ? V : never>();
   let idx = 0;
+  let branchIdx = 0;
 
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
@@ -381,9 +453,10 @@ export function updatePlants(state: RendererState): void {
       cb = lerp(cb, 0.10, 0.45);
     }
 
-    writeInstance(state, idx, plant.id, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0, branchScale,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
-      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    branchIdx += writeBranches(state, branchIdx, plant.id, wx, wz, baseY, sil,
+      plant.genome, tr, tg, tb, branchScale, brMtx, brClr);
     idx++;
   }
 
@@ -408,9 +481,6 @@ export function updatePlants(state: RendererState): void {
       canopyY: raw.canopyY * shrink * canopyScale,
       canopyZ: raw.canopyZ * shrink * canopyScale,
       blob2: raw.blob2 * shrink * canopyScale,
-      branchLength: raw.branchLength * shrink,
-      branchThickness: raw.branchThickness * shrink,
-      branchTilt: raw.branchTilt,
       branchVisibility: raw.branchVisibility,
     };
 
@@ -429,9 +499,10 @@ export function updatePlants(state: RendererState): void {
     const tb = orig.tb * (1 - p) + 0.06 * p;
 
     const baseY = getCellElevation(dp.x, dp.y);
-    writeInstance(state, idx, id, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir, shrink,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
-      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    branchIdx += writeBranches(state, branchIdx, id, wx, wz, baseY, sil,
+      dp.genome, tr, tg, tb, shrink, brMtx, brClr);
     idx++;
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -459,9 +530,6 @@ export function updatePlants(state: RendererState): void {
       canopyY: raw.canopyY * burnShrink * canopyScale,
       canopyZ: raw.canopyZ * burnShrink * canopyScale,
       blob2: raw.blob2 * burnShrink * canopyScale,
-      branchLength: raw.branchLength * burnShrink,
-      branchThickness: raw.branchThickness * burnShrink,
-      branchTilt: raw.branchTilt,
       branchVisibility: raw.branchVisibility,
     };
 
@@ -472,9 +540,10 @@ export function updatePlants(state: RendererState): void {
     const cb = lerp(0.1, 0.02, t);
 
     const baseY = getCellElevation(bp.x, bp.y);
-    writeInstance(state, idx, id, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0, burnShrink,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
-      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    branchIdx += writeBranches(state, branchIdx, id, wx, wz, baseY, sil,
+      bp.genome, cr, cg, cb, burnShrink, brMtx, brClr);
     idx++;
   }
   for (const id of burnToRemove) burningPlants.delete(id);
@@ -482,21 +551,17 @@ export function updatePlants(state: RendererState): void {
   trunks.count = idx;
   canopies.count = idx;
   canopies2.count = idx;
-  branches1.count = idx;
-  branches2.count = idx;
-  branches3.count = idx;
+  branches.count = branchIdx;
   trunks.instanceMatrix.needsUpdate = true;
   canopies.instanceMatrix.needsUpdate = true;
   canopies2.instanceMatrix.needsUpdate = true;
-  branches1.instanceMatrix.needsUpdate = true;
-  branches2.instanceMatrix.needsUpdate = true;
-  branches3.instanceMatrix.needsUpdate = true;
   trunks.instanceColor!.needsUpdate = true;
   canopies.instanceColor!.needsUpdate = true;
   canopies2.instanceColor!.needsUpdate = true;
-  branches1.instanceColor!.needsUpdate = true;
-  branches2.instanceColor!.needsUpdate = true;
-  branches3.instanceColor!.needsUpdate = true;
+  if (branchIdx > 0) {
+    branches.instanceMatrix.needsUpdate = true;
+    branches.instanceColor!.needsUpdate = true;
+  }
 }
 
 export function updateSeeds(state: RendererState): void {
