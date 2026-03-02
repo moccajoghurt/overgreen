@@ -35,6 +35,9 @@ function phaseRechargeWater(world: World): void {
 
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
+      if (cell.terrainType === TerrainType.Hill) {
+        cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
+      }
     }
   }
 
@@ -50,6 +53,7 @@ function phaseRechargeWater(world: World): void {
         const neighbor = world.grid[ny][nx];
         if (neighbor.terrainType === TerrainType.River) continue;
         neighbor.waterLevel = Math.min(SIM.MAX_WATER, neighbor.waterLevel + SIM.RIVER_SEEPAGE);
+        neighbor.nutrients = Math.min(SIM.MAX_NUTRIENTS, neighbor.nutrients + SIM.RIVER_NUTRIENT_SEEPAGE);
       }
     }
   }
@@ -79,7 +83,7 @@ function phaseCalculateLight(world: World): void {
         }
       }
       const rawBase = cell.terrainType === TerrainType.Hill
-        ? Math.min(1.0, SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS)
+        ? SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS
         : SIM.BASE_LIGHT;
       const baseLight = rawBase * world.environment.lightMult;
       cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeSum);
@@ -298,6 +302,9 @@ function phaseDecomposition(world: World): void {
     cell.waterLevel = Math.min(SIM.MAX_WATER, cell.waterLevel + SIM.DECOMP_WATER_BOOST);
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS,
       cell.nutrients + SIM.DECOMP_NUTRIENT_BOOST + plant.height * SIM.DECOMP_NUTRIENT_PER_HEIGHT);
+    if (cell.terrainType === TerrainType.Hill) {
+      cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
+    }
     cell.plantId = null;
     toRemove.push(plant.id);
   }
