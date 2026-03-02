@@ -1,8 +1,8 @@
-import { Genome, GRID_WIDTH, WeatherOverlay } from '../types';
+import { Genome, GRID_WIDTH, WeatherOverlay, Season } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
-  computeSilhouette, easeOutCubic, lerp,
+  computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp,
 } from './state';
 
 function naturalCanopyColor(genome: Genome) {
@@ -60,6 +60,43 @@ function naturalTrunkColor(genome: Genome) {
     tr: Math.max(0.15, Math.min(0.42, r)),
     tg: Math.max(0.10, Math.min(0.32, g)),
     tb: Math.max(0.06, Math.min(0.22, b)),
+  };
+}
+
+function seasonalCanopyColor(
+  cr: number, cg: number, cb: number,
+  env: { season: Season; seasonProgress: number },
+): { cr: number; cg: number; cb: number } {
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+
+  const seasonTargets: [number, number, number][] = [
+    [0.30, 0.55, 0.15], // Spring: fresh green
+    [cr,   cg,   cb  ], // Summer: identity
+    [0.60, 0.25, 0.08], // Autumn: orange-red
+    [0.35, 0.28, 0.20], // Winter: gray-brown bark
+  ];
+
+  const c0 = seasonTargets[env.season];
+  const c1 = seasonTargets[(env.season + 1) % 4];
+  const tr = c0[0] + (c1[0] - c0[0]) * t;
+  const tg = c0[1] + (c1[1] - c0[1]) * t;
+  const tb = c0[2] + (c1[2] - c0[2]) * t;
+
+  let blendStrength: number;
+  if (env.season === Season.Summer) {
+    blendStrength = 0.05;
+  } else if (env.season === Season.Autumn) {
+    blendStrength = 0.6 * t + 0.1;
+  } else if (env.season === Season.Winter) {
+    blendStrength = 0.5;
+  } else {
+    blendStrength = 0.5 * (1 - t);
+  }
+
+  return {
+    cr: lerp(cr, tr, blendStrength),
+    cg: lerp(cg, tg, blendStrength),
+    cb: lerp(cb, tb, blendStrength),
   };
 }
 
@@ -212,6 +249,11 @@ export function updatePlants(state: RendererState): void {
     }
   }
 
+  // ── Seasonal foliage factor (once per frame) ──
+  const env = world.environment;
+  const foliageFactor = computeSeasonalFoliageFactor(env);
+  const canopyScale = Math.max(0.05, foliageFactor);
+
   // ── Build new snapshots + render live plants ──
   const newSnapshots = new Map<number, typeof state.prevSnapshots extends Map<number, infer V> ? V : never>();
   let idx = 0;
@@ -250,7 +292,18 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
+    // Apply seasonal foliage scale (canopy shrinks in autumn/winter, trunk unchanged)
+    sil.canopyX *= canopyScale;
+    sil.canopyY *= canopyScale;
+    sil.canopyZ *= canopyScale;
+    sil.blob2 *= canopyScale;
+
     let { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
+
+    // Apply seasonal canopy color shift
+    const sc = seasonalCanopyColor(cr, cg, cb, env);
+    cr = sc.cr; cg = sc.cg; cb = sc.cb;
+
     const baseY = getCellElevation(plant.x, plant.y);
 
     // Desaturate diseased plant canopies toward sickly yellow-brown
@@ -282,10 +335,10 @@ export function updatePlants(state: RendererState): void {
     const sil = {
       trunkH: raw.trunkH * shrink,
       trunkThickness: raw.trunkThickness * shrink,
-      canopyX: raw.canopyX * shrink,
-      canopyY: raw.canopyY * shrink,
-      canopyZ: raw.canopyZ * shrink,
-      blob2: raw.blob2 * shrink,
+      canopyX: raw.canopyX * shrink * canopyScale,
+      canopyY: raw.canopyY * shrink * canopyScale,
+      canopyZ: raw.canopyZ * shrink * canopyScale,
+      blob2: raw.blob2 * shrink * canopyScale,
     };
 
     const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
@@ -293,10 +346,11 @@ export function updatePlants(state: RendererState): void {
     const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
 
     const orig = computePlantColors(state, dp.speciesId, dp.genome);
+    const sOrig = seasonalCanopyColor(orig.cr, orig.cg, orig.cb, env);
     const p = dp.progress;
-    const cr = orig.cr * (1 - p) + 0.35 * p;
-    const cg = orig.cg * (1 - p) + 0.20 * p;
-    const cb = orig.cb * (1 - p) + 0.08 * p;
+    const cr = sOrig.cr * (1 - p) + 0.35 * p;
+    const cg = sOrig.cg * (1 - p) + 0.20 * p;
+    const cb = sOrig.cb * (1 - p) + 0.08 * p;
     const tr = orig.tr * (1 - p) + 0.20 * p;
     const tg = orig.tg * (1 - p) + 0.12 * p;
     const tb = orig.tb * (1 - p) + 0.06 * p;
@@ -327,10 +381,10 @@ export function updatePlants(state: RendererState): void {
     const sil = {
       trunkH: raw.trunkH * burnShrink,
       trunkThickness: raw.trunkThickness * burnShrink,
-      canopyX: raw.canopyX * burnShrink,
-      canopyY: raw.canopyY * burnShrink,
-      canopyZ: raw.canopyZ * burnShrink,
-      blob2: raw.blob2 * burnShrink,
+      canopyX: raw.canopyX * burnShrink * canopyScale,
+      canopyY: raw.canopyY * burnShrink * canopyScale,
+      canopyZ: raw.canopyZ * burnShrink * canopyScale,
+      blob2: raw.blob2 * burnShrink * canopyScale,
     };
 
     const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;

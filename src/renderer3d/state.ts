@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, Genome, World } from '../types';
+import { SIM, Genome, World, Season } from '../types';
 import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
@@ -18,7 +18,10 @@ export const GROWTH_ANIM_FRAMES = 60;
 export const SEED_FLIGHT_FRAMES = 36;
 export const MAX_SEEDS = 400;
 export const BURN_ANIM_FRAMES = 40;
-export const WEATHER_PARTICLE_COUNT = 300;
+export const SNOW_PARTICLE_COUNT = 1200;
+export const RAIN_PARTICLE_COUNT = 800;
+export const MOTE_PARTICLE_COUNT = 500;
+export const LEAF_PARTICLE_COUNT = 600;
 export const WEATHER_SPREAD = 50;
 export const FIRE_PARTICLE_COUNT = 400;
 export const DUST_PARTICLE_COUNT = 300;
@@ -172,6 +175,15 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   const blob2 = 0.1 + genome.leafSize * 0.7;
 
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2 };
+}
+
+export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  const foliageAtStart = [0.10, 1.0, 1.0, 0.15]; // Spring, Summer, Autumn, Winter
+  const foliageAtEnd   = [1.0, 1.0, 0.15, 0.10];
+  const f0 = foliageAtStart[env.season];
+  const f1 = foliageAtEnd[env.season];
+  return f0 + (f1 - f0) * t;
 }
 
 export function makeRoughSphere(radius: number, detail: number, jitter: number): THREE.BufferGeometry {

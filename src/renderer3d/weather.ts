@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { Season, Environment } from '../types';
 import {
   RendererState, WeatherParticle, WeatherType,
-  WEATHER_PARTICLE_COUNT, WEATHER_SPREAD,
+  SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
+  WEATHER_SPREAD,
 } from './state';
 
 function getSeasonIntensity(targetSeason: Season, env: Environment): number {
@@ -51,6 +52,7 @@ function updateOneEffect(
   particles: WeatherParticle[],
   mesh: THREE.InstancedMesh,
   intensity: number,
+  maxCount: number,
   camTarget: THREE.Vector3,
   type: WeatherType,
 ): void {
@@ -61,7 +63,7 @@ function updateOneEffect(
 
   (mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(1, intensity * 0.8 + 0.2);
 
-  const activeCount = Math.floor(WEATHER_PARTICLE_COUNT * intensity);
+  const activeCount = Math.floor(maxCount * intensity);
   const mtx = mesh.instanceMatrix.array as Float32Array;
   const clr = mesh.instanceColor!.array as Float32Array;
   const { dummy, camera } = state;
@@ -130,8 +132,8 @@ export function updateWeatherParticles(state: RendererState): void {
   const env = state.world.environment;
   const camTarget = state.controls.target;
 
-  updateOneEffect(state, state.snowParticles, state.snowMesh, getSeasonIntensity(Season.Winter, env), camTarget, 'snow');
-  updateOneEffect(state, state.rainParticles, state.rainMesh, getSeasonIntensity(Season.Spring, env), camTarget, 'rain');
-  updateOneEffect(state, state.moteParticles, state.moteMesh, getSeasonIntensity(Season.Summer, env), camTarget, 'mote');
-  updateOneEffect(state, state.leafParticles, state.leafMesh, getSeasonIntensity(Season.Autumn, env), camTarget, 'leaf');
+  updateOneEffect(state, state.snowParticles, state.snowMesh, getSeasonIntensity(Season.Winter, env), SNOW_PARTICLE_COUNT, camTarget, 'snow');
+  updateOneEffect(state, state.rainParticles, state.rainMesh, getSeasonIntensity(Season.Spring, env), RAIN_PARTICLE_COUNT, camTarget, 'rain');
+  updateOneEffect(state, state.moteParticles, state.moteMesh, getSeasonIntensity(Season.Summer, env), MOTE_PARTICLE_COUNT, camTarget, 'mote');
+  updateOneEffect(state, state.leafParticles, state.leafMesh, getSeasonIntensity(Season.Autumn, env), LEAF_PARTICLE_COUNT, camTarget, 'leaf');
 }

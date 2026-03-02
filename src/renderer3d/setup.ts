@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { World } from '../types';
 import {
   GRID, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS,
-  WEATHER_PARTICLE_COUNT, FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
+  SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
+  FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
   makeRoughSphere,
 } from './state';
@@ -146,12 +147,12 @@ export interface WeatherMeshes {
 }
 
 function createWeatherInstancedMesh(
-  geo: THREE.BufferGeometry, mat: THREE.Material,
+  geo: THREE.BufferGeometry, mat: THREE.Material, count: number,
 ): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(geo, mat, WEATHER_PARTICLE_COUNT);
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(WEATHER_PARTICLE_COUNT * 3), 3,
+    new Float32Array(count * 3), 3,
   );
   mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
   mesh.count = 0;
@@ -159,8 +160,8 @@ function createWeatherInstancedMesh(
   return mesh;
 }
 
-function makeWeatherParticlePool(): WeatherParticle[] {
-  return Array.from({ length: WEATHER_PARTICLE_COUNT }, () => ({
+function makeWeatherParticlePool(count: number): WeatherParticle[] {
+  return Array.from({ length: count }, () => ({
     x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0,
     phase: Math.random() * Math.PI * 2,
   }));
@@ -170,29 +171,33 @@ export function createWeatherMeshes(): WeatherMeshes {
   const snowGeo = new THREE.CircleGeometry(0.06, 4);
   snowGeo.rotateX(-Math.PI / 2);
   const snowMesh = createWeatherInstancedMesh(snowGeo,
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }),
+    SNOW_PARTICLE_COUNT);
 
   const rainGeo = new THREE.PlaneGeometry(0.02, 0.3);
   const rainMesh = createWeatherInstancedMesh(rainGeo,
-    new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, depthWrite: false }),
+    RAIN_PARTICLE_COUNT);
 
   const moteGeo = new THREE.CircleGeometry(0.08, 6);
   const moteMesh = createWeatherInstancedMesh(moteGeo,
     new THREE.MeshBasicMaterial({
       color: 0xffee88, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending,
-    }));
+    }),
+    MOTE_PARTICLE_COUNT);
 
   const leafGeo = new THREE.PlaneGeometry(0.12, 0.08);
   const leafMesh = createWeatherInstancedMesh(leafGeo,
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
+    LEAF_PARTICLE_COUNT);
 
   return {
     snowMesh, rainMesh, moteMesh, leafMesh,
-    snowParticles: makeWeatherParticlePool(),
-    rainParticles: makeWeatherParticlePool(),
-    moteParticles: makeWeatherParticlePool(),
-    leafParticles: makeWeatherParticlePool(),
+    snowParticles: makeWeatherParticlePool(SNOW_PARTICLE_COUNT),
+    rainParticles: makeWeatherParticlePool(RAIN_PARTICLE_COUNT),
+    moteParticles: makeWeatherParticlePool(MOTE_PARTICLE_COUNT),
+    leafParticles: makeWeatherParticlePool(LEAF_PARTICLE_COUNT),
   };
 }
 
