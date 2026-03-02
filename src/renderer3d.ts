@@ -44,7 +44,6 @@ export function createRenderer3D(
   const plants = createPlantMeshes();
   scene.add(plants.trunks);
   scene.add(plants.canopies);
-  scene.add(plants.canopies2);
   scene.add(plants.branches);
   scene.add(plants.seeds);
 
@@ -125,7 +124,6 @@ export function createRenderer3D(
     getCellElevation,
     trunks: plants.trunks,
     canopies: plants.canopies,
-    canopies2: plants.canopies2,
     branches: plants.branches,
     seeds: plants.seeds,
     prevSnapshots: new Map(),

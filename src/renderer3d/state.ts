@@ -97,7 +97,6 @@ export interface RendererState {
   // Plant meshes
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
-  canopies2: THREE.InstancedMesh;
   branches: THREE.InstancedMesh;
 
   // Seed mesh
@@ -183,13 +182,10 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   const canopyX = canopyBase * spread;
   const canopyY = canopyBase / spread;
 
-  // Leafy plants get fuller, multi-blob canopy; others are sparser
-  const blob2 = 0.1 + genome.leafSize * 0.7;
-
   // Hide branches on seedlings/small plants
   const branchVisibility = Math.max(0, Math.min(1, (trunkH - 0.2) * 3));
 
-  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2,
+  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX,
     branchVisibility };
 }
 

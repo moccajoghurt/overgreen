@@ -130,12 +130,9 @@ function writeInstance(
   idx: number,
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
-  cr: number, cg: number, cb: number,
   tr: number, tg: number, tb: number,
   tiltAngle: number, tiltDir: number,
   trunkMtx: Float32Array, trunkClr: Float32Array,
-  canopyMtx: Float32Array, canopyClr: Float32Array,
-  canopy2Mtx: Float32Array, canopy2Clr: Float32Array,
 ): void {
   const { dummy } = state;
 
@@ -150,56 +147,33 @@ function writeInstance(
   dummy.updateMatrix();
   dummy.matrix.toArray(trunkMtx, idx * 16);
 
-  // ── Primary canopy (overlaps trunk top) ──
-  const canopyCenterY = baseY + sil.trunkH - sil.canopyY * 0.3;
-  dummy.position.set(wx, canopyCenterY, wz);
-  dummy.scale.set(sil.canopyX, sil.canopyY, sil.canopyZ);
-  dummy.rotation.set(0, 0, 0);
-  dummy.updateMatrix();
-  dummy.matrix.toArray(canopyMtx, idx * 16);
-
-  // ── Secondary canopy blob (offset, 70% scale) ──
-  dummy.position.set(
-    wx + 0.15 * sil.canopyX,
-    canopyCenterY - sil.canopyY * 0.1,
-    wz + 0.15 * sil.canopyZ,
-  );
-  dummy.scale.set(sil.canopyX * sil.blob2, sil.canopyY * sil.blob2, sil.canopyZ * sil.blob2);
-  dummy.updateMatrix();
-  dummy.matrix.toArray(canopy2Mtx, idx * 16);
-
-  // ── Colors ──
   const ci = idx * 3;
-
   trunkClr[ci]     = tr;
   trunkClr[ci + 1] = tg;
   trunkClr[ci + 2] = tb;
-
-  canopyClr[ci] = cr;
-  canopyClr[ci + 1] = cg;
-  canopyClr[ci + 2] = cb;
-  canopy2Clr[ci] = cr;
-  canopy2Clr[ci + 1] = cg;
-  canopy2Clr[ci + 2] = cb;
 }
 
-/** Writes recursive 2-level branch segments for one plant. Returns number of segments written. */
-function writeBranches(
+/** Writes 2-level branch cylinders + canopy blobs at each branch tip. */
+function writeBranchesAndCanopies(
   state: RendererState,
   branchIdx: number,
+  canopyIdx: number,
   plantId: number,
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
   genome: Genome,
   tr: number, tg: number, tb: number,
+  cr: number, cg: number, cb: number,
   branchScale: number,
   brMtx: Float32Array, brClr: Float32Array,
-): number {
+  canopyMtx: Float32Array, canopyClr: Float32Array,
+): { branchCount: number; canopyCount: number } {
   const { dummy } = state;
   const vis = sil.branchVisibility * branchScale;
-  if (vis < 0.01) return 0;
 
-  let count = 0;
+  let branchCount = 0;
+  let canopyCount = 0;
+  let segmentCount = 0;
 
   // ── Level 1: Primary branches ──
   const primaryCount = Math.max(2, Math.min(5,
@@ -217,8 +191,13 @@ function writeBranches(
   const secondaryPerPrimary = Math.max(0, Math.min(2,
     Math.round(0.5 + genome.leafSize * 1.5 - genome.heightPriority * 0.8)));
 
+  // Per-tip canopy sizing: preserve total volume across tips
+  const totalTips = Math.min(MAX_BRANCHES_PER_PLANT,
+    primaryCount * (1 + secondaryPerPrimary));
+  const volumeShare = 1 / Math.pow(Math.max(1, totalTips), 1 / 3);
+
   for (let i = 0; i < primaryCount; i++) {
-    if (count >= MAX_BRANCHES_PER_PLANT) break;
+    if (segmentCount >= MAX_BRANCHES_PER_PLANT) break;
 
     // Attach height: evenly distributed between 45-90% of trunk height with jitter
     const baseFrac = 0.45 + (i / Math.max(1, primaryCount - 1)) * 0.45;
@@ -244,29 +223,55 @@ function writeBranches(
     const dirY = cosT;
     const dirZ = Math.cos(angle) * sinT;
 
-    // Position at midpoint of branch
-    dummy.position.set(
-      wx + dirX * len * 0.5,
-      attachY + dirY * len * 0.5,
-      wz + dirZ * len * 0.5,
+    // Write branch cylinder only if visible
+    if (vis >= 0.01) {
+      dummy.position.set(
+        wx + dirX * len * 0.5,
+        attachY + dirY * len * 0.5,
+        wz + dirZ * len * 0.5,
+      );
+      dummy.scale.set(thick, len, thick);
+      dummy.rotation.set(0, 0, 0);
+      dummy.rotateY(angle);
+      dummy.rotateX(tilt);
+      dummy.updateMatrix();
+
+      const bIdx = branchIdx + branchCount;
+      dummy.matrix.toArray(brMtx, bIdx * 16);
+      const ci = bIdx * 3;
+      brClr[ci]     = tr;
+      brClr[ci + 1] = tg;
+      brClr[ci + 2] = tb;
+      branchCount++;
+    }
+
+    // Canopy blob at primary tip
+    const tipX = wx + dirX * len;
+    const tipY = attachY + dirY * len;
+    const tipZ = wz + dirZ * len;
+    const jitter = 0.85 + plantHash(plantId, i * 10 + 5) * 0.30;
+
+    dummy.position.set(tipX, tipY, tipZ);
+    dummy.scale.set(
+      sil.canopyX * volumeShare * jitter,
+      sil.canopyY * volumeShare * jitter,
+      sil.canopyZ * volumeShare * jitter,
     );
-    dummy.scale.set(thick, len, thick);
     dummy.rotation.set(0, 0, 0);
-    dummy.rotateY(angle);
-    dummy.rotateX(tilt);
     dummy.updateMatrix();
 
-    const bIdx = branchIdx + count;
-    dummy.matrix.toArray(brMtx, bIdx * 16);
-    const ci = bIdx * 3;
-    brClr[ci]     = tr;
-    brClr[ci + 1] = tg;
-    brClr[ci + 2] = tb;
-    count++;
+    const cIdx = canopyIdx + canopyCount;
+    dummy.matrix.toArray(canopyMtx, cIdx * 16);
+    const cci = cIdx * 3;
+    canopyClr[cci]     = cr;
+    canopyClr[cci + 1] = cg;
+    canopyClr[cci + 2] = cb;
+    canopyCount++;
+    segmentCount++;
 
     // ── Level 2: Secondary branches (fork from primary) ──
     for (let j = 0; j < secondaryPerPrimary; j++) {
-      if (count >= MAX_BRANCHES_PER_PLANT) break;
+      if (segmentCount >= MAX_BRANCHES_PER_PLANT) break;
 
       // Attach 70-95% along parent
       const secAttachFrac = 0.70 + plantHash(plantId, i * 10 + j * 5 + 50) * 0.25;
@@ -292,40 +297,65 @@ function writeBranches(
       const sDirY = cosS;
       const sDirZ = Math.cos(secAngle) * sinS;
 
-      dummy.position.set(
-        secBaseX + sDirX * secLen * 0.5,
-        secBaseY + sDirY * secLen * 0.5,
-        secBaseZ + sDirZ * secLen * 0.5,
+      // Write branch cylinder only if visible
+      if (vis >= 0.01) {
+        dummy.position.set(
+          secBaseX + sDirX * secLen * 0.5,
+          secBaseY + sDirY * secLen * 0.5,
+          secBaseZ + sDirZ * secLen * 0.5,
+        );
+        dummy.scale.set(secThick, secLen, secThick);
+        dummy.rotation.set(0, 0, 0);
+        dummy.rotateY(secAngle);
+        dummy.rotateX(secTilt);
+        dummy.updateMatrix();
+
+        const sIdx = branchIdx + branchCount;
+        dummy.matrix.toArray(brMtx, sIdx * 16);
+        const sci = sIdx * 3;
+        brClr[sci]     = tr;
+        brClr[sci + 1] = tg;
+        brClr[sci + 2] = tb;
+        branchCount++;
+      }
+
+      // Canopy blob at secondary tip
+      const secTipX = secBaseX + sDirX * secLen;
+      const secTipY = secBaseY + sDirY * secLen;
+      const secTipZ = secBaseZ + sDirZ * secLen;
+      const secJitter = 0.85 + plantHash(plantId, i * 10 + j * 5 + 55) * 0.30;
+
+      dummy.position.set(secTipX, secTipY, secTipZ);
+      dummy.scale.set(
+        sil.canopyX * volumeShare * secJitter,
+        sil.canopyY * volumeShare * secJitter,
+        sil.canopyZ * volumeShare * secJitter,
       );
-      dummy.scale.set(secThick, secLen, secThick);
       dummy.rotation.set(0, 0, 0);
-      dummy.rotateY(secAngle);
-      dummy.rotateX(secTilt);
       dummy.updateMatrix();
 
-      const sIdx = branchIdx + count;
-      dummy.matrix.toArray(brMtx, sIdx * 16);
-      const sci = sIdx * 3;
-      brClr[sci]     = tr;
-      brClr[sci + 1] = tg;
-      brClr[sci + 2] = tb;
-      count++;
+      const scIdx = canopyIdx + canopyCount;
+      dummy.matrix.toArray(canopyMtx, scIdx * 16);
+      const scci = scIdx * 3;
+      canopyClr[scci]     = cr;
+      canopyClr[scci + 1] = cg;
+      canopyClr[scci + 2] = cb;
+      canopyCount++;
+      segmentCount++;
     }
   }
 
-  return count;
+  return { branchCount, canopyCount };
 }
 
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, canopies2, branches,
+  const { world, trunks, canopies, branches,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   const trunkMtx = trunks.instanceMatrix.array as Float32Array;
   const trunkClr = trunks.instanceColor!.array as Float32Array;
   const canopyMtx = canopies.instanceMatrix.array as Float32Array;
   const canopyClr = canopies.instanceColor!.array as Float32Array;
-  const canopy2Mtx = canopies2.instanceMatrix.array as Float32Array;
-  const canopy2Clr = canopies2.instanceColor!.array as Float32Array;
   const brMtx = branches.instanceMatrix.array as Float32Array;
   const brClr = branches.instanceColor!.array as Float32Array;
 
@@ -394,6 +424,7 @@ export function updatePlants(state: RendererState): void {
   const newSnapshots = new Map<number, typeof state.prevSnapshots extends Map<number, infer V> ? V : never>();
   let idx = 0;
   let branchIdx = 0;
+  let canopyIdx = 0;
 
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
@@ -426,7 +457,6 @@ export function updatePlants(state: RendererState): void {
         sil.canopyX *= s;
         sil.canopyY *= s;
         sil.canopyZ *= s;
-        sil.blob2 *= s;
         // Branches appear with delay: start at 30% growth, finish at 100%
         branchScale = Math.max(0, easeOutCubic(Math.max(0, growing.progress - 0.3) / 0.7));
       }
@@ -436,7 +466,6 @@ export function updatePlants(state: RendererState): void {
     sil.canopyX *= canopyScale;
     sil.canopyY *= canopyScale;
     sil.canopyZ *= canopyScale;
-    sil.blob2 *= canopyScale;
 
     let { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
 
@@ -453,10 +482,13 @@ export function updatePlants(state: RendererState): void {
       cb = lerp(cb, 0.10, 0.45);
     }
 
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
-    branchIdx += writeBranches(state, branchIdx, plant.id, wx, wz, baseY, sil,
-      plant.genome, tr, tg, tb, branchScale, brMtx, brClr);
+    writeInstance(state, idx, wx, wz, baseY, sil, tr, tg, tb, 0, 0,
+      trunkMtx, trunkClr);
+    const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
+      wx, wz, baseY, sil, plant.genome, tr, tg, tb, cr, cg, cb, branchScale,
+      brMtx, brClr, canopyMtx, canopyClr);
+    branchIdx += liveResult.branchCount;
+    canopyIdx += liveResult.canopyCount;
     idx++;
   }
 
@@ -480,7 +512,6 @@ export function updatePlants(state: RendererState): void {
       canopyX: raw.canopyX * shrink * canopyScale,
       canopyY: raw.canopyY * shrink * canopyScale,
       canopyZ: raw.canopyZ * shrink * canopyScale,
-      blob2: raw.blob2 * shrink * canopyScale,
       branchVisibility: raw.branchVisibility,
     };
 
@@ -499,10 +530,13 @@ export function updatePlants(state: RendererState): void {
     const tb = orig.tb * (1 - p) + 0.06 * p;
 
     const baseY = getCellElevation(dp.x, dp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
-    branchIdx += writeBranches(state, branchIdx, id, wx, wz, baseY, sil,
-      dp.genome, tr, tg, tb, shrink, brMtx, brClr);
+    writeInstance(state, idx, wx, wz, baseY, sil, tr, tg, tb, tiltAngle, tiltDir,
+      trunkMtx, trunkClr);
+    const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
+      wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
+      brMtx, brClr, canopyMtx, canopyClr);
+    branchIdx += dyingResult.branchCount;
+    canopyIdx += dyingResult.canopyCount;
     idx++;
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -529,7 +563,6 @@ export function updatePlants(state: RendererState): void {
       canopyX: raw.canopyX * burnShrink * canopyScale,
       canopyY: raw.canopyY * burnShrink * canopyScale,
       canopyZ: raw.canopyZ * burnShrink * canopyScale,
-      blob2: raw.blob2 * burnShrink * canopyScale,
       branchVisibility: raw.branchVisibility,
     };
 
@@ -540,24 +573,26 @@ export function updatePlants(state: RendererState): void {
     const cb = lerp(0.1, 0.02, t);
 
     const baseY = getCellElevation(bp.x, bp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
-    branchIdx += writeBranches(state, branchIdx, id, wx, wz, baseY, sil,
-      bp.genome, cr, cg, cb, burnShrink, brMtx, brClr);
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
+      trunkMtx, trunkClr);
+    const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
+      wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
+      brMtx, brClr, canopyMtx, canopyClr);
+    branchIdx += burnResult.branchCount;
+    canopyIdx += burnResult.canopyCount;
     idx++;
   }
   for (const id of burnToRemove) burningPlants.delete(id);
 
   trunks.count = idx;
-  canopies.count = idx;
-  canopies2.count = idx;
+  canopies.count = canopyIdx;
   branches.count = branchIdx;
   trunks.instanceMatrix.needsUpdate = true;
-  canopies.instanceMatrix.needsUpdate = true;
-  canopies2.instanceMatrix.needsUpdate = true;
   trunks.instanceColor!.needsUpdate = true;
-  canopies.instanceColor!.needsUpdate = true;
-  canopies2.instanceColor!.needsUpdate = true;
+  if (canopyIdx > 0) {
+    canopies.instanceMatrix.needsUpdate = true;
+    canopies.instanceColor!.needsUpdate = true;
+  }
   if (branchIdx > 0) {
     branches.instanceMatrix.needsUpdate = true;
     branches.instanceColor!.needsUpdate = true;
