@@ -45,6 +45,9 @@ export function createRenderer3D(
   scene.add(plants.trunks);
   scene.add(plants.canopies);
   scene.add(plants.canopies2);
+  scene.add(plants.branches1);
+  scene.add(plants.branches2);
+  scene.add(plants.branches3);
   scene.add(plants.seeds);
 
   // ── Weather particles ──
@@ -125,6 +128,9 @@ export function createRenderer3D(
     trunks: plants.trunks,
     canopies: plants.canopies,
     canopies2: plants.canopies2,
+    branches1: plants.branches1,
+    branches2: plants.branches2,
+    branches3: plants.branches3,
     seeds: plants.seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),
@@ -180,7 +186,7 @@ export function createRenderer3D(
       [0.25, 0.38, 0.18],
       [0.22, 0.35, 0.14],
       [0.35, 0.30, 0.15],
-      [0.25, 0.28, 0.22],
+      [0.75, 0.78, 0.85],  // Winter: snowy
     ];
     const gc0 = groundColors[env.season];
     const gc1 = groundColors[(env.season + 1) % 4];

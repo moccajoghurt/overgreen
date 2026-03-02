@@ -1,5 +1,26 @@
-import { SIM, TerrainType, WeatherOverlay } from '../types';
+import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
 import { RendererState, GRID, lerp } from './state';
+
+/**
+ * Snow coverage factor (0→1) based on season + progress.
+ * Ramps up in late autumn, peaks mid-winter, melts in early spring.
+ */
+function computeSnowCoverage(env: Environment): number {
+  if (env.season === Season.Autumn && env.seasonProgress > 0.8) {
+    // Late autumn: snow starts appearing
+    return (env.seasonProgress - 0.8) * (0.15 / 0.2);
+  }
+  if (env.season === Season.Winter) {
+    // Bell curve peaking at ~0.85 mid-winter
+    const x = env.seasonProgress;
+    return 0.15 + 0.70 * Math.sin(x * Math.PI);
+  }
+  if (env.season === Season.Spring && env.seasonProgress < 0.2) {
+    // Early spring: melting remnants
+    return 0.15 * (1 - env.seasonProgress / 0.2);
+  }
+  return 0;
+}
 
 export function updateTerrainColors(state: RendererState): void {
   const { world, tmpColor, colorArray, colorAttr } = state;
@@ -102,6 +123,17 @@ export function updateTerrainColors(state: RendererState): void {
       tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
+
+      // Snow coverage — blend toward cold snow-white
+      const snowCov = computeSnowCoverage(env);
+      if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
+        // Rocks get stronger coverage (exposed / elevated)
+        const boost = cell.terrainType === TerrainType.Rock ? 1.2 : 1.0;
+        const s = Math.min(1, snowCov * boost);
+        tmpColor.r = lerp(tmpColor.r, 0.82, s);
+        tmpColor.g = lerp(tmpColor.g, 0.85, s);
+        tmpColor.b = lerp(tmpColor.b, 0.92, s);
+      }
 
       // Weather overlay
       const overlayVal = env.weatherOverlay[row * GRID + col];

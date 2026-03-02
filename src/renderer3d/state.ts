@@ -96,6 +96,9 @@ export interface RendererState {
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
   canopies2: THREE.InstancedMesh;
+  branches1: THREE.InstancedMesh;
+  branches2: THREE.InstancedMesh;
+  branches3: THREE.InstancedMesh;
 
   // Seed mesh
   seeds: THREE.InstancedMesh;
@@ -153,6 +156,15 @@ export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+/** Deterministic hash for per-plant pseudo-random values. Returns [0, 1). */
+export function plantHash(plantId: number, salt: number): number {
+  let h = (plantId * 2654435761 + salt * 340573) | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
+  h = (h >> 16) ^ h;
+  return (h & 0x7FFFFFFF) / 0x7FFFFFFF;
+}
+
 export function computeSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
@@ -174,7 +186,19 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   // Leafy plants get fuller, multi-blob canopy; others are sparser
   const blob2 = 0.1 + genome.leafSize * 0.7;
 
-  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2 };
+  // ── Branches ──
+  // Length scales with trunk height and leaf spread
+  const branchLength = trunkH * (0.15 + genome.leafSize * 0.25);
+  // Thickness proportional to trunk, boosted by root investment
+  const branchThickness = trunkThickness * (0.15 + genome.rootPriority * 0.15);
+  // Tilt angle (radians from vertical): leafy = outward, tall = upward
+  const branchTilt = Math.max(0.5, Math.min(1.2,
+    0.6 + genome.leafSize * 0.5 - genome.heightPriority * 0.35));
+  // Hide branches on seedlings/small plants
+  const branchVisibility = Math.max(0, Math.min(1, (trunkH - 0.2) * 3));
+
+  return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX, blob2,
+    branchLength, branchThickness, branchTilt, branchVisibility };
 }
 
 export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {

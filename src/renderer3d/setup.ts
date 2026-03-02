@@ -100,6 +100,9 @@ export interface PlantMeshes {
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
   canopies2: THREE.InstancedMesh;
+  branches1: THREE.InstancedMesh;
+  branches2: THREE.InstancedMesh;
+  branches3: THREE.InstancedMesh;
   seeds: THREE.InstancedMesh;
 }
 
@@ -127,10 +130,15 @@ export function createPlantMeshes(): PlantMeshes {
   const canopy2Geo = makeRoughSphere(0.5, 2, 0.25);
   const canopies2 = createInstancedMesh(canopy2Geo, MAX_INSTANCES);
 
+  const branchGeo = new THREE.CylinderGeometry(0.03, 0.06, 1, 4);
+  const branches1 = createInstancedMesh(branchGeo, MAX_INSTANCES);
+  const branches2 = createInstancedMesh(branchGeo, MAX_INSTANCES);
+  const branches3 = createInstancedMesh(branchGeo, MAX_INSTANCES);
+
   const seedGeo = new THREE.SphereGeometry(0.08, 4, 4);
   const seeds = createInstancedMesh(seedGeo, MAX_SEEDS);
 
-  return { trunks, canopies, canopies2, seeds };
+  return { trunks, canopies, canopies2, branches1, branches2, branches3, seeds };
 }
 
 // ── Weather meshes ──

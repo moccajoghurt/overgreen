@@ -2,7 +2,7 @@ import { Genome, GRID_WIDTH, WeatherOverlay, Season } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
-  computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp,
+  computeSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp, plantHash,
 } from './state';
 
 function naturalCanopyColor(genome: Genome) {
@@ -72,7 +72,7 @@ function seasonalCanopyColor(
   const seasonTargets: [number, number, number][] = [
     [0.30, 0.55, 0.15], // Spring: fresh green
     [cr,   cg,   cb  ], // Summer: identity
-    [0.60, 0.25, 0.08], // Autumn: orange-red
+    [0.70, 0.18, 0.04], // Autumn: vivid orange-red
     [0.35, 0.28, 0.20], // Winter: gray-brown bark
   ];
 
@@ -84,11 +84,11 @@ function seasonalCanopyColor(
 
   let blendStrength: number;
   if (env.season === Season.Summer) {
-    blendStrength = 0.05;
+    blendStrength = 0.05 + t * 0.15; // warm up toward end of summer
   } else if (env.season === Season.Autumn) {
-    blendStrength = 0.6 * t + 0.1;
+    blendStrength = 0.7 * t + 0.25; // strong from the start, nearly full by end
   } else if (env.season === Season.Winter) {
-    blendStrength = 0.5;
+    blendStrength = 0.6;
   } else {
     blendStrength = 0.5 * (1 - t);
   }
@@ -125,17 +125,27 @@ function computePlantColors(state: RendererState, speciesId: number, genome: Gen
   };
 }
 
+// Attachment fractions along trunk for 3 branches
+const BRANCH_ATTACH = [0.40, 0.65, 0.90];
+// Base angular separation (radians, ~120° apart)
+const BRANCH_BASE_ANGLE = [0, 2.094, 4.189];
+
 function writeInstance(
   state: RendererState,
   idx: number,
+  plantId: number,
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
   cr: number, cg: number, cb: number,
   tr: number, tg: number, tb: number,
   tiltAngle: number, tiltDir: number,
+  branchScale: number,
   trunkMtx: Float32Array, trunkClr: Float32Array,
   canopyMtx: Float32Array, canopyClr: Float32Array,
   canopy2Mtx: Float32Array, canopy2Clr: Float32Array,
+  br1Mtx: Float32Array, br1Clr: Float32Array,
+  br2Mtx: Float32Array, br2Clr: Float32Array,
+  br3Mtx: Float32Array, br3Clr: Float32Array,
 ): void {
   const { dummy } = state;
 
@@ -168,6 +178,54 @@ function writeInstance(
   dummy.updateMatrix();
   dummy.matrix.toArray(canopy2Mtx, idx * 16);
 
+  // ── Branches ──
+  const brMtxArr = [br1Mtx, br2Mtx, br3Mtx];
+  const brClrArr = [br1Clr, br2Clr, br3Clr];
+  const vis = sil.branchVisibility * branchScale;
+
+  for (let i = 0; i < 3; i++) {
+    const attachJitter = (plantHash(plantId, i * 10 + 1) - 0.5) * 0.15;
+    const attachFrac = BRANCH_ATTACH[i] + attachJitter;
+    const attachY = baseY + sil.trunkH * attachFrac;
+
+    const angleJitter = (plantHash(plantId, i * 10 + 2) - 0.5) * 0.8;
+    const angle = BRANCH_BASE_ANGLE[i] + angleJitter;
+
+    const tilt = sil.branchTilt;
+    const len = sil.branchLength * vis;
+    const thick = sil.branchThickness * vis;
+
+    // Branch direction vector (from trunk outward+upward)
+    const sinT = Math.sin(tilt);
+    const cosT = Math.cos(tilt);
+    const dirX = Math.sin(angle) * sinT;
+    const dirY = cosT;
+    const dirZ = Math.cos(angle) * sinT;
+
+    // Position at midpoint of branch
+    dummy.position.set(
+      wx + dirX * len * 0.5,
+      attachY + dirY * len * 0.5,
+      wz + dirZ * len * 0.5,
+    );
+    dummy.scale.set(thick, len, thick);
+
+    // Orient cylinder along branch direction
+    // CylinderGeometry default axis is Y-up; rotate to align with (dirX, dirY, dirZ)
+    dummy.rotation.set(0, 0, 0);
+    dummy.rotateY(angle);
+    dummy.rotateZ(tilt);
+
+    dummy.updateMatrix();
+    dummy.matrix.toArray(brMtxArr[i], idx * 16);
+
+    // Branch color = trunk bark color
+    const ci = idx * 3;
+    brClrArr[i][ci]     = tr;
+    brClrArr[i][ci + 1] = tg;
+    brClrArr[i][ci + 2] = tb;
+  }
+
   // ── Colors ──
   const ci = idx * 3;
 
@@ -184,7 +242,8 @@ function writeInstance(
 }
 
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, canopies2, growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
+  const { world, trunks, canopies, canopies2, branches1, branches2, branches3,
+    growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   const trunkMtx = trunks.instanceMatrix.array as Float32Array;
   const trunkClr = trunks.instanceColor!.array as Float32Array;
@@ -192,6 +251,12 @@ export function updatePlants(state: RendererState): void {
   const canopyClr = canopies.instanceColor!.array as Float32Array;
   const canopy2Mtx = canopies2.instanceMatrix.array as Float32Array;
   const canopy2Clr = canopies2.instanceColor!.array as Float32Array;
+  const br1Mtx = branches1.instanceMatrix.array as Float32Array;
+  const br1Clr = branches1.instanceColor!.array as Float32Array;
+  const br2Mtx = branches2.instanceMatrix.array as Float32Array;
+  const br2Clr = branches2.instanceColor!.array as Float32Array;
+  const br3Mtx = branches3.instanceMatrix.array as Float32Array;
+  const br3Clr = branches3.instanceColor!.array as Float32Array;
 
   // ── Ingest seed events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
@@ -276,6 +341,7 @@ export function updatePlants(state: RendererState): void {
     const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome);
 
     // Apply growth animation scale
+    let branchScale = 1.0;
     const growing = growingPlants.get(plant.id);
     if (growing) {
       growing.progress += 1 / GROWTH_ANIM_FRAMES;
@@ -289,10 +355,12 @@ export function updatePlants(state: RendererState): void {
         sil.canopyY *= s;
         sil.canopyZ *= s;
         sil.blob2 *= s;
+        // Branches appear with delay: start at 30% growth, finish at 100%
+        branchScale = Math.max(0, easeOutCubic(Math.max(0, growing.progress - 0.3) / 0.7));
       }
     }
 
-    // Apply seasonal foliage scale (canopy shrinks in autumn/winter, trunk unchanged)
+    // Apply seasonal foliage scale (canopy shrinks in autumn/winter, trunk+branches unchanged)
     sil.canopyX *= canopyScale;
     sil.canopyY *= canopyScale;
     sil.canopyZ *= canopyScale;
@@ -313,8 +381,9 @@ export function updatePlants(state: RendererState): void {
       cb = lerp(cb, 0.10, 0.45);
     }
 
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    writeInstance(state, idx, plant.id, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0, branchScale,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
+      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
     idx++;
   }
 
@@ -339,6 +408,10 @@ export function updatePlants(state: RendererState): void {
       canopyY: raw.canopyY * shrink * canopyScale,
       canopyZ: raw.canopyZ * shrink * canopyScale,
       blob2: raw.blob2 * shrink * canopyScale,
+      branchLength: raw.branchLength * shrink,
+      branchThickness: raw.branchThickness * shrink,
+      branchTilt: raw.branchTilt,
+      branchVisibility: raw.branchVisibility,
     };
 
     const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
@@ -356,8 +429,9 @@ export function updatePlants(state: RendererState): void {
     const tb = orig.tb * (1 - p) + 0.06 * p;
 
     const baseY = getCellElevation(dp.x, dp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    writeInstance(state, idx, id, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir, shrink,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
+      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
     idx++;
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -385,6 +459,10 @@ export function updatePlants(state: RendererState): void {
       canopyY: raw.canopyY * burnShrink * canopyScale,
       canopyZ: raw.canopyZ * burnShrink * canopyScale,
       blob2: raw.blob2 * burnShrink * canopyScale,
+      branchLength: raw.branchLength * burnShrink,
+      branchThickness: raw.branchThickness * burnShrink,
+      branchTilt: raw.branchTilt,
+      branchVisibility: raw.branchVisibility,
     };
 
     const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
@@ -394,8 +472,9 @@ export function updatePlants(state: RendererState): void {
     const cb = lerp(0.1, 0.02, t);
 
     const baseY = getCellElevation(bp.x, bp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0,
-      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
+    writeInstance(state, idx, id, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0, burnShrink,
+      trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr,
+      br1Mtx, br1Clr, br2Mtx, br2Clr, br3Mtx, br3Clr);
     idx++;
   }
   for (const id of burnToRemove) burningPlants.delete(id);
@@ -403,12 +482,21 @@ export function updatePlants(state: RendererState): void {
   trunks.count = idx;
   canopies.count = idx;
   canopies2.count = idx;
+  branches1.count = idx;
+  branches2.count = idx;
+  branches3.count = idx;
   trunks.instanceMatrix.needsUpdate = true;
   canopies.instanceMatrix.needsUpdate = true;
   canopies2.instanceMatrix.needsUpdate = true;
+  branches1.instanceMatrix.needsUpdate = true;
+  branches2.instanceMatrix.needsUpdate = true;
+  branches3.instanceMatrix.needsUpdate = true;
   trunks.instanceColor!.needsUpdate = true;
   canopies.instanceColor!.needsUpdate = true;
   canopies2.instanceColor!.needsUpdate = true;
+  branches1.instanceColor!.needsUpdate = true;
+  branches2.instanceColor!.needsUpdate = true;
+  branches3.instanceColor!.needsUpdate = true;
 }
 
 export function updateSeeds(state: RendererState): void {

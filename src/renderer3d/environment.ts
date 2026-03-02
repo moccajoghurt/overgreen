@@ -6,7 +6,7 @@ const SEASON_HILL_COLORS: [h: number, s: number, l: number][] = [
   [120 / 360, 0.35, 0.28], // Spring: green
   [130 / 360, 0.40, 0.22], // Summer: deep green
   [35 / 360, 0.40, 0.25],  // Autumn: orange-brown
-  [30 / 360, 0.10, 0.30],  // Winter: muted grey-brown
+  [210 / 360, 0.05, 0.72], // Winter: snow-capped pale blue-white
 ];
 
 // Seasonal river water colors
