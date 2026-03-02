@@ -96,6 +96,12 @@ function killPlantByFire(world: World, x: number, y: number): void {
     });
     plant.alive = false;
     plant.causeOfDeath = 'fire';
+    world.deathEvents.push({
+      id: plant.id,
+      speciesId: plant.speciesId,
+      cause: 'fire',
+      age: plant.age,
+    });
     plant.energy = 0;
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);

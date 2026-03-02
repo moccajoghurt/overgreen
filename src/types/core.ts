@@ -64,8 +64,17 @@ export interface World {
   speciesNames: Map<number, string>;
   seedEvents: SeedEvent[];
   fireDeathEvents: FireDeathEvent[];
+  deathEvents: DeathEvent[];
+  seedsAttempted: number;
   environment: Environment;
   environmentEvents: EnvironmentEvent[];
+}
+
+export interface DeathEvent {
+  id: number;
+  speciesId: number;
+  cause: 'starvation' | 'age' | 'fire';
+  age: number;
 }
 
 export interface FireDeathEvent {

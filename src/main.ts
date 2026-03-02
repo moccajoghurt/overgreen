@@ -8,6 +8,7 @@ import { createTraitChart } from './trait-chart';
 import { createGenomePanel } from './genome-panel';
 import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
+import { createDiagnosticLogger } from './diagnostic-logger';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -17,6 +18,7 @@ const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
 const history = createHistory();
+const diagLogger = createDiagnosticLogger();
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
@@ -64,11 +66,13 @@ function loop(now: number): void {
     if (now - lastTickTime >= controls.tickInterval) {
       tickWorld(world);
       recordTick(history, world);
+      diagLogger.recordTick(world);
       lastTickTime = now;
     }
   } else if (controls.stepRequested) {
     tickWorld(world);
     recordTick(history, world);
+    diagLogger.recordTick(world);
     controls.stepRequested = false;
     lastTickTime = now;
   }
@@ -80,9 +84,12 @@ function loop(now: number): void {
 
 requestAnimationFrame(loop);
 
-// Debug: press F to spawn a fire
+// Debug shortcuts
 window.addEventListener('keydown', (e) => {
   if (e.key === 'f' || e.key === 'F') {
     spawnFire(world);
+  }
+  if (e.key === 'd' || e.key === 'D') {
+    diagLogger.downloadReport();
   }
 });

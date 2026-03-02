@@ -168,6 +168,7 @@ function phaseUpdatePlants(world: World): void {
       const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / 3);
       const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
       for (let i = 0; i < seedsToSpawn; i++) {
+        world.seedsAttempted++;
         const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
         const dy = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
         if (dx === 0 && dy === 0) continue;
@@ -210,6 +211,12 @@ function phaseDeath(world: World): void {
     if (!plant.alive) continue;
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= SIM.MAX_AGE) {
       plant.alive = false;
+      world.deathEvents.push({
+        id: plant.id,
+        speciesId: plant.speciesId,
+        cause: plant.age >= SIM.MAX_AGE ? 'age' : 'starvation',
+        age: plant.age,
+      });
     }
   }
 }
@@ -232,6 +239,8 @@ function phaseDecomposition(world: World): void {
 
 export function tickWorld(world: World): void {
   world.seedEvents.length = 0;
+  world.deathEvents.length = 0;
+  world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
   phaseEnvironment(world);
   phaseRechargeWater(world);
