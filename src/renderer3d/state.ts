@@ -179,17 +179,20 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
 
-  // Taller plants = taller trunks; deep roots = thick trunk (baobab effect)
-  const trunkH = Math.max(0.1, height * 0.4);
-  const trunkThickness = 0.4 + rootRatio * 2.0;
+  // Trunk height: heightPriority → taller, rootPriority → squatter
+  const heightMult = 0.35 + genome.heightPriority * 0.15 - genome.rootPriority * 0.08;
+  const trunkH = Math.max(0.1, height * heightMult);
 
-  // Canopy size driven by actual leaf growth
-  const canopyBase = 0.05 + leafRatio * 2.0;
+  // Trunk thickness: rootPriority → very fat (baobab), seedInvestment → thinner
+  const trunkThickness = Math.max(0.15,
+    0.3 + rootRatio * 2.5 - genome.seedInvestment * 0.4);
 
-  // Canopy shape driven by genome strategy:
-  // High leafSize → wide & flat (acacia/umbrella)
-  // High heightPriority → narrow & tall (spruce/conical)
-  const spread = Math.max(0.25, 0.6 + genome.leafSize * 0.9 - genome.heightPriority * 0.5);
+  // Canopy size driven by actual leaf growth; seedInvestment → smaller individual blobs
+  const canopyBase = 0.05 + leafRatio * 2.0 - genome.seedInvestment * leafRatio * 0.5;
+
+  // Canopy shape: leafSize → wide & flat (acacia), heightPriority → narrow & tall (conifer)
+  const spread = Math.max(0.15,
+    0.5 + genome.leafSize * 1.2 - genome.heightPriority * 0.7 + genome.rootPriority * 0.1);
   const canopyX = canopyBase * spread;
   const canopyY = canopyBase / spread;
 

@@ -150,25 +150,35 @@ export function createShowcase(
       return group;
     }
 
-    const primaryCount = Math.max(2, Math.min(5,
-      Math.round(3 + genome.leafSize * 2 - genome.heightPriority * 1)));
-    const primaryTilt = Math.max(0.3, Math.min(1.3,
-      0.8 + genome.leafSize * 0.5 - genome.heightPriority * 0.5));
-    const primaryLength = sil.trunkH * (0.25 + genome.leafSize * 0.30 + genome.rootPriority * 0.10);
-    const primaryThickness = sil.trunkThickness * (0.35 + genome.rootPriority * 0.25);
+    // leafSize → many (bushy), heightPriority → few (conifer), seedInvestment → moderate-many
+    const primaryCount = Math.max(2, Math.min(6,
+      Math.round(2 + genome.leafSize * 3 - genome.heightPriority * 2 + genome.seedInvestment * 1.5)));
+    const primaryTilt = Math.max(0.15, Math.min(1.5,
+      0.6 + genome.leafSize * 0.7 - genome.heightPriority * 0.7
+          + genome.rootPriority * 0.1 + genome.seedInvestment * 0.2));
+    const primaryLength = sil.trunkH * (
+      0.15 + genome.leafSize * 0.40 - genome.heightPriority * 0.10
+           + genome.rootPriority * 0.05 + genome.seedInvestment * 0.15);
+    const primaryThickness = sil.trunkThickness * (
+      0.30 + genome.rootPriority * 0.35 - genome.seedInvestment * 0.15);
     const secondaryPerPrimary = Math.max(0, Math.min(2,
-      Math.round(0.5 + genome.leafSize * 1.5 - genome.heightPriority * 0.8)));
+      Math.round(genome.leafSize * 2.0 - genome.heightPriority * 1.2 + genome.seedInvestment * 0.5 - 0.2)));
     const totalTips = Math.min(12, primaryCount * (1 + secondaryPerPrimary));
-    const volumeShare = 1 / Math.pow(Math.max(1, totalTips), 1 / 3);
+    const sizeExponent = 1 / 3 + genome.heightPriority * 0.1 + genome.seedInvestment * 0.15
+                               - genome.leafSize * 0.08;
+    const volumeShare = 1 / Math.pow(Math.max(1, totalTips), Math.max(0.2, sizeExponent));
+
+    const attachLow = 0.50 - genome.heightPriority * 0.30 - genome.seedInvestment * 0.15;
+    const attachHigh = 0.90 + genome.heightPriority * 0.05;
 
     const branchMat = new THREE.MeshLambertMaterial({ color: trunkColor });
     const canopyMat = new THREE.MeshLambertMaterial({ color: canopyColor });
     const pid = plant.id;
 
     for (let i = 0; i < primaryCount; i++) {
-      const baseFrac = 0.45 + (i / Math.max(1, primaryCount - 1)) * 0.45;
+      const baseFrac = attachLow + (i / Math.max(1, primaryCount - 1)) * (attachHigh - attachLow);
       const attachJitter = (plantHash(pid, i * 10 + 1) - 0.5) * 0.10;
-      const attachFrac = Math.max(0.40, Math.min(0.95, baseFrac + attachJitter));
+      const attachFrac = Math.max(0.15, Math.min(0.95, baseFrac + attachJitter));
       const attachY = sil.trunkH * attachFrac;
 
       const baseAngle = (i / primaryCount) * Math.PI * 2;
@@ -260,6 +270,42 @@ export function createShowcase(
           sil.canopyZ * volumeShare * secJitter,
         );
         group.add(scm);
+      }
+    }
+
+    // Conifer apex blob
+    if (genome.heightPriority > 0.4) {
+      const apexStrength = Math.min(1, (genome.heightPriority - 0.4) * 2.5);
+      const apexSize = sil.canopyY * volumeShare * 0.7 * apexStrength;
+      const apexMat = new THREE.MeshLambertMaterial({ color: canopyColor });
+      const apex = new THREE.Mesh(canopyGeo, apexMat);
+      apex.position.set(0, sil.trunkH * 0.98, 0);
+      apex.scale.set(apexSize * 0.5, apexSize * 1.3, apexSize * 0.5);
+      group.add(apex);
+    }
+
+    // Buttress blobs for root-dominant plants
+    if (genome.rootPriority > 0.5) {
+      const buttressStrength = Math.min(1, (genome.rootPriority - 0.5) * 2.5);
+      const buttressSize = sil.canopyX * volumeShare * 0.5 * buttressStrength;
+      const buttressCount = genome.rootPriority > 0.7 ? 2 : 1;
+      const buttressColor = new THREE.Color(
+        cr * 0.85 + tr * 0.15,
+        cg * 0.85 + tg * 0.15,
+        cb * 0.85 + tb * 0.15,
+      );
+      const buttressMat = new THREE.MeshLambertMaterial({ color: buttressColor });
+      for (let bi = 0; bi < buttressCount; bi++) {
+        const bAngle = plantHash(pid, 200 + bi) * Math.PI * 2;
+        const bDist = sil.trunkThickness * 0.3;
+        const bm = new THREE.Mesh(canopyGeo, buttressMat);
+        bm.position.set(
+          Math.sin(bAngle) * bDist,
+          sil.trunkH * 0.15,
+          Math.cos(bAngle) * bDist,
+        );
+        bm.scale.set(buttressSize, buttressSize * 0.6, buttressSize);
+        group.add(bm);
       }
     }
 

@@ -7,59 +7,95 @@ import {
 
 export function naturalCanopyColor(genome: Genome) {
   const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
+
+  // Compute normalized dominance for nonlinear archetype accents
+  const sum = rootPriority + heightPriority + leafSize + seedInvestment + 0.01;
+  const rDom = rootPriority / sum;
+  const hDom = heightPriority / sum;
+  const sDom = seedInvestment / sum;
+
   // Base: mid-forest green
-  let r = 0.16;
-  let g = 0.42;
+  let r = 0.18;
+  let g = 0.40;
   let b = 0.14;
 
-  // leafSize high → brighter, lusher green
-  g += leafSize * 0.18;
-  r += leafSize * 0.04;
+  // leafSize high → bright, lush, saturated emerald green
+  r += leafSize * 0.02;
+  g += leafSize * 0.25;
+  b += leafSize * 0.04;
 
-  // heightPriority high → darker, deeper green
-  g -= heightPriority * 0.10;
-  r -= heightPriority * 0.04;
+  // heightPriority high → dark blue-green (conifer needles)
+  r -= heightPriority * 0.08;
+  g -= heightPriority * 0.12;
+  b += heightPriority * 0.08;
 
-  // rootPriority high → olive/yellow-green shift
-  r += rootPriority * 0.08;
-  b -= rootPriority * 0.03;
+  // rootPriority high → warm olive / khaki
+  r += rootPriority * 0.14;
+  g += rootPriority * 0.02;
+  b -= rootPriority * 0.06;
 
-  // seedInvestment high → slight warm tint
-  r += seedInvestment * 0.06;
-  g -= seedInvestment * 0.02;
+  // seedInvestment high → light yellow-green / silver-green
+  r += seedInvestment * 0.10;
+  g += seedInvestment * 0.08;
+  b -= seedInvestment * 0.04;
+
+  // Nonlinear archetype accents (kick in when a gene is clearly dominant)
+  if (hDom > 0.30) {
+    const strength = (hDom - 0.30) * 2.0;
+    r -= strength * 0.06;
+    g -= strength * 0.05;
+    b += strength * 0.10;
+  }
+  if (rDom > 0.30) {
+    const strength = (rDom - 0.30) * 2.0;
+    r += strength * 0.08;
+    g += strength * 0.04;
+    b -= strength * 0.04;
+  }
+  if (sDom > 0.30) {
+    const strength = (sDom - 0.30) * 2.0;
+    r += strength * 0.06;
+    g += strength * 0.10;
+    b += strength * 0.06;
+  }
 
   return {
-    cr: Math.max(0.08, Math.min(0.35, r)),
-    cg: Math.max(0.22, Math.min(0.65, g)),
-    cb: Math.max(0.05, Math.min(0.20, b)),
+    cr: Math.max(0.06, Math.min(0.45, r)),
+    cg: Math.max(0.18, Math.min(0.72, g)),
+    cb: Math.max(0.04, Math.min(0.30, b)),
   };
 }
 
 export function naturalTrunkColor(genome: Genome) {
-  const { rootPriority, heightPriority, leafSize } = genome;
+  const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
   // Base: bark brown
   let r = 0.28;
   let g = 0.18;
   let b = 0.10;
 
-  // rootPriority high → darker, richer brown
-  r -= rootPriority * 0.06;
-  g -= rootPriority * 0.04;
-  b -= rootPriority * 0.02;
+  // rootPriority high → very dark, rich brown (massive ancient wood)
+  r -= rootPriority * 0.10;
+  g -= rootPriority * 0.08;
+  b -= rootPriority * 0.04;
 
-  // heightPriority high → lighter, grayer bark (birch-like)
-  r += heightPriority * 0.10;
-  g += heightPriority * 0.10;
-  b += heightPriority * 0.08;
+  // heightPriority high → pale, silvery-gray bark (birch/aspen)
+  r += heightPriority * 0.14;
+  g += heightPriority * 0.14;
+  b += heightPriority * 0.12;
 
-  // leafSize high → slight mossy warmth
-  g += leafSize * 0.04;
-  r += leafSize * 0.02;
+  // leafSize high → warm, mossy bark
+  g += leafSize * 0.06;
+  r += leafSize * 0.03;
+
+  // seedInvestment high → reddish-brown papery bark (cherry/madrone)
+  r += seedInvestment * 0.10;
+  g -= seedInvestment * 0.02;
+  b -= seedInvestment * 0.02;
 
   return {
-    tr: Math.max(0.15, Math.min(0.42, r)),
-    tg: Math.max(0.10, Math.min(0.32, g)),
-    tb: Math.max(0.06, Math.min(0.22, b)),
+    tr: Math.max(0.12, Math.min(0.50, r)),
+    tg: Math.max(0.08, Math.min(0.38, g)),
+    tb: Math.max(0.04, Math.min(0.28, b)),
   };
 }
 
@@ -176,33 +212,46 @@ function writeBranchesAndCanopies(
   let segmentCount = 0;
 
   // ── Level 1: Primary branches ──
-  const primaryCount = Math.max(2, Math.min(5,
-    Math.round(3 + genome.leafSize * 2 - genome.heightPriority * 1)));
+  // leafSize → many (bushy), heightPriority → few (conifer), seedInvestment → moderate-many
+  const primaryCount = Math.max(2, Math.min(6,
+    Math.round(2 + genome.leafSize * 3 - genome.heightPriority * 2 + genome.seedInvestment * 1.5)));
 
-  // Tilt from vertical: leafy → outward, tall → upward
-  const primaryTilt = Math.max(0.3, Math.min(1.3,
-    0.8 + genome.leafSize * 0.5 - genome.heightPriority * 0.5));
+  // Tilt from vertical: leafSize → near-horizontal, heightPriority → near-vertical
+  const primaryTilt = Math.max(0.15, Math.min(1.5,
+    0.6 + genome.leafSize * 0.7 - genome.heightPriority * 0.7
+        + genome.rootPriority * 0.1 + genome.seedInvestment * 0.2));
 
-  // Branch length and thickness from genome
-  const primaryLength = sil.trunkH * (0.25 + genome.leafSize * 0.30 + genome.rootPriority * 0.10);
-  const primaryThickness = sil.trunkThickness * (0.35 + genome.rootPriority * 0.25);
+  // Branch length: leafSize → long reaching, heightPriority → short stubs
+  const primaryLength = sil.trunkH * (
+    0.15 + genome.leafSize * 0.40 - genome.heightPriority * 0.10
+         + genome.rootPriority * 0.05 + genome.seedInvestment * 0.15);
+
+  // Branch thickness: rootPriority → massive, seedInvestment → wire-thin
+  const primaryThickness = sil.trunkThickness * (
+    0.30 + genome.rootPriority * 0.35 - genome.seedInvestment * 0.15);
 
   // Secondary count per primary
   const secondaryPerPrimary = Math.max(0, Math.min(2,
-    Math.round(0.5 + genome.leafSize * 1.5 - genome.heightPriority * 0.8)));
+    Math.round(genome.leafSize * 2.0 - genome.heightPriority * 1.2 + genome.seedInvestment * 0.5 - 0.2)));
 
-  // Per-tip canopy sizing: preserve total volume across tips
+  // Per-tip canopy sizing: archetype-aware volume distribution
   const totalTips = Math.min(MAX_BRANCHES_PER_PLANT,
     primaryCount * (1 + secondaryPerPrimary));
-  const volumeShare = 1 / Math.pow(Math.max(1, totalTips), 1 / 3);
+  const sizeExponent = 1 / 3 + genome.heightPriority * 0.1 + genome.seedInvestment * 0.15
+                             - genome.leafSize * 0.08;
+  const volumeShare = 1 / Math.pow(Math.max(1, totalTips), Math.max(0.2, sizeExponent));
+
+  // Attachment height range: genome-driven distribution
+  const attachLow = 0.50 - genome.heightPriority * 0.30 - genome.seedInvestment * 0.15;
+  const attachHigh = 0.90 + genome.heightPriority * 0.05;
 
   for (let i = 0; i < primaryCount; i++) {
     if (segmentCount >= MAX_BRANCHES_PER_PLANT) break;
 
-    // Attach height: evenly distributed between 45-90% of trunk height with jitter
-    const baseFrac = 0.45 + (i / Math.max(1, primaryCount - 1)) * 0.45;
+    // Attach height: genome-driven range with jitter
+    const baseFrac = attachLow + (i / Math.max(1, primaryCount - 1)) * (attachHigh - attachLow);
     const attachJitter = (plantHash(plantId, i * 10 + 1) - 0.5) * 0.10;
-    const attachFrac = Math.max(0.40, Math.min(0.95, baseFrac + attachJitter));
+    const attachFrac = Math.max(0.15, Math.min(0.95, baseFrac + attachJitter));
     const attachY = baseY + sil.trunkH * attachFrac;
 
     // Angle around trunk: evenly spaced + jitter
@@ -340,6 +389,56 @@ function writeBranchesAndCanopies(
       canopyClr[scci]     = cr;
       canopyClr[scci + 1] = cg;
       canopyClr[scci + 2] = cb;
+      canopyCount++;
+      segmentCount++;
+    }
+  }
+
+  // ── Conifer apex: extra canopy blob at trunk top for tall, narrow plants ──
+  if (genome.heightPriority > 0.4 && segmentCount < MAX_BRANCHES_PER_PLANT) {
+    const apexStrength = Math.min(1, (genome.heightPriority - 0.4) * 2.5);
+    const apexSize = sil.canopyY * volumeShare * 0.7 * apexStrength;
+
+    dummy.position.set(wx, baseY + sil.trunkH * 0.98, wz);
+    dummy.scale.set(apexSize * 0.5, apexSize * 1.3, apexSize * 0.5);
+    dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix();
+
+    const cIdx = canopyIdx + canopyCount;
+    dummy.matrix.toArray(canopyMtx, cIdx * 16);
+    const cci = cIdx * 3;
+    canopyClr[cci]     = cr;
+    canopyClr[cci + 1] = cg;
+    canopyClr[cci + 2] = cb;
+    canopyCount++;
+    segmentCount++;
+  }
+
+  // ── Buttress blobs: root-dominant plants get foliage mass near base ──
+  if (genome.rootPriority > 0.5 && segmentCount < MAX_BRANCHES_PER_PLANT) {
+    const buttressStrength = Math.min(1, (genome.rootPriority - 0.5) * 2.5);
+    const buttressSize = sil.canopyX * volumeShare * 0.5 * buttressStrength;
+    const buttressCount = genome.rootPriority > 0.7 ? 2 : 1;
+
+    for (let bi = 0; bi < buttressCount && segmentCount < MAX_BRANCHES_PER_PLANT; bi++) {
+      const bAngle = plantHash(plantId, 200 + bi) * Math.PI * 2;
+      const bDist = sil.trunkThickness * 0.3;
+
+      dummy.position.set(
+        wx + Math.sin(bAngle) * bDist,
+        baseY + sil.trunkH * 0.15,
+        wz + Math.cos(bAngle) * bDist,
+      );
+      dummy.scale.set(buttressSize, buttressSize * 0.6, buttressSize);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+
+      const cIdx = canopyIdx + canopyCount;
+      dummy.matrix.toArray(canopyMtx, cIdx * 16);
+      const cci = cIdx * 3;
+      canopyClr[cci]     = cr * 0.85 + tr * 0.15;
+      canopyClr[cci + 1] = cg * 0.85 + tg * 0.15;
+      canopyClr[cci + 2] = cb * 0.85 + tb * 0.15;
       canopyCount++;
       segmentCount++;
     }
