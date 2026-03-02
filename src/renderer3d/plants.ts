@@ -352,6 +352,13 @@ export function updatePlants(state: RendererState): void {
   const { world, trunks, canopies, branches,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
+  // Skip full rebuild if no tick occurred and no animations are active
+  const hasTicked = world.tick !== state.lastPlantTick;
+  const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
+    || burningPlants.size > 0 || flyingSeeds.length > 0;
+  if (!hasTicked && !hasAnimations) return;
+  state.lastPlantTick = world.tick;
+
   const trunkMtx = trunks.instanceMatrix.array as Float32Array;
   const trunkClr = trunks.instanceColor!.array as Float32Array;
   const canopyMtx = canopies.instanceMatrix.array as Float32Array;
@@ -385,7 +392,8 @@ export function updatePlants(state: RendererState): void {
   }
 
   // ── Build set of plants whose seeds are still in flight ──
-  const flyingChildIds = new Set(flyingSeeds.map(fs => fs.childId));
+  const flyingChildIds = new Set<number>();
+  for (let i = 0; i < flyingSeeds.length; i++) flyingChildIds.add(flyingSeeds[i].childId);
 
   // ── Clean up flying seeds for plants that no longer exist ──
   for (let i = flyingSeeds.length - 1; i >= 0; i--) {

@@ -109,6 +109,9 @@ export interface RendererState {
   growingPlants: Map<number, GrowingPlant>;
   flyingSeeds: FlyingSeed[];
   lastProcessedTick: number;
+  lastTerrainTick: number;
+  lastTerrainColorMode: 'natural' | 'species';
+  lastPlantTick: number;
 
   // Weather meshes & particles
   snowMesh: THREE.InstancedMesh;

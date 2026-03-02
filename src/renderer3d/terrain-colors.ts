@@ -24,7 +24,29 @@ function computeSnowCoverage(env: Environment): number {
 
 export function updateTerrainColors(state: RendererState): void {
   const { world, tmpColor, colorArray, colorAttr } = state;
+
+  // Skip if nothing changed since last update
+  if (world.tick === state.lastTerrainTick && state.colorMode === state.lastTerrainColorMode) return;
+  state.lastTerrainTick = world.tick;
+  state.lastTerrainColorMode = state.colorMode;
+
   const arr = colorArray;
+  const env = world.environment;
+
+  // Hoist season-invariant computations out of the per-cell loop
+  const seasonColorsData = [
+    0.3, 0.6, 0.3,  // Spring: green
+    0.6, 0.5, 0.2,  // Summer: golden
+    0.5, 0.35, 0.2, // Autumn: orange-brown
+    0.3, 0.35, 0.5, // Winter: blue-grey
+  ];
+  const si0 = env.season * 3;
+  const si1 = ((env.season + 1) % 4) * 3;
+  const st = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  const sr = seasonColorsData[si0] + (seasonColorsData[si1] - seasonColorsData[si0]) * st;
+  const sg = seasonColorsData[si0 + 1] + (seasonColorsData[si1 + 1] - seasonColorsData[si0 + 1]) * st;
+  const sb = seasonColorsData[si0 + 2] + (seasonColorsData[si1 + 2] - seasonColorsData[si0 + 2]) * st;
+  const snowCov = computeSnowCoverage(env);
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -106,26 +128,12 @@ export function updateTerrainColors(state: RendererState): void {
         }
       }
 
-      // Season tint
-      const env = world.environment;
-      const seasonColors = [
-        [0.3, 0.6, 0.3],  // Spring: green
-        [0.6, 0.5, 0.2],  // Summer: golden
-        [0.5, 0.35, 0.2], // Autumn: orange-brown
-        [0.3, 0.35, 0.5], // Winter: blue-grey
-      ];
-      const sc0 = seasonColors[env.season];
-      const sc1 = seasonColors[(env.season + 1) % 4];
-      const st = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
-      const sr = sc0[0] + (sc1[0] - sc0[0]) * st;
-      const sg = sc0[1] + (sc1[1] - sc0[1]) * st;
-      const sb = sc0[2] + (sc1[2] - sc0[2]) * st;
+      // Season tint (pre-computed above loop)
       tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
 
-      // Snow coverage — blend toward cold snow-white
-      const snowCov = computeSnowCoverage(env);
+      // Snow coverage — blend toward cold snow-white (snowCov pre-computed above loop)
       if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
         // Rocks get stronger coverage (exposed / elevated)
         const boost = cell.terrainType === TerrainType.Rock ? 1.2 : 1.0;

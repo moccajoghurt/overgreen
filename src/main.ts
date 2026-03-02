@@ -65,6 +65,8 @@ function updateUI(): void {
 }
 
 let lastTickTime = 0;
+let lastUITick = -1;
+let lastUISelectedCell: { x: number; y: number } | null = null;
 
 function doTick(): void {
   tickWorld(world);
@@ -85,7 +87,15 @@ function loop(now: number): void {
   }
 
   renderer.render(controls.selectedCell);
-  updateUI();
+
+  // Only update UI when simulation has ticked or selected cell changed
+  const selChanged = controls.selectedCell !== lastUISelectedCell;
+  if (world.tick !== lastUITick || selChanged) {
+    lastUITick = world.tick;
+    lastUISelectedCell = controls.selectedCell;
+    updateUI();
+  }
+
   requestAnimationFrame(loop);
 }
 
