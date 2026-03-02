@@ -17,6 +17,11 @@ seedInitialPlants(world, 40);
 const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
+const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
+colorToggle.addEventListener('change', () => {
+  renderer.setColorMode(colorToggle.checked ? 'species' : 'natural');
+});
+
 const history = createHistory();
 const diagLogger = createDiagnosticLogger();
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);

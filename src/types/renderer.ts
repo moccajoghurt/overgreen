@@ -3,4 +3,5 @@ export interface Renderer {
   cellAt(canvasX: number, canvasY: number): { x: number; y: number } | null;
   projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null;
   moveTo(gridX: number, gridY: number): void;
+  setColorMode(mode: 'natural' | 'species'): void;
 }

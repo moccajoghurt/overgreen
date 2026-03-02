@@ -269,6 +269,7 @@ export function createRenderer3D(
 
   // ── Build shared state for sub-modules ──
   const state: RendererState = {
+    colorMode: 'natural',
     world,
     scene,
     camera,
@@ -383,5 +384,9 @@ export function createRenderer3D(
     camera.position.copy(controls.target).add(offset);
   }
 
-  return { render, cellAt, projectToScreen, moveTo, canvas: webgl.domElement };
+  function setColorMode(mode: 'natural' | 'species'): void {
+    state.colorMode = mode;
+  }
+
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, canvas: webgl.domElement };
 }

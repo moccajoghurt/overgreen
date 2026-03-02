@@ -48,26 +48,39 @@ export function updateTerrainColors(state: RendererState): void {
       tmpColor.g *= light;
       tmpColor.b *= light;
 
-      // Species territory tint
-      let speciesId: number | null = null;
-      let blendFactor = 0;
-      if (cell.plantId !== null) {
-        const plant = world.plants.get(cell.plantId);
-        if (plant && plant.alive) {
-          speciesId = plant.speciesId;
-          blendFactor = 0.35;
+      // Territory visualization
+      if (state.colorMode === 'species') {
+        // Species territory tint
+        let speciesId: number | null = null;
+        let blendFactor = 0;
+        if (cell.plantId !== null) {
+          const plant = world.plants.get(cell.plantId);
+          if (plant && plant.alive) {
+            speciesId = plant.speciesId;
+            blendFactor = 0.35;
+          }
         }
-      }
-      if (speciesId === null && cell.lastSpeciesId !== null) {
-        speciesId = cell.lastSpeciesId;
-        blendFactor = 0.15;
-      }
-      if (speciesId !== null) {
-        const sc = world.speciesColors.get(speciesId);
-        if (sc) {
-          tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
-          tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
-          tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
+        if (speciesId === null && cell.lastSpeciesId !== null) {
+          speciesId = cell.lastSpeciesId;
+          blendFactor = 0.15;
+        }
+        if (speciesId !== null) {
+          const sc = world.speciesColors.get(speciesId);
+          if (sc) {
+            tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
+            tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
+            tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
+          }
+        }
+      } else {
+        // Natural mode: subtle root-zone darkening under occupied cells
+        if (cell.plantId !== null) {
+          const plant = world.plants.get(cell.plantId);
+          if (plant && plant.alive) {
+            tmpColor.r *= 0.92;
+            tmpColor.g = tmpColor.g * 0.95 + 0.02;
+            tmpColor.b *= 0.90;
+          }
         }
       }
 

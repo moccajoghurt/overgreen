@@ -71,6 +71,7 @@ export type WeatherType = 'snow' | 'rain' | 'mote' | 'leaf';
 // ── Renderer state (shared across all update functions) ──
 
 export interface RendererState {
+  colorMode: 'natural' | 'species';
   world: World;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;

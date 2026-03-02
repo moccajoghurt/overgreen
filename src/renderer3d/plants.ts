@@ -5,15 +5,86 @@ import {
   computeSilhouette, easeOutCubic, lerp,
 } from './state';
 
-function plantColor(state: RendererState, speciesId: number, genome: Genome) {
+function naturalCanopyColor(genome: Genome) {
+  const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
+  // Base: mid-forest green
+  let r = 0.16;
+  let g = 0.42;
+  let b = 0.14;
+
+  // leafSize high → brighter, lusher green
+  g += leafSize * 0.18;
+  r += leafSize * 0.04;
+
+  // heightPriority high → darker, deeper green
+  g -= heightPriority * 0.10;
+  r -= heightPriority * 0.04;
+
+  // rootPriority high → olive/yellow-green shift
+  r += rootPriority * 0.08;
+  b -= rootPriority * 0.03;
+
+  // seedInvestment high → slight warm tint
+  r += seedInvestment * 0.06;
+  g -= seedInvestment * 0.02;
+
+  return {
+    cr: Math.max(0.08, Math.min(0.35, r)),
+    cg: Math.max(0.22, Math.min(0.65, g)),
+    cb: Math.max(0.05, Math.min(0.20, b)),
+  };
+}
+
+function naturalTrunkColor(genome: Genome) {
+  const { rootPriority, heightPriority, leafSize } = genome;
+  // Base: bark brown
+  let r = 0.28;
+  let g = 0.18;
+  let b = 0.10;
+
+  // rootPriority high → darker, richer brown
+  r -= rootPriority * 0.06;
+  g -= rootPriority * 0.04;
+  b -= rootPriority * 0.02;
+
+  // heightPriority high → lighter, grayer bark (birch-like)
+  r += heightPriority * 0.10;
+  g += heightPriority * 0.10;
+  b += heightPriority * 0.08;
+
+  // leafSize high → slight mossy warmth
+  g += leafSize * 0.04;
+  r += leafSize * 0.02;
+
+  return {
+    tr: Math.max(0.15, Math.min(0.42, r)),
+    tg: Math.max(0.10, Math.min(0.32, g)),
+    tb: Math.max(0.06, Math.min(0.22, b)),
+  };
+}
+
+function computePlantColors(state: RendererState, speciesId: number, genome: Genome) {
+  if (state.colorMode === 'natural') {
+    const canopy = naturalCanopyColor(genome);
+    const trunk = naturalTrunkColor(genome);
+    return { ...canopy, ...trunk };
+  }
+
+  // Species mode: current behavior
   const sc = state.world.speciesColors.get(speciesId);
   const gr = 0.2 + genome.rootPriority * 0.6;
   const gg = 0.3 + genome.leafSize * 0.5;
   const gb = 0.2 + genome.heightPriority * 0.6;
+  const cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
+  const cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
+  const cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
+
+  const barkR = 0.28, barkG = 0.18, barkB = 0.10;
   return {
-    cr: sc ? sc.r * 0.7 + gr * 0.3 : gr,
-    cg: sc ? sc.g * 0.7 + gg * 0.3 : gg,
-    cb: sc ? sc.b * 0.7 + gb * 0.3 : gb,
+    cr, cg, cb,
+    tr: barkR * 0.85 + cr * 0.15,
+    tg: barkG * 0.85 + cg * 0.15,
+    tb: barkB * 0.85 + cb * 0.15,
   };
 }
 
@@ -23,6 +94,7 @@ function writeInstance(
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
   cr: number, cg: number, cb: number,
+  tr: number, tg: number, tb: number,
   tiltAngle: number, tiltDir: number,
   trunkMtx: Float32Array, trunkClr: Float32Array,
   canopyMtx: Float32Array, canopyClr: Float32Array,
@@ -62,11 +134,9 @@ function writeInstance(
   // ── Colors ──
   const ci = idx * 3;
 
-  // Bark: 85% fixed brown + 15% species tint
-  const barkR = 0.28, barkG = 0.18, barkB = 0.10;
-  trunkClr[ci]     = barkR * 0.85 + cr * 0.15;
-  trunkClr[ci + 1] = barkG * 0.85 + cg * 0.15;
-  trunkClr[ci + 2] = barkB * 0.85 + cb * 0.15;
+  trunkClr[ci]     = tr;
+  trunkClr[ci + 1] = tg;
+  trunkClr[ci + 2] = tb;
 
   canopyClr[ci] = cr;
   canopyClr[ci + 1] = cg;
@@ -180,10 +250,10 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
-    const { cr, cg, cb } = plantColor(state, plant.speciesId, plant.genome);
+    const { cr, cg, cb, tr, tg, tb } = computePlantColors(state, plant.speciesId, plant.genome);
     const baseY = getCellElevation(plant.x, plant.y);
 
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, 0, 0,
       trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
     idx++;
   }
@@ -215,14 +285,17 @@ export function updatePlants(state: RendererState): void {
     const tiltAngle = tiltProgress * (Math.PI / 3);
     const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
 
-    const { cr: origR, cg: origG, cb: origB } = plantColor(state, dp.speciesId, dp.genome);
+    const orig = computePlantColors(state, dp.speciesId, dp.genome);
     const p = dp.progress;
-    const cr = origR * (1 - p) + 0.35 * p;
-    const cg = origG * (1 - p) + 0.20 * p;
-    const cb = origB * (1 - p) + 0.08 * p;
+    const cr = orig.cr * (1 - p) + 0.35 * p;
+    const cg = orig.cg * (1 - p) + 0.20 * p;
+    const cb = orig.cb * (1 - p) + 0.08 * p;
+    const tr = orig.tr * (1 - p) + 0.20 * p;
+    const tg = orig.tg * (1 - p) + 0.12 * p;
+    const tb = orig.tb * (1 - p) + 0.06 * p;
 
     const baseY = getCellElevation(dp.x, dp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tiltAngle, tiltDir,
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, tr, tg, tb, tiltAngle, tiltDir,
       trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
     idx++;
   }
@@ -260,7 +333,7 @@ export function updatePlants(state: RendererState): void {
     const cb = lerp(0.1, 0.02, t);
 
     const baseY = getCellElevation(bp.x, bp.y);
-    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
+    writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, cr, cg, cb, 0, 0,
       trunkMtx, trunkClr, canopyMtx, canopyClr, canopy2Mtx, canopy2Clr);
     idx++;
   }
@@ -317,11 +390,17 @@ export function updateSeeds(state: RendererState): void {
     dummy.updateMatrix();
     dummy.matrix.toArray(seedMtx, seedIdx * 16);
 
-    const sc = world.speciesColors.get(fs.speciesId);
     const ci = seedIdx * 3;
-    seedClr[ci]     = sc ? sc.r * 0.4 + 0.3 : 0.5;
-    seedClr[ci + 1] = sc ? sc.g * 0.4 + 0.2 : 0.35;
-    seedClr[ci + 2] = sc ? sc.b * 0.4 + 0.1 : 0.2;
+    if (state.colorMode === 'natural') {
+      seedClr[ci]     = 0.45;
+      seedClr[ci + 1] = 0.32;
+      seedClr[ci + 2] = 0.15;
+    } else {
+      const sc = world.speciesColors.get(fs.speciesId);
+      seedClr[ci]     = sc ? sc.r * 0.4 + 0.3 : 0.5;
+      seedClr[ci + 1] = sc ? sc.g * 0.4 + 0.2 : 0.35;
+      seedClr[ci + 2] = sc ? sc.b * 0.4 + 0.1 : 0.2;
+    }
 
     seedIdx++;
   }
