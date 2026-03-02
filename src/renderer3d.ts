@@ -11,6 +11,10 @@ import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
 import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } from './renderer3d/fire-particles';
+import { createSkyDome } from './renderer3d/sky';
+import { createWaterSurface } from './renderer3d/water';
+import { createRockFormations } from './renderer3d/rocks';
+import { createDistantEnvironment } from './renderer3d/environment';
 
 export function createRenderer3D(
   container: HTMLElement,
@@ -18,12 +22,16 @@ export function createRenderer3D(
 ): Renderer & { canvas: HTMLCanvasElement } {
   // ── Scene ──
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a1a);
+  // No static background — sky dome provides the backdrop
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
   const dirLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
   dirLight.position.set(30, 50, 20);
   scene.add(dirLight);
+
+  // ── Sky dome & fog ──
+  const skyDome = createSkyDome(scene);
 
   // ── Terrain (non-indexed plane with per-cell vertex colors) ──
   const baseTerrain = new THREE.PlaneGeometry(GRID, GRID, GRID, GRID);
@@ -41,21 +49,27 @@ export function createRenderer3D(
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
   scene.add(terrainMesh);
 
-  // ── Apply terrain elevation ──
+  // ── Rock formations (compute height overlay before terrain) ──
+  const rockFormations = createRockFormations(world);
+  const rockOverlay = rockFormations.heightOverlay;
+
+  // ── Apply terrain elevation (no edge falloff) ──
   const cornerSize = GRID + 1;
   const corners = new Float32Array(cornerSize * cornerSize);
   for (let cy = 0; cy <= GRID; cy++) {
     for (let cx = 0; cx <= GRID; cx++) {
       let sum = 0, count = 0;
+      let rockSum = 0;
       for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
         const gx = cx + dx;
         const gy = cy + dy;
         if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
           sum += world.grid[gy][gx].elevation;
+          rockSum += rockOverlay[gy * GRID + gx];
           count++;
         }
       }
-      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE;
+      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE + rockSum / count;
     }
   }
 
@@ -80,8 +94,23 @@ export function createRenderer3D(
   terrainGeo.computeVertexNormals();
 
   function getCellElevation(cx: number, cy: number): number {
-    return world.grid[cy][cx].elevation * ELEV_SCALE;
+    return world.grid[cy][cx].elevation * ELEV_SCALE + rockOverlay[cy * GRID + cx];
   }
+
+  // ── Extended ground plane (beneath terrain, hidden by fog at edges) ──
+  const groundGeo = new THREE.PlaneGeometry(256, 256);
+  groundGeo.rotateX(-Math.PI / 2);
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x3a5a2a });
+  const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+  groundMesh.position.y = -0.3;
+  scene.add(groundMesh);
+
+  // ── Distant environment (hills + forest ring) ──
+  const distantEnvironment = createDistantEnvironment(scene);
+
+  // ── Water surface ──
+  const waterSurface = createWaterSurface(world);
+  scene.add(waterSurface.mesh);
 
   // ── Plants (instanced meshes) ──
   const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
@@ -234,7 +263,7 @@ export function createRenderer3D(
 
   // ── Camera ──
   const camera = new THREE.PerspectiveCamera(
-    45, container.clientWidth / container.clientHeight, 0.1, 200,
+    45, container.clientWidth / container.clientHeight, 0.1, 20000,
   );
   camera.position.set(0, 60, 30);
   camera.lookAt(0, 0, 0);
@@ -310,6 +339,12 @@ export function createRenderer3D(
     emberParticles: makeEventParticlePool(FIRE_PARTICLE_COUNT),
     dustParticles: makeEventParticlePool(DUST_PARTICLE_COUNT),
     sporeParticles: makeEventParticlePool(SPORE_PARTICLE_COUNT),
+    skyDome,
+    ambientLight,
+    dirLight,
+    waterSurface,
+    distantEnvironment,
+    rockFormations,
   };
 
   // ═══════════════════════════════════════════════════════
@@ -318,10 +353,50 @@ export function createRenderer3D(
 
   function render(selectedCell: { x: number; y: number } | null): void {
     const env = world.environment;
+
+    // Seasonal directional light color + intensity
     const warmth = env.season === Season.Summer ? 0.12
       : env.season === Season.Winter ? -0.08 : 0;
     dirLight.color.setHSL(40 / 360 + warmth * 0.05, 0.3 + warmth, 0.8 + warmth * 0.1);
     dirLight.intensity = Math.max(0.5, env.lightMult);
+
+    // Seasonal sun height: higher in summer, lower in winter
+    const seasonSunHeight = env.season === Season.Summer ? 55
+      : env.season === Season.Winter ? 25 : 40;
+    const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+    const nextSunHeight = ((env.season + 1) % 4) === Season.Summer ? 55
+      : ((env.season + 1) % 4) === Season.Winter ? 25 : 40;
+    dirLight.position.y = seasonSunHeight + (nextSunHeight - seasonSunHeight) * t;
+
+    // Seasonal ambient light: brighter in winter (overcast diffuse), dimmer in summer (stronger shadows)
+    const ambientTargets = [0.55, 0.45, 0.50, 0.60]; // Spring, Summer, Autumn, Winter
+    const a0 = ambientTargets[env.season];
+    const a1 = ambientTargets[(env.season + 1) % 4];
+    ambientLight.intensity = a0 + (a1 - a0) * t;
+
+    // Update sky dome & fog
+    skyDome.update(env, camera.position);
+
+    // Update distant environment colors
+    distantEnvironment.update(env);
+
+    // Update ground plane color seasonally
+    const groundColors: [number, number, number][] = [
+      [0.25, 0.38, 0.18], // Spring: fresh grass
+      [0.22, 0.35, 0.14], // Summer: deep green
+      [0.35, 0.30, 0.15], // Autumn: golden-green
+      [0.25, 0.28, 0.22], // Winter: muted grey-green
+    ];
+    const gc0 = groundColors[env.season];
+    const gc1 = groundColors[(env.season + 1) % 4];
+    groundMat.color.setRGB(
+      gc0[0] + (gc1[0] - gc0[0]) * t,
+      gc0[1] + (gc1[1] - gc0[1]) * t,
+      gc0[2] + (gc1[2] - gc0[2]) * t,
+    );
+
+    // Update water animation (now needs sun direction + fog color)
+    waterSurface.update(env, skyDome.getSunDirection(), skyDome.getFogColor());
 
     updateTerrainColors(state);
     updatePlants(state);

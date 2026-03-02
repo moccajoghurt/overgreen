@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { SIM, Genome, World } from '../types';
+import type { SkyDome } from './sky';
+import type { WaterSurface } from './water';
+import type { DistantEnvironment } from './environment';
+import type { RockFormations } from './rocks';
 
 // ── Constants ──
 
@@ -120,6 +124,20 @@ export interface RendererState {
   emberParticles: EventParticle[];
   dustParticles: EventParticle[];
   sporeParticles: EventParticle[];
+
+  // Sky & atmosphere
+  skyDome: SkyDome;
+  ambientLight: THREE.AmbientLight;
+  dirLight: THREE.DirectionalLight;
+
+  // Water
+  waterSurface: WaterSurface;
+
+  // Environment
+  distantEnvironment: DistantEnvironment;
+
+  // Rock formations
+  rockFormations: RockFormations;
 }
 
 // ── Pure helpers ──

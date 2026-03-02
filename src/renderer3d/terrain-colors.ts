@@ -11,8 +11,9 @@ export function updateTerrainColors(state: RendererState): void {
 
       switch (cell.terrainType) {
         case TerrainType.River: {
-          const depth = 0.6 + (cell.waterLevel / SIM.MAX_WATER) * 0.4;
-          tmpColor.setHSL(210 / 360, 0.55, 0.25 * depth);
+          // Riverbed beneath transparent water surface — darker and more muted
+          const depth = 0.5 + (cell.waterLevel / SIM.MAX_WATER) * 0.3;
+          tmpColor.setHSL(210 / 360, 0.35, 0.18 * depth);
           break;
         }
         case TerrainType.Rock: {
