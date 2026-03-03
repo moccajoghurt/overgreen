@@ -1,5 +1,5 @@
 import { World, Renderer, History } from './types';
-import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { speciesCentroid, speciesColorToRgb, hexToRgba } from './ui-utils';
 import { TRAITS } from './trait-defs';
 
 const UPDATE_EVERY_N_TICKS = 10;
@@ -14,6 +14,7 @@ interface LabelEntry {
   el: HTMLElement;
   nameEl: HTMLElement;
   genEl: HTMLElement;
+  barFills: HTMLElement[];
   sparkCanvas: HTMLCanvasElement;
   sparkCtx: CanvasRenderingContext2D;
   targetX: number;
@@ -60,6 +61,44 @@ export function createSpeciesLabelsOverlay(
     genEl.style.cssText = `font-size:11px; font-weight:normal; color:#fff; opacity:0.7;`;
     el.appendChild(genEl);
 
+    // Genome bars (vertical equalizer)
+    const barsContainer = document.createElement('div');
+    barsContainer.style.cssText = `
+      display:flex; gap:2px; width:${SPARKLINE_W}px; height:24px;
+      margin-top:3px;
+    `;
+    const barFills: HTMLElement[] = [];
+    for (const trait of TRAITS) {
+      const col = document.createElement('div');
+      col.style.cssText = `
+        flex:1; position:relative;
+        background:rgba(255,255,255,0.06);
+        border-radius:2px 2px 0 0;
+      `;
+      const fill = document.createElement('div');
+      fill.style.cssText = `
+        position:absolute; bottom:0; left:0; width:100%;
+        background:${hexToRgba(trait.color, 0.5)};
+        border-radius:2px 2px 0 0;
+        transition:height 0.3s ease;
+      `;
+      fill.style.height = '0%';
+      col.appendChild(fill);
+      barFills.push(fill);
+
+      const lbl = document.createElement('div');
+      lbl.style.cssText = `
+        position:absolute; bottom:1px; left:0; width:100%;
+        text-align:center; font-size:7px; line-height:1;
+        color:rgba(255,255,255,0.4);
+      `;
+      lbl.textContent = trait.label[0];
+      col.appendChild(lbl);
+
+      barsContainer.appendChild(col);
+    }
+    el.appendChild(barsContainer);
+
     const sparkCanvas = document.createElement('canvas');
     sparkCanvas.width = SPARKLINE_W * SPARKLINE_DPR;
     sparkCanvas.height = SPARKLINE_H * SPARKLINE_DPR;
@@ -73,7 +112,7 @@ export function createSpeciesLabelsOverlay(
     const sparkCtx = sparkCanvas.getContext('2d')!;
     sparkCtx.scale(SPARKLINE_DPR, SPARKLINE_DPR);
 
-    return { el, nameEl, genEl, sparkCanvas, sparkCtx };
+    return { el, nameEl, genEl, barFills, sparkCanvas, sparkCtx };
   }
 
   function drawSparkline(
@@ -126,6 +165,21 @@ export function createSpeciesLabelsOverlay(
     }
 
     ctx.restore();
+  }
+
+  function updateGenomeBars(
+    entry: LabelEntry,
+    speciesId: number,
+    history: History,
+  ): void {
+    const snaps = history.snapshots;
+    if (snaps.length === 0) return;
+    const traits = snaps[snaps.length - 1].speciesTraitAverages.get(speciesId);
+    if (!traits) return;
+    for (let i = 0; i < TRAITS.length; i++) {
+      const val = (traits as Record<string, number>)[TRAITS[i].shortKey];
+      entry.barFills[i].style.height = `${(val * 100).toFixed(1)}%`;
+    }
   }
 
   function updateCentroids(world: World, history: History): void {
@@ -184,9 +238,10 @@ export function createSpeciesLabelsOverlay(
       }
     }
 
-    // Draw sparklines for all visible labels
+    // Draw sparklines and update genome bars for all visible labels
     for (const [sid, entry] of labels) {
       drawSparkline(entry.sparkCtx, sid, history);
+      updateGenomeBars(entry, sid, history);
     }
   }
 
