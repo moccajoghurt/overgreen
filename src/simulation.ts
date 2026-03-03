@@ -294,6 +294,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     } else if (tt === TerrainType.Arid) {
       fitness += SIM.ARID_SEED_ROOT_WEIGHT * gR + SIM.ARID_SEED_HEIGHT_WEIGHT * gH + SIM.ARID_SEED_LEAF_WEIGHT * gL;
     }
+    if (fitness <= 0) continue; // too mismatched — seed fails
+    fitness = Math.min(fitness, 2.0); // cap bonus
 
     // Mate search: scan nearby cells for a same-species mate
     let mateGenome: Genome | null = null;
