@@ -8,6 +8,8 @@ export enum TerrainType {
   River = 1,
   Rock = 2,
   Hill = 3,
+  Wetland = 4,
+  Arid = 5,
 }
 
 export interface SpeciesColor {

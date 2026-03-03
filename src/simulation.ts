@@ -37,6 +37,8 @@ function phaseRechargeWater(world: World): void {
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
       if (cell.terrainType === TerrainType.Hill) {
         cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
+      } else if (cell.terrainType === TerrainType.Arid) {
+        cell.nutrients = Math.min(SIM.ARID_NUTRIENT_MAX, cell.nutrients);
       }
     }
   }
@@ -85,9 +87,14 @@ function phaseCalculateLight(world: World): void {
           shadeSum += nShadow * Math.min(1, diff / nScale);
         }
       }
-      const rawBase = cell.terrainType === TerrainType.Hill
-        ? SIM.BASE_LIGHT + SIM.HILL_LIGHT_BONUS
-        : SIM.BASE_LIGHT;
+      let rawBase = SIM.BASE_LIGHT;
+      if (cell.terrainType === TerrainType.Hill) {
+        rawBase += SIM.HILL_LIGHT_BONUS;
+      } else if (cell.terrainType === TerrainType.Wetland) {
+        rawBase -= SIM.WETLAND_LIGHT_PENALTY;
+      } else if (cell.terrainType === TerrainType.Arid) {
+        rawBase += SIM.ARID_LIGHT_BONUS;
+      }
       const baseLight = rawBase * world.environment.lightMult;
       cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeSum);
     }
@@ -341,6 +348,8 @@ function phaseDecomposition(world: World): void {
       cell.nutrients + dNutrient + plant.height * dNutrientH);
     if (cell.terrainType === TerrainType.Hill) {
       cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
+    } else if (cell.terrainType === TerrainType.Arid) {
+      cell.nutrients = Math.min(SIM.ARID_NUTRIENT_MAX, cell.nutrients);
     }
     cell.plantId = null;
     toRemove.push(plant.id);

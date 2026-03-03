@@ -95,6 +95,26 @@ export function updateTerrainColors(state: RendererState): void {
           );
           break;
         }
+        case TerrainType.Wetland: {
+          const wr = cell.waterLevel / SIM.MAX_WATER;
+          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+          tmpColor.setHSL(
+            (lerp(170, 160, wr) - nr * 3) / 360,
+            lerp(30, 45, wr) / 100,
+            Math.max(10, lerp(30, 18, wr) - nr * 2) / 100,
+          );
+          break;
+        }
+        case TerrainType.Arid: {
+          const wr = cell.waterLevel / SIM.MAX_WATER;
+          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+          tmpColor.setHSL(
+            (lerp(40, 35, wr) - nr * 2) / 360,
+            lerp(35, 50, wr) / 100,
+            Math.max(15, lerp(65, 50, wr) - nr * 3) / 100,
+          );
+          break;
+        }
         default: {
           const wr = cell.waterLevel / SIM.MAX_WATER;
           const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
@@ -107,11 +127,11 @@ export function updateTerrainColors(state: RendererState): void {
         }
       }
 
-      // Bake shadow into terrain color
-      const light = cell.lightLevel;
-      tmpColor.r *= light;
-      tmpColor.g *= light;
-      tmpColor.b *= light;
+      // Bake shadow into terrain color (subtle — 30% intensity)
+      const shadowStr = (1 - cell.lightLevel) * 0.3;
+      tmpColor.r *= 1 - shadowStr;
+      tmpColor.g *= 1 - shadowStr;
+      tmpColor.b *= 1 - shadowStr;
 
       // Territory visualization
       if (state.colorMode === 'species') {
@@ -179,8 +199,10 @@ export function updateTerrainColors(state: RendererState): void {
 
       // Snow coverage — blend toward cold snow-white (snowCov pre-computed above loop)
       if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
-        // Rocks get stronger coverage (exposed / elevated)
-        const boost = cell.terrainType === TerrainType.Rock ? 1.2 : 1.0;
+        let boost = 1.0;
+        if (cell.terrainType === TerrainType.Rock) boost = 1.2;
+        else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
+        else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
         const s = Math.min(1, snowCov * boost);
         tmpColor.r = lerp(tmpColor.r, 0.82, s);
         tmpColor.g = lerp(tmpColor.g, 0.85, s);

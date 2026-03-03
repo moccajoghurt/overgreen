@@ -68,8 +68,10 @@ interface DiagnosticSnapshot {
   spatial: {
     plantsBySoil: number;
     plantsByHill: number;
+    plantsByWetland: number;
+    plantsByArid: number;
     plantsNearRiver: number;
-    avgEnergyByTerrain: { soil: number; hill: number };
+    avgEnergyByTerrain: { soil: number; hill: number; wetland: number; arid: number };
   };
 
   reproduction: {
@@ -101,6 +103,8 @@ interface TerrainSummary {
   riverCells: number;
   rockCells: number;
   hillCells: number;
+  wetlandCells: number;
+  aridCells: number;
   plantableCells: number;
 }
 
@@ -131,7 +135,7 @@ function freshAccumulator(): TickAccumulator {
 }
 
 function computeTerrainSummary(world: World): TerrainSummary {
-  let soil = 0, river = 0, rock = 0, hill = 0;
+  let soil = 0, river = 0, rock = 0, hill = 0, wetland = 0, arid = 0;
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       switch (world.grid[y][x].terrainType) {
@@ -139,10 +143,16 @@ function computeTerrainSummary(world: World): TerrainSummary {
         case TerrainType.River: river++; break;
         case TerrainType.Rock: rock++; break;
         case TerrainType.Hill: hill++; break;
+        case TerrainType.Wetland: wetland++; break;
+        case TerrainType.Arid: arid++; break;
       }
     }
   }
-  return { soilCells: soil, riverCells: river, rockCells: rock, hillCells: hill, plantableCells: soil + hill };
+  return {
+    soilCells: soil, riverCells: river, rockCells: rock, hillCells: hill,
+    wetlandCells: wetland, aridCells: arid,
+    plantableCells: soil + hill + wetland + arid,
+  };
 }
 
 function computeNearRiverSet(world: World): Set<number> {
@@ -183,9 +193,9 @@ function computeSnapshot(
   let sumRootDepth = 0, waterStressedCount = 0;
   let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0;
   let sumRootSq = 0, sumHeightSq = 0, sumLeafSq = 0, sumSeedSq = 0;
-  let plantsSoil = 0, plantsHill = 0, plantsNearRiver = 0;
-  let energySoil = 0, energyHill = 0;
-  let countSoil = 0, countHill = 0;
+  let plantsSoil = 0, plantsHill = 0, plantsWetland = 0, plantsArid = 0, plantsNearRiver = 0;
+  let energySoil = 0, energyHill = 0, energyWetland = 0, energyArid = 0;
+  let countSoil = 0, countHill = 0, countWetland = 0, countArid = 0;
 
   const speciesBuckets = new Map<number, {
     count: number; sumEnergy: number;
@@ -231,6 +241,10 @@ function computeSnapshot(
       plantsSoil++; energySoil += plant.energy; countSoil++;
     } else if (cell.terrainType === TerrainType.Hill) {
       plantsHill++; energyHill += plant.energy; countHill++;
+    } else if (cell.terrainType === TerrainType.Wetland) {
+      plantsWetland++; energyWetland += plant.energy; countWetland++;
+    } else if (cell.terrainType === TerrainType.Arid) {
+      plantsArid++; energyArid += plant.energy; countArid++;
     }
     if (nearRiver.has(plant.y * world.width + plant.x)) plantsNearRiver++;
 
@@ -349,10 +363,14 @@ function computeSnapshot(
     spatial: {
       plantsBySoil: plantsSoil,
       plantsByHill: plantsHill,
+      plantsByWetland: plantsWetland,
+      plantsByArid: plantsArid,
       plantsNearRiver,
       avgEnergyByTerrain: {
         soil: countSoil > 0 ? energySoil / countSoil : 0,
         hill: countHill > 0 ? energyHill / countHill : 0,
+        wetland: countWetland > 0 ? energyWetland / countWetland : 0,
+        arid: countArid > 0 ? energyArid / countArid : 0,
       },
     },
     reproduction: {
@@ -447,7 +465,7 @@ export function createDiagnosticLogger(config: DiagnosticConfig = {
       config,
       simConstants: { ...SIM } as unknown as Record<string, number>,
       gridSize: { width: lastWorld?.width ?? 80, height: lastWorld?.height ?? 80 },
-      terrainSummary: terrainSummaryCache ?? { soilCells: 0, riverCells: 0, rockCells: 0, hillCells: 0, plantableCells: 0 },
+      terrainSummary: terrainSummaryCache ?? { soilCells: 0, riverCells: 0, rockCells: 0, hillCells: 0, wetlandCells: 0, aridCells: 0, plantableCells: 0 },
       snapshots,
       seasonTransitions,
     };

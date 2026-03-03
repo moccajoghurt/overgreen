@@ -113,10 +113,79 @@ function generateRocks(grid: Cell[][], w: number, h: number): void {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
       if (cell.terrainType !== TerrainType.Soil) continue;
-      if (rockNoise[y][x] > 0.72) {
+      if (rockNoise[y][x] > 0.78) {
         cell.terrainType = TerrainType.Rock;
         cell.waterRechargeRate = SIM.ROCK_WATER_RECHARGE;
         cell.nutrients = Math.min(cell.nutrients, SIM.ROCK_NUTRIENT_MAX);
+      }
+    }
+  }
+}
+
+function generateWetlands(
+  grid: Cell[][], elevation: number[][], w: number, h: number,
+): void {
+  // BFS from river cells to compute distance-to-river
+  const dist = new Float32Array(w * h);
+  dist.fill(255);
+  const queue: [number, number][] = [];
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (grid[y][x].terrainType === TerrainType.River) {
+        dist[y * w + x] = 0;
+        queue.push([x, y]);
+      }
+    }
+  }
+
+  const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  let qi = 0;
+  while (qi < queue.length) {
+    const [cx, cy] = queue[qi++];
+    const cd = dist[cy * w + cx];
+    if (cd >= 5) continue;
+    for (const [dx, dy] of dirs) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      const nd = cd + 1;
+      if (nd < dist[ny * w + nx]) {
+        dist[ny * w + nx] = nd;
+        queue.push([nx, ny]);
+      }
+    }
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cell = grid[y][x];
+      if (cell.terrainType !== TerrainType.Soil) continue;
+      const d = dist[y * w + x];
+      if (d > 4) continue;
+      const elev = elevation[y][x];
+      if (elev >= 0.4) continue;
+      const prob = (1 - d / 5) * (1 - elev / 0.4);
+      if (prob > 0.3) {
+        cell.terrainType = TerrainType.Wetland;
+        cell.waterRechargeRate = SIM.WETLAND_WATER_RECHARGE;
+        cell.waterLevel = SIM.MAX_WATER * 0.8;
+        cell.nutrients = Math.min(SIM.WETLAND_NUTRIENT_MAX, cell.nutrients + SIM.WETLAND_NUTRIENT_BONUS);
+      }
+    }
+  }
+}
+
+function generateAridZones(grid: Cell[][], w: number, h: number): void {
+  const aridNoise = valueNoise(w, h, 2, 0.5);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cell = grid[y][x];
+      if (cell.terrainType !== TerrainType.Soil) continue;
+      if (aridNoise[y][x] > 0.68) {
+        cell.terrainType = TerrainType.Arid;
+        cell.waterRechargeRate = SIM.ARID_WATER_RECHARGE;
+        cell.nutrients = Math.min(cell.nutrients, SIM.ARID_NUTRIENT_MAX);
       }
     }
   }
@@ -128,10 +197,12 @@ function assignTerrainProperties(
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
-      if (cell.terrainType === TerrainType.River) continue; // already set
+      if (cell.terrainType === TerrainType.River
+        || cell.terrainType === TerrainType.Wetland
+        || cell.terrainType === TerrainType.Arid) continue; // already set
       cell.elevation = elevation[y][x];
 
-      if (cell.terrainType === TerrainType.Soil && cell.elevation > 0.65) {
+      if (cell.terrainType === TerrainType.Soil && cell.elevation > 0.55) {
         cell.terrainType = TerrainType.Hill;
         cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
       }
@@ -195,6 +266,8 @@ export function createWorld(width: number, height: number): World {
     generateRiver(grid, elevation, width, height);
   }
   generateRocks(grid, width, height);
+  generateWetlands(grid, elevation, width, height);
+  generateAridZones(grid, width, height);
   assignTerrainProperties(grid, elevation, width, height);
 
   return {

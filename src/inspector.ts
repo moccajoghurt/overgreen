@@ -10,7 +10,7 @@ export function updateInspector(world: World, controls: Controls): void {
 
   const { x, y } = controls.selectedCell;
   const cell = world.grid[y][x];
-  const terrainNames = ['Soil', 'River', 'Rock', 'Hill'];
+  const terrainNames = ['Soil', 'River', 'Rock', 'Hill', 'Wetland', 'Arid'];
   let text = `Cell (${x}, ${y})  ${terrainNames[cell.terrainType]}  Elev: ${cell.elevation.toFixed(2)}\n`;
   text += `Water: ${cell.waterLevel.toFixed(1)} / ${SIM.MAX_WATER}  Recharge: ${cell.waterRechargeRate.toFixed(2)}\n`;
   text += `Nutrients: ${cell.nutrients.toFixed(1)}\n`;

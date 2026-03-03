@@ -1,5 +1,5 @@
 import { World, Renderer, History } from './types';
-import { speciesCentroid, speciesColorToRgb, hexToRgba } from './ui-utils';
+import { speciesCentroid, speciesColorToRgb, speciesColorToRgba, hexToRgba } from './ui-utils';
 import { TRAITS } from './trait-defs';
 
 const UPDATE_EVERY_N_TICKS = 10;
@@ -10,13 +10,19 @@ const SPARKLINE_H = 36;
 const SPARKLINE_DPR = 2;
 const MAX_SPARK_POINTS = 80;
 
+const POP_AREA_W = 120;
+const POP_AREA_H = 20;
+
 interface LabelEntry {
   el: HTMLElement;
   nameEl: HTMLElement;
   genEl: HTMLElement;
   barFills: HTMLElement[];
+  popCanvas: HTMLCanvasElement;
+  popCtx: CanvasRenderingContext2D;
   sparkCanvas: HTMLCanvasElement;
   sparkCtx: CanvasRenderingContext2D;
+  rgb: string;
   targetX: number;
   targetY: number;
   displayX: number;
@@ -61,11 +67,20 @@ export function createSpeciesLabelsOverlay(
     genEl.style.cssText = `font-size:11px; font-weight:normal; color:#fff; opacity:0.7;`;
     el.appendChild(genEl);
 
+    // Section label helper
+    const sectionLabel = (text: string) => {
+      const lbl = document.createElement('div');
+      lbl.style.cssText = `font-size:8px; font-weight:normal; color:rgba(255,255,255,0.35); margin-top:4px; letter-spacing:0.5px;`;
+      lbl.textContent = text;
+      return lbl;
+    };
+
     // Genome bars (vertical equalizer)
+    el.appendChild(sectionLabel('GENOME'));
     const barsContainer = document.createElement('div');
     barsContainer.style.cssText = `
       display:flex; gap:2px; width:${SPARKLINE_W}px; height:24px;
-      margin-top:3px;
+      margin-top:1px;
     `;
     const barFills: HTMLElement[] = [];
     for (const trait of TRAITS) {
@@ -99,20 +114,35 @@ export function createSpeciesLabelsOverlay(
     }
     el.appendChild(barsContainer);
 
+    // Population share area chart
+    el.appendChild(sectionLabel('POPULATION SHARE'));
+    const popCanvas = document.createElement('canvas');
+    popCanvas.width = POP_AREA_W * SPARKLINE_DPR;
+    popCanvas.height = POP_AREA_H * SPARKLINE_DPR;
+    popCanvas.style.cssText = `
+      display:block;
+      width:${POP_AREA_W}px; height:${POP_AREA_H}px;
+      margin-top:1px;
+    `;
+    el.appendChild(popCanvas);
+    const popCtx = popCanvas.getContext('2d')!;
+    popCtx.scale(SPARKLINE_DPR, SPARKLINE_DPR);
+
+    el.appendChild(sectionLabel('TRAIT HISTORY'));
     const sparkCanvas = document.createElement('canvas');
     sparkCanvas.width = SPARKLINE_W * SPARKLINE_DPR;
     sparkCanvas.height = SPARKLINE_H * SPARKLINE_DPR;
     sparkCanvas.style.cssText = `
       display:block;
       width:${SPARKLINE_W}px; height:${SPARKLINE_H}px;
-      margin-top:2px;
+      margin-top:1px;
     `;
     el.appendChild(sparkCanvas);
 
     const sparkCtx = sparkCanvas.getContext('2d')!;
     sparkCtx.scale(SPARKLINE_DPR, SPARKLINE_DPR);
 
-    return { el, nameEl, genEl, barFills, sparkCanvas, sparkCtx };
+    return { el, nameEl, genEl, barFills, popCanvas, popCtx, sparkCanvas, sparkCtx };
   }
 
   function drawSparkline(
@@ -163,6 +193,85 @@ export function createSpeciesLabelsOverlay(
       }
       ctx.stroke();
     }
+
+    ctx.restore();
+  }
+
+  function drawPopulationArea(
+    ctx: CanvasRenderingContext2D,
+    speciesId: number,
+    history: History,
+    fillColor: string,
+    strokeColor: string,
+  ): void {
+    ctx.save();
+    ctx.setTransform(SPARKLINE_DPR, 0, 0, SPARKLINE_DPR, 0, 0);
+    ctx.clearRect(0, 0, POP_AREA_W, POP_AREA_H);
+
+    const snaps = history.snapshots;
+    if (snaps.length < 2) { ctx.restore(); return; }
+
+    const step = Math.max(1, Math.floor(snaps.length / MAX_SPARK_POINTS));
+
+    const pcts: number[] = [];
+    for (let i = 0; i < snaps.length; i += step) {
+      const snap = snaps[i];
+      let total = 0;
+      for (const v of snap.populations.values()) total += v;
+      const count = snap.populations.get(speciesId) ?? 0;
+      pcts.push(total > 0 ? count / total : 0);
+    }
+    if (snaps.length % step !== 0) {
+      const snap = snaps[snaps.length - 1];
+      let total = 0;
+      for (const v of snap.populations.values()) total += v;
+      const count = snap.populations.get(speciesId) ?? 0;
+      pcts.push(total > 0 ? count / total : 0);
+    }
+
+    const n = pcts.length;
+    if (n < 2) { ctx.restore(); return; }
+
+    const xScale = POP_AREA_W / (n - 1);
+
+    // 100% background reference
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(0, 0, POP_AREA_W, POP_AREA_H);
+
+    // 50% dashed midline
+    ctx.beginPath();
+    ctx.setLineDash([2, 2]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.moveTo(0, POP_AREA_H * 0.5);
+    ctx.lineTo(POP_AREA_W, POP_AREA_H * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Filled area
+    ctx.beginPath();
+    ctx.moveTo(0, POP_AREA_H);
+    for (let i = 0; i < n; i++) {
+      const x = i * xScale;
+      const y = (1 - pcts[i]) * POP_AREA_H;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo((n - 1) * xScale, POP_AREA_H);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // Top edge stroke
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * xScale;
+      const y = (1 - pcts[i]) * POP_AREA_H;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -225,12 +334,14 @@ export function createSpeciesLabelsOverlay(
         existing.genEl.textContent = genText;
         existing.el.style.color = rgb;
         existing.el.style.borderLeftColor = rgb;
+        existing.rgb = rgb;
       } else {
         const label = createLabel(name, rgb);
         label.genEl.textContent = genText;
         overlay.appendChild(label.el);
         labels.set(sid, {
           ...label,
+          rgb,
           targetX: pos.x, targetY: pos.y,
           displayX: pos.x, displayY: pos.y,
           screenX: 0, screenY: 0,
@@ -238,8 +349,12 @@ export function createSpeciesLabelsOverlay(
       }
     }
 
-    // Draw sparklines and update genome bars for all visible labels
+    // Draw sparklines, population area, and update genome bars for all visible labels
     for (const [sid, entry] of labels) {
+      const sc = world.speciesColors.get(sid);
+      const fillCol = sc ? speciesColorToRgba(sc, 0.3) : 'rgba(136,136,136,0.3)';
+      const strokeCol = sc ? speciesColorToRgba(sc, 0.7) : 'rgba(136,136,136,0.7)';
+      drawPopulationArea(entry.popCtx, sid, history, fillCol, strokeCol);
       drawSparkline(entry.sparkCtx, sid, history);
       updateGenomeBars(entry, sid, history);
     }
