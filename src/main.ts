@@ -52,6 +52,7 @@ const showcase = createShowcase(document.getElementById('showcase')!, world, ren
 const sandboxPanel = createSandboxPanel(
   document.getElementById('sandbox-panel')!,
   world, controls, renderer.canvas,
+  () => renderer.markPlantsDirty(),
 );
 const btnSandbox = document.getElementById('btn-sandbox') as HTMLButtonElement;
 btnSandbox.addEventListener('click', () => {

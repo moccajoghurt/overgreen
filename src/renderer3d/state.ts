@@ -125,6 +125,7 @@ export interface RendererState {
   lastTerrainColorMode: ColorMode;
   lastPlantTick: number;
   lastPlantColorMode: ColorMode;
+  plantsDirty: boolean;
   hoveredSpecies: number | null;
   lastHoveredSpecies: number | null;
 

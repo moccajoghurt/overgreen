@@ -28,6 +28,7 @@ export function createSandboxPanel(
   world: World,
   controls: Controls,
   canvas: HTMLCanvasElement,
+  onPlantsDirty?: () => void,
 ): { update(world: World): void; setVisible(visible: boolean): void; isVisible(): boolean } {
 
   let visible = false;
@@ -321,6 +322,7 @@ export function createSandboxPanel(
     }
     customSpecies.clear();
     rebuildPlacedList();
+    onPlantsDirty?.();
   });
 
   // --- Clear All Plants (entire map) ---
@@ -341,6 +343,7 @@ export function createSandboxPanel(
     world.plants.clear();
     customSpecies.clear();
     rebuildPlacedList();
+    onPlantsDirty?.();
   });
 
   // --- Placed species list ---
@@ -427,6 +430,7 @@ export function createSandboxPanel(
 
     rebuildPlacedList();
     updatePreview();
+    onPlantsDirty?.();
   }
 
   // --- Close button ---

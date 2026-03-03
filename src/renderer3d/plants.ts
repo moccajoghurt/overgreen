@@ -22,7 +22,8 @@ export function updatePlants(state: RendererState): void {
   const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
     || burningPlants.size > 0 || flyingSeeds.length > 0;
   const hoverChanged = state.hoveredSpecies !== state.lastHoveredSpecies;
-  if (!hasTicked && !hasAnimations && !hoverChanged) return;
+  if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty) return;
+  state.plantsDirty = false;
   state.lastHoveredSpecies = state.hoveredSpecies;
   state.lastPlantTick = world.tick;
 

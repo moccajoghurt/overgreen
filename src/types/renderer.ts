@@ -7,4 +7,5 @@ export interface Renderer {
   moveTo(gridX: number, gridY: number): void;
   setColorMode(mode: ColorMode): void;
   setHoveredSpecies(speciesId: number | null): void;
+  markPlantsDirty(): void;
 }

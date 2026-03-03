@@ -148,6 +148,7 @@ export function createRenderer3D(
     lastTerrainColorMode: 'natural',
     lastPlantTick: -1,
     lastPlantColorMode: 'natural',
+    plantsDirty: false,
     hoveredSpecies: null,
     lastHoveredSpecies: null,
     plantColorCache: new Map(),
@@ -296,5 +297,7 @@ export function createRenderer3D(
     state.hoveredSpecies = speciesId;
   }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, canvas: webgl.domElement };
+  function markPlantsDirty(): void { state.plantsDirty = true; }
+
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, canvas: webgl.domElement };
 }
