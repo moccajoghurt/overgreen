@@ -4,6 +4,8 @@ export interface TickSnapshot {
   tick: number;
   populations: Map<number, number>; // speciesId → alive count
   traitAverages: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
+  speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>;
+  speciesMaxGeneration: Map<number, number>;
   herbivoreCount: number;
 }
 
@@ -14,6 +16,9 @@ export interface SpeciesRecord {
   maxPopulation: number;
   maxPopulationTick: number;
   extinct: boolean;
+  maxGeneration: number;
+  totalOffspring: number;
+  totalDeaths: number;
 }
 
 export type SimEventType =

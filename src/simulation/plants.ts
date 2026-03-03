@@ -52,6 +52,7 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
     lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
+    generation: 0, parentId: null, offspringCount: 0,
   };
 }
 

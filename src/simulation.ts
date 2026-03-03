@@ -196,7 +196,9 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
       genome: mutateGenome(plant.genome, eraMutationRate),
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
+      generation: plant.generation + 1, parentId: plant.id, offspringCount: 0,
     };
+    plant.offspringCount++;
     world.plants.set(childId, child);
     world.grid[ty][tx].plantId = childId;
     world.grid[ty][tx].lastSpeciesId = plant.speciesId;
@@ -289,6 +291,8 @@ function phaseDeath(world: World): void {
         speciesId: plant.speciesId,
         cause,
         age: plant.age,
+        offspringCount: plant.offspringCount,
+        generation: plant.generation,
       });
     }
   }

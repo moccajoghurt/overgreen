@@ -44,15 +44,20 @@ interface PopulationSnapshot {
   populations: Map<number, number>;
   totalAlive: number;
   traitAverages: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
+  speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>;
+  speciesMaxGeneration: Map<number, number>;
 }
 
 function countPopulations(world: World): PopulationSnapshot {
   const populations = new Map<number, number>();
+  const speciesSums = new Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number; count: number }>();
+  const speciesMaxGeneration = new Map<number, number>();
   let totalAlive = 0;
   let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumAllelo = 0, sumDef = 0;
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    populations.set(plant.speciesId, (populations.get(plant.speciesId) ?? 0) + 1);
+    const sid = plant.speciesId;
+    populations.set(sid, (populations.get(sid) ?? 0) + 1);
     totalAlive++;
     sumRoot += plant.genome.rootPriority;
     sumHeight += plant.genome.heightPriority;
@@ -60,13 +65,39 @@ function countPopulations(world: World): PopulationSnapshot {
     sumSeed += plant.genome.seedInvestment;
     sumAllelo += plant.genome.allelopathy;
     sumDef += plant.genome.defense;
+
+    // Per-species trait sums
+    let s = speciesSums.get(sid);
+    if (!s) {
+      s = { root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0, count: 0 };
+      speciesSums.set(sid, s);
+    }
+    s.root += plant.genome.rootPriority;
+    s.height += plant.genome.heightPriority;
+    s.leaf += plant.genome.leafSize;
+    s.seed += plant.genome.seedInvestment;
+    s.allelo += plant.genome.allelopathy;
+    s.def += plant.genome.defense;
+    s.count++;
+
+    // Per-species max generation
+    const prev = speciesMaxGeneration.get(sid) ?? 0;
+    if (plant.generation > prev) speciesMaxGeneration.set(sid, plant.generation);
   }
 
   const traitAverages = totalAlive > 0
     ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive, allelo: sumAllelo / totalAlive, def: sumDef / totalAlive }
     : { root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0 };
 
-  return { populations, totalAlive, traitAverages };
+  const speciesTraitAverages = new Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>();
+  for (const [sid, s] of speciesSums) {
+    speciesTraitAverages.set(sid, {
+      root: s.root / s.count, height: s.height / s.count, leaf: s.leaf / s.count,
+      seed: s.seed / s.count, allelo: s.allelo / s.count, def: s.def / s.count,
+    });
+  }
+
+  return { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration };
 }
 
 function detectExtinctions(
@@ -148,7 +179,7 @@ function detectAgeMilestones(history: History, world: World): void {
 }
 
 export function recordTick(history: History, world: World): void {
-  const { populations, totalAlive, traitAverages } = countPopulations(world);
+  const { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration } = countPopulations(world);
 
   // Count herbivores
   let herbivoreCount = 0;
@@ -157,7 +188,7 @@ export function recordTick(history: History, world: World): void {
   }
 
   // Store snapshot (ring buffer)
-  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, herbivoreCount });
+  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, herbivoreCount });
   if (history.snapshots.length > MAX_SNAPSHOTS) {
     history.snapshots.shift();
   }
@@ -173,6 +204,9 @@ export function recordTick(history: History, world: World): void {
         maxPopulation: count,
         maxPopulationTick: world.tick,
         extinct: false,
+        maxGeneration: 0,
+        totalOffspring: 0,
+        totalDeaths: 0,
       };
       history.species.set(speciesId, rec);
     } else {
@@ -185,6 +219,10 @@ export function recordTick(history: History, world: World): void {
       rec.maxPopulationTick = world.tick;
     }
 
+    // Update max generation from live plants
+    const liveMaxGen = speciesMaxGeneration.get(speciesId) ?? 0;
+    if (liveMaxGen > rec.maxGeneration) rec.maxGeneration = liveMaxGen;
+
     for (const milestone of POP_MILESTONES) {
       const key = `${speciesId}-${milestone}`;
       if (count >= milestone && !history.firedPopMilestones.has(key)) {
@@ -196,6 +234,16 @@ export function recordTick(history: History, world: World): void {
           speciesId,
         });
       }
+    }
+  }
+
+  // Update species records from death events
+  for (const evt of world.deathEvents) {
+    const rec = history.species.get(evt.speciesId);
+    if (rec) {
+      rec.totalOffspring += evt.offspringCount;
+      rec.totalDeaths++;
+      if (evt.generation > rec.maxGeneration) rec.maxGeneration = evt.generation;
     }
   }
 

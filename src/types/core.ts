@@ -41,6 +41,9 @@ export interface Plant {
   lastEnergyProduced: number;
   lastMaintenanceCost: number;
   isDiseased: boolean;
+  generation: number;
+  parentId: number | null;
+  offspringCount: number;
 }
 
 export interface Cell {
@@ -83,6 +86,8 @@ export interface DeathEvent {
   speciesId: number;
   cause: 'starvation' | 'age' | 'fire' | 'disease';
   age: number;
+  offspringCount: number;
+  generation: number;
 }
 
 export interface FireDeathEvent {

@@ -89,6 +89,7 @@ export function updateInspector(world: World, controls: Controls): void {
     if (plant) {
       const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
       text += `\n[Plant #${plant.id}]  ${spName}  Age: ${plant.age}\n`;
+      text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
       text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
       text += `Energy: ${plant.energy.toFixed(1)}\n`;
       text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} S=${plant.genome.seedInvestment.toFixed(2)} A=${plant.genome.allelopathy.toFixed(2)} D=${plant.genome.defense.toFixed(2)}\n`;

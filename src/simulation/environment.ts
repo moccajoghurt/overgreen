@@ -109,6 +109,8 @@ function killPlantByFire(world: World, x: number, y: number): void {
       speciesId: plant.speciesId,
       cause: 'fire',
       age: plant.age,
+      offspringCount: plant.offspringCount,
+      generation: plant.generation,
     });
     plant.energy = 0;
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
