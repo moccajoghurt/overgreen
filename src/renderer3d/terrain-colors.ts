@@ -27,9 +27,12 @@ export function updateTerrainColors(state: RendererState): void {
   const { world, tmpColor, colorArray, colorAttr } = state;
 
   // Skip if nothing changed since last update
-  if (world.tick === state.lastTerrainTick && state.colorMode === state.lastTerrainColorMode) return;
+  if (world.tick === state.lastTerrainTick
+    && state.colorMode === state.lastTerrainColorMode
+    && state.hoveredSpecies === state.lastHoveredSpecies) return;
   state.lastTerrainTick = world.tick;
   state.lastTerrainColorMode = state.colorMode;
+  state.lastHoveredSpecies = state.hoveredSpecies;
 
   const arr = colorArray;
   const env = world.environment;
@@ -151,6 +154,21 @@ export function updateTerrainColors(state: RendererState): void {
           tmpColor.r = lerp(tmpColor.r, 0.28, allelStr * 0.25);
           tmpColor.g = lerp(tmpColor.g, 0.12, allelStr * 0.35);
           tmpColor.b = lerp(tmpColor.b, 0.22, allelStr * 0.2);
+        }
+      }
+
+      // Hovered species highlight — blend toward white
+      if (state.hoveredSpecies !== null) {
+        let cellSpecies: number | null = null;
+        if (cell.plantId !== null) {
+          const p = world.plants.get(cell.plantId);
+          if (p?.alive) cellSpecies = p.speciesId;
+        }
+        if (cellSpecies === null) cellSpecies = cell.lastSpeciesId;
+        if (cellSpecies === state.hoveredSpecies) {
+          tmpColor.r = lerp(tmpColor.r, 1.0, 0.25);
+          tmpColor.g = lerp(tmpColor.g, 1.0, 0.25);
+          tmpColor.b = lerp(tmpColor.b, 1.0, 0.25);
         }
       }
 

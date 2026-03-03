@@ -4,8 +4,8 @@ import { speciesCentroid, speciesColorToRgb } from './ui-utils';
 const UPDATE_EVERY_N_TICKS = 10;
 const LERP_SPEED = 0.08; // per frame — smooth but responsive
 
-const SPARKLINE_W = 80;
-const SPARKLINE_H = 24;
+const SPARKLINE_W = 120;
+const SPARKLINE_H = 36;
 const SPARKLINE_DPR = 2;
 const MAX_SPARK_POINTS = 80;
 
@@ -14,7 +14,8 @@ const TRAIT_COLORS = ['#c96', '#69c', '#6c6', '#c6c', '#96c', '#c66'];
 
 interface LabelEntry {
   el: HTMLElement;
-  textEl: HTMLElement;
+  nameEl: HTMLElement;
+  genEl: HTMLElement;
   sparkCanvas: HTMLCanvasElement;
   sparkCtx: CanvasRenderingContext2D;
   targetX: number;
@@ -30,13 +31,14 @@ export function createSpeciesLabelsOverlay(
   renderer: Renderer,
 ) {
   const labels = new Map<number, LabelEntry>();
-  let visible = false;
+  let showAll = false;
+  let hoveredSpecies: number | null = null;
   let lastUpdateTick = -UPDATE_EVERY_N_TICKS;
 
   const overlay = document.createElement('div');
   overlay.style.cssText = `
     position:absolute; top:0; left:0; width:100%; height:100%;
-    pointer-events:none; z-index:9; overflow:hidden; display:none;
+    pointer-events:none; z-index:9; overflow:hidden;
   `;
   mapContainer.appendChild(overlay);
 
@@ -46,15 +48,19 @@ export function createSpeciesLabelsOverlay(
       position:absolute; transform:translate(-50%, -100%);
       background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
       border-left:3px solid ${rgb};
-      padding:3px 8px; border-radius:0 4px 4px 0;
-      color:${rgb}; font-family:monospace; font-size:11px; font-weight:bold;
+      padding:5px 12px; border-radius:0 4px 4px 0;
+      color:${rgb}; font-family:monospace; font-size:16px; font-weight:bold;
       text-shadow:0 1px 3px rgba(0,0,0,0.7);
       white-space:nowrap;
     `;
 
-    const textEl = document.createElement('div');
-    textEl.textContent = name;
-    el.appendChild(textEl);
+    const nameEl = document.createElement('div');
+    nameEl.textContent = name;
+    el.appendChild(nameEl);
+
+    const genEl = document.createElement('div');
+    genEl.style.cssText = `font-size:11px; font-weight:normal; opacity:0.7;`;
+    el.appendChild(genEl);
 
     const sparkCanvas = document.createElement('canvas');
     sparkCanvas.width = SPARKLINE_W * SPARKLINE_DPR;
@@ -69,7 +75,7 @@ export function createSpeciesLabelsOverlay(
     const sparkCtx = sparkCanvas.getContext('2d')!;
     sparkCtx.scale(SPARKLINE_DPR, SPARKLINE_DPR);
 
-    return { el, textEl, sparkCanvas, sparkCtx };
+    return { el, nameEl, genEl, sparkCanvas, sparkCtx };
   }
 
   function drawSparkline(
@@ -151,21 +157,25 @@ export function createSpeciesLabelsOverlay(
       const pos = speciesCentroid(world, sid);
       if (!pos) continue;
 
+      const sc = world.speciesColors.get(sid);
+      const rgb = sc ? speciesColorToRgb(sc) : '#888';
+      const name = world.speciesNames.get(sid) ?? `Sp ${sid}`;
+      const rec = history.species.get(sid);
+      const genText = rec
+        ? `Gen ${rec.maxGeneration} · ${rec.totalOffspring} offspring`
+        : '';
+
       const existing = labels.get(sid);
       if (existing) {
         existing.targetX = pos.x;
         existing.targetY = pos.y;
-        const sc = world.speciesColors.get(sid);
-        const rgb = sc ? speciesColorToRgb(sc) : '#888';
-        const name = world.speciesNames.get(sid) ?? `Sp ${sid}`;
-        existing.textEl.textContent = name + '  Gen ' + (maxGen.get(sid) ?? 0);
+        existing.nameEl.textContent = name;
+        existing.genEl.textContent = genText;
         existing.el.style.color = rgb;
         existing.el.style.borderLeftColor = rgb;
       } else {
-        const sc = world.speciesColors.get(sid);
-        const rgb = sc ? speciesColorToRgb(sc) : '#888';
-        const name = world.speciesNames.get(sid) ?? `Sp ${sid}`;
-        const label = createLabel(name + '  Gen ' + (maxGen.get(sid) ?? 0), rgb);
+        const label = createLabel(name, rgb);
+        label.genEl.textContent = genText;
         overlay.appendChild(label.el);
         labels.set(sid, {
           ...label,
@@ -183,13 +193,14 @@ export function createSpeciesLabelsOverlay(
   }
 
   function updatePositions(): void {
-    for (const entry of labels.values()) {
+    for (const [sid, entry] of labels) {
       // Lerp display position toward target
       entry.displayX += (entry.targetX - entry.displayX) * LERP_SPEED;
       entry.displayY += (entry.targetY - entry.displayY) * LERP_SPEED;
 
+      const shouldShow = showAll || sid === hoveredSpecies;
       const screen = renderer.projectToScreen(entry.displayX, entry.displayY);
-      if (screen) {
+      if (screen && shouldShow) {
         entry.screenX = screen.x;
         entry.screenY = screen.y;
         entry.el.style.left = `${screen.x}px`;
@@ -202,15 +213,17 @@ export function createSpeciesLabelsOverlay(
   }
 
   function setVisible(show: boolean): void {
-    visible = show;
-    overlay.style.display = show ? '' : 'none';
+    showAll = show;
+  }
+
+  function setHoveredSpecies(speciesId: number | null): void {
+    hoveredSpecies = speciesId;
   }
 
   function update(world: World, history: History): void {
-    if (!visible) return;
     updateCentroids(world, history);
     updatePositions();
   }
 
-  return { update, updatePositions, setVisible };
+  return { update, updatePositions, setVisible, setHoveredSpecies };
 }

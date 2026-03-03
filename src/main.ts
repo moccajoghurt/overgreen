@@ -102,7 +102,9 @@ function loop(now: number): void {
     lastTickTime = now;
   }
 
+  renderer.setHoveredSpecies(controls.hoveredSpecies);
   renderer.render(controls.selectedCell);
+  speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
   speciesLabels.updatePositions();
 
   // Only update UI when simulation has ticked or selected cell changed

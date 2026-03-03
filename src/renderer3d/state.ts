@@ -114,6 +114,8 @@ export interface RendererState {
   lastTerrainColorMode: 'natural' | 'species';
   lastPlantTick: number;
   lastPlantColorMode: 'natural' | 'species';
+  hoveredSpecies: number | null;
+  lastHoveredSpecies: number | null;
 
   // Performance: cached plant base colors (keyed by plant id, invalidated on colorMode change)
   plantColorCache: Map<number, { cr: number; cg: number; cb: number; tr: number; tg: number; tb: number }>;

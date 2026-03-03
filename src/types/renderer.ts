@@ -4,4 +4,5 @@ export interface Renderer {
   projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null;
   moveTo(gridX: number, gridY: number): void;
   setColorMode(mode: 'natural' | 'species'): void;
+  setHoveredSpecies(speciesId: number | null): void;
 }

@@ -141,6 +141,8 @@ export function createRenderer3D(
     lastTerrainColorMode: 'natural',
     lastPlantTick: -1,
     lastPlantColorMode: 'natural',
+    hoveredSpecies: null,
+    lastHoveredSpecies: null,
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
     ...weather,
@@ -283,5 +285,9 @@ export function createRenderer3D(
     state.colorMode = mode;
   }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, canvas: webgl.domElement };
+  function setHoveredSpecies(speciesId: number | null): void {
+    state.hoveredSpecies = speciesId;
+  }
+
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, canvas: webgl.domElement };
 }

@@ -1,6 +1,6 @@
 import { World, History, SimEvent } from './types';
 
-const MAX_SNAPSHOTS = 2000;
+const SNAPSHOT_INTERVAL = 5; // store every Nth tick — complete history, bounded growth
 const MAX_EVENTS = 100;
 const MIN_TICKS_FOR_EXTINCTION = 5;
 const MASS_EXTINCTION_THRESHOLD = 0.3; // 30% drop
@@ -187,10 +187,9 @@ export function recordTick(history: History, world: World): void {
     if (h.alive) herbivoreCount++;
   }
 
-  // Store snapshot (ring buffer)
-  history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, herbivoreCount });
-  if (history.snapshots.length > MAX_SNAPSHOTS) {
-    history.snapshots.shift();
+  // Store snapshot (sampled — every Nth tick for complete history)
+  if (world.tick % SNAPSHOT_INTERVAL === 0) {
+    history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, herbivoreCount });
   }
 
   // Update species records + detect population milestones
