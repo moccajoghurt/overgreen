@@ -323,6 +323,26 @@ export function createSandboxPanel(
     rebuildPlacedList();
   });
 
+  // --- Clear All Plants (entire map) ---
+  const clearAllSection = document.createElement('div');
+  const clearAllBtn = document.createElement('button');
+  clearAllBtn.className = 'sb-clear-btn';
+  clearAllBtn.style.background = '#3a1a1a';
+  clearAllBtn.style.borderColor = '#844';
+  clearAllBtn.textContent = 'Clear Entire Map';
+  clearAllSection.appendChild(clearAllBtn);
+  body.appendChild(clearAllSection);
+
+  clearAllBtn.addEventListener('click', () => {
+    for (const plant of world.plants.values()) {
+      const cell = world.grid[plant.y][plant.x];
+      if (cell.plantId === plant.id) cell.plantId = null;
+    }
+    world.plants.clear();
+    customSpecies.clear();
+    rebuildPlacedList();
+  });
+
   // --- Placed species list ---
   const placedSection = document.createElement('div');
   placedSection.innerHTML = '<div class="sb-section-label">Placed Species</div>';
