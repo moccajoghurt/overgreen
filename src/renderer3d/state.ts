@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, GRASS, Genome, Archetype, World, Season } from '../types';
+import { SIM, GRASS, Genome, Archetype, World, Season, ColorMode } from '../types';
 import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
@@ -83,7 +83,7 @@ export type WeatherType = 'snow' | 'rain' | 'mote' | 'leaf';
 // ── Renderer state (shared across all update functions) ──
 
 export interface RendererState {
-  colorMode: 'natural' | 'species';
+  colorMode: ColorMode;
   world: World;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -116,9 +116,9 @@ export interface RendererState {
   flyingSeeds: FlyingSeed[];
   lastProcessedTick: number;
   lastTerrainTick: number;
-  lastTerrainColorMode: 'natural' | 'species';
+  lastTerrainColorMode: ColorMode;
   lastPlantTick: number;
-  lastPlantColorMode: 'natural' | 'species';
+  lastPlantColorMode: ColorMode;
   hoveredSpecies: number | null;
   lastHoveredSpecies: number | null;
 

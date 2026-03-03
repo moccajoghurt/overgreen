@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { World, Renderer, Season } from './types';
+import { World, Renderer, Season, ColorMode } from './types';
 import { RendererState, GRID, HALF } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
@@ -288,7 +288,7 @@ export function createRenderer3D(
     camera.position.copy(controls.target).add(offset);
   }
 
-  function setColorMode(mode: 'natural' | 'species'): void {
+  function setColorMode(mode: ColorMode): void {
     state.colorMode = mode;
   }
 

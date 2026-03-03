@@ -13,6 +13,7 @@ import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createShowcase } from './species-showcase';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
+import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -30,6 +31,33 @@ const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const labelsToggle = document.getElementById('labels-toggle') as HTMLInputElement;
 labelsToggle.addEventListener('change', () => {
   speciesLabels.setVisible(labelsToggle.checked);
+});
+
+const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
+const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInputElement;
+let preTerrainColorMode: 'natural' | 'species' = 'natural';
+let preTerrainLabelsVisible = false;
+terrainToggle.addEventListener('change', () => {
+  if (terrainToggle.checked) {
+    // Save current state
+    preTerrainColorMode = colorToggle.checked ? 'species' : 'natural';
+    preTerrainLabelsVisible = labelsToggle.checked;
+    // Switch to terrain mode
+    renderer.setColorMode('terrain');
+    terrainLabels.setVisible(true);
+    speciesLabels.setVisible(false);
+    // Disable species controls
+    colorToggle.disabled = true;
+    labelsToggle.disabled = true;
+  } else {
+    // Restore previous state
+    renderer.setColorMode(preTerrainColorMode);
+    terrainLabels.setVisible(false);
+    speciesLabels.setVisible(preTerrainLabelsVisible);
+    // Re-enable species controls
+    colorToggle.disabled = false;
+    labelsToggle.disabled = false;
+  }
 });
 
 const history = createHistory();
@@ -107,6 +135,7 @@ function loop(now: number): void {
   renderer.render(controls.selectedCell);
   speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
   speciesLabels.updatePositions();
+  terrainLabels.updatePositions();
 
   // Only update UI when simulation has ticked or selected cell changed
   const selChanged = controls.selectedCell !== lastUISelectedCell;

@@ -226,7 +226,7 @@ export function getPlantColors(state: RendererState, plantId: number, speciesId:
   const cached = state.plantColorCache.get(plantId);
   if (cached) return cached;
 
-  if (state.colorMode === 'natural') {
+  if (state.colorMode !== 'species') {
     if (isGrass) {
       naturalGrassColor(genome, _clr);
       // Grass base color: darker version of blade color

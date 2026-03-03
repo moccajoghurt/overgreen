@@ -236,7 +236,7 @@ export function updatePlants(state: RendererState): void {
       const gsil = computeGrassSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
 
       naturalGrassColor(dp.genome, _clr);
-      if (state.colorMode !== 'natural') {
+      if (state.colorMode === 'species') {
         const sc = world.speciesColors.get(dp.speciesId);
         const gr = 0.2 + dp.genome.rootPriority * 0.6;
         const gg = 0.3 + dp.genome.leafSize * 0.5;
@@ -276,7 +276,7 @@ export function updatePlants(state: RendererState): void {
 
       naturalCanopyColor(dp.genome, _clr);
       naturalTrunkColor(dp.genome, _clr as any);
-      if (state.colorMode !== 'natural') {
+      if (state.colorMode === 'species') {
         const sc = world.speciesColors.get(dp.speciesId);
         const gr = 0.2 + dp.genome.rootPriority * 0.6;
         const gg = 0.3 + dp.genome.leafSize * 0.5;
@@ -438,7 +438,7 @@ export function updateSeeds(state: RendererState): void {
     const ci = seedIdx * 3;
     const childPlant = world.plants.get(fs.childId);
     const isGrassSeed = childPlant?.archetype === 'grass';
-    if (state.colorMode === 'natural') {
+    if (state.colorMode !== 'species') {
       if (isGrassSeed) {
         // Grass seeds: lighter straw color
         seedClr[ci]     = 0.60;

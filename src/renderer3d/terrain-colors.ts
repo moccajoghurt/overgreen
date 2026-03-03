@@ -73,57 +73,69 @@ export function updateTerrainColors(state: RendererState): void {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
 
-      switch (cell.terrainType) {
-        case TerrainType.River: {
-          // Riverbed beneath transparent water surface — darker and more muted
-          const depth = 0.5 + (cell.waterLevel / SIM.MAX_WATER) * 0.3;
-          tmpColor.setHSL(210 / 360, 0.35, 0.18 * depth);
-          break;
+      if (state.colorMode === 'terrain') {
+        // Bold, fixed-saturation terrain colors for terrain view
+        switch (cell.terrainType) {
+          case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.65, 0.35); break;
+          case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.10, 0.45); break;
+          case TerrainType.Hill:   tmpColor.setHSL(35 / 360, 0.50, 0.50); break;
+          case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.55, 0.30); break;
+          case TerrainType.Arid:   tmpColor.setHSL(42 / 360, 0.60, 0.55); break;
+          default:                 tmpColor.setHSL(30 / 360, 0.55, 0.40); break; // Soil
         }
-        case TerrainType.Rock: {
-          const rockVar = 0.9 + cell.elevation * 0.2;
-          tmpColor.setHSL(30 / 360, 0.08, 0.35 * rockVar);
-          break;
-        }
-        case TerrainType.Hill: {
-          const wr = cell.waterLevel / SIM.MAX_WATER;
-          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-          tmpColor.setHSL(
-            (lerp(35, 28, wr) - nr * 5) / 360,
-            lerp(35, 45, wr) / 100,
-            Math.max(10, lerp(60, 30, wr) - nr * 3) / 100,
-          );
-          break;
-        }
-        case TerrainType.Wetland: {
-          const wr = cell.waterLevel / SIM.MAX_WATER;
-          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-          tmpColor.setHSL(
-            (lerp(170, 160, wr) - nr * 3) / 360,
-            lerp(30, 45, wr) / 100,
-            Math.max(10, lerp(30, 18, wr) - nr * 2) / 100,
-          );
-          break;
-        }
-        case TerrainType.Arid: {
-          const wr = cell.waterLevel / SIM.MAX_WATER;
-          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-          tmpColor.setHSL(
-            (lerp(40, 35, wr) - nr * 2) / 360,
-            lerp(35, 50, wr) / 100,
-            Math.max(15, lerp(65, 50, wr) - nr * 3) / 100,
-          );
-          break;
-        }
-        default: {
-          const wr = cell.waterLevel / SIM.MAX_WATER;
-          const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-          tmpColor.setHSL(
-            (lerp(30, 25, wr) - nr * 5) / 360,
-            lerp(40, 50, wr) / 100,
-            Math.max(10, lerp(55, 25, wr) - nr * 5) / 100,
-          );
-          break;
+      } else {
+        switch (cell.terrainType) {
+          case TerrainType.River: {
+            // Riverbed beneath transparent water surface — darker and more muted
+            const depth = 0.5 + (cell.waterLevel / SIM.MAX_WATER) * 0.3;
+            tmpColor.setHSL(210 / 360, 0.35, 0.18 * depth);
+            break;
+          }
+          case TerrainType.Rock: {
+            const rockVar = 0.9 + cell.elevation * 0.2;
+            tmpColor.setHSL(30 / 360, 0.08, 0.35 * rockVar);
+            break;
+          }
+          case TerrainType.Hill: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(35, 28, wr) - nr * 5) / 360,
+              lerp(35, 45, wr) / 100,
+              Math.max(10, lerp(60, 30, wr) - nr * 3) / 100,
+            );
+            break;
+          }
+          case TerrainType.Wetland: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(170, 160, wr) - nr * 3) / 360,
+              lerp(30, 45, wr) / 100,
+              Math.max(10, lerp(30, 18, wr) - nr * 2) / 100,
+            );
+            break;
+          }
+          case TerrainType.Arid: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(40, 35, wr) - nr * 2) / 360,
+              lerp(35, 50, wr) / 100,
+              Math.max(15, lerp(65, 50, wr) - nr * 3) / 100,
+            );
+            break;
+          }
+          default: {
+            const wr = cell.waterLevel / SIM.MAX_WATER;
+            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
+            tmpColor.setHSL(
+              (lerp(30, 25, wr) - nr * 5) / 360,
+              lerp(40, 50, wr) / 100,
+              Math.max(10, lerp(55, 25, wr) - nr * 5) / 100,
+            );
+            break;
+          }
         }
       }
 
@@ -133,62 +145,64 @@ export function updateTerrainColors(state: RendererState): void {
       tmpColor.g *= 1 - shadowStr;
       tmpColor.b *= 1 - shadowStr;
 
-      // Territory visualization
-      if (state.colorMode === 'species') {
-        // Species territory tint
-        let speciesId: number | null = null;
-        let blendFactor = 0;
-        if (cell.plantId !== null) {
-          const plant = world.plants.get(cell.plantId);
-          if (plant && plant.alive) {
-            speciesId = plant.speciesId;
-            blendFactor = 0.35;
+      if (state.colorMode !== 'terrain') {
+        // Territory visualization
+        if (state.colorMode === 'species') {
+          // Species territory tint
+          let speciesId: number | null = null;
+          let blendFactor = 0;
+          if (cell.plantId !== null) {
+            const plant = world.plants.get(cell.plantId);
+            if (plant && plant.alive) {
+              speciesId = plant.speciesId;
+              blendFactor = 0.35;
+            }
           }
-        }
-        if (speciesId === null && cell.lastSpeciesId !== null) {
-          speciesId = cell.lastSpeciesId;
-          blendFactor = 0.15;
-        }
-        if (speciesId !== null) {
-          const sc = world.speciesColors.get(speciesId);
-          if (sc) {
-            tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
-            tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
-            tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
+          if (speciesId === null && cell.lastSpeciesId !== null) {
+            speciesId = cell.lastSpeciesId;
+            blendFactor = 0.15;
           }
-        }
-      } else {
-        // Natural mode: subtle root-zone darkening under occupied cells
-        if (cell.plantId !== null) {
-          const plant = world.plants.get(cell.plantId);
-          if (plant && plant.alive) {
-            tmpColor.r *= 0.92;
-            tmpColor.g = tmpColor.g * 0.95 + 0.02;
-            tmpColor.b *= 0.90;
+          if (speciesId !== null) {
+            const sc = world.speciesColors.get(speciesId);
+            if (sc) {
+              tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
+              tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
+              tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
+            }
+          }
+        } else {
+          // Natural mode: subtle root-zone darkening under occupied cells
+          if (cell.plantId !== null) {
+            const plant = world.plants.get(cell.plantId);
+            if (plant && plant.alive) {
+              tmpColor.r *= 0.92;
+              tmpColor.g = tmpColor.g * 0.95 + 0.02;
+              tmpColor.b *= 0.90;
+            }
+          }
+
+          // Allelopathy zone: purple-brown chemical tint
+          const allelStr = allelZone[row * GRID + col];
+          if (allelStr > 0) {
+            tmpColor.r = lerp(tmpColor.r, 0.28, allelStr * 0.25);
+            tmpColor.g = lerp(tmpColor.g, 0.12, allelStr * 0.35);
+            tmpColor.b = lerp(tmpColor.b, 0.22, allelStr * 0.2);
           }
         }
 
-        // Allelopathy zone: purple-brown chemical tint
-        const allelStr = allelZone[row * GRID + col];
-        if (allelStr > 0) {
-          tmpColor.r = lerp(tmpColor.r, 0.28, allelStr * 0.25);
-          tmpColor.g = lerp(tmpColor.g, 0.12, allelStr * 0.35);
-          tmpColor.b = lerp(tmpColor.b, 0.22, allelStr * 0.2);
-        }
-      }
-
-      // Hovered species highlight — blend toward white
-      if (state.hoveredSpecies !== null) {
-        let cellSpecies: number | null = null;
-        if (cell.plantId !== null) {
-          const p = world.plants.get(cell.plantId);
-          if (p?.alive) cellSpecies = p.speciesId;
-        }
-        if (cellSpecies === null) cellSpecies = cell.lastSpeciesId;
-        if (cellSpecies === state.hoveredSpecies) {
-          tmpColor.r = lerp(tmpColor.r, 1.0, 0.25);
-          tmpColor.g = lerp(tmpColor.g, 1.0, 0.25);
-          tmpColor.b = lerp(tmpColor.b, 1.0, 0.25);
+        // Hovered species highlight — blend toward white
+        if (state.hoveredSpecies !== null) {
+          let cellSpecies: number | null = null;
+          if (cell.plantId !== null) {
+            const p = world.plants.get(cell.plantId);
+            if (p?.alive) cellSpecies = p.speciesId;
+          }
+          if (cellSpecies === null) cellSpecies = cell.lastSpeciesId;
+          if (cellSpecies === state.hoveredSpecies) {
+            tmpColor.r = lerp(tmpColor.r, 1.0, 0.25);
+            tmpColor.g = lerp(tmpColor.g, 1.0, 0.25);
+            tmpColor.b = lerp(tmpColor.b, 1.0, 0.25);
+          }
         }
       }
 
