@@ -7,6 +7,7 @@ export interface Controls {
   stepRequested: boolean;
   selectedCell: { x: number; y: number } | null;
   hoveredSpecies: number | null;
+  hoverEnabled: boolean;
 }
 
 export function initControls(
@@ -20,6 +21,7 @@ export function initControls(
     stepRequested: false,
     selectedCell: null,
     hoveredSpecies: null,
+    hoverEnabled: true,
   };
 
   const btnPlayPause = document.getElementById('btn-play-pause') as HTMLButtonElement;
@@ -61,6 +63,7 @@ export function initControls(
   });
 
   canvas.addEventListener('mousemove', (e) => {
+    if (!controls.hoverEnabled) { controls.hoveredSpecies = null; return; }
     const rect = canvas.getBoundingClientRect();
     const pos = renderer.cellAt(e.clientX - rect.left, e.clientY - rect.top);
     if (pos) {
@@ -107,6 +110,12 @@ export function initControls(
 
   canvas.addEventListener('mouseleave', () => {
     controls.hoveredSpecies = null;
+  });
+
+  const hoverToggle = document.getElementById('hover-toggle') as HTMLInputElement;
+  hoverToggle.addEventListener('change', () => {
+    controls.hoverEnabled = hoverToggle.checked;
+    if (!controls.hoverEnabled) controls.hoveredSpecies = null;
   });
 
   return controls;
