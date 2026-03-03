@@ -207,11 +207,11 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
     0.3 + rootRatio * 2.5 - genome.seedInvestment * 0.4 + genome.defense * 1.5);
 
   // Canopy size driven by actual leaf growth; seedInvestment → smaller individual blobs
-  const canopyBase = 0.05 + leafRatio * 2.0 - genome.seedInvestment * leafRatio * 0.5;
+  const canopyBase = (0.05 + leafRatio * 2.0 - genome.seedInvestment * leafRatio * 0.5) * 1.4;
 
   // Canopy shape: leafSize → wide & flat (acacia), heightPriority → narrow & tall (conifer)
   const spread = Math.max(0.15,
-    0.5 + genome.leafSize * 1.2 - genome.heightPriority * 0.7 + genome.rootPriority * 0.1);
+    (0.5 + genome.leafSize * 1.2 - genome.heightPriority * 0.7 + genome.rootPriority * 0.1) * 1.2);
   const canopyX = canopyBase * spread;
   const canopyY = canopyBase / spread;
 
@@ -249,7 +249,7 @@ export function computeGrassSilhouette(height: number, rootDepth: number, leafAr
   const spread = Math.max(0.1, 0.15 + leafRatio * 0.25 + rootRatio * 0.1);
 
   // Blade width from leafSize
-  const bladeWidth = Math.max(0.04, 0.06 + genome.leafSize * 0.06);
+  const bladeWidth = Math.max(0.04, (0.06 + genome.leafSize * 0.06) * 1.35);
 
   // Ground tuft size
   const baseSize = Math.max(0.1, 0.15 + rootRatio * 0.15 + leafRatio * 0.1);
