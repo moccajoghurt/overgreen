@@ -8,6 +8,8 @@ export interface Controls {
   selectedCell: { x: number; y: number } | null;
   hoveredSpecies: number | null;
   hoverEnabled: boolean;
+  mode: 'inspect' | 'place';
+  onPlaceClick: ((x: number, y: number) => void) | null;
 }
 
 export function initControls(
@@ -22,6 +24,8 @@ export function initControls(
     selectedCell: null,
     hoveredSpecies: null,
     hoverEnabled: true,
+    mode: 'inspect',
+    onPlaceClick: null,
   };
 
   const btnPlayPause = document.getElementById('btn-play-pause') as HTMLButtonElement;
@@ -58,8 +62,12 @@ export function initControls(
   canvas.addEventListener('click', (e) => {
     const rect = canvas.getBoundingClientRect();
     const pos = renderer.cellAt(e.clientX - rect.left, e.clientY - rect.top);
-    controls.selectedCell = pos;
-    updateInspector(world, controls);
+    if (controls.mode === 'place' && pos && controls.onPlaceClick) {
+      controls.onPlaceClick(pos.x, pos.y);
+    } else {
+      controls.selectedCell = pos;
+      updateInspector(world, controls);
+    }
   });
 
   canvas.addEventListener('mousemove', (e) => {

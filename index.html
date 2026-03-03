@@ -17,6 +17,7 @@
     #canvas-container {
       flex: 1; position: relative; overflow: hidden;
     }
+    #sandbox-panel { flex-shrink: 0; }
     canvas { display: block; }
     button {
       padding: 4px 12px; cursor: pointer;
@@ -102,6 +103,7 @@
       <br>
       <label><input type="checkbox" id="hover-toggle" checked /> Hover highlight</label>
     </div>
+    <button id="btn-sandbox" style="width:100%; margin-top:4px;">Sandbox</button>
     <div class="stats">
       <div>Tick: <span id="tick-label">0</span> &mdash; <span id="season-label">Spring</span> (Year <span id="year-label">1</span>)</div>
       <div>Era: <span id="era-label" style="color:#d4a030; font-weight:bold;">Temperate</span></div>
@@ -111,6 +113,7 @@
     <div id="showcase" style="flex:1; overflow-y:auto; border-top:1px solid #333; padding-top:8px; margin-top:4px; scrollbar-width:none;"></div>
   </div>
   <div id="canvas-container"></div>
+  <div id="sandbox-panel" class="hidden"></div>
   </div>
   <div id="bottom-panel">
     <div id="charts-wrapper">

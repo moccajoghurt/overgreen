@@ -18,7 +18,7 @@ function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   return { r: r + m, g: g + m, b: b + m };
 }
 
-function generateSpeciesColor(speciesId: number): SpeciesColor {
+export function generateSpeciesColor(speciesId: number): SpeciesColor {
   const hue = (speciesId * 137.508) % 360;
   const s = 0.65 + (speciesId % 3) * 0.1;
   const l = 0.45 + (speciesId % 5) * 0.05;

@@ -12,6 +12,7 @@ import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createShowcase } from './species-showcase';
+import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 
@@ -47,6 +48,16 @@ const traitChart = createTraitChart(document.getElementById('traits-container')!
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
 const commentary = createCommentary(container);
 const showcase = createShowcase(document.getElementById('showcase')!, world, renderer, container, history);
+
+const sandboxPanel = createSandboxPanel(
+  document.getElementById('sandbox-panel')!,
+  world, controls, renderer.canvas,
+);
+const btnSandbox = document.getElementById('btn-sandbox') as HTMLButtonElement;
+btnSandbox.addEventListener('click', () => {
+  const next = !sandboxPanel.isVisible();
+  sandboxPanel.setVisible(next);
+});
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
@@ -85,6 +96,7 @@ function updateUI(): void {
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   showcase.update(world);
+  sandboxPanel.update(world);
   speciesLabels.update(world, history);
 }
 
