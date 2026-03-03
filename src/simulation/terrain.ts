@@ -159,7 +159,7 @@ function generateWetlands(
   while (qi < queue.length) {
     const [cx, cy] = queue[qi++];
     const cd = dist[cy * w + cx];
-    if (cd >= 5) continue;
+    if (cd >= 10) continue;
     for (const [dx, dy] of dirs) {
       const nx = cx + dx;
       const ny = cy + dy;
@@ -177,11 +177,11 @@ function generateWetlands(
       const cell = grid[y][x];
       if (cell.terrainType !== TerrainType.Soil) continue;
       const d = dist[y * w + x];
-      if (d > 4) continue;
+      if (d > 9) continue;
       const elev = elevation[y][x];
-      if (elev >= 0.4) continue;
-      const prob = (1 - d / 5) * (1 - elev / 0.4);
-      if (prob > 0.3) {
+      if (elev >= 0.5) continue;
+      const prob = (1 - d / 10) * (1 - elev / 0.5);
+      if (prob > 0.12) {
         cell.terrainType = TerrainType.Wetland;
         cell.waterRechargeRate = SIM.WETLAND_WATER_RECHARGE;
         cell.waterLevel = SIM.MAX_WATER * 0.8;
