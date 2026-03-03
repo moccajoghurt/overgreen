@@ -36,6 +36,19 @@ function phaseRechargeWater(world: World): void {
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
       if (cell.terrainType === TerrainType.Hill) {
+        // Bedrock nutrient extraction: deep roots weather minerals
+        if (cell.plantId !== null) {
+          const hillPlant = world.plants.get(cell.plantId);
+          if (hillPlant && hillPlant.alive) {
+            const hillMaxRoot = hillPlant.archetype === 'grass' ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
+            const hillRootFrac = hillPlant.rootDepth / hillMaxRoot;
+            if (hillRootFrac > SIM.HILL_ROOT_NUTRIENT_THRESHOLD) {
+              const extraction = (hillRootFrac - SIM.HILL_ROOT_NUTRIENT_THRESHOLD)
+                * SIM.HILL_ROOT_NUTRIENT_BONUS * hillPlant.rootDepth;
+              cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients + extraction);
+            }
+          }
+        }
         cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
       } else if (cell.terrainType === TerrainType.Arid) {
         cell.nutrients = Math.min(SIM.ARID_NUTRIENT_MAX, cell.nutrients);
@@ -125,6 +138,22 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
     }
   }
 
+  // Arid aquifer: deep roots tap groundwater
+  if (cell.terrainType === TerrainType.Arid) {
+    const isGrass = plant.archetype === 'grass';
+    const maxRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
+    const rootFrac = plant.rootDepth / maxRoot;
+    if (rootFrac > SIM.ARID_AQUIFER_ROOT_THRESHOLD) {
+      const aquiferAccess = (rootFrac - SIM.ARID_AQUIFER_ROOT_THRESHOLD)
+        / (1 - SIM.ARID_AQUIFER_ROOT_THRESHOLD);
+      const deficit = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
+      if (deficit > 0.01) {
+        const bonus = Math.min(deficit, aquiferAccess * SIM.ARID_AQUIFER_WATER_BONUS);
+        waterAbsorbed += bonus;
+      }
+    }
+  }
+
   plant.lastWaterAbsorbed = waterAbsorbed;
   return waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
 }
@@ -133,12 +162,34 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const isGrass = plant.archetype === 'grass';
   const maxH = isGrass ? GRASS.MAX_HEIGHT : SIM.MAX_HEIGHT;
+  const maxRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
   const hBonus = isGrass ? GRASS.HEIGHT_LIGHT_BONUS : SIM.HEIGHT_LIGHT_BONUS;
-  const heightLightBonus = plant.height / maxH * hBonus;
+  let heightLightBonus = plant.height / maxH * hBonus;
+
+  // Wetland: amplified height bonus (canopy emergence)
+  if (cell.terrainType === TerrainType.Wetland) {
+    heightLightBonus *= SIM.WETLAND_HEIGHT_BONUS_MULT;
+  }
+
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
-  const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
+
+  // Root-gated nutrient access
+  const rootAccess = SIM.NUTRIENT_ROOT_ACCESS_MIN
+    + (1 - SIM.NUTRIENT_ROOT_ACCESS_MIN) * (plant.rootDepth / maxRoot);
+  const nutrientBonus = 1 + cell.nutrients * rootAccess * SIM.NUTRIENT_GROWTH_BONUS;
+
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
+
+  // Wetland waterlogging: shallow roots suffer oxygen deprivation
+  if (cell.terrainType === TerrainType.Wetland) {
+    const rootFrac = plant.rootDepth / maxRoot;
+    if (rootFrac < SIM.WETLAND_WATERLOG_ROOT_THRESHOLD) {
+      const severity = 1 - rootFrac / SIM.WETLAND_WATERLOG_ROOT_THRESHOLD;
+      energyProduced *= 1 - severity * SIM.WETLAND_WATERLOG_PENALTY;
+    }
+  }
+
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
   return energyProduced;
 }

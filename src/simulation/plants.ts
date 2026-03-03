@@ -1,5 +1,5 @@
 import {
-  Archetype, Genome, Plant, SIM, GRASS, INITIAL_GRASS_FRACTION,
+  Archetype, Genome, Plant, SIM, GRASS,
   SpeciesColor, TerrainType, World,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
@@ -74,28 +74,66 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   };
 }
 
-export function seedInitialPlants(world: World, count: number): void {
-  const grassCount = Math.floor(count * INITIAL_GRASS_FRACTION);
-  let placed = 0;
-  let attempts = 0;
-  while (placed < count && attempts < count * 10) {
-    attempts++;
-    const x = Math.floor(Math.random() * world.width);
-    const y = Math.floor(Math.random() * world.height);
-    if (world.grid[y][x].plantId !== null) continue;
-    const t = world.grid[y][x].terrainType;
-    if (t === TerrainType.River || t === TerrainType.Rock) continue;
+export function seedInitialPlants(world: World, _count: number): void {
+  const CLUSTER_COUNT = 8;
+  const CLUSTER_RADIUS = 6;
+  const SPECIES_PER_CLUSTER = 5;
+  const GRASS_PER_CLUSTER = 2;
+  const COPIES_PER_SPECIES = 2;
 
-    const archetype: Archetype = placed < grassCount ? 'grass' : 'tree';
-    const speciesId = world.nextSpeciesId++;
-    world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-    const id = world.nextPlantId++;
-    const genome = randomGenome();
-    world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, archetype));
-    const plant = createPlant(id, x, y, genome, speciesId, archetype);
-    world.plants.set(id, plant);
-    world.grid[y][x].plantId = id;
-    world.grid[y][x].lastSpeciesId = speciesId;
-    placed++;
+  // Generate 9 candidate centers on a jittered 3x3 grid
+  const gridCols = 3, gridRows = 3;
+  const cellW = world.width / (gridCols + 1);
+  const cellH = world.height / (gridRows + 1);
+  const candidates: { x: number; y: number }[] = [];
+
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      const cx = Math.round(cellW * (c + 1) + (Math.random() - 0.5) * cellW * 0.5);
+      const cy = Math.round(cellH * (r + 1) + (Math.random() - 0.5) * cellH * 0.5);
+      candidates.push({
+        x: Math.max(CLUSTER_RADIUS, Math.min(world.width - CLUSTER_RADIUS - 1, cx)),
+        y: Math.max(CLUSTER_RADIUS, Math.min(world.height - CLUSTER_RADIUS - 1, cy)),
+      });
+    }
+  }
+
+  // Shuffle and take 8 centers
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const centers = candidates.slice(0, CLUSTER_COUNT);
+
+  // Seed species in each cluster
+  for (const center of centers) {
+    for (let s = 0; s < SPECIES_PER_CLUSTER; s++) {
+      const archetype: Archetype = s < GRASS_PER_CLUSTER ? 'grass' : 'tree';
+      const genome = randomGenome();
+      const speciesId = world.nextSpeciesId++;
+      world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
+      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, archetype));
+
+      // Place 2 copies of this species within cluster radius
+      for (let copy = 0; copy < COPIES_PER_SPECIES; copy++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const dx = Math.floor(Math.random() * (CLUSTER_RADIUS * 2 + 1)) - CLUSTER_RADIUS;
+          const dy = Math.floor(Math.random() * (CLUSTER_RADIUS * 2 + 1)) - CLUSTER_RADIUS;
+          const px = center.x + dx;
+          const py = center.y + dy;
+          if (px < 0 || px >= world.width || py < 0 || py >= world.height) continue;
+          const cell = world.grid[py][px];
+          if (cell.plantId !== null) continue;
+          if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
+
+          const id = world.nextPlantId++;
+          const plant = createPlant(id, px, py, genome, speciesId, archetype);
+          world.plants.set(id, plant);
+          cell.plantId = id;
+          cell.lastSpeciesId = speciesId;
+          break;
+        }
+      }
+    }
   }
 }

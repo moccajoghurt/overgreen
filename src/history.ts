@@ -1,4 +1,4 @@
-import { World, History, SimEvent } from './types';
+import { World, History, SimEvent, TerrainType, TerrainCounts } from './types';
 
 const SNAPSHOT_INTERVAL = 5; // store every Nth tick — complete history, bounded growth
 const MAX_EVENTS = 100;
@@ -46,12 +46,14 @@ interface PopulationSnapshot {
   traitAverages: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
   speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>;
   speciesMaxGeneration: Map<number, number>;
+  speciesTerrainCounts: Map<number, TerrainCounts>;
 }
 
 function countPopulations(world: World): PopulationSnapshot {
   const populations = new Map<number, number>();
   const speciesSums = new Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number; count: number }>();
   const speciesMaxGeneration = new Map<number, number>();
+  const speciesTerrainCounts = new Map<number, TerrainCounts>();
   let totalAlive = 0;
   let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumAllelo = 0, sumDef = 0;
   for (const plant of world.plants.values()) {
@@ -83,6 +85,18 @@ function countPopulations(world: World): PopulationSnapshot {
     // Per-species max generation
     const prev = speciesMaxGeneration.get(sid) ?? 0;
     if (plant.generation > prev) speciesMaxGeneration.set(sid, plant.generation);
+
+    // Per-species terrain counts
+    const terrain = world.grid[plant.y][plant.x].terrainType;
+    let tc = speciesTerrainCounts.get(sid);
+    if (!tc) {
+      tc = { soil: 0, hill: 0, wetland: 0, arid: 0 };
+      speciesTerrainCounts.set(sid, tc);
+    }
+    if (terrain === TerrainType.Soil) tc.soil++;
+    else if (terrain === TerrainType.Hill) tc.hill++;
+    else if (terrain === TerrainType.Wetland) tc.wetland++;
+    else if (terrain === TerrainType.Arid) tc.arid++;
   }
 
   const traitAverages = totalAlive > 0
@@ -97,7 +111,7 @@ function countPopulations(world: World): PopulationSnapshot {
     });
   }
 
-  return { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration };
+  return { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts };
 }
 
 function detectExtinctions(
@@ -179,7 +193,7 @@ function detectAgeMilestones(history: History, world: World): void {
 }
 
 export function recordTick(history: History, world: World): void {
-  const { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration } = countPopulations(world);
+  const { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts } = countPopulations(world);
 
   // Count herbivores
   let herbivoreCount = 0;
@@ -189,7 +203,7 @@ export function recordTick(history: History, world: World): void {
 
   // Store snapshot (sampled — every Nth tick for complete history)
   if (world.tick % SNAPSHOT_INTERVAL === 0) {
-    history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, herbivoreCount });
+    history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts, herbivoreCount });
   }
 
   // Update species records + detect population milestones

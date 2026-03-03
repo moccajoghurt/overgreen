@@ -86,6 +86,7 @@ interface DiagnosticSnapshot {
     count: number;
     avgGenome: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
     avgEnergy: number;
+    terrain: { soil: number; hill: number; wetland: number; arid: number };
   }>;
 }
 
@@ -201,6 +202,7 @@ function computeSnapshot(
     count: number; sumEnergy: number;
     sumRoot: number; sumHeight: number; sumLeaf: number; sumSeed: number;
     sumAllelo: number; sumDef: number;
+    soil: number; hill: number; wetland: number; arid: number;
   }>();
   const strategySet = new Set<string>();
 
@@ -250,13 +252,17 @@ function computeSnapshot(
 
     let bucket = speciesBuckets.get(plant.speciesId);
     if (!bucket) {
-      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumAllelo: 0, sumDef: 0 };
+      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumAllelo: 0, sumDef: 0, soil: 0, hill: 0, wetland: 0, arid: 0 };
       speciesBuckets.set(plant.speciesId, bucket);
     }
     bucket.count++;
     bucket.sumEnergy += plant.energy;
     bucket.sumRoot += r; bucket.sumHeight += h; bucket.sumLeaf += l; bucket.sumSeed += s;
     bucket.sumAllelo += a; bucket.sumDef += d;
+    if (cell.terrainType === TerrainType.Soil) bucket.soil++;
+    else if (cell.terrainType === TerrainType.Hill) bucket.hill++;
+    else if (cell.terrainType === TerrainType.Wetland) bucket.wetland++;
+    else if (cell.terrainType === TerrainType.Arid) bucket.arid++;
   }
 
   // PASS 2: Grid scan for resource state
@@ -311,6 +317,7 @@ function computeSnapshot(
         def: b.sumDef / b.count,
       },
       avgEnergy: b.sumEnergy / b.count,
+      terrain: { soil: b.soil, hill: b.hill, wetland: b.wetland, arid: b.arid },
     }));
 
   const totalDeaths = accum.deathsByStarvation + accum.deathsByAge + accum.deathsByFire;
