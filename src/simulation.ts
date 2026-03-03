@@ -1,4 +1,4 @@
-import { Cell, Plant, SIM, TerrainType, World } from './types';
+import { Cell, GRASS, Plant, SIM, TerrainType, World } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import { mutateGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
@@ -79,7 +79,10 @@ function phaseCalculateLight(world: World): void {
         if (nPlant && nPlant.alive && nPlant.height > myHeight) {
           // Shade scales with height difference — towering neighbors shade more
           const diff = nPlant.height - myHeight;
-          shadeSum += shadowReduction * Math.min(1, diff / SIM.SHADOW_HEIGHT_SCALE);
+          const nGrass = nPlant.archetype === 'grass';
+          const nShadow = nGrass ? GRASS.SHADOW_REDUCTION * eraMults.shadowMult : shadowReduction;
+          const nScale = nGrass ? GRASS.SHADOW_HEIGHT_SCALE : SIM.SHADOW_HEIGHT_SCALE;
+          shadeSum += nShadow * Math.min(1, diff / nScale);
         }
       }
       const rawBase = cell.terrainType === TerrainType.Hill
@@ -121,7 +124,10 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
 
 function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  const heightLightBonus = plant.height / SIM.MAX_HEIGHT * SIM.HEIGHT_LIGHT_BONUS;
+  const isGrass = plant.archetype === 'grass';
+  const maxH = isGrass ? GRASS.MAX_HEIGHT : SIM.MAX_HEIGHT;
+  const hBonus = isGrass ? GRASS.HEIGHT_LIGHT_BONUS : SIM.HEIGHT_LIGHT_BONUS;
+  const heightLightBonus = plant.height / maxH * hBonus;
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
   const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
@@ -131,16 +137,23 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 }
 
 function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): number {
+  const isGrass = plant.archetype === 'grass';
+  const mBase = isGrass ? GRASS.MAINTENANCE_BASE : SIM.MAINTENANCE_BASE;
+  const mHeight = isGrass ? GRASS.MAINTENANCE_PER_HEIGHT : SIM.MAINTENANCE_PER_HEIGHT;
+  const mRoot = isGrass ? GRASS.MAINTENANCE_PER_ROOT : SIM.MAINTENANCE_PER_ROOT;
+  const mLeaf = isGrass ? GRASS.MAINTENANCE_PER_LEAF : SIM.MAINTENANCE_PER_LEAF;
+  const maxRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
+
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  let leafMaint = effectiveLeaf * SIM.MAINTENANCE_PER_LEAF * world.environment.leafMaintenanceMult;
+  let leafMaint = effectiveLeaf * mLeaf * world.environment.leafMaintenanceMult;
   if (world.environment.leafMaintenanceMult > 1.01) {
-    const rootInsulation = Math.min(0.8, plant.rootDepth / SIM.MAX_ROOT_DEPTH * 0.8);
-    const penalty = leafMaint - effectiveLeaf * SIM.MAINTENANCE_PER_LEAF;
+    const rootInsulation = Math.min(0.8, plant.rootDepth / maxRoot * 0.8);
+    const penalty = leafMaint - effectiveLeaf * mLeaf;
     leafMaint -= penalty * rootInsulation;
   }
-  let maintenance = SIM.MAINTENANCE_BASE
-    + plant.height * SIM.MAINTENANCE_PER_HEIGHT
-    + plant.rootDepth * SIM.MAINTENANCE_PER_ROOT
+  let maintenance = mBase
+    + plant.height * mHeight
+    + plant.rootDepth * mRoot
     + leafMaint
     + plant.genome.allelopathy * SIM.ALLELOPATHY_MAINTENANCE_RATE
     + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE;
@@ -150,6 +163,19 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
 
 function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, eraMutationRate: number, eraSeedEnergyMult: number): void {
   const env = world.environment;
+  const isGrass = plant.archetype === 'grass';
+  const growthEff = isGrass ? GRASS.GROWTH_EFFICIENCY : SIM.GROWTH_EFFICIENCY;
+  const capRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
+  const capHeight = isGrass ? GRASS.MAX_HEIGHT : SIM.MAX_HEIGHT;
+  const capLeaf = isGrass ? GRASS.MAX_LEAF_AREA : SIM.MAX_LEAF_AREA;
+  const seedCost = isGrass ? GRASS.SEED_ENERGY_COST : SIM.SEED_ENERGY_COST;
+  const seedRangeMax = isGrass ? GRASS.SEED_RANGE_MAX : SIM.SEED_RANGE_MAX;
+  const seedRangeDiv = isGrass ? GRASS.SEED_RANGE_HEIGHT_DIVISOR : SIM.SEED_RANGE_HEIGHT_DIVISOR;
+  const seedEnergy = isGrass ? GRASS.SEED_INITIAL_ENERGY : SIM.SEED_INITIAL_ENERGY;
+  const seedlingH = isGrass ? GRASS.SEEDLING_HEIGHT : 0.5;
+  const seedlingR = isGrass ? GRASS.SEEDLING_ROOT : 0.5;
+  const seedlingL = isGrass ? GRASS.SEEDLING_LEAF : 0.5;
+
   const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
   const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
 
@@ -160,13 +186,13 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const hFrac = plant.genome.heightPriority / total;
     const lFrac = plant.genome.leafSize / total;
 
-    const rootGrowth = growthBudget * rFrac * SIM.GROWTH_EFFICIENCY;
-    const heightGrowth = growthBudget * hFrac * SIM.GROWTH_EFFICIENCY;
-    const leafGrowth = growthBudget * lFrac * SIM.GROWTH_EFFICIENCY;
+    const rootGrowth = growthBudget * rFrac * growthEff;
+    const heightGrowth = growthBudget * hFrac * growthEff;
+    const leafGrowth = growthBudget * lFrac * growthEff;
 
-    const maxRoot = SIM.MAX_ROOT_DEPTH * (0.3 + 0.7 * rFrac);
-    const maxHeight = SIM.MAX_HEIGHT * (0.3 + 0.7 * hFrac);
-    const maxLeaf = SIM.MAX_LEAF_AREA * (0.3 + 0.7 * lFrac);
+    const maxRoot = capRoot * (0.3 + 0.7 * rFrac);
+    const maxHeight = capHeight * (0.3 + 0.7 * hFrac);
+    const maxLeaf = capLeaf * (0.3 + 0.7 * lFrac);
 
     plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
     plant.height = Math.min(maxHeight, plant.height + heightGrowth);
@@ -174,8 +200,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
   }
 
   // Seed spawning — taller plants disperse further
-  const seedRange = SIM.SEED_RANGE_MAX + Math.floor(plant.height / SIM.SEED_RANGE_HEIGHT_DIVISOR);
-  const seedsToSpawn = Math.floor(seedBudget / SIM.SEED_ENERGY_COST);
+  const seedRange = seedRangeMax + Math.floor(plant.height / seedRangeDiv);
+  const seedsToSpawn = Math.floor(seedBudget / seedCost);
   for (let i = 0; i < seedsToSpawn; i++) {
     world.seedsAttempted++;
     const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
@@ -190,9 +216,9 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
 
     const childId = world.nextPlantId++;
     const child: Plant = {
-      id: childId, speciesId: plant.speciesId, x: tx, y: ty,
-      height: 0.5, rootDepth: 0.5, leafArea: 0.5,
-      energy: SIM.SEED_INITIAL_ENERGY * eraSeedEnergyMult, age: 0, alive: true,
+      id: childId, speciesId: plant.speciesId, archetype: plant.archetype, x: tx, y: ty,
+      height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
+      energy: seedEnergy * eraSeedEnergyMult, age: 0, alive: true,
       genome: mutateGenome(plant.genome, eraMutationRate),
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
@@ -206,6 +232,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
       parentX: plant.x, parentY: plant.y,
       childX: tx, childY: ty,
       childId, speciesId: plant.speciesId,
+      archetype: plant.archetype,
     });
   }
 
@@ -270,11 +297,12 @@ function phaseUpdatePlants(world: World): void {
 function phaseDeath(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= SIM.MAX_AGE) {
+    const maxAge = plant.archetype === 'grass' ? GRASS.MAX_AGE : SIM.MAX_AGE;
+    if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
       // Use disease flag computed in phaseUpdatePlants
-      let cause: 'starvation' | 'age' | 'disease' = plant.age >= SIM.MAX_AGE ? 'age' : 'starvation';
+      let cause: 'starvation' | 'age' | 'disease' = plant.age >= maxAge ? 'age' : 'starvation';
       if (cause === 'starvation' && plant.isDiseased) {
         cause = 'disease';
         plant.causeOfDeath = 'disease';
@@ -289,6 +317,7 @@ function phaseDeath(world: World): void {
       world.deathEvents.push({
         id: plant.id,
         speciesId: plant.speciesId,
+        archetype: plant.archetype,
         cause,
         age: plant.age,
         offspringCount: plant.offspringCount,
@@ -302,10 +331,14 @@ function phaseDecomposition(world: World): void {
   const toRemove: number[] = [];
   for (const plant of world.plants.values()) {
     if (plant.alive) continue;
+    const isGrass = plant.archetype === 'grass';
+    const dWater = isGrass ? GRASS.DECOMP_WATER_BOOST : SIM.DECOMP_WATER_BOOST;
+    const dNutrient = isGrass ? GRASS.DECOMP_NUTRIENT_BOOST : SIM.DECOMP_NUTRIENT_BOOST;
+    const dNutrientH = isGrass ? GRASS.DECOMP_NUTRIENT_PER_HEIGHT : SIM.DECOMP_NUTRIENT_PER_HEIGHT;
     const cell = world.grid[plant.y][plant.x];
-    cell.waterLevel = Math.min(SIM.MAX_WATER, cell.waterLevel + SIM.DECOMP_WATER_BOOST);
+    cell.waterLevel = Math.min(SIM.MAX_WATER, cell.waterLevel + dWater);
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS,
-      cell.nutrients + SIM.DECOMP_NUTRIENT_BOOST + plant.height * SIM.DECOMP_NUTRIENT_PER_HEIGHT);
+      cell.nutrients + dNutrient + plant.height * dNutrientH);
     if (cell.terrainType === TerrainType.Hill) {
       cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
     }

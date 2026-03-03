@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, Genome, World, Season } from '../types';
+import { SIM, GRASS, Genome, Archetype, World, Season } from '../types';
 import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
@@ -36,6 +36,7 @@ export interface PlantSnapshot {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
+  archetype: Archetype;
   causeOfDeath?: 'fire' | 'disease';
 }
 
@@ -99,6 +100,10 @@ export interface RendererState {
   trunks: THREE.InstancedMesh;
   canopies: THREE.InstancedMesh;
   branches: THREE.InstancedMesh;
+
+  // Grass meshes
+  grassBlades: THREE.InstancedMesh;
+  grassBases: THREE.InstancedMesh;
 
   // Seed mesh
   seeds: THREE.InstancedMesh;
@@ -209,6 +214,28 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
 
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX,
     branchVisibility };
+}
+
+export function computeGrassSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
+  const leafRatio = leafArea / GRASS.MAX_LEAF_AREA;
+  const rootRatio = rootDepth / GRASS.MAX_ROOT_DEPTH;
+
+  // Blade height from plant height + heightPriority
+  const bladeH = Math.max(0.1, height * (0.4 + genome.heightPriority * 0.3));
+
+  // Blade count: 3-8 driven by leafSize
+  const bladeCount = Math.max(3, Math.min(8, Math.round(3 + leafRatio * 5)));
+
+  // How far blades splay outward
+  const spread = Math.max(0.1, 0.15 + leafRatio * 0.25 + rootRatio * 0.1);
+
+  // Blade width from leafSize
+  const bladeWidth = Math.max(0.04, 0.06 + genome.leafSize * 0.06);
+
+  // Ground tuft size
+  const baseSize = Math.max(0.1, 0.15 + rootRatio * 0.15 + leafRatio * 0.1);
+
+  return { bladeH, bladeCount, spread, bladeWidth, baseSize };
 }
 
 export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {

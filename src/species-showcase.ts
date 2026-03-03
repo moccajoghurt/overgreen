@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { World, Plant, Renderer, History } from './types';
-import { computeSilhouette, plantHash, makeRoughSphere } from './renderer3d/state';
-import { naturalCanopyColor, naturalTrunkColor } from './renderer3d/plants';
+import { computeSilhouette, computeGrassSilhouette, plantHash, makeRoughSphere } from './renderer3d/state';
+import { naturalCanopyColor, naturalTrunkColor, naturalGrassColor } from './renderer3d/plants';
 import { speciesCentroid, speciesColorToRgb } from './ui-utils';
 import { createFloatingLabels } from './floating-labels';
 
@@ -318,6 +318,88 @@ export function createShowcase(
     return group;
   }
 
+  // Grass blade geometry for showcase
+  const grassBladeGeo = (() => {
+    const segments = 4;
+    const vertices: number[] = [];
+    const normals: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const width = 0.5 * (1 - t * t);
+      const y = t;
+      const z = Math.sin(t * Math.PI * 0.3) * 0.15;
+      vertices.push(-width, y, z);
+      vertices.push(width, y, z);
+      normals.push(0, 0, 1, 0, 0, 1);
+    }
+    for (let i = 0; i < segments; i++) {
+      const base = i * 2;
+      indices.push(base, base + 2, base + 1);
+      indices.push(base + 1, base + 2, base + 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setIndex(indices);
+    return geo;
+  })();
+
+  const grassBaseGeo = (() => {
+    const geo = new THREE.SphereGeometry(0.5, 6, 4);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, pos.getY(i) * 0.3);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  })();
+
+  function buildGrassGroup(plant: Plant): THREE.Group {
+    const group = new THREE.Group();
+    const { genome } = plant;
+    const gsil = computeGrassSilhouette(plant.height, plant.rootDepth, plant.leafArea, genome);
+    const _c = { cr: 0, cg: 0, cb: 0 };
+    naturalGrassColor(genome, _c);
+    const { cr, cg, cb } = _c;
+    const baseColor = new THREE.Color(cr * 0.7, cg * 0.6, cb * 0.5);
+    const pid = plant.id;
+
+    // Ground tuft
+    const baseMesh = new THREE.Mesh(grassBaseGeo, new THREE.MeshLambertMaterial({ color: baseColor }));
+    baseMesh.position.set(0, gsil.baseSize * 0.1, 0);
+    baseMesh.scale.set(gsil.baseSize, gsil.baseSize * 0.5, gsil.baseSize);
+    group.add(baseMesh);
+
+    // Blades
+    for (let i = 0; i < gsil.bladeCount; i++) {
+      const angle = (i / gsil.bladeCount) * Math.PI * 2 + plantHash(pid, i * 3) * 0.5;
+      const tiltOut = 0.2 + gsil.spread * (0.5 + plantHash(pid, i * 3 + 1) * 0.5);
+      const bladeH = gsil.bladeH * (0.8 + plantHash(pid, i * 3 + 2) * 0.4);
+      const bladeW = gsil.bladeWidth;
+      const offsetX = Math.sin(angle) * gsil.spread * 0.3;
+      const offsetZ = Math.cos(angle) * gsil.spread * 0.3;
+
+      const jitter = (plantHash(pid, i * 7 + 100) - 0.5) * 0.08;
+      const bladeMat = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(
+          Math.max(0, cr + jitter),
+          Math.max(0, cg + jitter),
+          Math.max(0, cb + jitter * 0.5),
+        ),
+      });
+      const blade = new THREE.Mesh(grassBladeGeo, bladeMat);
+      blade.position.set(offsetX, 0, offsetZ);
+      blade.scale.set(bladeW, bladeH, bladeW);
+      blade.rotation.set(0, 0, 0);
+      blade.rotateY(angle);
+      blade.rotateX(-tiltOut);
+      group.add(blade);
+    }
+
+    return group;
+  }
+
   function renderTreeToCanvas(
     group: THREE.Group,
     ctx: CanvasRenderingContext2D,
@@ -462,7 +544,9 @@ export function createShowcase(
         entry.plantId = sp.representative.id;
         entry.plantScore = score;
 
-        const group = buildTreeGroup(sp.representative);
+        const group = sp.representative.archetype === 'grass'
+          ? buildGrassGroup(sp.representative)
+          : buildTreeGroup(sp.representative);
         renderTreeToCanvas(group, entry.ctx);
         if (!isInitial) rebuilds++;
 

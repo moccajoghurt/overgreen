@@ -1,4 +1,4 @@
-import { Genome } from './types';
+import { Archetype, Genome } from './types';
 
 const ADJECTIVES: string[][] = [
   // rootPriority
@@ -30,7 +30,37 @@ const NOUNS: string[][] = [
   ['Thorns', 'Shields', 'Bristles', 'Spines', 'Armors', 'Barbs'],
 ];
 
-export function generateSpeciesName(genome: Genome, speciesId: number): string {
+const GRASS_ADJECTIVES: string[][] = [
+  // rootPriority
+  ['Creeping', 'Mat-forming', 'Dense', 'Spreading', 'Fibrous', 'Clumping'],
+  // heightPriority
+  ['Tall', 'Upright', 'Waving', 'Erect', 'Standing', 'Swaying'],
+  // leafSize
+  ['Broad', 'Lush', 'Thick', 'Verdant', 'Plush', 'Feathered'],
+  // seedInvestment
+  ['Feathery', 'Wispy', 'Plumed', 'Seeding', 'Windblown', 'Drifting'],
+  // allelopathy
+  ['Bitter', 'Choking', 'Wild', 'Rank', 'Harsh', 'Strangling'],
+  // defense
+  ['Sharp', 'Cutting', 'Wiry', 'Stiff', 'Rigid', 'Bristling'],
+];
+
+const GRASS_NOUNS: string[][] = [
+  // rootPriority
+  ['Sod', 'Turf', 'Tussocks', 'Mats', 'Runners', 'Rhizomes'],
+  // heightPriority
+  ['Reeds', 'Blades', 'Stalks', 'Stems', 'Spears', 'Rushes'],
+  // leafSize
+  ['Meadows', 'Pastures', 'Fields', 'Lawns', 'Prairies', 'Sweeps'],
+  // seedInvestment
+  ['Grains', 'Seedheads', 'Plumes', 'Tassels', 'Chaff', 'Florets'],
+  // allelopathy
+  ['Invasives', 'Weeds', 'Creepers', 'Tangles', 'Blight', 'Chokers'],
+  // defense
+  ['Razors', 'Sedges', 'Sawgrass', 'Needles', 'Barbs', 'Thistles'],
+];
+
+export function generateSpeciesName(genome: Genome, speciesId: number, archetype?: Archetype): string {
   const traits = [
     genome.rootPriority,
     genome.heightPriority,
@@ -52,8 +82,10 @@ export function generateSpeciesName(genome: Genome, speciesId: number): string {
     }
   }
 
-  const adjPool = ADJECTIVES[first];
-  const nounPool = NOUNS[second];
+  const adjs = archetype === 'grass' ? GRASS_ADJECTIVES : ADJECTIVES;
+  const nouns = archetype === 'grass' ? GRASS_NOUNS : NOUNS;
+  const adjPool = adjs[first];
+  const nounPool = nouns[second];
   const adj = adjPool[speciesId % adjPool.length];
   const noun = nounPool[Math.floor(speciesId / adjPool.length) % nounPool.length];
 

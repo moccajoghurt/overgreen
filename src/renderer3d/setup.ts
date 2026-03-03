@@ -117,6 +117,65 @@ function createInstancedMesh(
   return mesh;
 }
 
+// ── Grass meshes ──
+
+export const MAX_GRASS_BLADES = MAX_INSTANCES * 8; // up to 8 blades per plant
+export const MAX_GRASS_BASES = MAX_INSTANCES;
+
+export interface GrassMeshes {
+  grassBlades: THREE.InstancedMesh;
+  grassBases: THREE.InstancedMesh;
+}
+
+function createGrassBladeGeometry(): THREE.BufferGeometry {
+  // Tapered quad strip: 4 segments, wide at base, pointed at tip, slight outward curve
+  const segments = 4;
+  const vertices: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const width = 0.5 * (1 - t * t); // tapers to point
+    const y = t;
+    // Slight outward curve
+    const z = Math.sin(t * Math.PI * 0.3) * 0.15;
+
+    vertices.push(-width, y, z); // left
+    vertices.push(width, y, z);  // right
+    normals.push(0, 0, 1, 0, 0, 1);
+  }
+
+  for (let i = 0; i < segments; i++) {
+    const base = i * 2;
+    indices.push(base, base + 2, base + 1);
+    indices.push(base + 1, base + 2, base + 3);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setIndex(indices);
+  return geo;
+}
+
+export function createGrassMeshes(): GrassMeshes {
+  const bladeGeo = createGrassBladeGeometry();
+  const grassBlades = createInstancedMesh(bladeGeo, MAX_GRASS_BLADES);
+
+  // Flattened sphere for ground tuft
+  const baseGeo = new THREE.SphereGeometry(0.5, 6, 4);
+  // Flatten it
+  const pos = baseGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, pos.getY(i) * 0.3);
+  }
+  baseGeo.computeVertexNormals();
+  const grassBases = createInstancedMesh(baseGeo, MAX_GRASS_BASES);
+
+  return { grassBlades, grassBases };
+}
+
 export function createPlantMeshes(): PlantMeshes {
   const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
   const trunks = createInstancedMesh(trunkGeo, MAX_INSTANCES);

@@ -1,6 +1,8 @@
 import { Environment, EnvironmentEvent } from './environment';
 import { Herbivore, HerbivoreDeathEvent, HerbivoreBirthEvent } from './herbivore';
 
+export type Archetype = 'tree' | 'grass';
+
 export enum TerrainType {
   Soil = 0,
   River = 1,
@@ -26,6 +28,7 @@ export interface Genome {
 export interface Plant {
   id: number;
   speciesId: number;
+  archetype: Archetype;
   x: number;
   y: number;
   height: number;
@@ -84,6 +87,7 @@ export interface World {
 export interface DeathEvent {
   id: number;
   speciesId: number;
+  archetype: Archetype;
   cause: 'starvation' | 'age' | 'fire' | 'disease';
   age: number;
   offspringCount: number;
@@ -95,6 +99,7 @@ export interface FireDeathEvent {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
+  archetype: Archetype;
 }
 
 export interface SeedEvent {
@@ -104,4 +109,5 @@ export interface SeedEvent {
   childY: number;
   childId: number;
   speciesId: number;
+  archetype: Archetype;
 }

@@ -128,7 +128,8 @@ export function updateInspector(world: World, controls: Controls): void {
     const plant = world.plants.get(cell.plantId);
     if (plant) {
       const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
-      text += `\n[Plant #${plant.id}]  ${spName}  Age: ${plant.age}\n`;
+      const arcLabel = plant.archetype === 'grass' ? 'Grass' : 'Tree';
+      text += `\n[Plant #${plant.id}]  ${spName}  (${arcLabel})  Age: ${plant.age}\n`;
       text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
       text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
       text += `Energy: ${plant.energy.toFixed(1)}\n`;

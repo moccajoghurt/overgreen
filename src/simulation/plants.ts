@@ -1,5 +1,6 @@
 import {
-  Genome, Plant, SIM, SpeciesColor, TerrainType, World,
+  Archetype, Genome, Plant, SIM, GRASS, INITIAL_GRASS_FRACTION,
+  SpeciesColor, TerrainType, World,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
 
@@ -45,10 +46,13 @@ export function randomGenome(): Genome {
   };
 }
 
-export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number): Plant {
+export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number, archetype: Archetype = 'tree'): Plant {
+  const isGrass = archetype === 'grass';
   return {
-    id, speciesId, x, y, genome,
-    height: 1, rootDepth: 1, leafArea: 1,
+    id, speciesId, archetype, x, y, genome,
+    height: isGrass ? GRASS.SEEDLING_HEIGHT : 1,
+    rootDepth: isGrass ? GRASS.SEEDLING_ROOT : 1,
+    leafArea: isGrass ? GRASS.SEEDLING_LEAF : 1,
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
     lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
@@ -71,6 +75,7 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
 }
 
 export function seedInitialPlants(world: World, count: number): void {
+  const grassCount = Math.floor(count * INITIAL_GRASS_FRACTION);
   let placed = 0;
   let attempts = 0;
   while (placed < count && attempts < count * 10) {
@@ -81,12 +86,13 @@ export function seedInitialPlants(world: World, count: number): void {
     const t = world.grid[y][x].terrainType;
     if (t === TerrainType.River || t === TerrainType.Rock) continue;
 
+    const archetype: Archetype = placed < grassCount ? 'grass' : 'tree';
     const speciesId = world.nextSpeciesId++;
     world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
     const id = world.nextPlantId++;
     const genome = randomGenome();
-    world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId));
-    const plant = createPlant(id, x, y, genome, speciesId);
+    world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, archetype));
+    const plant = createPlant(id, x, y, genome, speciesId, archetype);
     world.plants.set(id, plant);
     world.grid[y][x].plantId = id;
     world.grid[y][x].lastSpeciesId = speciesId;
