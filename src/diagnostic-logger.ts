@@ -217,8 +217,15 @@ function computeSnapshot(
     sumMaintenance += plant.lastMaintenanceCost;
     if (plant.lastEnergyProduced > plant.lastMaintenanceCost) energyPositiveCount++;
 
+    const cell = world.grid[plant.y][plant.x];
+
     sumLight += plant.lastLightReceived;
-    if (plant.lastLightReceived < 0.9) shadedCount++;
+    // Compare against terrain+season base to detect actual neighbor shading (not seasonal darkness)
+    let unshadedBase = SIM.BASE_LIGHT;
+    if (cell.terrainType === TerrainType.Hill) unshadedBase += SIM.HILL_LIGHT_BONUS;
+    else if (cell.terrainType === TerrainType.Wetland) unshadedBase -= SIM.WETLAND_LIGHT_PENALTY;
+    else if (cell.terrainType === TerrainType.Arid) unshadedBase += SIM.ARID_LIGHT_BONUS;
+    if (plant.lastLightReceived < unshadedBase * world.environment.lightMult * 0.9) shadedCount++;
     sumRootDepth += plant.rootDepth;
     const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;
     if (waterNeeded > 0.01 && plant.lastWaterAbsorbed / waterNeeded < 0.5) {
@@ -237,8 +244,6 @@ function computeSnapshot(
 
     const stratKey = `${Math.round(r * 10)},${Math.round(h * 10)},${Math.round(l * 10)},${Math.round(s * 10)},${Math.round(a * 10)},${Math.round(d * 10)}`;
     strategySet.add(stratKey);
-
-    const cell = world.grid[plant.y][plant.x];
     if (cell.terrainType === TerrainType.Soil) {
       plantsSoil++; energySoil += plant.energy; countSoil++;
     } else if (cell.terrainType === TerrainType.Hill) {
