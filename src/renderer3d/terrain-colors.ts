@@ -53,26 +53,14 @@ export function updateTerrainColors(state: RendererState): void {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
 
-      if (state.colorMode === 'terrain') {
-        // Bold, fixed-saturation terrain colors for terrain view
-        switch (cell.terrainType) {
-          case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.65, 0.35); break;
-          case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.10, 0.45); break;
-          case TerrainType.Hill:   tmpColor.setHSL(35 / 360, 0.50, 0.50); break;
-          case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.55, 0.30); break;
-          case TerrainType.Arid:   tmpColor.setHSL(42 / 360, 0.60, 0.55); break;
-          default:                 tmpColor.setHSL(30 / 360, 0.55, 0.40); break; // Soil
-        }
-      } else {
-        // Fixed natural terrain colors (no per-tick water/nutrient dynamics)
-        switch (cell.terrainType) {
-          case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.30, 0.20); break;
-          case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
-          case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
-          case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
-          case TerrainType.Arid:   tmpColor.setHSL(40 / 360, 0.35, 0.48); break;
-          default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil
-        }
+      // Fixed natural terrain colors (no per-tick water/nutrient dynamics)
+      switch (cell.terrainType) {
+        case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.30, 0.20); break;
+        case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
+        case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
+        case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
+        case TerrainType.Arid:   tmpColor.setHSL(40 / 360, 0.35, 0.48); break;
+        default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil
       }
 
       // Species territory tint

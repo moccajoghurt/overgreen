@@ -35,29 +35,8 @@ labelsToggle.addEventListener('change', () => {
 
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInputElement;
-let preTerrainColorMode: 'natural' | 'species' = 'natural';
-let preTerrainLabelsVisible = false;
 terrainToggle.addEventListener('change', () => {
-  if (terrainToggle.checked) {
-    // Save current state
-    preTerrainColorMode = colorToggle.checked ? 'species' : 'natural';
-    preTerrainLabelsVisible = labelsToggle.checked;
-    // Switch to terrain mode
-    renderer.setColorMode('terrain');
-    terrainLabels.setVisible(true);
-    speciesLabels.setVisible(false);
-    // Disable species controls
-    colorToggle.disabled = true;
-    labelsToggle.disabled = true;
-  } else {
-    // Restore previous state
-    renderer.setColorMode(preTerrainColorMode);
-    terrainLabels.setVisible(false);
-    speciesLabels.setVisible(preTerrainLabelsVisible);
-    // Re-enable species controls
-    colorToggle.disabled = false;
-    labelsToggle.disabled = false;
-  }
+  terrainLabels.setVisible(terrainToggle.checked);
 });
 
 const history = createHistory();

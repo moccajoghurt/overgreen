@@ -1,4 +1,4 @@
-export type ColorMode = 'natural' | 'species' | 'terrain';
+export type ColorMode = 'natural' | 'species';
 
 export interface Renderer {
   render(selectedCell: { x: number; y: number } | null): void;

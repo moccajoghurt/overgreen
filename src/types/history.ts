@@ -1,10 +1,12 @@
 // ── History / Analytics ──
 
+export type TraitAverages = { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
+
 export interface TickSnapshot {
   tick: number;
   populations: Map<number, number>; // speciesId → alive count
-  traitAverages: { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
-  speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>;
+  traitAverages: TraitAverages;
+  speciesTraitAverages: Map<number, TraitAverages>;
   speciesMaxGeneration: Map<number, number>;
   herbivoreCount: number;
 }

@@ -1,8 +1,8 @@
-import { Genome } from './types';
+import { Genome, TraitAverages } from './types';
 
 export interface TraitDef {
   genomeKey: keyof Genome;
-  shortKey: string;
+  shortKey: keyof TraitAverages;
   label: string;
   color: string;
 }
