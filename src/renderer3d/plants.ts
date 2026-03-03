@@ -21,7 +21,9 @@ export function updatePlants(state: RendererState): void {
   const hasTicked = world.tick !== state.lastPlantTick;
   const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
     || burningPlants.size > 0 || flyingSeeds.length > 0;
-  if (!hasTicked && !hasAnimations) return;
+  const hoverChanged = state.hoveredSpecies !== state.lastHoveredSpecies;
+  if (!hasTicked && !hasAnimations && !hoverChanged) return;
+  state.lastHoveredSpecies = state.hoveredSpecies;
   state.lastPlantTick = world.tick;
 
   // Invalidate color cache when colorMode changes
@@ -167,6 +169,17 @@ export function updatePlants(state: RendererState): void {
         cb = lerp(cb, 0.10, 0.45);
       }
 
+      // Hovered species glow / dim
+      if (state.hoveredSpecies !== null) {
+        if (plant.speciesId === state.hoveredSpecies) {
+          cr = Math.min(cr * 1.5, 1.0);
+          cg = Math.min(cg * 1.5, 1.0);
+          cb = Math.min(cb * 1.5, 1.0);
+        } else {
+          cr *= 0.5; cg *= 0.5; cb *= 0.5;
+        }
+      }
+
       const result = writeGrassInstances(state, grassBladeIdx, grassBaseIdx, plant.id,
         wx, wz, baseY, gsil, cr, cg, cb, growScale,
         gbMtx, gbClr, baseMtx, baseClr);
@@ -203,12 +216,28 @@ export function updatePlants(state: RendererState): void {
         cb = lerp(cb, 0.10, 0.45);
       }
 
+      // Hovered species glow / dim
+      let trf = tr, tgf = tg, tbf = tb;
+      if (state.hoveredSpecies !== null) {
+        if (plant.speciesId === state.hoveredSpecies) {
+          cr = Math.min(cr * 1.5, 1.0);
+          cg = Math.min(cg * 1.5, 1.0);
+          cb = Math.min(cb * 1.5, 1.0);
+          trf = Math.min(tr * 1.5, 1.0);
+          tgf = Math.min(tg * 1.5, 1.0);
+          tbf = Math.min(tb * 1.5, 1.0);
+        } else {
+          cr *= 0.5; cg *= 0.5; cb *= 0.5;
+          trf = tr * 0.5; tgf = tg * 0.5; tbf = tb * 0.5;
+        }
+      }
+
       if (idx + 4 >= MAX_INSTANCES) continue;
       const trunkResult = writeTrunkSegments(state, idx, plant.id, wx, wz, baseY, sil,
-        tr, tg, tb, 0, 0, trunkMtx, trunkClr, branchLOD);
+        trf, tgf, tbf, 0, 0, trunkMtx, trunkClr, branchLOD);
       idx += trunkResult.trunkCount;
       const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
-        wx, wz, baseY, sil, plant.genome, tr, tg, tb, cr, cg, cb, branchScale,
+        wx, wz, baseY, sil, plant.genome, trf, tgf, tbf, cr, cg, cb, branchScale,
         brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
       branchIdx += liveResult.branchCount;
       canopyIdx += liveResult.canopyCount;
