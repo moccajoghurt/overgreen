@@ -1,5 +1,4 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
-import { NEIGHBORS, inBounds } from '../simulation/neighbors';
 import { RendererState, GRID, lerp } from './state';
 
 /**
@@ -35,23 +34,6 @@ export function updateTerrainColors(state: RendererState): void {
   const arr = colorArray;
   const env = world.environment;
 
-  // Pre-compute allelopathy zone buffer (strength per cell from nearby allelopathic plants)
-  const allelZone = new Float32Array(GRID * GRID);
-  for (const plant of world.plants.values()) {
-    if (!plant.alive || plant.genome.allelopathy <= 0.2) continue;
-    const strength = Math.min(1, (plant.genome.allelopathy - 0.2) * 1.5);
-    // Own cell: full strength
-    allelZone[plant.y * GRID + plant.x] = Math.max(allelZone[plant.y * GRID + plant.x], strength);
-    // Neighbor cells: half strength
-    for (const [dx, dy] of NEIGHBORS) {
-      const nx = plant.x + dx;
-      const ny = plant.y + dy;
-      if (!inBounds(nx, ny, world.width, world.height)) continue;
-      const idx = ny * GRID + nx;
-      allelZone[idx] = Math.max(allelZone[idx], strength * 0.5);
-    }
-  }
-
   // Hoist season-invariant computations out of the per-cell loop
   const seasonColorsData = [
     0.3, 0.6, 0.3,  // Spring: green
@@ -82,112 +64,40 @@ export function updateTerrainColors(state: RendererState): void {
           default:                 tmpColor.setHSL(30 / 360, 0.55, 0.40); break; // Soil
         }
       } else {
+        // Fixed natural terrain colors (no per-tick water/nutrient dynamics)
         switch (cell.terrainType) {
-          case TerrainType.River: {
-            // Riverbed beneath transparent water surface — darker and more muted
-            const depth = 0.5 + (cell.waterLevel / SIM.MAX_WATER) * 0.3;
-            tmpColor.setHSL(210 / 360, 0.35, 0.18 * depth);
-            break;
-          }
-          case TerrainType.Rock: {
-            const rockVar = 0.9 + cell.elevation * 0.2;
-            tmpColor.setHSL(30 / 360, 0.08, 0.35 * rockVar);
-            break;
-          }
-          case TerrainType.Hill: {
-            const wr = cell.waterLevel / SIM.MAX_WATER;
-            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-            tmpColor.setHSL(
-              (lerp(35, 28, wr) - nr * 5) / 360,
-              lerp(35, 45, wr) / 100,
-              Math.max(10, lerp(60, 30, wr) - nr * 3) / 100,
-            );
-            break;
-          }
-          case TerrainType.Wetland: {
-            const wr = cell.waterLevel / SIM.MAX_WATER;
-            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-            tmpColor.setHSL(
-              (lerp(170, 160, wr) - nr * 3) / 360,
-              lerp(30, 45, wr) / 100,
-              Math.max(10, lerp(30, 18, wr) - nr * 2) / 100,
-            );
-            break;
-          }
-          case TerrainType.Arid: {
-            const wr = cell.waterLevel / SIM.MAX_WATER;
-            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-            tmpColor.setHSL(
-              (lerp(40, 35, wr) - nr * 2) / 360,
-              lerp(35, 50, wr) / 100,
-              Math.max(15, lerp(65, 50, wr) - nr * 3) / 100,
-            );
-            break;
-          }
-          default: {
-            const wr = cell.waterLevel / SIM.MAX_WATER;
-            const nr = cell.nutrients / SIM.MAX_NUTRIENTS;
-            tmpColor.setHSL(
-              (lerp(30, 25, wr) - nr * 5) / 360,
-              lerp(40, 50, wr) / 100,
-              Math.max(10, lerp(55, 25, wr) - nr * 5) / 100,
-            );
-            break;
-          }
+          case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.30, 0.20); break;
+          case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
+          case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
+          case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
+          case TerrainType.Arid:   tmpColor.setHSL(40 / 360, 0.35, 0.48); break;
+          default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil
         }
       }
 
-      // Bake shadow into terrain color (subtle — 30% intensity)
-      const shadowStr = (1 - cell.lightLevel) * 0.3;
-      tmpColor.r *= 1 - shadowStr;
-      tmpColor.g *= 1 - shadowStr;
-      tmpColor.b *= 1 - shadowStr;
-
-      if (state.colorMode !== 'terrain') {
-        // Territory visualization
-        if (state.colorMode === 'species') {
-          // Species territory tint
-          let speciesId: number | null = null;
-          let blendFactor = 0;
-          if (cell.plantId !== null) {
-            const plant = world.plants.get(cell.plantId);
-            if (plant && plant.alive) {
-              speciesId = plant.speciesId;
-              blendFactor = 0.35;
-            }
-          }
-          if (speciesId === null && cell.lastSpeciesId !== null) {
-            speciesId = cell.lastSpeciesId;
-            blendFactor = 0.15;
-          }
-          if (speciesId !== null) {
-            const sc = world.speciesColors.get(speciesId);
-            if (sc) {
-              tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
-              tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
-              tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
-            }
-          }
-        } else {
-          // Natural mode: subtle root-zone darkening under occupied cells
-          if (cell.plantId !== null) {
-            const plant = world.plants.get(cell.plantId);
-            if (plant && plant.alive) {
-              tmpColor.r *= 0.92;
-              tmpColor.g = tmpColor.g * 0.95 + 0.02;
-              tmpColor.b *= 0.90;
-            }
-          }
-
-          // Allelopathy zone: purple-brown chemical tint
-          const allelStr = allelZone[row * GRID + col];
-          if (allelStr > 0) {
-            tmpColor.r = lerp(tmpColor.r, 0.28, allelStr * 0.25);
-            tmpColor.g = lerp(tmpColor.g, 0.12, allelStr * 0.35);
-            tmpColor.b = lerp(tmpColor.b, 0.22, allelStr * 0.2);
+      // Species territory tint
+      if (state.colorMode === 'species') {
+        let speciesId: number | null = null;
+        let blendFactor = 0;
+        if (cell.plantId !== null) {
+          const plant = world.plants.get(cell.plantId);
+          if (plant && plant.alive) {
+            speciesId = plant.speciesId;
+            blendFactor = 0.35;
           }
         }
-
+        if (speciesId === null && cell.lastSpeciesId !== null) {
+          speciesId = cell.lastSpeciesId;
+          blendFactor = 0.15;
+        }
+        if (speciesId !== null) {
+          const sc = world.speciesColors.get(speciesId);
+          if (sc) {
+            tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
+            tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
+            tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
+          }
+        }
       }
 
       // Season tint (pre-computed above loop)
