@@ -35,6 +35,18 @@ export function genomeDistance(a: Genome, b: Genome): number {
   return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + da * da + dd * dd);
 }
 
+export function crossoverGenome(a: Genome, b: Genome): Genome {
+  const pick = (va: number, vb: number) => Math.random() < 0.5 ? va : vb;
+  return {
+    rootPriority: pick(a.rootPriority, b.rootPriority),
+    heightPriority: pick(a.heightPriority, b.heightPriority),
+    leafSize: pick(a.leafSize, b.leafSize),
+    seedInvestment: pick(a.seedInvestment, b.seedInvestment),
+    allelopathy: pick(a.allelopathy, b.allelopathy),
+    defense: pick(a.defense, b.defense),
+  };
+}
+
 export function randomGenome(): Genome {
   return {
     rootPriority: 0.1 + Math.random() * 0.8,

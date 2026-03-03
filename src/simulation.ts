@@ -1,6 +1,6 @@
-import { Cell, GRASS, Plant, SIM, TerrainType, World } from './types';
+import { Cell, Genome, GRASS, Plant, SIM, TerrainType, World } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
-import { mutateGenome } from './simulation/plants';
+import { mutateGenome, crossoverGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
 import { getEffectiveEraMultipliers } from './simulation/eras';
 import { phaseHerbivores } from './simulation/herbivores';
@@ -295,12 +295,33 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
       fitness += SIM.ARID_SEED_ROOT_WEIGHT * gR + SIM.ARID_SEED_HEIGHT_WEIGHT * gH + SIM.ARID_SEED_LEAF_WEIGHT * gL;
     }
 
+    // Mate search: scan nearby cells for a same-species mate
+    let mateGenome: Genome | null = null;
+    const mateR = SIM.CROSSOVER_MATE_RADIUS;
+    outer:
+    for (let my = plant.y - mateR; my <= plant.y + mateR; my++) {
+      for (let mx = plant.x - mateR; mx <= plant.x + mateR; mx++) {
+        if (!inBounds(mx, my, world.width, world.height)) continue;
+        const mc = world.grid[my][mx];
+        if (mc.plantId === null || mc.plantId === plant.id) continue;
+        const mate = world.plants.get(mc.plantId);
+        if (mate && mate.alive && mate.speciesId === plant.speciesId) {
+          mateGenome = mate.genome;
+          break outer;
+        }
+      }
+    }
+
+    const childGenome = mateGenome
+      ? mutateGenome(crossoverGenome(plant.genome, mateGenome), eraMutationRate)
+      : mutateGenome(plant.genome, eraMutationRate);
+
     const childId = world.nextPlantId++;
     const child: Plant = {
       id: childId, speciesId: plant.speciesId, archetype: plant.archetype, x: tx, y: ty,
       height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
       energy: seedEnergy * eraSeedEnergyMult * fitness, age: 0, alive: true,
-      genome: mutateGenome(plant.genome, eraMutationRate),
+      genome: childGenome,
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
       generation: plant.generation + 1, parentId: plant.id, offspringCount: 0,
