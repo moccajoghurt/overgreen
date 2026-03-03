@@ -138,19 +138,77 @@ export function createShowcase(
 
     const trunkColor = new THREE.Color(tr, tg, tb);
     const canopyColor = new THREE.Color(cr, cg, cb);
+    const trunkMat = new THREE.MeshLambertMaterial({ color: trunkColor });
+    const branchMat = new THREE.MeshLambertMaterial({ color: trunkColor });
+    const canopyMat = new THREE.MeshLambertMaterial({ color: canopyColor });
+    const pid = plant.id;
 
-    // Trunk
-    const trunkMesh = new THREE.Mesh(trunkGeo, new THREE.MeshLambertMaterial({ color: trunkColor }));
-    trunkMesh.position.set(0, sil.trunkH * 0.5, 0);
-    trunkMesh.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
-    group.add(trunkMesh);
+    // ── Build trunk with lean / multi-stem (mirrors writeTrunkSegments) ──
+    interface StemPos { baseX: number; baseY: number; baseZ: number; tipX: number; tipY: number; tipZ: number }
+    const stems: StemPos[] = [];
+
+    if (sil.stemCount <= 1) {
+      // Single stem with lean
+      const leanDir = plantHash(pid, 300) * Math.PI * 2;
+      const leanAmt = sil.trunkLean;
+      const leanRotX = Math.cos(leanDir) * leanAmt;
+      const leanRotZ = Math.sin(leanDir) * leanAmt;
+      const tipOffsetX = Math.sin(leanDir) * Math.sin(leanAmt) * sil.trunkH;
+      const tipOffsetZ = Math.cos(leanDir) * Math.sin(leanAmt) * sil.trunkH;
+
+      const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
+      trunkMesh.position.set(tipOffsetX * 0.5, sil.trunkH * 0.5, tipOffsetZ * 0.5);
+      trunkMesh.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
+      trunkMesh.rotation.set(leanRotX, 0, leanRotZ);
+      group.add(trunkMesh);
+
+      stems.push({ baseX: 0, baseY: 0, baseZ: 0,
+        tipX: tipOffsetX, tipY: sil.trunkH, tipZ: tipOffsetZ });
+    } else {
+      // Multi-stem: shared base + N diverging sub-trunks
+      const baseH = sil.trunkH * sil.forkFrac;
+      const baseThick = sil.trunkThickness * 1.15;
+      const baseMesh = new THREE.Mesh(trunkGeo, trunkMat);
+      baseMesh.position.set(0, baseH * 0.5, 0);
+      baseMesh.scale.set(baseThick, baseH, baseThick);
+      group.add(baseMesh);
+
+      const N = sil.stemCount;
+      const subThick = sil.trunkThickness * 0.7;
+      const remainH = sil.trunkH * (1 - sil.forkFrac);
+      const forkY = baseH;
+
+      for (let s = 0; s < N; s++) {
+        const angleBase = (s / N) * Math.PI * 2;
+        const angleJitter = (plantHash(pid, 310 + s) - 0.5) * 0.6;
+        const stemAngle = angleBase + angleJitter;
+        const diverge = 0.20 + plantHash(pid, 320 + s) * 0.15;
+        const lenJitter = 0.85 + plantHash(pid, 330 + s) * 0.30;
+        const subH = remainH * lenJitter;
+
+        const offsetX = Math.sin(stemAngle) * diverge * subH;
+        const offsetZ = Math.cos(stemAngle) * diverge * subH;
+        const subTiltX = Math.atan2(offsetZ, subH);
+        const subTiltZ = -Math.atan2(offsetX, subH);
+
+        const subMesh = new THREE.Mesh(trunkGeo, trunkMat);
+        subMesh.position.set(offsetX * 0.5, forkY + subH * 0.5, offsetZ * 0.5);
+        subMesh.scale.set(subThick, subH, subThick);
+        subMesh.rotation.set(subTiltX, 0, subTiltZ);
+        group.add(subMesh);
+
+        stems.push({ baseX: 0, baseY: 0, baseZ: 0,
+          tipX: offsetX, tipY: forkY + subH, tipZ: offsetZ });
+      }
+    }
 
     // Branches + canopies (adapted from writeBranchesAndCanopies)
     const vis = sil.branchVisibility;
     if (vis < 0.01) {
       // Seedling: single canopy blob on top
-      const blob = new THREE.Mesh(canopyGeo, new THREE.MeshLambertMaterial({ color: canopyColor }));
-      blob.position.set(0, sil.trunkH, 0);
+      const blob = new THREE.Mesh(canopyGeo, canopyMat);
+      const s = stems[0];
+      blob.position.set(s.tipX, s.tipY, s.tipZ);
       blob.scale.set(sil.canopyX, sil.canopyY, sil.canopyZ);
       group.add(blob);
       return group;
@@ -177,15 +235,18 @@ export function createShowcase(
     const attachLow = 0.50 - genome.heightPriority * 0.30 - genome.seedInvestment * 0.15;
     const attachHigh = 0.90 + genome.heightPriority * 0.05;
 
-    const branchMat = new THREE.MeshLambertMaterial({ color: trunkColor });
-    const canopyMat = new THREE.MeshLambertMaterial({ color: canopyColor });
-    const pid = plant.id;
-
     for (let i = 0; i < primaryCount; i++) {
+      // Round-robin branches across stems
+      const stem = stems[i % stems.length];
+
       const baseFrac = attachLow + (i / Math.max(1, primaryCount - 1)) * (attachHigh - attachLow);
       const attachJitter = (plantHash(pid, i * 10 + 1) - 0.5) * 0.10;
       const attachFrac = Math.max(0.15, Math.min(0.95, baseFrac + attachJitter));
-      const attachY = sil.trunkH * attachFrac;
+
+      // Interpolate along stem
+      const aX = stem.baseX + (stem.tipX - stem.baseX) * attachFrac;
+      const attachY = stem.baseY + (stem.tipY - stem.baseY) * attachFrac;
+      const aZ = stem.baseZ + (stem.tipZ - stem.baseZ) * attachFrac;
 
       const baseAngle = (i / primaryCount) * Math.PI * 2;
       const angleJitter = (plantHash(pid, i * 10 + 2) - 0.5) * 0.8;
@@ -204,7 +265,7 @@ export function createShowcase(
 
       // Branch cylinder
       const bm = new THREE.Mesh(branchGeo, branchMat);
-      bm.position.set(dirX * len * 0.5, attachY + dirY * len * 0.5, dirZ * len * 0.5);
+      bm.position.set(aX + dirX * len * 0.5, attachY + dirY * len * 0.5, aZ + dirZ * len * 0.5);
       bm.scale.set(thick, len, thick);
       bm.rotation.set(0, 0, 0);
       bm.rotateY(angle);
@@ -212,9 +273,9 @@ export function createShowcase(
       group.add(bm);
 
       // Canopy at tip
-      const tipX = dirX * len;
+      const tipX = aX + dirX * len;
       const tipY = attachY + dirY * len;
-      const tipZ = dirZ * len;
+      const tipZ = aZ + dirZ * len;
       const jitter = 0.85 + plantHash(pid, i * 10 + 5) * 0.30;
 
       const cm = new THREE.Mesh(canopyGeo, canopyMat);
@@ -229,9 +290,9 @@ export function createShowcase(
       // Secondary branches
       for (let j = 0; j < secondaryPerPrimary; j++) {
         const secAttachFrac = 0.70 + plantHash(pid, i * 10 + j * 5 + 50) * 0.25;
-        const secBaseX = dirX * len * secAttachFrac;
+        const secBaseX = aX + dirX * len * secAttachFrac;
         const secBaseY = attachY + dirY * len * secAttachFrac;
-        const secBaseZ = dirZ * len * secAttachFrac;
+        const secBaseZ = aZ + dirZ * len * secAttachFrac;
 
         const side = j % 2 === 0 ? 1 : -1;
         const diverge = 0.5 + plantHash(pid, i * 10 + j * 5 + 51) * 0.7;
@@ -279,13 +340,16 @@ export function createShowcase(
       }
     }
 
-    // Conifer apex blob
+    // Conifer apex blob at tallest stem tip
     if (genome.heightPriority > 0.4) {
       const apexStrength = Math.min(1, (genome.heightPriority - 0.4) * 2.5);
       const apexSize = sil.canopyY * volumeShare * 0.7 * apexStrength;
-      const apexMat = new THREE.MeshLambertMaterial({ color: canopyColor });
-      const apex = new THREE.Mesh(canopyGeo, apexMat);
-      apex.position.set(0, sil.trunkH * 0.98, 0);
+      let tallest = stems[0];
+      for (let s = 1; s < stems.length; s++) {
+        if (stems[s].tipY > tallest.tipY) tallest = stems[s];
+      }
+      const apex = new THREE.Mesh(canopyGeo, canopyMat);
+      apex.position.set(tallest.tipX, tallest.tipY * 0.98, tallest.tipZ);
       apex.scale.set(apexSize * 0.5, apexSize * 1.3, apexSize * 0.5);
       group.add(apex);
     }
