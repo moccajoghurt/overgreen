@@ -134,7 +134,7 @@ export function createRockFormations(world: World): RockFormations {
 
   // Rocks: subtle bumps
   const rockClusters = findClusters(world, TerrainType.Rock);
-  applyClusterHeights(heightOverlay, rockClusters, 0.08, 0.15, 0.1);
+  applyClusterHeights(heightOverlay, rockClusters, 0.2, 0.45, 0.2);
 
   // Hills: dramatic raised formations
   const hillClusters = findClusters(world, TerrainType.Hill);

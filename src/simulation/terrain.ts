@@ -113,7 +113,7 @@ function generateRocks(grid: Cell[][], w: number, h: number): void {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
       if (cell.terrainType !== TerrainType.Soil) continue;
-      if (rockNoise[y][x] > 0.88) {
+      if (rockNoise[y][x] > 0.82) {
         cell.terrainType = TerrainType.Rock;
         cell.waterRechargeRate = SIM.ROCK_WATER_RECHARGE;
         cell.nutrients = Math.min(cell.nutrients, SIM.ROCK_NUTRIENT_MAX);
