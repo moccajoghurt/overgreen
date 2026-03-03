@@ -14,7 +14,7 @@ export const HALF = GRID / 2;
 export const ELEV_SCALE = 4.0;
 export const DEATH_ANIM_FRAMES = 90;
 export const MAX_DYING = 200;
-export const MAX_INSTANCES = GRID * GRID + MAX_DYING;
+export const MAX_INSTANCES = (GRID * GRID + MAX_DYING) * 4;
 export const GROWTH_ANIM_FRAMES = 60;
 export const SEED_FLIGHT_FRAMES = 36;
 export const MAX_SEEDS = 400;
@@ -76,6 +76,12 @@ export interface EventParticle {
   x: number; y: number; z: number;
   vx: number; vy: number; vz: number;
   life: number; maxLife: number;
+}
+
+export interface StemInfo {
+  baseX: number; baseY: number; baseZ: number;
+  tipX: number;  tipY: number;  tipZ: number;
+  thickness: number;
 }
 
 export type WeatherType = 'snow' | 'rain' | 'mote' | 'leaf';
@@ -212,8 +218,21 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   // Hide branches on seedlings/small plants
   const branchVisibility = Math.max(0, Math.min(1, (trunkH - 0.2) * 3));
 
+  // Stem count: bushy root-heavy trees fork, tall trees stay single
+  const stemRaw = genome.leafSize * 0.6 + genome.rootPriority * 0.3
+    - genome.heightPriority * 0.5 - genome.seedInvestment * 0.2;
+  const stemCount = trunkH < 0.3 ? 1 : stemRaw >= 0.35 ? 3 : stemRaw >= 0.15 ? 2 : 1;
+
+  // Trunk lean: gentle tilt off-vertical (visible but not extreme)
+  const trunkLean = Math.max(0, Math.min(0.20,
+    0.12 - genome.rootPriority * 0.08 - genome.defense * 0.05 + genome.seedInvestment * 0.06));
+
+  // Fork fraction: where multi-stems diverge (only used when stemCount > 1)
+  const forkFrac = Math.max(0.15, Math.min(0.45,
+    0.25 + genome.rootPriority * 0.15 - genome.leafSize * 0.1));
+
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX,
-    branchVisibility };
+    branchVisibility, stemCount, trunkLean, forkFrac };
 }
 
 export function computeGrassSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {

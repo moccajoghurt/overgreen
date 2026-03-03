@@ -10,7 +10,7 @@ import {
   naturalCanopyColor, naturalTrunkColor, naturalGrassColor,
   seasonalGrassColor, seasonalCanopyColor, getPlantColors,
 } from './plant-colors';
-import { writeInstance, writeBranchesAndCanopies } from './trees';
+import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
 import { writeGrassInstances } from './grass';
 
 export function updatePlants(state: RendererState): void {
@@ -203,14 +203,15 @@ export function updatePlants(state: RendererState): void {
         cb = lerp(cb, 0.10, 0.45);
       }
 
-      writeInstance(state, idx, wx, wz, baseY, sil, tr, tg, tb, 0, 0,
-        trunkMtx, trunkClr);
+      if (idx + 4 >= MAX_INSTANCES) continue;
+      const trunkResult = writeTrunkSegments(state, idx, plant.id, wx, wz, baseY, sil,
+        tr, tg, tb, 0, 0, trunkMtx, trunkClr, branchLOD);
+      idx += trunkResult.trunkCount;
       const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
         wx, wz, baseY, sil, plant.genome, tr, tg, tb, cr, cg, cb, branchScale,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD);
+        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
       branchIdx += liveResult.branchCount;
       canopyIdx += liveResult.canopyCount;
-      idx++;
     }
   }
 
@@ -257,8 +258,8 @@ export function updatePlants(state: RendererState): void {
       grassBladeIdx += result.bladeCount;
       grassBaseIdx += result.baseCount;
     } else {
-      // Dying tree (existing logic)
-      if (idx >= MAX_INSTANCES) continue;
+      // Dying tree: force single stem, no lean
+      if (idx + 4 >= MAX_INSTANCES) continue;
 
       const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
       const sil = {
@@ -268,6 +269,9 @@ export function updatePlants(state: RendererState): void {
         canopyY: raw.canopyY * shrink * canopyScale,
         canopyZ: raw.canopyZ * shrink * canopyScale,
         branchVisibility: raw.branchVisibility,
+        stemCount: 1,
+        trunkLean: 0,
+        forkFrac: raw.forkFrac,
       };
 
       const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
@@ -296,14 +300,14 @@ export function updatePlants(state: RendererState): void {
       const tg = _clr.tg * (1 - p) + 0.12 * p;
       const tb = _clr.tb * (1 - p) + 0.06 * p;
 
-      writeInstance(state, idx, wx, wz, baseY, sil, tr, tg, tb, tiltAngle, tiltDir,
-        trunkMtx, trunkClr);
+      const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
+        tr, tg, tb, tiltAngle, tiltDir, trunkMtx, trunkClr, branchLOD);
+      idx += trunkResult.trunkCount;
       const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
         wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD);
+        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
       branchIdx += dyingResult.branchCount;
       canopyIdx += dyingResult.canopyCount;
-      idx++;
     }
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -340,8 +344,8 @@ export function updatePlants(state: RendererState): void {
       grassBladeIdx += result.bladeCount;
       grassBaseIdx += result.baseCount;
     } else {
-      // Burning tree (existing logic)
-      if (idx >= MAX_INSTANCES) continue;
+      // Burning tree: use full trunk variation (no tilt during fire)
+      if (idx + 4 >= MAX_INSTANCES) continue;
       const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
 
       const burnShrink = 1 - bp.progress * 0.3;
@@ -352,20 +356,23 @@ export function updatePlants(state: RendererState): void {
         canopyY: raw.canopyY * burnShrink * canopyScale,
         canopyZ: raw.canopyZ * burnShrink * canopyScale,
         branchVisibility: raw.branchVisibility,
+        stemCount: raw.stemCount,
+        trunkLean: raw.trunkLean,
+        forkFrac: raw.forkFrac,
       };
 
       const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);
       const cg = lerp(0.6, 0.05, t) * (0.7 + flicker * 0.3);
       const cb = lerp(0.1, 0.02, t);
 
-      writeInstance(state, idx, wx, wz, baseY, sil, cr, cg, cb, 0, 0,
-        trunkMtx, trunkClr);
+      const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
+        cr, cg, cb, 0, 0, trunkMtx, trunkClr, branchLOD);
+      idx += trunkResult.trunkCount;
       const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
         wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD);
+        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
       branchIdx += burnResult.branchCount;
       canopyIdx += burnResult.canopyCount;
-      idx++;
     }
   }
   for (const id of burnToRemove) burningPlants.delete(id);

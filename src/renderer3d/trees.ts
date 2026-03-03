@@ -1,20 +1,99 @@
 import { Genome } from '../types';
-import { RendererState, MAX_BRANCHES_PER_PLANT, computeSilhouette, plantHash } from './state';
+import { RendererState, StemInfo, MAX_BRANCHES_PER_PLANT, computeSilhouette, plantHash } from './state';
 
-export function writeInstance(
+/** Writes trunk cylinder segments and returns stem attachment info for branches. */
+export function writeTrunkSegments(
   state: RendererState,
   idx: number,
+  plantId: number,
   wx: number, wz: number, baseY: number,
   sil: ReturnType<typeof computeSilhouette>,
   tr: number, tg: number, tb: number,
   tiltAngle: number, tiltDir: number,
   trunkMtx: Float32Array, trunkClr: Float32Array,
-): void {
+  branchLOD: number,
+): { trunkCount: number; stems: StemInfo[] } {
   const { dummy } = state;
+  const stems: StemInfo[] = [];
+  let written = 0;
 
-  // ── Trunk ──
-  dummy.position.set(wx, baseY + sil.trunkH * 0.5, wz);
-  dummy.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
+  // LOD: collapse to single straight segment when far away
+  if (branchLOD < 0.5 || sil.stemCount <= 1 && sil.trunkLean < 0.005) {
+    // Single straight cylinder (original behavior)
+    dummy.position.set(wx, baseY + sil.trunkH * 0.5, wz);
+    dummy.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
+    dummy.rotation.set(
+      Math.sin(tiltDir) * tiltAngle,
+      0,
+      Math.cos(tiltDir) * tiltAngle,
+    );
+    dummy.updateMatrix();
+    dummy.matrix.toArray(trunkMtx, idx * 16);
+    const ci = idx * 3;
+    trunkClr[ci]     = tr;
+    trunkClr[ci + 1] = tg;
+    trunkClr[ci + 2] = tb;
+    written = 1;
+
+    stems.push({
+      baseX: wx, baseY, baseZ: wz,
+      tipX: wx, tipY: baseY + sil.trunkH, tipZ: wz,
+      thickness: sil.trunkThickness,
+    });
+
+    return { trunkCount: written, stems };
+  }
+
+  if (sil.stemCount === 1) {
+    // ── Single stem: one continuous cylinder tilted by lean ──
+    // Instead of 2 segments (which creates a visible seam), use a single
+    // cylinder tilted slightly off-vertical to convey the lean as a gentle slant.
+    const leanDir = plantHash(plantId, 300) * Math.PI * 2;
+    const leanAmt = sil.trunkLean; // 0-0.15 rad
+
+    const leanRotX = Math.cos(leanDir) * leanAmt;
+    const leanRotZ = Math.sin(leanDir) * leanAmt;
+
+    // Tip offset from lean (for branch attachment)
+    const tipOffsetX = Math.sin(leanDir) * Math.sin(leanAmt) * sil.trunkH;
+    const tipOffsetZ = Math.cos(leanDir) * Math.sin(leanAmt) * sil.trunkH;
+
+    dummy.position.set(
+      wx + tipOffsetX * 0.5,
+      baseY + sil.trunkH * 0.5,
+      wz + tipOffsetZ * 0.5,
+    );
+    dummy.scale.set(sil.trunkThickness, sil.trunkH, sil.trunkThickness);
+    dummy.rotation.set(
+      leanRotX + Math.sin(tiltDir) * tiltAngle,
+      0,
+      leanRotZ + Math.cos(tiltDir) * tiltAngle,
+    );
+    dummy.updateMatrix();
+    dummy.matrix.toArray(trunkMtx, idx * 16);
+    const ci = idx * 3;
+    trunkClr[ci]     = tr;
+    trunkClr[ci + 1] = tg;
+    trunkClr[ci + 2] = tb;
+    written = 1;
+
+    stems.push({
+      baseX: wx, baseY, baseZ: wz,
+      tipX: wx + tipOffsetX, tipY: baseY + sil.trunkH, tipZ: wz + tipOffsetZ,
+      thickness: sil.trunkThickness,
+    });
+
+    return { trunkCount: written, stems };
+  }
+
+  // ── Multi-stem (2-3 trunks diverging from a shared base) ──
+  const forkY = baseY + sil.trunkH * sil.forkFrac;
+  const baseH = sil.trunkH * sil.forkFrac;
+  const baseThick = sil.trunkThickness * 1.15;
+
+  // Write shared base segment
+  dummy.position.set(wx, baseY + baseH * 0.5, wz);
+  dummy.scale.set(baseThick, baseH, baseThick);
   dummy.rotation.set(
     Math.sin(tiltDir) * tiltAngle,
     0,
@@ -22,11 +101,66 @@ export function writeInstance(
   );
   dummy.updateMatrix();
   dummy.matrix.toArray(trunkMtx, idx * 16);
-
-  const ci = idx * 3;
+  let ci = idx * 3;
   trunkClr[ci]     = tr;
   trunkClr[ci + 1] = tg;
   trunkClr[ci + 2] = tb;
+  written++;
+
+  // Write N sub-trunks from fork point
+  const N = sil.stemCount;
+  const subThick = sil.trunkThickness * 0.7;
+  const remainH = sil.trunkH * (1 - sil.forkFrac);
+
+  for (let s = 0; s < N; s++) {
+    const angleBase = (s / N) * Math.PI * 2;
+    const angleJitter = (plantHash(plantId, 310 + s) - 0.5) * 0.6;
+    const stemAngle = angleBase + angleJitter;
+
+    // Divergence angle from vertical (0.20-0.35 rad) — wide enough to see distinct trunks
+    const diverge = 0.20 + plantHash(plantId, 320 + s) * 0.15;
+
+    // Length jitter per sub-trunk
+    const lenJitter = 0.85 + plantHash(plantId, 330 + s) * 0.30;
+    const subH = remainH * lenJitter;
+
+    // Tip position: diverge outward from fork point
+    const offsetX = Math.sin(stemAngle) * diverge * subH;
+    const offsetZ = Math.cos(stemAngle) * diverge * subH;
+    const tipX = wx + offsetX;
+    const tipZ = wz + offsetZ;
+
+    // Center of sub-trunk cylinder
+    const centerX = wx + offsetX * 0.5;
+    const centerZ = wz + offsetZ * 0.5;
+
+    // Tilt the sub-trunk to match its divergence
+    const subTiltX = Math.atan2(offsetZ, subH);
+    const subTiltZ = -Math.atan2(offsetX, subH);
+
+    dummy.position.set(centerX, forkY + subH * 0.5, centerZ);
+    dummy.scale.set(subThick, subH, subThick);
+    dummy.rotation.set(
+      subTiltX + Math.sin(tiltDir) * tiltAngle,
+      0,
+      subTiltZ + Math.cos(tiltDir) * tiltAngle,
+    );
+    dummy.updateMatrix();
+    dummy.matrix.toArray(trunkMtx, (idx + written) * 16);
+    ci = (idx + written) * 3;
+    trunkClr[ci]     = tr;
+    trunkClr[ci + 1] = tg;
+    trunkClr[ci + 2] = tb;
+    written++;
+
+    stems.push({
+      baseX: wx, baseY, baseZ: wz,
+      tipX, tipY: forkY + subH, tipZ,
+      thickness: subThick,
+    });
+  }
+
+  return { trunkCount: written, stems };
 }
 
 /** Writes 2-level branch cylinders + canopy blobs at each branch tip. */
@@ -44,6 +178,7 @@ export function writeBranchesAndCanopies(
   brMtx: Float32Array, brClr: Float32Array,
   canopyMtx: Float32Array, canopyClr: Float32Array,
   branchLOD: number,
+  stems: StemInfo[],
 ): { branchCount: number; canopyCount: number } {
   const { dummy } = state;
   const vis = sil.branchVisibility * branchScale;
@@ -92,11 +227,18 @@ export function writeBranchesAndCanopies(
   for (let i = 0; i < primaryCount; i++) {
     if (segmentCount >= MAX_BRANCHES_PER_PLANT) break;
 
+    // Round-robin branches across stems
+    const stem = stems[i % stems.length];
+
     // Attach height: genome-driven range with jitter
     const baseFrac = attachLow + (i / Math.max(1, primaryCount - 1)) * (attachHigh - attachLow);
     const attachJitter = (plantHash(plantId, i * 10 + 1) - 0.5) * 0.10;
     const attachFrac = Math.max(0.15, Math.min(0.95, baseFrac + attachJitter));
-    const attachY = baseY + sil.trunkH * attachFrac;
+
+    // Interpolate attachment point along the assigned stem
+    const attachX = stem.baseX + (stem.tipX - stem.baseX) * attachFrac;
+    const attachY = stem.baseY + (stem.tipY - stem.baseY) * attachFrac;
+    const attachZ = stem.baseZ + (stem.tipZ - stem.baseZ) * attachFrac;
 
     // Angle around trunk: evenly spaced + jitter
     const baseAngle = (i / primaryCount) * Math.PI * 2;
@@ -119,9 +261,9 @@ export function writeBranchesAndCanopies(
     // Write branch cylinder only if visible
     if (vis >= 0.01) {
       dummy.position.set(
-        wx + dirX * len * 0.5,
+        attachX + dirX * len * 0.5,
         attachY + dirY * len * 0.5,
-        wz + dirZ * len * 0.5,
+        attachZ + dirZ * len * 0.5,
       );
       dummy.scale.set(thick, len, thick);
       dummy.rotation.set(0, 0, 0);
@@ -139,9 +281,9 @@ export function writeBranchesAndCanopies(
     }
 
     // Canopy blob at primary tip
-    const tipX = wx + dirX * len;
+    const tipX = attachX + dirX * len;
     const tipY = attachY + dirY * len;
-    const tipZ = wz + dirZ * len;
+    const tipZ = attachZ + dirZ * len;
     const jitter = 0.85 + plantHash(plantId, i * 10 + 5) * 0.30;
 
     dummy.position.set(tipX, tipY, tipZ);
@@ -168,9 +310,9 @@ export function writeBranchesAndCanopies(
 
       // Attach 70-95% along parent
       const secAttachFrac = 0.70 + plantHash(plantId, i * 10 + j * 5 + 50) * 0.25;
-      const secBaseX = wx + dirX * len * secAttachFrac;
+      const secBaseX = attachX + dirX * len * secAttachFrac;
       const secBaseY = attachY + dirY * len * secAttachFrac;
-      const secBaseZ = wz + dirZ * len * secAttachFrac;
+      const secBaseZ = attachZ + dirZ * len * secAttachFrac;
 
       // Diverge from parent by 0.5-1.2 rad, alternating left/right
       const side = j % 2 === 0 ? 1 : -1;
@@ -238,12 +380,18 @@ export function writeBranchesAndCanopies(
     }
   }
 
-  // ── Conifer apex: extra canopy blob at trunk top for tall, narrow plants ──
+  // ── Conifer apex: extra canopy blob at tallest stem's tip ──
   if (genome.heightPriority > 0.4 && segmentCount < MAX_BRANCHES_PER_PLANT) {
     const apexStrength = Math.min(1, (genome.heightPriority - 0.4) * 2.5);
     const apexSize = sil.canopyY * volumeShare * 0.7 * apexStrength;
 
-    dummy.position.set(wx, baseY + sil.trunkH * 0.98, wz);
+    // Use tallest stem tip
+    let tallestStem = stems[0];
+    for (let s = 1; s < stems.length; s++) {
+      if (stems[s].tipY > tallestStem.tipY) tallestStem = stems[s];
+    }
+
+    dummy.position.set(tallestStem.tipX, tallestStem.tipY * 0.98 + baseY * 0.02, tallestStem.tipZ);
     dummy.scale.set(apexSize * 0.5, apexSize * 1.3, apexSize * 0.5);
     dummy.rotation.set(0, 0, 0);
     dummy.updateMatrix();
