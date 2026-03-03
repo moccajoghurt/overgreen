@@ -113,10 +113,25 @@ function generateRocks(grid: Cell[][], w: number, h: number): void {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
       if (cell.terrainType !== TerrainType.Soil) continue;
-      if (rockNoise[y][x] > 0.78) {
+      if (rockNoise[y][x] > 0.88) {
         cell.terrainType = TerrainType.Rock;
         cell.waterRechargeRate = SIM.ROCK_WATER_RECHARGE;
         cell.nutrients = Math.min(cell.nutrients, SIM.ROCK_NUTRIENT_MAX);
+      }
+    }
+  }
+}
+
+function generateHills(grid: Cell[][], elevation: number[][], w: number, h: number): void {
+  const hillNoise = valueNoise(w, h, 2, 0.5);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cell = grid[y][x];
+      if (cell.terrainType !== TerrainType.Soil) continue;
+      if (hillNoise[y][x] > 0.75) {
+        cell.terrainType = TerrainType.Hill;
+        cell.elevation = Math.max(cell.elevation, 0.6 + (elevation[y][x] - 0.5) * 0.3);
+        cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
       }
     }
   }
@@ -199,13 +214,9 @@ function assignTerrainProperties(
       const cell = grid[y][x];
       if (cell.terrainType === TerrainType.River
         || cell.terrainType === TerrainType.Wetland
-        || cell.terrainType === TerrainType.Arid) continue; // already set
+        || cell.terrainType === TerrainType.Arid
+        || cell.terrainType === TerrainType.Hill) continue; // already set
       cell.elevation = elevation[y][x];
-
-      if (cell.terrainType === TerrainType.Soil && cell.elevation > 0.55) {
-        cell.terrainType = TerrainType.Hill;
-        cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
-      }
 
       if (cell.terrainType === TerrainType.Soil) {
         const valleyBonus = 1.0 + (1.0 - cell.elevation) * 0.3;
@@ -266,6 +277,7 @@ export function createWorld(width: number, height: number): World {
     generateRiver(grid, elevation, width, height);
   }
   generateRocks(grid, width, height);
+  generateHills(grid, elevation, width, height);
   generateWetlands(grid, elevation, width, height);
   generateAridZones(grid, width, height);
   assignTerrainProperties(grid, elevation, width, height);

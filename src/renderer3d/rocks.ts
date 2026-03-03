@@ -13,15 +13,15 @@ interface RockCluster {
   centerRow: number;
 }
 
-/** BFS flood-fill to find connected rock clusters */
-function findRockClusters(world: World): RockCluster[] {
+/** BFS flood-fill to find connected clusters of a given terrain type */
+function findClusters(world: World, terrainType: TerrainType): RockCluster[] {
   const visited = new Uint8Array(GRID * GRID);
   const clusters: RockCluster[] = [];
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const idx = row * GRID + col;
-      if (visited[idx] || world.grid[row][col].terrainType !== TerrainType.Rock) continue;
+      if (visited[idx] || world.grid[row][col].terrainType !== terrainType) continue;
 
       // BFS
       const cells: { col: number; row: number }[] = [];
@@ -38,7 +38,7 @@ function findRockClusters(world: World): RockCluster[] {
           const nr = cell.row + dr;
           if (nc < 0 || nc >= GRID || nr < 0 || nr >= GRID) continue;
           const ni = nr * GRID + nc;
-          if (visited[ni] || world.grid[nr][nc].terrainType !== TerrainType.Rock) continue;
+          if (visited[ni] || world.grid[nr][nc].terrainType !== terrainType) continue;
           visited[ni] = 1;
           queue.push({ col: nc, row: nr });
         }
@@ -101,13 +101,13 @@ export interface RockFormations {
   heightOverlay: Float32Array;
 }
 
-export function createRockFormations(world: World): RockFormations {
-  const heightOverlay = new Float32Array(GRID * GRID);
-
-  const clusters = findRockClusters(world);
-  if (clusters.length === 0) return { heightOverlay };
-
-  // ── A. Compute height overlay ──
+function applyClusterHeights(
+  heightOverlay: Float32Array,
+  clusters: RockCluster[],
+  baseMin: number,
+  baseRange: number,
+  noiseMag: number,
+): void {
   for (const cluster of clusters) {
     const edgeDists = computeEdgeDistances(cluster);
     let maxDist = 0;
@@ -118,20 +118,27 @@ export function createRockFormations(world: World): RockFormations {
     for (const cell of cluster.cells) {
       const key = `${cell.col},${cell.row}`;
       const edgeDist = edgeDists.get(key) ?? 0;
-      // Normalize to 0-1 (0 = edge, 1 = deep interior)
       const normalizedDist = maxDist > 0 ? edgeDist / maxDist : 0;
 
-      // Height boost: smooth ramp from edge to center
-      // Small clusters (1-2 cells) still get a modest bump
-      const baseBoost = 0.3 + normalizedDist * 0.9;
-
-      // Seeded noise for irregularity
+      const baseBoost = baseMin + normalizedDist * baseRange;
       const seed = cell.col * 7 + cell.row * 13;
-      const noise = (srand(seed) - 0.5) * 0.3;
+      const noise = (srand(seed) - 0.5) * noiseMag;
 
       heightOverlay[cell.row * GRID + cell.col] = (baseBoost + noise) * ELEV_SCALE;
     }
   }
+}
+
+export function createRockFormations(world: World): RockFormations {
+  const heightOverlay = new Float32Array(GRID * GRID);
+
+  // Rocks: subtle bumps
+  const rockClusters = findClusters(world, TerrainType.Rock);
+  applyClusterHeights(heightOverlay, rockClusters, 0.08, 0.15, 0.1);
+
+  // Hills: dramatic raised formations
+  const hillClusters = findClusters(world, TerrainType.Hill);
+  applyClusterHeights(heightOverlay, hillClusters, 0.3, 0.9, 0.3);
 
   return { heightOverlay };
 }
