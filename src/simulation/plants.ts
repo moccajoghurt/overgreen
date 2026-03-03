@@ -75,14 +75,14 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
 }
 
 export function seedInitialPlants(world: World, _count: number): void {
-  const CLUSTER_COUNT = 8;
-  const CLUSTER_RADIUS = 6;
-  const SPECIES_PER_CLUSTER = 5;
+  const CLUSTER_COUNT = 10;
+  const CLUSTER_RADIUS = 8;
+  const SPECIES_PER_CLUSTER = 4;
   const GRASS_PER_CLUSTER = 2;
   const COPIES_PER_SPECIES = 2;
 
-  // Generate 9 candidate centers on a jittered 3x3 grid
-  const gridCols = 3, gridRows = 3;
+  // Generate 12 candidate centers on a jittered 4x3 grid, take 10
+  const gridCols = 4, gridRows = 3;
   const cellW = world.width / (gridCols + 1);
   const cellH = world.height / (gridRows + 1);
   const candidates: { x: number; y: number }[] = [];
