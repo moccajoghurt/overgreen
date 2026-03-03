@@ -42,7 +42,7 @@ export const SIM = {
   SEED_RANGE_MAX: 3,
   SEED_RANGE_HEIGHT_DIVISOR: 2,
   SEED_INITIAL_ENERGY: 2.0,
-  MUTATION_RATE: 0.05,
+  MUTATION_RATE: 0.1,
 
   // Death / Decomposition
   STARVATION_THRESHOLD: 0,
@@ -89,8 +89,6 @@ export const SIM = {
   WETLAND_NUTRIENT_BONUS: 2.0,
   WETLAND_NUTRIENT_MAX: 8.0,
   WETLAND_LIGHT_PENALTY: 0.25,
-  WETLAND_WATERLOG_ROOT_THRESHOLD: 0.35,
-  WETLAND_WATERLOG_PENALTY: 0.25,
   WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
@@ -99,6 +97,32 @@ export const SIM = {
   ARID_LIGHT_BONUS: 0.2,
   ARID_AQUIFER_ROOT_THRESHOLD: 0.4,
   ARID_AQUIFER_WATER_BONUS: 0.6,
+
+  // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
+  HILL_MAINT_ROOT_MULT: 3.0,     // rock is hard to dig
+  HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants
+  HILL_MAINT_LEAF_MULT: 1.0,
+
+  WETLAND_MAINT_ROOT_MULT: 2.5,  // anoxic deep soil
+  WETLAND_MAINT_HEIGHT_MULT: 1.0,
+  WETLAND_MAINT_LEAF_MULT: 0.85, // humidity protects leaves
+
+  ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
+  ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress
+  ARID_MAINT_LEAF_MULT: 3.0,     // transpiration water loss
+
+  // Terrain seed fitness weights (additive on normalized genome fracs, Soil = 0 implicit)
+  HILL_SEED_ROOT_WEIGHT: -0.3,
+  HILL_SEED_HEIGHT_WEIGHT: -0.2,
+  HILL_SEED_LEAF_WEIGHT: 0.15,
+
+  WETLAND_SEED_ROOT_WEIGHT: -0.25,
+  WETLAND_SEED_HEIGHT_WEIGHT: 0.1,
+  WETLAND_SEED_LEAF_WEIGHT: 0.2,
+
+  ARID_SEED_ROOT_WEIGHT: 0.3,
+  ARID_SEED_HEIGHT_WEIGHT: -0.15,
+  ARID_SEED_LEAF_WEIGHT: -0.3,
 
   // Allelopathy
   ALLELOPATHY_DAMAGE_RATE: 0.15,

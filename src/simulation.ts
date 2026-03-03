@@ -181,15 +181,6 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
 
-  // Wetland waterlogging: shallow roots suffer oxygen deprivation
-  if (cell.terrainType === TerrainType.Wetland) {
-    const rootFrac = plant.rootDepth / maxRoot;
-    if (rootFrac < SIM.WETLAND_WATERLOG_ROOT_THRESHOLD) {
-      const severity = 1 - rootFrac / SIM.WETLAND_WATERLOG_ROOT_THRESHOLD;
-      energyProduced *= 1 - severity * SIM.WETLAND_WATERLOG_PENALTY;
-    }
-  }
-
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
   return energyProduced;
 }
@@ -202,16 +193,33 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   const mLeaf = isGrass ? GRASS.MAINTENANCE_PER_LEAF : SIM.MAINTENANCE_PER_LEAF;
   const maxRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
 
+  // Terrain-specific per-trait multipliers (Soil = 1.0)
+  const cell = world.grid[plant.y][plant.x];
+  let rootMult = 1.0, heightMult = 1.0, leafMult = 1.0;
+  if (cell.terrainType === TerrainType.Hill) {
+    rootMult = SIM.HILL_MAINT_ROOT_MULT;
+    heightMult = SIM.HILL_MAINT_HEIGHT_MULT;
+    leafMult = SIM.HILL_MAINT_LEAF_MULT;
+  } else if (cell.terrainType === TerrainType.Wetland) {
+    rootMult = SIM.WETLAND_MAINT_ROOT_MULT;
+    heightMult = SIM.WETLAND_MAINT_HEIGHT_MULT;
+    leafMult = SIM.WETLAND_MAINT_LEAF_MULT;
+  } else if (cell.terrainType === TerrainType.Arid) {
+    rootMult = SIM.ARID_MAINT_ROOT_MULT;
+    heightMult = SIM.ARID_MAINT_HEIGHT_MULT;
+    leafMult = SIM.ARID_MAINT_LEAF_MULT;
+  }
+
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  let leafMaint = effectiveLeaf * mLeaf * world.environment.leafMaintenanceMult;
+  let leafMaint = effectiveLeaf * mLeaf * leafMult * world.environment.leafMaintenanceMult;
   if (world.environment.leafMaintenanceMult > 1.01) {
     const rootInsulation = Math.min(0.8, plant.rootDepth / maxRoot * 0.8);
-    const penalty = leafMaint - effectiveLeaf * mLeaf;
+    const penalty = leafMaint - effectiveLeaf * mLeaf * leafMult;
     leafMaint -= penalty * rootInsulation;
   }
   let maintenance = mBase
-    + plant.height * mHeight
-    + plant.rootDepth * mRoot
+    + plant.height * mHeight * heightMult
+    + plant.rootDepth * mRoot * rootMult
     + leafMaint
     + plant.genome.allelopathy * SIM.ALLELOPATHY_MAINTENANCE_RATE
     + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE;
@@ -237,13 +245,14 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
   const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
   const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
 
-  // Growth: normalize priorities
+  // Normalize genome priorities (hoisted for use in both growth and seed fitness)
   const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
-  if (total > 0) {
-    const rFrac = plant.genome.rootPriority / total;
-    const hFrac = plant.genome.heightPriority / total;
-    const lFrac = plant.genome.leafSize / total;
+  const rFrac = total > 0 ? plant.genome.rootPriority / total : 0;
+  const hFrac = total > 0 ? plant.genome.heightPriority / total : 0;
+  const lFrac = total > 0 ? plant.genome.leafSize / total : 0;
 
+  // Growth allocation
+  if (total > 0) {
     const rootGrowth = growthBudget * rFrac * growthEff;
     const heightGrowth = growthBudget * hFrac * growthEff;
     const leafGrowth = growthBudget * lFrac * growthEff;
@@ -272,11 +281,25 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const tt = world.grid[ty][tx].terrainType;
     if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
 
+    // Terrain seed fitness: genome-terrain matching affects seedling energy
+    // Uses raw genome values (0-1) for stronger signal than normalized fracs
+    const gR = plant.genome.rootPriority;
+    const gH = plant.genome.heightPriority;
+    const gL = plant.genome.leafSize;
+    let fitness = 1.0;
+    if (tt === TerrainType.Hill) {
+      fitness += SIM.HILL_SEED_ROOT_WEIGHT * gR + SIM.HILL_SEED_HEIGHT_WEIGHT * gH + SIM.HILL_SEED_LEAF_WEIGHT * gL;
+    } else if (tt === TerrainType.Wetland) {
+      fitness += SIM.WETLAND_SEED_ROOT_WEIGHT * gR + SIM.WETLAND_SEED_HEIGHT_WEIGHT * gH + SIM.WETLAND_SEED_LEAF_WEIGHT * gL;
+    } else if (tt === TerrainType.Arid) {
+      fitness += SIM.ARID_SEED_ROOT_WEIGHT * gR + SIM.ARID_SEED_HEIGHT_WEIGHT * gH + SIM.ARID_SEED_LEAF_WEIGHT * gL;
+    }
+
     const childId = world.nextPlantId++;
     const child: Plant = {
       id: childId, speciesId: plant.speciesId, archetype: plant.archetype, x: tx, y: ty,
       height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
-      energy: seedEnergy * eraSeedEnergyMult, age: 0, alive: true,
+      energy: seedEnergy * eraSeedEnergyMult * fitness, age: 0, alive: true,
       genome: mutateGenome(plant.genome, eraMutationRate),
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
