@@ -38,7 +38,7 @@ const chart = createPopulationChart(document.getElementById('population-containe
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
 const commentary = createCommentary(container);
-const showcase = createShowcase(document.getElementById('showcase')!, world, renderer, container);
+const showcase = createShowcase(document.getElementById('showcase')!, world, renderer, container, history);
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
@@ -77,7 +77,7 @@ function updateUI(): void {
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   showcase.update(world);
-  speciesLabels.update(world);
+  speciesLabels.update(world, history);
 }
 
 let lastTickTime = 0;

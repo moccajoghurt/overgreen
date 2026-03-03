@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { World, Plant, Renderer } from './types';
+import { World, Plant, Renderer, History } from './types';
 import { computeSilhouette, plantHash, makeRoughSphere } from './renderer3d/state';
 import { naturalCanopyColor, naturalTrunkColor } from './renderer3d/plants';
 import { speciesCentroid, speciesColorToRgb } from './ui-utils';
@@ -30,6 +30,7 @@ interface CachedEntry {
   nameEl: HTMLSpanElement;
   countEl: HTMLSpanElement;
   dotEl: HTMLSpanElement;
+  genEl: HTMLSpanElement;
 }
 
 // ── Showcase ──
@@ -39,6 +40,7 @@ export function createShowcase(
   _world: World,
   renderer: Renderer,
   mapContainer: HTMLElement,
+  history: History,
 ): { update(world: World): void } {
   // Shared offscreen renderer (single WebGL context)
   const offRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -408,7 +410,13 @@ export function createShowcase(
 
     row.appendChild(info);
 
-    const entry: CachedEntry = { speciesId: -1, plantId: -1, plantScore: -1, canvas, ctx, row, nameEl, countEl, dotEl };
+    const genRow = document.createElement('div');
+    genRow.style.cssText = 'font-size:10px; color:#777; text-align:center; margin-top:1px;';
+    const genEl = document.createElement('span');
+    genRow.appendChild(genEl);
+    row.appendChild(genRow);
+
+    const entry: CachedEntry = { speciesId: -1, plantId: -1, plantScore: -1, canvas, ctx, row, nameEl, countEl, dotEl, genEl };
     row.addEventListener('click', () => {
       if (entry.speciesId !== -1) handleEntryClick(entry.speciesId);
     });
@@ -473,6 +481,11 @@ export function createShowcase(
       entry.nameEl.textContent = world.speciesNames.get(sp.speciesId) ?? `Sp ${sp.speciesId}`;
       entry.nameEl.style.color = rgb;
       entry.countEl.textContent = `(${sp.count})`;
+
+      const rec = history.species.get(sp.speciesId);
+      entry.genEl.textContent = rec
+        ? `Gen ${rec.maxGeneration} · ${rec.totalOffspring} offspring`
+        : '';
     }
   }
 
