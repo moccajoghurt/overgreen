@@ -1,4 +1,5 @@
 import { History, SpeciesColor, SEASON_LENGTH, YEAR_LENGTH } from './types';
+import { speciesColorToRgba } from './ui-utils';
 
 const TOP_N = 8;
 const STICKY_TICKS = 50;
@@ -171,9 +172,6 @@ export function createPopulationChart(container: HTMLElement) {
     for (let s = chartSpecies.length - 1; s >= 0; s--) {
       const speciesId = chartSpecies[s];
       const sc = speciesColors.get(speciesId);
-      const r = sc ? Math.round(sc.r * 255) : 128;
-      const g = sc ? Math.round(sc.g * 255) : 128;
-      const b = sc ? Math.round(sc.b * 255) : 128;
 
       ctx.beginPath();
       // Top edge (this species' cumulative line)
@@ -191,7 +189,7 @@ export function createPopulationChart(container: HTMLElement) {
         ctx.lineTo(x, y);
       }
       ctx.closePath();
-      ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
+      ctx.fillStyle = sc ? speciesColorToRgba(sc, 0.7) : 'rgba(128,128,128,0.7)';
       ctx.fill();
     }
 

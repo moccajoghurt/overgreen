@@ -1,17 +1,9 @@
 import { History } from './types';
+import { TRAITS } from './trait-defs';
 
 const GRID_COLOR = 'rgba(255,255,255,0.07)';
 const LABEL_COLOR = 'rgba(255,255,255,0.35)';
 const LABEL_FONT = '10px monospace';
-
-const TRAITS = [
-  { key: 'root' as const, label: 'Root', color: '#c96' },
-  { key: 'height' as const, label: 'Height', color: '#69c' },
-  { key: 'leaf' as const, label: 'Leaf', color: '#6c6' },
-  { key: 'seed' as const, label: 'Seed', color: '#c6c' },
-  { key: 'allelo' as const, label: 'Allelo', color: '#96c' },
-  { key: 'def' as const, label: 'Def', color: '#c66' },
-];
 
 export function createTraitChart(container: HTMLElement) {
   const canvas = document.createElement('canvas');
@@ -80,7 +72,7 @@ export function createTraitChart(container: HTMLElement) {
       ctx.lineWidth = 1.5;
 
       for (let i = 0; i < snaps.length; i++) {
-        const val = snaps[i].traitAverages[trait.key];
+        const val = snaps[i].traitAverages[trait.shortKey];
         const x = pad.left + i * xScale;
         const y = pad.top + plotH - val * plotH;
         if (i === 0) ctx.moveTo(x, y);

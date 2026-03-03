@@ -1,5 +1,6 @@
 import { World, Renderer, History } from './types';
 import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { TRAITS } from './trait-defs';
 
 const UPDATE_EVERY_N_TICKS = 10;
 const LERP_SPEED = 0.08; // per frame — smooth but responsive
@@ -8,9 +9,6 @@ const SPARKLINE_W = 120;
 const SPARKLINE_H = 36;
 const SPARKLINE_DPR = 2;
 const MAX_SPARK_POINTS = 80;
-
-const TRAIT_KEYS = ['root', 'height', 'leaf', 'seed', 'allelo', 'def'] as const;
-const TRAIT_COLORS = ['#c96', '#69c', '#6c6', '#c6c', '#96c', '#c66'];
 
 interface LabelEntry {
   el: HTMLElement;
@@ -59,7 +57,7 @@ export function createSpeciesLabelsOverlay(
     el.appendChild(nameEl);
 
     const genEl = document.createElement('div');
-    genEl.style.cssText = `font-size:11px; font-weight:normal; opacity:0.7;`;
+    genEl.style.cssText = `font-size:11px; font-weight:normal; color:#fff; opacity:0.7;`;
     el.appendChild(genEl);
 
     const sparkCanvas = document.createElement('canvas');
@@ -92,7 +90,7 @@ export function createSpeciesLabelsOverlay(
 
     const step = Math.max(1, Math.floor(snaps.length / MAX_SPARK_POINTS));
 
-    const points: (Record<typeof TRAIT_KEYS[number], number> | null)[] = [];
+    const points: (Record<string, number> | null)[] = [];
     for (let i = 0; i < snaps.length; i += step) {
       const traits = snaps[i].speciesTraitAverages.get(speciesId);
       points.push(traits ?? null);
@@ -108,10 +106,10 @@ export function createSpeciesLabelsOverlay(
     const xScale = SPARKLINE_W / (n - 1);
     const pad = 1;
 
-    for (let t = 0; t < TRAIT_KEYS.length; t++) {
-      const key = TRAIT_KEYS[t];
+    for (let t = 0; t < TRAITS.length; t++) {
+      const key = TRAITS[t].shortKey;
       ctx.beginPath();
-      ctx.strokeStyle = TRAIT_COLORS[t];
+      ctx.strokeStyle = TRAITS[t].color;
       ctx.lineWidth = 1;
       let started = false;
 

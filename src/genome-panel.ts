@@ -1,31 +1,7 @@
 import { World, SpeciesColor, Renderer } from './types';
-import { speciesCentroid, speciesColorToRgb } from './ui-utils';
+import { speciesCentroid, speciesColorToRgb, hexToRgba } from './ui-utils';
 import { createFloatingLabels } from './floating-labels';
-
-const TRAITS = [
-  { key: 'rootPriority' as const, label: 'Root', color: '#c96' },
-  { key: 'heightPriority' as const, label: 'Height', color: '#69c' },
-  { key: 'leafSize' as const, label: 'Leaf', color: '#6c6' },
-  { key: 'seedInvestment' as const, label: 'Seed', color: '#c6c' },
-  { key: 'allelopathy' as const, label: 'Allelo', color: '#96c' },
-  { key: 'defense' as const, label: 'Def', color: '#c66' },
-];
-
-
-/** Convert short hex like #c96 to rgba with alpha */
-function hexToRgba(hex: string, alpha: number): string {
-  let r: number, g: number, b: number;
-  if (hex.length === 4) {
-    r = parseInt(hex[1] + hex[1], 16);
-    g = parseInt(hex[2] + hex[2], 16);
-    b = parseInt(hex[3] + hex[3], 16);
-  } else {
-    r = parseInt(hex.slice(1, 3), 16);
-    g = parseInt(hex.slice(3, 5), 16);
-    b = parseInt(hex.slice(5, 7), 16);
-  }
-  return `rgba(${r},${g},${b},${alpha})`;
-}
+import { TRAITS } from './trait-defs';
 
 export function createGenomePanel(
   container: HTMLElement,
@@ -163,7 +139,7 @@ export function createGenomePanel(
 
         const fill = document.createElement('div');
         fill.className = 'genome-bar-fill';
-        const val = sp.avgGenome[trait.key];
+        const val = sp.avgGenome[trait.genomeKey];
         fill.style.width = (val * 100) + '%';
         fill.style.background = hexToRgba(trait.color, 0.6);
         cell.appendChild(fill);
@@ -202,10 +178,10 @@ export function createGenomePanel(
     for (const trait of TRAITS) {
       const lbl = document.createElement('span');
       lbl.className = 'genome-sort-header';
-      lbl.dataset.sortKey = trait.key;
+      lbl.dataset.sortKey = trait.genomeKey;
       lbl.textContent = trait.label;
       lbl.style.color = trait.color;
-      lbl.addEventListener('click', () => setSortBy(trait.key));
+      lbl.addEventListener('click', () => setSortBy(trait.genomeKey));
       header.appendChild(lbl);
     }
   }
@@ -292,7 +268,7 @@ export function createGenomePanel(
           const cell = bars[t];
           const fill = cell.querySelector('.genome-bar-fill') as HTMLElement;
           const valEl = cell.querySelector('.genome-bar-val') as HTMLElement;
-          const val = sp.avgGenome[trait.key];
+          const val = sp.avgGenome[trait.genomeKey];
           fill.style.width = (val * 100) + '%';
           valEl.textContent = val.toFixed(2);
         });

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { World, Plant, Renderer, History } from './types';
 import { computeSilhouette, computeGrassSilhouette, plantHash, makeRoughSphere } from './renderer3d/state';
-import { naturalCanopyColor, naturalTrunkColor, naturalGrassColor } from './renderer3d/plants';
+import { naturalCanopyColor, naturalTrunkColor, naturalGrassColor } from './renderer3d/plant-colors';
 import { speciesCentroid, speciesColorToRgb } from './ui-utils';
 import { createFloatingLabels } from './floating-labels';
 

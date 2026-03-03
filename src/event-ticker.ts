@@ -1,4 +1,5 @@
 import { History, SpeciesColor, SimEventType } from './types';
+import { speciesColorToRgb } from './ui-utils';
 
 const MAX_DOM_EVENTS = 50;
 
@@ -43,9 +44,7 @@ export function createEventTicker(container: HTMLElement) {
       let dotHtml = '';
       if (evt.speciesId != null) {
         const sc = speciesColors.get(evt.speciesId);
-        const rgb = sc
-          ? `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`
-          : '#888';
+        const rgb = sc ? speciesColorToRgb(sc) : '#888';
         dotHtml = `<span class="event-dot" style="background:${rgb}"></span>`;
       }
 
