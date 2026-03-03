@@ -122,16 +122,40 @@ function generateRocks(grid: Cell[][], w: number, h: number): void {
   }
 }
 
-function generateHills(grid: Cell[][], elevation: number[][], w: number, h: number): void {
-  const hillNoise = valueNoise(w, h, 2, 0.5);
+function generateBiomes(grid: Cell[][], elevation: number[][], w: number, h: number): void {
+  // Large-scale noise (scale ~25 on 80×80) creates 2-3 coherent regions
+  const scale = 25;
+  const coarseW = Math.ceil(w / scale) + 2;
+  const coarseH = Math.ceil(h / scale) + 2;
+  const coarse: number[][] = Array.from({ length: coarseH }, () =>
+    Array.from({ length: coarseW }, () => Math.random()),
+  );
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
       if (cell.terrainType !== TerrainType.Soil) continue;
-      if (hillNoise[y][x] > 0.75) {
+
+      const gx = x / scale;
+      const gy = y / scale;
+      const ix = Math.floor(gx);
+      const iy = Math.floor(gy);
+      const fx = gx - ix;
+      const fy = gy - iy;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const top = coarse[iy][ix] + (coarse[iy][ix + 1] - coarse[iy][ix]) * sx;
+      const bot = coarse[iy + 1][ix] + (coarse[iy + 1][ix + 1] - coarse[iy + 1][ix]) * sx;
+      const biome = top + (bot - top) * sy;
+
+      if (biome > 0.62) {
         cell.terrainType = TerrainType.Hill;
         cell.elevation = Math.max(cell.elevation, 0.6 + (elevation[y][x] - 0.5) * 0.3);
         cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
+      } else if (biome < 0.35) {
+        cell.terrainType = TerrainType.Arid;
+        cell.waterRechargeRate = SIM.ARID_WATER_RECHARGE;
+        cell.nutrients = Math.min(cell.nutrients, SIM.ARID_NUTRIENT_MAX);
       }
     }
   }
@@ -141,6 +165,7 @@ function generateWetlands(
   grid: Cell[][], elevation: number[][], w: number, h: number,
 ): void {
   // BFS from river cells to compute distance-to-river
+  const maxDist = 14;
   const dist = new Float32Array(w * h);
   dist.fill(255);
   const queue: [number, number][] = [];
@@ -159,7 +184,7 @@ function generateWetlands(
   while (qi < queue.length) {
     const [cx, cy] = queue[qi++];
     const cd = dist[cy * w + cx];
-    if (cd >= 10) continue;
+    if (cd >= maxDist) continue;
     for (const [dx, dy] of dirs) {
       const nx = cx + dx;
       const ny = cy + dy;
@@ -175,13 +200,16 @@ function generateWetlands(
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
-      if (cell.terrainType !== TerrainType.Soil) continue;
+      // Wetlands can override Soil and Arid near rivers, but not River/Rock/Hill
+      if (cell.terrainType === TerrainType.River
+        || cell.terrainType === TerrainType.Rock
+        || cell.terrainType === TerrainType.Hill) continue;
       const d = dist[y * w + x];
-      if (d > 9) continue;
+      if (d > maxDist - 1) continue;
       const elev = elevation[y][x];
-      if (elev >= 0.5) continue;
-      const prob = (1 - d / 10) * (1 - elev / 0.5);
-      if (prob > 0.12) {
+      if (elev >= 0.55) continue;
+      const prob = (1 - d / maxDist) * (1 - elev / 0.55);
+      if (prob > 0.06) {
         cell.terrainType = TerrainType.Wetland;
         cell.waterRechargeRate = SIM.WETLAND_WATER_RECHARGE;
         cell.waterLevel = SIM.MAX_WATER * 0.8;
@@ -191,20 +219,6 @@ function generateWetlands(
   }
 }
 
-function generateAridZones(grid: Cell[][], w: number, h: number): void {
-  const aridNoise = valueNoise(w, h, 2, 0.5);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const cell = grid[y][x];
-      if (cell.terrainType !== TerrainType.Soil) continue;
-      if (aridNoise[y][x] > 0.68) {
-        cell.terrainType = TerrainType.Arid;
-        cell.waterRechargeRate = SIM.ARID_WATER_RECHARGE;
-        cell.nutrients = Math.min(cell.nutrients, SIM.ARID_NUTRIENT_MAX);
-      }
-    }
-  }
-}
 
 function assignTerrainProperties(
   grid: Cell[][], elevation: number[][], w: number, h: number,
@@ -277,9 +291,8 @@ export function createWorld(width: number, height: number): World {
     generateRiver(grid, elevation, width, height);
   }
   generateRocks(grid, width, height);
-  generateHills(grid, elevation, width, height);
+  generateBiomes(grid, elevation, width, height);
   generateWetlands(grid, elevation, width, height);
-  generateAridZones(grid, width, height);
   assignTerrainProperties(grid, elevation, width, height);
 
   return {
