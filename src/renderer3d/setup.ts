@@ -81,7 +81,12 @@ export function createTerrain(world: World): TerrainResult {
   terrainGeo.computeVertexNormals();
 
   function getCellElevation(cx: number, cy: number): number {
-    return world.grid[cy][cx].elevation * ELEV_SCALE + rockOverlay[cy * GRID + cx];
+    // Average the 4 corner heights to match the actual terrain mesh surface
+    const tl = corners[cy * cornerSize + cx];
+    const tr = corners[cy * cornerSize + cx + 1];
+    const bl = corners[(cy + 1) * cornerSize + cx];
+    const br = corners[(cy + 1) * cornerSize + cx + 1];
+    return (tl + tr + bl + br) * 0.25;
   }
 
   // Extended ground plane
