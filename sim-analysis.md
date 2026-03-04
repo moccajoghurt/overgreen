@@ -725,3 +725,13 @@ Near-extinction bottleneck (2 plants at tick 1075) but recovered. Mesquite maint
 Lush ecosystem with peak pop ~3970. Tall Mangrove evolved toward balance (h:0.61→0.51, r:0.20→0.41, l:0.21→0.36) but kept height dominant. The 1.5x height bonus multiplier correctly rewards vertical growth. Root specialist couldn't overcome 2.5x anoxic soil maintenance. Matches real wetland ecology — mangroves, bald cypress, and swamp tupelo dominate via height.
 
 **Conclusion:** Wetland terrain working correctly after removing artificial light penalty. Height dominance on wetlands is nature-aligned.
+
+### Experiment 10: Grass vs Trees
+**Goal:** Do archetype mechanics produce realistic ecological succession on flat soil?
+**Result:** Oak Tree wins 100%. Prairie Grass extinct by tick ~900 (mid-Year 2).
+
+Year 1: Grass colonizes faster (59 vs 32 at tick 25) thanks to cheaper seeds and higher growth efficiency. But by summer, tree shading (0.25 shadow reduction vs grass's 0.05) overtops grass. Population peaks at 471, crashes through autumn/winter to 52 survivors. Year 2: Oak dominates 325 vs 18 grass. Grass evolved toward tree-like traits (height 0.32→0.40, allelopathy 0.05→0.17) but was capped by archetype limits. Oak evolved higher seed investment (0.48→0.64) for aggressive reproduction. Post-extinction, Oak reaches 684+ and climbing.
+
+This is textbook ecological succession — pioneer grasses give way to climax forest via shading. In nature, grasslands persist only where disturbance (fire, grazing) prevents tree establishment. Our sim lacks fire, so trees always win on flat soil. Known limitation, not a bug.
+
+**Conclusion:** Archetype mechanics working correctly. Tree shading and height light bonus create realistic succession dynamics. No tuning needed.
