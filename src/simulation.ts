@@ -356,7 +356,7 @@ function phaseUpdatePlants(world: World): void {
 
     // Allelopathy: damage neighboring plants via chemical suppression
     if (plant.genome.allelopathy > 0.1) {
-      const allelStrength = plant.genome.allelopathy * (0.5 + 0.5 * plant.rootDepth / SIM.MAX_ROOT_DEPTH);
+      const allelStrength = plant.genome.allelopathy;
       const damage = allelStrength * SIM.ALLELOPATHY_DAMAGE_RATE;
       for (const [dx, dy] of NEIGHBORS) {
         const nx = plant.x + dx;

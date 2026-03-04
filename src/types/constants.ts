@@ -101,7 +101,7 @@ export const SIM = {
   SOIL_WATER_TABLE: 6.0,
   HILL_WATER_TABLE: 3.0,
   WETLAND_WATER_TABLE: 2.0,
-  ARID_WATER_TABLE: 2.0,
+  ARID_WATER_TABLE: 3.0,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
   HILL_MAINT_ROOT_MULT: 3.0,     // rock is hard to dig

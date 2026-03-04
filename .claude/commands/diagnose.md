@@ -1,7 +1,9 @@
 Analyze the latest overgreen diagnostic file.
 
+User context (use this to focus your analysis, NOT as a file path): $ARGUMENTS
+
 Steps:
-1. Run `node scripts/summarize-diagnostic.cjs $ARGUMENTS` to get the pre-processed summary. If $ARGUMENTS is empty, the script auto-finds the most recent `overgreen-diagnostic-*.json` in the project root.
+1. Run `node scripts/summarize-diagnostic.cjs` to get the pre-processed summary. The script auto-finds the most recent `overgreen-diagnostic-*.json` in the project root.
 2. Read the script output — it contains the full timeline, species evolution, death causes, and auto-detected patterns.
 3. Provide analysis covering:
    - **Population dynamics**: seasonal cycles, carrying capacity, boom/bust patterns
