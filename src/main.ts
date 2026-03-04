@@ -44,6 +44,11 @@ terrainToggle.addEventListener('change', () => {
 
 const history = createHistory();
 const diagLogger = createDiagnosticLogger();
+// Expose for programmatic access (experiments)
+(window as any).__diagLogger = diagLogger;
+(window as any).__world = world;
+(window as any).__doTick = () => { tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
+(window as any).__updateUI = () => { lastUITick = -1; updateUI(); };
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
