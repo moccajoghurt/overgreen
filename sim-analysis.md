@@ -721,11 +721,11 @@ Lush ecosystem with peak pop 4528 (highest of all terrains). With groundwater en
 
 ### Experiment 10: Grass vs Trees
 **Goal:** Do archetype mechanics produce realistic ecological succession on flat soil?
-**Result:** Prairie Grass wins 100%. Oak Tree extinct by tick ~3000. Complete reversal from previous.
+**Result:** Stable coexistence — Prairie Grass 63%, Oak Tree 37%. Shannon diversity 0.66.
 
-Grass dominates from tick 1 (684 vs 281) via cheaper seeds (0.4 vs 0.8), faster growth (0.5 vs 0.3 efficiency), and high seed investment (0.55→0.71). Grass fills the grid before trees can establish height for shading — shading collapsed to 0-4% by mid-run. Grass evolved extreme root priority (0.33→0.65) for groundwater access. Oak slowly declined (281→83→5→0) despite evolving bigger leaves (0.30→0.44). Water stress significant (14-35%) unlike other flat-soil experiments, suggesting grass density is consuming water faster than trees can benefit from it.
+Oak leads early (327 vs 93 at tick 250) with meaningful shading (35-56%). Grass overtakes mid-run (tick 1750: 757 vs 746) via cheaper seeds (0.4 vs 0.8) and faster growth efficiency (0.5 vs 0.3). Both coexist through endgame — oak maintains higher per-plant energy (1.57 vs 1.34) while grass outnumbers via reproduction speed. Root-gated nutrient access with absolute scaling (rootDepth/10) gives trees a nutrient advantage that prevents extinction. Grass evolved deep roots (0.33→0.68) and high seed investment (0.52→0.73). Oak stayed balanced with moderate leaf growth (0.33→0.39).
 
-**Concern:** Previous result showed textbook ecological succession (grass→forest). Now grass permanently dominates, which is less realistic on undisturbed flat soil — forests should eventually overtop grasslands via shading. Grass's reproduction advantage may be too strong relative to tree shading payoff. Worth investigating.
+**Conclusion:** Most realistic outcome yet — real ecosystems have both grassland and forest coexisting. Neither archetype drives the other extinct. No sim changes needed.
 
 ### Experiment 11: Nutrient Cycle
 **Goal:** Does decomposition enrichment create a meaningful nutrient feedback loop? Do deep-rooted species benefit more from nutrient-rich soil?
