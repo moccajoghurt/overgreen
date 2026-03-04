@@ -372,25 +372,25 @@ Grass has a massive advantage in reproduction rate (half cost, wider base range)
   Year = 500 ticks (4 seasons × 125 ticks each)
   Cosine interpolation between season values.
 
-  ┌─────────┬───────┬───────┬──────────┬────────┬──────┬───────────┐
-  │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │ LeafDecay │
-  ├─────────┼───────┼───────┼──────────┼────────┼──────┼───────────┤
-  │ Spring  │ 1.20  │ 1.00  │  1.0     │ 1.30   │ 1.0  │ 0.00      │
-  │ Summer  │ 0.80  │ 1.15  │  1.0     │ 1.00   │ 1.0  │ 0.00      │
-  │ Autumn  │ 1.00  │ 0.85  │  1.0     │ 0.50   │ 0.3  │ 0.01      │
-  │ Winter  │ 0.60  │ 0.50  │  3.0     │ 0.00   │ 0.0  │ 0.03      │
-  └─────────┴───────┴───────┴──────────┴────────┴──────┴───────────┘
+  ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
+  │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
+  ├─────────┼───────┼───────┼──────────┼────────┼──────┤
+  │ Spring  │ 1.20  │ 1.00  │  1.0     │ 1.30   │ 1.0  │
+  │ Summer  │ 0.80  │ 1.15  │  1.0     │ 1.00   │ 1.0  │
+  │ Autumn  │ 1.00  │ 0.85  │  1.0     │ 0.50   │ 0.3  │
+  │ Winter  │ 0.60  │ 0.50  │  3.0     │ 0.00   │ 0.0  │
+  └─────────┴───────┴───────┴──────────┴────────┴──────┘
+
+  Energy-based leaf drop: when production < maintenance AND leafMaintenanceMult > 1.0,
+  plants instantly shed leaves to 0.1. This replaces the old gradual leaf decay system.
 
   Winter effects:
     - Light halved → photosynthesis ~50%
-    - Leaf maintenance 3x → deep-rooted plants insulate (up to 80%)
+    - Leaf maintenance 3x → triggers leaf drop in mid-autumn
+    - Deep-rooted plants insulate (up to 80% of winter leaf penalty)
     - Growth = 0 → no size increase
     - Seeds = 0 → no reproduction
-    - Leaf decay 0.03/tick → 125 ticks = -3.75 leaf area!
-
-  A plant with leafArea=4 entering winter:
-    After 125 ticks: leafArea = max(0.1, 4 - 3.75) = 0.25
-    Must survive on minimal photosynthesis until spring regrowth.
+    - Plants survive on stored energy + tiny photosynthesis from 0.1 leaf area
 ```
 
 ### Key question: Is winter actually lethal?
@@ -561,7 +561,7 @@ defense is pure noise. If they boom, it becomes critical.
   │ Seed energy     │ 2.0        │ 1.5        │
   │ Seed range      │ 3+h/2      │ 4+h/4     │
   │ Growth eff      │ 0.3        │ 0.5        │
-  │ Max age         │ 500        │ 200        │
+  │ Max age         │ 2500       │ 750        │
   │ Shadow cast     │ 0.25       │ 0.05       │
   │ Height light    │ up to +0.7 │ up to +0.1 │
   │ Decomp nutr     │ 1.5+h×0.3  │ 0.8+h×0.1 │
@@ -634,3 +634,28 @@ Run each for 2000-3000 ticks and observe population/genome trends.
 | 10 | Grass vs Trees | Archetype competition | Flat soil | 2: grass vs tree (same genome) |
 | 11 | Nutrient Cycle | Decomposition enrichment | Flat soil, low nutrients | 1 species, sparse start |
 | 12 | Terrain Mosaic | Multi-terrain adaptation | Mixed all types | 4 specialists |
+
+---
+
+## EXPERIMENT RESULTS
+
+### Experiment 1: Monoculture Baseline
+**Goal:** Can a single balanced grass species sustain itself on flat soil?
+**Result:** NO — all grass dies in winter.
+
+**Root cause:** Gradual leaf decay (0.01-0.03/tick) too slow. Plants bleed energy paying 3x leaf maintenance on slowly-shrinking leaves for 50+ ticks. Isolated plant survives with 0.096 energy margin, but any neighbor root competition (~3.8% water drain) pushes it over the edge. Also GRASS.MAX_AGE=200 means grass can't live through one 500-tick year.
+
+**Fixes applied:**
+1. Replaced gradual leaf decay with energy-based leaf drop — plants instantly shed leaves to 0.1 when losing energy and leafMaintenanceMult > 1.0
+2. GRASS.MAX_AGE: 200 → 750 (1.5 years)
+3. SIM.MAX_AGE (trees): 500 → 2500 (5 years)
+
+**Verified:** Re-ran with 4 grass species varying leaf/root. All survived winter. Healthy seasonal cycle, population oscillating ~1100-3100.
+
+### Experiment 2: Water Competition
+**Goal:** Does deep roots or big leaves win when two tree species compete on flat soil?
+**Result:** Big leaves win (75% dominance by year 2).
+
+Water stress is real — 20-37% of trees water-stressed in summer, occupied cells drop to near-zero water in autumn. But light competition from shading (50%+ of trees shaded at peak) is the stronger selective pressure on soil. Deep roots help survive but don't help win. Species genomes converge over time (Broad Leaf drifts toward more roots, Deep Root drifts toward more leaves).
+
+**Conclusion:** Matches real temperate forests — light decides winners on decent soil, water is survivability insurance. No sim changes needed.
