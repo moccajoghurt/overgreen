@@ -721,13 +721,11 @@ Lush ecosystem with peak pop 4528 (highest of all terrains). With groundwater en
 
 ### Experiment 10: Grass vs Trees
 **Goal:** Do archetype mechanics produce realistic ecological succession on flat soil?
-**Result:** Oak Tree wins 100%. Prairie Grass extinct by tick ~900 (mid-Year 2).
+**Result:** Prairie Grass wins 100%. Oak Tree extinct by tick ~3000. Complete reversal from previous.
 
-Year 1: Grass colonizes faster (59 vs 32 at tick 25) thanks to cheaper seeds and higher growth efficiency. But by summer, tree shading (0.25 shadow reduction vs grass's 0.05) overtops grass. Population peaks at 471, crashes through autumn/winter to 52 survivors. Year 2: Oak dominates 325 vs 18 grass. Grass evolved toward tree-like traits (height 0.32→0.40, allelopathy 0.05→0.17) but was capped by archetype limits. Oak evolved higher seed investment (0.48→0.64) for aggressive reproduction. Post-extinction, Oak reaches 684+ and climbing.
+Grass dominates from tick 1 (684 vs 281) via cheaper seeds (0.4 vs 0.8), faster growth (0.5 vs 0.3 efficiency), and high seed investment (0.55→0.71). Grass fills the grid before trees can establish height for shading — shading collapsed to 0-4% by mid-run. Grass evolved extreme root priority (0.33→0.65) for groundwater access. Oak slowly declined (281→83→5→0) despite evolving bigger leaves (0.30→0.44). Water stress significant (14-35%) unlike other flat-soil experiments, suggesting grass density is consuming water faster than trees can benefit from it.
 
-This is textbook ecological succession — pioneer grasses give way to climax forest via shading. In nature, grasslands persist only where disturbance (fire, grazing) prevents tree establishment. Our sim lacks fire, so trees always win on flat soil. Known limitation, not a bug.
-
-**Conclusion:** Archetype mechanics working correctly. Tree shading and height light bonus create realistic succession dynamics. No tuning needed.
+**Concern:** Previous result showed textbook ecological succession (grass→forest). Now grass permanently dominates, which is less realistic on undisturbed flat soil — forests should eventually overtop grasslands via shading. Grass's reproduction advantage may be too strong relative to tree shading payoff. Worth investigating.
 
 ### Experiment 11: Nutrient Cycle
 **Goal:** Does decomposition enrichment create a meaningful nutrient feedback loop? Do deep-rooted species benefit more from nutrient-rich soil?
