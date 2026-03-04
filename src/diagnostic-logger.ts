@@ -501,6 +501,8 @@ export function createDiagnosticLogger(config: DiagnosticConfig = {
     prevSeason = -1;
     prevPopulation = 0;
     prevSpeciesCount = 0;
+    terrainSummaryCache = null;
+    nearRiverCache = null;
   }
 
   return { recordTick, downloadReport, buildReport, reset };
