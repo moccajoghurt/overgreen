@@ -713,12 +713,11 @@ Water stress back as meaningful constraint (6-22% in summer). Mesquite dominates
 
 ### Experiment 9: Wetland Specialist
 **Goal:** Do wetland terrain pressures enforce tall/leafy specialization?
-**Tuning required:** Original wetland had a -0.25 light penalty that made seedlings unviable — they spawned in late autumn but couldn't survive winter on reduced light + 2.5x root maintenance. Population slowly declined to extinction. Removed `WETLAND_LIGHT_PENALTY` entirely — real wetlands aren't dark, they're among the most productive ecosystems on Earth. Canopy shading should emerge from plant competition, not be baked into terrain.
-**Result:** Tall Mangrove (height 0.6) dominates at 99%. Deep Root Cypress extinct, Broad Leaf Lotus barely surviving at 1%.
+**Result:** Broad Leaf Lotus (leaf 0.6) dominates at 76%, Tall Mangrove (height 0.6) coexists at 24%, Deep Root Cypress (root 0.6) extinct by tick ~2750. Winner flipped from height to leaves.
 
-Lush ecosystem with peak pop ~3970. Tall Mangrove evolved toward balance (h:0.61→0.51, r:0.20→0.41, l:0.21→0.36) but kept height dominant. The 1.5x height bonus multiplier correctly rewards vertical growth. Root specialist couldn't overcome 2.5x anoxic soil maintenance. Matches real wetland ecology — mangroves, bald cypress, and swamp tupelo dominate via height.
+Lush ecosystem with peak pop 4528 (highest of all terrains). With groundwater ensuring water is never limiting (0-4% stress), cheap leaf maintenance (0.85x) becomes the dominant advantage. Lotus maintained leaf dominance (0.66→0.68) while evolving moderate roots (0.35→0.47) and height (0.29→0.40). Mangrove coexists at 24% via 1.5x height bonus — held steady at ~900-1100 plants throughout. Root specialist extinct due to 2.5x anoxic soil maintenance. More ecologically realistic than previous 99/1% result — real wetlands have both canopy trees and dense ground cover.
 
-**Conclusion:** Wetland terrain working correctly after removing artificial light penalty. Height dominance on wetlands is nature-aligned.
+**Conclusion:** Wetland terrain correctly rewards cheap leaves when water is abundant. Height and leaf strategies coexist, matching real wetland ecology. No sim changes needed.
 
 ### Experiment 10: Grass vs Trees
 **Goal:** Do archetype mechanics produce realistic ecological succession on flat soil?
