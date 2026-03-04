@@ -671,3 +671,13 @@ Interesting evolution: both species drifted toward higher seed investment (0.50 
 Shannon diversity stable at 0.65 (vs 0.69 start). No extinction risk.
 
 **Conclusion:** Height gives a real but not overwhelming competitive edge on flat soil. Both tall canopy and short leafy strategies coexist — matches real forest structure. No sim changes needed.
+
+### Experiment 4: Seed Tradeoff
+**Goal:** What's the optimal seed investment? Low (0.3) vs mid (0.5) vs high (0.7), identical base genomes.
+**Result:** Mid wins (75%), High second (25%), Low nearly extinct (<1%).
+
+Both Mid and High evolved toward seedInvestment ~0.68, converging from opposite directions. This is the apparent optimum on flat soil. Low Seed Oak survived as 2-3 plants the entire run — individually healthy (highest energy) but unable to reproduce fast enough. seedInvestment=0.3 is a death sentence.
+
+Mid beats High because slightly bigger plants before seeding produce more competitive offspring. High floods with weaker seedlings. Both are viable but moderate investment has the edge.
+
+**Conclusion:** Optimal seed investment ~0.68 on flat soil. Too little reproduction is fatal regardless of individual fitness. No sim changes needed.
