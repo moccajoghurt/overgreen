@@ -670,13 +670,13 @@ Tall Pine leads from tick 250 (68%) and widens the gap to 70% by end. Shading 30
 
 ### Experiment 4: Seed Tradeoff
 **Goal:** What's the optimal seed investment? Low (0.3) vs mid (0.5) vs high (0.7), identical base genomes.
-**Result:** Mid wins (75%), High second (25%), Low nearly extinct (<1%).
+**Result:** High Seed Birch wins (67%), Mid Seed Elm second (33%), Low Seed Oak extinct by tick ~2500.
 
-Both Mid and High evolved toward seedInvestment ~0.68, converging from opposite directions. This is the apparent optimum on flat soil. Low Seed Oak survived as 2-3 plants the entire run — individually healthy (highest energy) but unable to reproduce fast enough. seedInvestment=0.3 is a death sentence.
+Both High and Mid evolved toward seedInvestment ~0.65, converging from opposite directions. This is the apparent optimum on flat soil. Low Seed Oak survived as 1-15 plants for most of the run — individually healthy (highest energy at 2.06-2.49) but unable to reproduce fast enough. seedInvestment=0.3 is a death sentence.
 
-Mid beats High because slightly bigger plants before seeding produce more competitive offspring. High floods with weaker seedlings. Both are viable but moderate investment has the edge.
+High beats Mid because raw reproduction rate dominates on well-watered flat soil — with groundwater keeping water stress low (0-9%), the slight growth advantage of lower seed investment doesn't compensate for fewer offspring. Both survivors evolved deeper roots (→0.44-0.45) and bigger leaves (→0.41-0.48) while height stayed flat (~0.29-0.31). Mid Seed Elm compensated with notably larger leaves (0.48 vs 0.41) for more photosynthesis per plant.
 
-**Conclusion:** Optimal seed investment ~0.68 on flat soil. Too little reproduction is fatal regardless of individual fitness. No sim changes needed.
+**Conclusion:** Optimal seed investment ~0.65 on flat soil. Too little reproduction is fatal regardless of individual fitness. No sim changes needed.
 
 ### Experiment 5: Allelopathy Duel
 **Goal:** Does chemical warfare (allelopathy 0.5) justify its maintenance cost against a passive competitor?
