@@ -689,3 +689,11 @@ Mid beats High because slightly bigger plants before seeding produce more compet
 Cross-species contact started at 84% then collapsed to 0% by tick 850. Allelopathy caused massive early deaths (96-151 per snapshot during mixing) which pushed Peaceful Maple out of shared territory. After segregation, Toxic Walnut holds more space but pays 0.03/tick maintenance for zero benefit. Its allelopathy is evolving downward (0.51 → 0.40) — selection pressure against wasted maintenance.
 
 **Conclusion:** Allelopathy is an effective territorial weapon but self-defeating — it eliminates the neighbors it's designed to fight. Realistic (real walnut trees create exclusion zones). No sim changes needed.
+
+### Experiment 6: Defense vs Herbivores
+**Goal:** Does defense (0.5) justify its maintenance cost against herbivore grazing?
+**Result:** No — Soft Willow (undefended) wins 56/44%. Defense is a net negative.
+
+Defense costs 0.025/tick permanent maintenance but only 12 herbivores roam 6400 cells with hundreds-to-thousands of plants. Any given plant gets grazed rarely, so the permanent tax outweighs occasional protection. Thorny Holly's defense evolving down (0.48 → 0.40), Soft Willow's creeping up (0.01 → 0.16) — converging as usual.
+
+**Conclusion:** Defense is correctly modeled but herbivore pressure is too dilute for it to matter. Not a bug — defense would become valuable at higher herbivore density. No sim changes needed.
