@@ -735,3 +735,11 @@ Year 1: Grass colonizes faster (59 vs 32 at tick 25) thanks to cheaper seeds and
 This is textbook ecological succession — pioneer grasses give way to climax forest via shading. In nature, grasslands persist only where disturbance (fire, grazing) prevents tree establishment. Our sim lacks fire, so trees always win on flat soil. Known limitation, not a bug.
 
 **Conclusion:** Archetype mechanics working correctly. Tree shading and height light bonus create realistic succession dynamics. No tuning needed.
+
+### Experiment 11: Nutrient Cycle
+**Goal:** Does decomposition enrichment create a meaningful nutrient feedback loop? Do deep-rooted species benefit more from nutrient-rich soil?
+**Result:** Deep Root Oak dominates at 76%, Shallow Leaf Fern survives at 24%. Both coexist through 2800 ticks.
+
+Nutrient feedback loop clearly working: early population flat at ~50-80 (low soil nutrients, 47% water stress), then exponential growth as decomposition enriches soil — peak 1768 plants by Year 6 with water stress dropping to 0-3%. Deep Root Oak wins via nutrient access (rootAccess 0.67 vs Fern's 0.42) and evolves aggressive seed investment (0.50→0.69). Oak also evolves bigger leaves (0.10→0.44), enabled by nutrient advantage. Fern survives by converging toward deeper roots (0.10→0.43) and maintaining higher per-plant energy. Convergent evolution and coexistence are both nature-aligned — real forests have canopy trees and understory species.
+
+**Conclusion:** Nutrient cycle creates healthy positive feedback without runaway growth. Root-gated nutrient access correctly rewards deep-rooted species. No tuning needed.

@@ -9,6 +9,7 @@ import { experimentHillSpecialist } from './experiment-hill-specialist';
 import { experimentAridSpecialist } from './experiment-arid-specialist';
 import { experimentWetlandSpecialist } from './experiment-wetland-specialist';
 import { experimentGrassVsTrees } from './experiment-grass-vs-trees';
+import { experimentNutrientCycle } from './experiment-nutrient-cycle';
 
 export const SCENARIOS: Scenario[] = [
   experimentMonoculture,
@@ -21,4 +22,5 @@ export const SCENARIOS: Scenario[] = [
   experimentAridSpecialist,
   experimentWetlandSpecialist,
   experimentGrassVsTrees,
+  experimentNutrientCycle,
 ];
