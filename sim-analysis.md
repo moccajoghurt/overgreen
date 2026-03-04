@@ -704,11 +704,12 @@ Groundwater system gives deep-rooted plants direct subsurface water access — o
 
 ### Experiment 8: Arid Specialist
 **Goal:** Do arid terrain pressures enforce root specialization?
-**Result:** Tall Saguaro (height 0.6) wins 55%, Deep Root Mesquite (root 0.6) second at 45%, Broad Leaf Agave (leaf 0.6) extinct by tick ~1000. Winner flipped from roots to height.
+**Tuning required:** Arid water table was 3.0 (shallower than soil at 4.0!), making groundwater too accessible — even height specialists could tap the aquifer with moderate roots. Deepened to 5.0 so only root-dominant plants can reach groundwater.
+**Result:** Deep Root Mesquite wins 97%. Broad Leaf Agave survives at 3%, Tall Saguaro extinct by tick ~2500.
 
-Groundwater removed water as the binding constraint — water stress 0% most of the run. With water abundant, height's shading advantage and light bonus on arid's +1.20 base light become the deciding factors. Saguaro maintained height dominance (0.60→0.70) with small leaves (0.28) minimizing the 3x leaf maintenance tax. Mesquite survived via root access (0.63→0.69) and evolved bigger leaves (0.22→0.43). Agave's big leaves were fatal despite starting with the most plants (80 at tick 250). Population sparse (peak 551) with severe winter bottleneck (17 plants at tick 500) — arid is still harsh terrain.
+Water stress back as meaningful constraint (6-22% in summer). Mesquite dominates from tick 1 via groundwater access (root priority 0.58→0.66). Saguaro collapsed to 1 plant by tick 750 — height advantage irrelevant without water. Agave survived only by evolving deep roots (0.20→0.56), essentially becoming a root specialist itself. Population grew healthily to 1350, no near-extinction bottleneck. Matches real desert ecology — deep-taprooted species (mesquite, acacia) dominate.
 
-**Concern:** Result is less ecologically realistic — real deserts are water-limited, not light-competitive. Arid groundwater access may be too generous, removing the core constraint that should drive root specialization. May warrant tuning.
+**Conclusion:** Arid terrain working correctly after deepening water table to 5.0. Root specialization is the winning strategy as expected.
 
 ### Experiment 9: Wetland Specialist
 **Goal:** Do wetland terrain pressures enforce tall/leafy specialization?
