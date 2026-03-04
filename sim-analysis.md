@@ -697,3 +697,13 @@ Cross-species contact started at 84% then collapsed to 0% by tick 850. Allelopat
 Defense costs 0.025/tick permanent maintenance but only 12 herbivores roam 6400 cells with hundreds-to-thousands of plants. Any given plant gets grazed rarely, so the permanent tax outweighs occasional protection. Thorny Holly's defense evolving down (0.48 → 0.40), Soft Willow's creeping up (0.01 → 0.16) — converging as usual.
 
 **Conclusion:** Defense is correctly modeled but herbivore pressure is too dilute for it to matter. Not a bug — defense would become valuable at higher herbivore density. No sim changes needed.
+
+### Experiment 7: Hill Specialist
+**Goal:** Do terrain pressures enforce specialization? Root/height/leaf specialists on pure hills.
+**Result:** Tall Spruce (height 0.6) dominates at 81%, Deep Root Pine (root 0.6) survives at 19%, Broad Leaf Holly (leaf 0.6) extinct by tick 900.
+
+Prediction was leaf would win (hills: +0.3 seed fitness, 1.0x leaf maint). Instead height won because hills are water-scarce (0.4x recharge) — big leaves need water to photosynthesize, making them a liability. Height's shading advantage (+0.35 hill light bonus amplifies tall plants' competitive edge) compounds over time. This matches real nature: conifers (tall, small leaves) dominate hillsides over broadleaf species.
+
+Deep Root Pine persisted via water access (roots drifted 0.57→0.66) but couldn't overcome 3x root maintenance cost. Both surviving species converged: Spruce gained roots (0.20→0.49), Pine gained height (0.19→0.37).
+
+**Conclusion:** Hill terrain working well. Terrain pressure successfully enforces differentiation from flat-soil outcomes. No sim changes needed.
