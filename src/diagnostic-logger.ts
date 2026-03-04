@@ -224,7 +224,6 @@ function computeSnapshot(
     // Compare against terrain+season base to detect actual neighbor shading (not seasonal darkness)
     let unshadedBase = SIM.BASE_LIGHT;
     if (cell.terrainType === TerrainType.Hill) unshadedBase += SIM.HILL_LIGHT_BONUS;
-    else if (cell.terrainType === TerrainType.Wetland) unshadedBase -= SIM.WETLAND_LIGHT_PENALTY;
     else if (cell.terrainType === TerrainType.Arid) unshadedBase += SIM.ARID_LIGHT_BONUS;
     if (plant.lastLightReceived < unshadedBase * world.environment.lightMult * 0.9) shadedCount++;
     sumRootDepth += plant.rootDepth;

@@ -716,3 +716,12 @@ Deep Root Pine persisted via water access (roots drifted 0.57→0.66) but couldn
 Near-extinction bottleneck (2 plants at tick 1075) but recovered. Mesquite maintained root dominance (0.59→0.65) while gaining moderate height/leaf — terrain pressure enforced specialization. Leaf specialist actually outlasted height specialist (3x leaf maintenance is harsh but height offers no advantage without competition). Water stress dropped to 0-7% once aquifer-accessing population established.
 
 **Conclusion:** Arid terrain now working correctly after tuning. Matches real desert ecology — deep-rooted species (mesquite, acacia) dominate.
+
+### Experiment 9: Wetland Specialist
+**Goal:** Do wetland terrain pressures enforce tall/leafy specialization?
+**Tuning required:** Original wetland had a -0.25 light penalty that made seedlings unviable — they spawned in late autumn but couldn't survive winter on reduced light + 2.5x root maintenance. Population slowly declined to extinction. Removed `WETLAND_LIGHT_PENALTY` entirely — real wetlands aren't dark, they're among the most productive ecosystems on Earth. Canopy shading should emerge from plant competition, not be baked into terrain.
+**Result:** Tall Mangrove (height 0.6) dominates at 99%. Deep Root Cypress extinct, Broad Leaf Lotus barely surviving at 1%.
+
+Lush ecosystem with peak pop ~3970. Tall Mangrove evolved toward balance (h:0.61→0.51, r:0.20→0.41, l:0.21→0.36) but kept height dominant. The 1.5x height bonus multiplier correctly rewards vertical growth. Root specialist couldn't overcome 2.5x anoxic soil maintenance. Matches real wetland ecology — mangroves, bald cypress, and swamp tupelo dominate via height.
+
+**Conclusion:** Wetland terrain working correctly after removing artificial light penalty. Height dominance on wetlands is nature-aligned.

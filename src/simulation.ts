@@ -103,8 +103,6 @@ function phaseCalculateLight(world: World): void {
       let rawBase = SIM.BASE_LIGHT;
       if (cell.terrainType === TerrainType.Hill) {
         rawBase += SIM.HILL_LIGHT_BONUS;
-      } else if (cell.terrainType === TerrainType.Wetland) {
-        rawBase -= SIM.WETLAND_LIGHT_PENALTY;
       } else if (cell.terrainType === TerrainType.Arid) {
         rawBase += SIM.ARID_LIGHT_BONUS;
       }
