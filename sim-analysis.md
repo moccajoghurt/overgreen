@@ -654,13 +654,11 @@ Run each for 2000-3000 ticks and observe population/genome trends.
 
 ### Experiment 2: Water Competition
 **Goal:** Does deep roots or big leaves win when two tree species compete on flat soil?
-**Result:** Big leaves win (75% dominance by year 2).
+**Result:** Near-perfect coexistence — Broad Leaf 53%, Deep Root 47%. Shannon diversity stable at 0.69.
 
-Water stress is real — 20-37% of trees water-stressed in summer, occupied cells drop to near-zero water in autumn. But light competition from shading (50%+ of trees shaded at peak) is the stronger selective pressure on soil. Deep roots help survive but don't help win. Species genomes converge over time (Broad Leaf drifts toward more roots, Deep Root drifts toward more leaves).
+Cross-species interaction confirmed (68-70% x_spp% at peak). Deep Root leads early (187 vs 130 at tick 275) when water matters most — occupied cell water drops to 0.4-1.5. But Broad Leaf overtakes mid-year 2 via shading (49-66% shaded at peak). By year 3 they're nearly equal again (221 vs 203). Deep Root evolves toward Broad Leaf's strategy (root 0.50→0.42, height 0.26→0.43, leaf 0.25→0.44) — convergent evolution on flat soil where no terrain pressure maintains specialization.
 
-**Conclusion:** Matches real temperate forests — light decides winners on decent soil, water is survivability insurance. No sim changes needed.
-
-**Note:** Original run had species in separate clusters — no actual competition occurred. Fixed by intermixing placements in same area. Added `x_spp%` (cross-species neighbor %) column to diagnostic to detect this in future.
+**Conclusion:** Leaf/shading slightly stronger than root/water on flat soil, but both viable. No sim changes needed.
 
 ### Experiment 3: Light Competition
 **Goal:** Does growing tall (shading others) or spreading leaves (more photosynthesis) win?
