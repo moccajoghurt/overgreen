@@ -42,7 +42,7 @@ export const SIM = {
   SEED_RANGE_MAX: 3,
   SEED_RANGE_HEIGHT_DIVISOR: 2,
   SEED_INITIAL_ENERGY: 2.0,
-  MUTATION_RATE: 0.1,
+  MUTATION_RATE: 0.2,
   CROSSOVER_MATE_RADIUS: 4,
 
   // Death / Decomposition

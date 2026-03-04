@@ -737,22 +737,23 @@ Nutrient feedback loop still working: early population flat at ~64 (low soil nut
 
 ### Experiment 12: Terrain Isolated
 **Goal:** Do species adapt locally to their terrain when gene flow is blocked? Rock barriers (9 rows wide, exceeding max seed range of 8) separate four terrain bands: Hill (rows 0-14), Soil (24-38), Wetland (48-62), Arid (72-79). All four species start with identical balanced genomes (0.33/0.33/0.34).
-**Result:** All 4 species survive 10,000 ticks with strong local adaptation. Shannon diversity 1.29. Clear genome divergence by terrain.
+**Mutation change:** Switched from all-6-gene mutation to 1-2 gene point mutations with MUTATION_RATE 0.2 (up from 0.1). Selective mutation preserves beneficial traits while higher rate maintains exploration speed.
+**Result:** All 4 species survive 10,000 ticks with strong local adaptation. Shannon diversity 1.24. Clear genome divergence by terrain — more pronounced than all-6 mutation at 0.1.
 
 **Genome evolution by terrain (start → tick 10000):**
 | Species | Terrain | Root | Height | Leaf | Allelopathy | Notes |
 |---------|---------|------|--------|------|-------------|-------|
-| Alpha Fern | Hill | 0.33→**0.70** | 0.33→0.10 | 0.34→0.30 | 0.00→**0.46** | Root specialist + heavy allelopathy |
-| Beta Spruce | Soil | 0.33→**0.47** | 0.33→0.36 | 0.34→**0.42** | 0.00→0.16 | Balanced with slight root/leaf lean |
-| Gamma Willow | Wetland | 0.33→0.35 | 0.33→**0.41** | 0.34→**0.38** | 0.00→0.12 | Height/leaf specialist, roots unchanged |
-| Delta Cactus | Arid | 0.33→? | 0.33→? | 0.34→? | 0.00→? | Smallest band (8 rows), low pop ~150 |
+| Alpha Fern | Hill | 0.33→**0.63** | 0.33→**0.06** | 0.34→0.26 | 0.00→**0.57** | Root specialist + extreme allelopathy |
+| Beta Spruce | Soil | 0.33→**0.46** | 0.33→0.33 | 0.34→**0.39** | 0.00→0.12 | Balanced generalist, high seed invest (0.59) |
+| Gamma Willow | Wetland | 0.33→0.35 | 0.33→**0.40** | 0.34→**0.40** | 0.00→0.09 | Height/leaf specialist, roots unchanged |
+| Delta Cactus | Arid | — | — | — | — | Smallest band (8 rows), low pop ~105, survived all 10k ticks |
 
 **Key observations:**
-- **Hill (Alpha Fern):** Massive root evolution (0.33→0.70) to access groundwater at depth 5.0. Height collapsed (0.33→0.10) — shading irrelevant on water-scarce terrain. Allelopathy surged to 0.46, the highest of any species — with crowded rocky terrain, chemical warfare pays off. Matches experiment #7 (hill specialist).
-- **Soil (Beta Spruce):** Evolved the most balanced genome — moderate root increase for nutrient access, stable height for shading, highest leaf area (0.42) for photosynthesis. Also highest seed investment (0.59). Soil's lack of extreme pressures rewards generalist strategies.
-- **Wetland (Gamma Willow):** Roots barely changed (0.35) — shallow water table (0.5) means no need to dig deep. Instead evolved height (0.41) for the 1.5x wetland height bonus and leaf area (0.38) with cheap 0.85x maintenance. Matches experiment #9 (wetland specialist).
-- **Arid (Delta Cactus):** Smallest band (8 rows vs 15) limits population to ~150. Not shown in top-3 species at later snapshots due to low numbers, but survived all 10,000 ticks.
-- **Allelopathy gradient:** Hill 0.46 > Soil 0.16 > Wetland 0.12 — correlates with resource scarcity. Harsher environments favor territorial chemical defense.
-- **Population:** Stable 1700-2100 after ramp-up. Zero water stress after tick 5000. All species coexist with 0% extinction rate.
+- **Hill (Alpha Fern):** Root evolution (0.33→0.63) for groundwater access at depth 5.0. Height nearly eliminated (0.06) — lowest of any experiment. Allelopathy highest ever recorded (0.57) — selective mutation lets chemical warfare trait accumulate without being diluted. Matches experiment #7.
+- **Soil (Beta Spruce):** Most balanced genome — root increase for nutrient access (0.46), stable height (0.33), moderate leaf (0.39). Soil's lack of extreme pressures rewards generalists.
+- **Wetland (Gamma Willow):** Roots stable (0.35) — shallow water table (0.5) removes need to dig. Height (0.40) and leaf (0.40) co-evolved for 1.5x height bonus and 0.85x leaf maintenance. Matches experiment #9.
+- **Arid (Delta Cactus):** Smallest band limits population to ~105. Survived all 10,000 ticks but too few for reliable genome tracking.
+- **Allelopathy gradient:** Hill 0.57 > Soil 0.12 > Wetland 0.09 — stronger gradient than before. Selective mutation lets allelopathy accumulate in harsh environments without regression.
+- **Population:** Stable 1800-2600. Zero water stress after tick 5500. All species coexist with 0% extinction rate.
 
-**Conclusion:** Rock barriers successfully prevent gene flow, allowing each species to independently evolve terrain-optimal strategies. Results match individual terrain experiments (#7-#9), validating that the simulation's evolutionary pressure is terrain-driven, not noise. The experiment confirms the sim produces genuine local adaptation.
+**Conclusion:** Selective 1-2 gene mutation with 0.2 rate produces faster and cleaner adaptation than all-6 mutation at 0.1. Beneficial traits compound instead of being diluted by simultaneous noise. Hill allelopathy reached 0.57 (vs 0.46 before), height collapsed further (0.06 vs 0.10). The sim now produces more realistic, pronounced local adaptation.
