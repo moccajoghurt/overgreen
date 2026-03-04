@@ -704,12 +704,11 @@ Groundwater system gives deep-rooted plants direct subsurface water access — o
 
 ### Experiment 8: Arid Specialist
 **Goal:** Do arid terrain pressures enforce root specialization?
-**Tuning required:** Original arid settings (0.12 water recharge, 0.4 aquifer threshold) caused total extinction — chicken-and-egg problem where plants needed water to grow roots but needed roots to access water. Fixed by lowering aquifer threshold 0.4→0.25 (desert soils have shallow water tables) and bumping recharge 0.12→0.2 (fog/dew moisture).
-**Result:** Deep Root Mesquite wins 100%. Broad Leaf Agave and Tall Saguaro both extinct.
+**Result:** Tall Saguaro (height 0.6) wins 55%, Deep Root Mesquite (root 0.6) second at 45%, Broad Leaf Agave (leaf 0.6) extinct by tick ~1000. Winner flipped from roots to height.
 
-Near-extinction bottleneck (2 plants at tick 1075) but recovered. Mesquite maintained root dominance (0.59→0.65) while gaining moderate height/leaf — terrain pressure enforced specialization. Leaf specialist actually outlasted height specialist (3x leaf maintenance is harsh but height offers no advantage without competition). Water stress dropped to 0-7% once aquifer-accessing population established.
+Groundwater removed water as the binding constraint — water stress 0% most of the run. With water abundant, height's shading advantage and light bonus on arid's +1.20 base light become the deciding factors. Saguaro maintained height dominance (0.60→0.70) with small leaves (0.28) minimizing the 3x leaf maintenance tax. Mesquite survived via root access (0.63→0.69) and evolved bigger leaves (0.22→0.43). Agave's big leaves were fatal despite starting with the most plants (80 at tick 250). Population sparse (peak 551) with severe winter bottleneck (17 plants at tick 500) — arid is still harsh terrain.
 
-**Conclusion:** Arid terrain now working correctly after tuning. Matches real desert ecology — deep-rooted species (mesquite, acacia) dominate.
+**Concern:** Result is less ecologically realistic — real deserts are water-limited, not light-competitive. Arid groundwater access may be too generous, removing the core constraint that should drive root specialization. May warrant tuning.
 
 ### Experiment 9: Wetland Specialist
 **Goal:** Do wetland terrain pressures enforce tall/leafy specialization?
