@@ -688,11 +688,11 @@ With groundwater keeping water stress low (0-6%), both species are resilient eno
 
 ### Experiment 6: Defense vs Herbivores
 **Goal:** Does defense (0.5) justify its maintenance cost against herbivore grazing?
-**Result:** No — Soft Willow (undefended) wins 56/44%. Defense is a net negative.
+**Result:** Yes (flipped from previous) — Thorny Holly (defended) wins 63/37%.
 
-Defense costs 0.025/tick permanent maintenance but only 12 herbivores roam 6400 cells with hundreds-to-thousands of plants. Any given plant gets grazed rarely, so the permanent tax outweighs occasional protection. Thorny Holly's defense evolving down (0.48 → 0.40), Soft Willow's creeping up (0.01 → 0.16) — converging as usual.
+With groundwater boosting overall energy surplus, defense's fixed cost (0.025/tick) is a smaller fraction of income. Holly consistently has +0.15-0.30 higher energy than Willow in summer — defense protects leaves from grazing, enabling more photosynthesis and more seeds. Holly's defense evolving down slowly (0.52 → 0.45), Willow's creeping up (0.05 → 0.10). Holly maintains larger leaves (0.37 vs 0.30) because defense preserves them from herbivore damage.
 
-**Conclusion:** Defense is correctly modeled but herbivore pressure is too dilute for it to matter. Not a bug — defense would become valuable at higher herbivore density. No sim changes needed.
+**Conclusion:** Defense is marginally beneficial when plants have enough energy surplus to absorb the maintenance cost. Herbivore pressure is still dilute, but the cost-benefit ratio shifted with groundwater changes. No sim changes needed.
 
 ### Experiment 7: Hill Specialist
 **Goal:** Do terrain pressures enforce specialization? Root/height/leaf specialists on pure hills.
