@@ -707,3 +707,12 @@ Prediction was leaf would win (hills: +0.3 seed fitness, 1.0x leaf maint). Inste
 Deep Root Pine persisted via water access (roots drifted 0.57→0.66) but couldn't overcome 3x root maintenance cost. Both surviving species converged: Spruce gained roots (0.20→0.49), Pine gained height (0.19→0.37).
 
 **Conclusion:** Hill terrain working well. Terrain pressure successfully enforces differentiation from flat-soil outcomes. No sim changes needed.
+
+### Experiment 8: Arid Specialist
+**Goal:** Do arid terrain pressures enforce root specialization?
+**Tuning required:** Original arid settings (0.12 water recharge, 0.4 aquifer threshold) caused total extinction — chicken-and-egg problem where plants needed water to grow roots but needed roots to access water. Fixed by lowering aquifer threshold 0.4→0.25 (desert soils have shallow water tables) and bumping recharge 0.12→0.2 (fog/dew moisture).
+**Result:** Deep Root Mesquite wins 100%. Broad Leaf Agave and Tall Saguaro both extinct.
+
+Near-extinction bottleneck (2 plants at tick 1075) but recovered. Mesquite maintained root dominance (0.59→0.65) while gaining moderate height/leaf — terrain pressure enforced specialization. Leaf specialist actually outlasted height specialist (3x leaf maintenance is harsh but height offers no advantage without competition). Water stress dropped to 0-7% once aquifer-accessing population established.
+
+**Conclusion:** Arid terrain now working correctly after tuning. Matches real desert ecology — deep-rooted species (mesquite, acacia) dominate.

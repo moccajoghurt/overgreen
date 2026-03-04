@@ -6,6 +6,7 @@ import { experimentSeedTradeoff } from './experiment-seed-tradeoff';
 import { experimentAllelopathy } from './experiment-allelopathy';
 import { experimentDefense } from './experiment-defense';
 import { experimentHillSpecialist } from './experiment-hill-specialist';
+import { experimentAridSpecialist } from './experiment-arid-specialist';
 
 export const SCENARIOS: Scenario[] = [
   experimentMonoculture,
@@ -15,4 +16,5 @@ export const SCENARIOS: Scenario[] = [
   experimentAllelopathy,
   experimentDefense,
   experimentHillSpecialist,
+  experimentAridSpecialist,
 ];

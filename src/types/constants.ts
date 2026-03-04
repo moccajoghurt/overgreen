@@ -93,10 +93,10 @@ export const SIM = {
   WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
-  ARID_WATER_RECHARGE: 0.12,
+  ARID_WATER_RECHARGE: 0.2,
   ARID_NUTRIENT_MAX: 1.5,
   ARID_LIGHT_BONUS: 0.2,
-  ARID_AQUIFER_ROOT_THRESHOLD: 0.4,
+  ARID_AQUIFER_ROOT_THRESHOLD: 0.25,
   ARID_AQUIFER_WATER_BONUS: 0.6,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
