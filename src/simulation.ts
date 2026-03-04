@@ -172,7 +172,10 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
 
-  const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
+  // Root-gated nutrient access: absolute depth determines access (not relative to archetype max)
+  const rootAccess = SIM.NUTRIENT_ROOT_ACCESS_MIN
+    + (1 - SIM.NUTRIENT_ROOT_ACCESS_MIN) * (plant.rootDepth / SIM.MAX_ROOT_DEPTH);
+  const nutrientBonus = 1 + cell.nutrients * rootAccess * SIM.NUTRIENT_GROWTH_BONUS;
 
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;

@@ -12,6 +12,7 @@ export const SIM = {
   // Nutrients
   MAX_NUTRIENTS: 10.0,
   NUTRIENT_GROWTH_BONUS: 0.20,
+  NUTRIENT_ROOT_ACCESS_MIN: 0.3,
   NUTRIENT_DECAY: 0.02,
 
   // Light
