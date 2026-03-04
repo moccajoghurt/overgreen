@@ -662,15 +662,11 @@ Groundwater system changes made water less scarce on flat soil — water stress 
 
 ### Experiment 3: Light Competition
 **Goal:** Does growing tall (shading others) or spreading leaves (more photosynthesis) win?
-**Result:** Tall wins but doesn't eliminate short-leafy. Healthy coexistence at 64/36% split.
+**Result:** Tall Pine wins 70/30%. Stable coexistence, Shannon 0.61.
 
-Cross-species interaction confirmed: 73-74% of plants had a different-species neighbor at peak density. At high density (shading 40-65%), Tall Pine's height advantage suppresses Spread Fern's light. But at low density (winter/spring, shading <10%), Spread Fern's extra leaf area produces more raw energy. Both strategies remain viable across 4 years.
+Tall Pine leads from tick 250 (68%) and widens the gap to 70% by end. Shading 30-45% in summer creates real competitive pressure — height light bonus (+0.7 at max) gives Tall Pine strictly more energy at high density. Spread Fern survives by producing more raw energy in low-density windows (winter/spring, shading <17%). Population oscillates strongly (244-1473) with seasonal cycles. Spread Fern's leaf priority eroding (0.50→0.32) while height barely moves (0.26→0.25) — it's not adapting toward height, it's losing leaf specialists. Both species gain root (→0.38-0.39) and seed investment (→0.65-0.72). Spread Fern evolving higher allelopathy (0.05→0.18) and defense (0.04→0.22) as desperation traits.
 
-Interesting evolution: both species drifted toward higher seed investment (0.50 → 0.56-0.60) and higher roots (0.25 → 0.35-0.41). Spread Fern's height crept from 0.23 → 0.29 (adapting to compete). Allelopathy drifting up naturally in both (0.02 → 0.10-0.12).
-
-Shannon diversity stable at 0.65 (vs 0.69 start). No extinction risk.
-
-**Conclusion:** Height gives a real but not overwhelming competitive edge on flat soil. Both tall canopy and short leafy strategies coexist — matches real forest structure. No sim changes needed.
+**Conclusion:** Height gives a clear competitive edge on flat soil via shading. Both strategies coexist — matches real forest canopy/understory structure. No sim changes needed.
 
 ### Experiment 4: Seed Tradeoff
 **Goal:** What's the optimal seed investment? Low (0.3) vs mid (0.5) vs high (0.7), identical base genomes.
