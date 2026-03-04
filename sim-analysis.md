@@ -680,11 +680,11 @@ High beats Mid because raw reproduction rate dominates on well-watered flat soil
 
 ### Experiment 5: Allelopathy Duel
 **Goal:** Does chemical warfare (allelopathy 0.5) justify its maintenance cost against a passive competitor?
-**Result:** Toxic Walnut wins 67/33%, but through spatial exclusion, not ongoing warfare.
+**Result:** Near-even coexistence — Toxic Walnut 52%, Peaceful Maple 48%. Shannon diversity 0.69 (stable).
 
-Cross-species contact started at 84% then collapsed to 0% by tick 850. Allelopathy caused massive early deaths (96-151 per snapshot during mixing) which pushed Peaceful Maple out of shared territory. After segregation, Toxic Walnut holds more space but pays 0.03/tick maintenance for zero benefit. Its allelopathy is evolving downward (0.51 → 0.40) — selection pressure against wasted maintenance.
+With groundwater keeping water stress low (0-6%), both species are resilient enough to absorb allelopathic damage. Cross-species contact remains 7-31% throughout — no spatial segregation collapse like before. Allelopathy provides only a slight territorial edge (52 vs 48%) while costing 0.03/tick maintenance. Toxic Walnut's allelopathy evolving down faster than before (0.49 → 0.33) — stronger selection pressure against the expensive trait when it doesn't cause decisive kills. Peaceful Maple's allelopathy creeping up (0.05 → 0.12). Both converge on seed investment ~0.64.
 
-**Conclusion:** Allelopathy is an effective territorial weapon but self-defeating — it eliminates the neighbors it's designed to fight. Realistic (real walnut trees create exclusion zones). No sim changes needed.
+**Conclusion:** Allelopathy is less effective with groundwater — well-watered plants absorb the damage without dying. Still provides a marginal territorial advantage but the trait is evolving away. No sim changes needed.
 
 ### Experiment 6: Defense vs Herbivores
 **Goal:** Does defense (0.5) justify its maintenance cost against herbivore grazing?
