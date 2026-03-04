@@ -74,16 +74,22 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
 
 export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   const rate = mutationRate ?? SIM.MUTATION_RATE;
-  const mutate = (val: number) =>
-    Math.max(0.01, Math.min(0.99, val + (Math.random() * 2 - 1) * rate));
-  return {
-    rootPriority: mutate(parent.rootPriority),
-    heightPriority: mutate(parent.heightPriority),
-    leafSize: mutate(parent.leafSize),
-    seedInvestment: mutate(parent.seedInvestment),
-    allelopathy: mutate(parent.allelopathy),
-    defense: mutate(parent.defense),
-  };
+  const clamp = (val: number) => Math.max(0.01, Math.min(0.99, val));
+  const keys: (keyof Genome)[] = [
+    'rootPriority', 'heightPriority', 'leafSize',
+    'seedInvestment', 'allelopathy', 'defense',
+  ];
+  // Pick 1-2 genes to mutate (like real point mutations)
+  const count = Math.random() < 0.5 ? 1 : 2;
+  const toMutate = new Set<keyof Genome>();
+  while (toMutate.size < count) {
+    toMutate.add(keys[Math.floor(Math.random() * keys.length)]);
+  }
+  const result = { ...parent };
+  for (const key of toMutate) {
+    result[key] = clamp(result[key] + (Math.random() * 2 - 1) * rate);
+  }
+  return result;
 }
 
 export function seedInitialPlants(world: World, _count: number): void {
