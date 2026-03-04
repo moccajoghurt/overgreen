@@ -681,3 +681,11 @@ Both Mid and High evolved toward seedInvestment ~0.68, converging from opposite 
 Mid beats High because slightly bigger plants before seeding produce more competitive offspring. High floods with weaker seedlings. Both are viable but moderate investment has the edge.
 
 **Conclusion:** Optimal seed investment ~0.68 on flat soil. Too little reproduction is fatal regardless of individual fitness. No sim changes needed.
+
+### Experiment 5: Allelopathy Duel
+**Goal:** Does chemical warfare (allelopathy 0.5) justify its maintenance cost against a passive competitor?
+**Result:** Toxic Walnut wins 67/33%, but through spatial exclusion, not ongoing warfare.
+
+Cross-species contact started at 84% then collapsed to 0% by tick 850. Allelopathy caused massive early deaths (96-151 per snapshot during mixing) which pushed Peaceful Maple out of shared territory. After segregation, Toxic Walnut holds more space but pays 0.03/tick maintenance for zero benefit. Its allelopathy is evolving downward (0.51 → 0.40) — selection pressure against wasted maintenance.
+
+**Conclusion:** Allelopathy is an effective territorial weapon but self-defeating — it eliminates the neighbors it's designed to fight. Realistic (real walnut trees create exclusion zones). No sim changes needed.
