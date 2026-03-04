@@ -100,7 +100,6 @@ export interface Environment {
   leafMaintenanceMult: number;
   growthMult: number;
   seedMult: number;
-  leafDecayRate: number;
   era: EraState;
   droughts: DroughtPatch[];
   fires: FireEvent[];

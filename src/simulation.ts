@@ -385,9 +385,9 @@ function phaseUpdatePlants(world: World): void {
       }
     }
 
-    // Seasonal leaf decay (autumn/winter leaf loss)
-    if (world.environment.leafDecayRate > 0) {
-      plant.leafArea = Math.max(0.1, plant.leafArea - world.environment.leafDecayRate);
+    // Energy-based leaf drop: plant sheds leaves when losing energy in harsh conditions
+    if (energyProduced < maintenance && world.environment.leafMaintenanceMult > 1.0) {
+      plant.leafArea = 0.1;
     }
 
     if (plant.energy > 1.0) {

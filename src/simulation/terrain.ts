@@ -251,7 +251,6 @@ export function createEnvironment(): Environment {
     leafMaintenanceMult: 1.0,
     growthMult: 1.3,
     seedMult: 1.0,
-    leafDecayRate: 0.0,
     era: initEraState(),
     droughts: [],
     fires: [],

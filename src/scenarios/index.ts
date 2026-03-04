@@ -5,6 +5,8 @@ import { islandArchipelago } from './island-archipelago';
 import { marshlands } from './marshlands';
 import { highlandPlateau } from './highland-plateau';
 import { experimentMonoculture } from './experiment-monoculture';
+import { experimentWaterCompetition } from './experiment-water-competition';
+import { experimentWinterSurvival } from './experiment-winter-survival';
 
 export const SCENARIOS: Scenario[] = [
   riverValley,
@@ -13,4 +15,6 @@ export const SCENARIOS: Scenario[] = [
   marshlands,
   highlandPlateau,
   experimentMonoculture,
+  experimentWaterCompetition,
+  experimentWinterSurvival,
 ];
