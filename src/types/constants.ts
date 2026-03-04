@@ -12,7 +12,6 @@ export const SIM = {
   // Nutrients
   MAX_NUTRIENTS: 10.0,
   NUTRIENT_GROWTH_BONUS: 0.20,
-  NUTRIENT_ROOT_ACCESS_MIN: 0.3,
   NUTRIENT_DECAY: 0.02,
 
   // Light
@@ -98,6 +97,12 @@ export const SIM = {
   ARID_AQUIFER_ROOT_THRESHOLD: 0.25,
   ARID_AQUIFER_WATER_BONUS: 0.6,
 
+  // Water table depth per terrain (roots beyond this get no water benefit)
+  SOIL_WATER_TABLE: 6.0,
+  HILL_WATER_TABLE: 3.0,
+  WETLAND_WATER_TABLE: 2.0,
+  ARID_WATER_TABLE: 2.0,
+
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
   HILL_MAINT_ROOT_MULT: 3.0,     // rock is hard to dig
   HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants
@@ -110,19 +115,6 @@ export const SIM = {
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
   ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress
   ARID_MAINT_LEAF_MULT: 3.0,     // transpiration water loss
-
-  // Terrain seed fitness weights (additive on normalized genome fracs, Soil = 0 implicit)
-  HILL_SEED_ROOT_WEIGHT: -0.8,
-  HILL_SEED_HEIGHT_WEIGHT: -0.5,
-  HILL_SEED_LEAF_WEIGHT: 0.3,
-
-  WETLAND_SEED_ROOT_WEIGHT: -0.8,
-  WETLAND_SEED_HEIGHT_WEIGHT: 0.25,
-  WETLAND_SEED_LEAF_WEIGHT: 0.4,
-
-  ARID_SEED_ROOT_WEIGHT: 0.6,
-  ARID_SEED_HEIGHT_WEIGHT: -0.4,
-  ARID_SEED_LEAF_WEIGHT: -0.8,
 
   // Allelopathy
   ALLELOPATHY_DAMAGE_RATE: 0.15,

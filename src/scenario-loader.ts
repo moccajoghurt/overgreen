@@ -34,6 +34,12 @@ export function loadScenario(world: World, scenario: Scenario): void {
   Object.assign(world.environment, createEnvironment());
   world.environment.weatherOverlay = new Uint8Array(w * h);
 
+  // Lock era if scenario requests it (prevents era transitions)
+  if (scenario.lockedEra !== undefined) {
+    world.environment.era.current = scenario.lockedEra;
+    world.environment.era.eraDuration = Number.MAX_SAFE_INTEGER;
+  }
+
   // 3. Rebuild grid with defaults
   world.grid.length = 0;
   for (let y = 0; y < h; y++) {

@@ -115,14 +115,21 @@ function phaseCalculateLight(world: World): void {
 function absorbWater(plant: Plant, cell: Cell, world: World): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF;
-  const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
+  // Water table limits effective root depth for water absorption
+  let waterTable = SIM.SOIL_WATER_TABLE;
+  if (cell.terrainType === TerrainType.Hill) waterTable = SIM.HILL_WATER_TABLE;
+  else if (cell.terrainType === TerrainType.Wetland) waterTable = SIM.WETLAND_WATER_TABLE;
+  else if (cell.terrainType === TerrainType.Arid) waterTable = SIM.ARID_WATER_TABLE;
+  const effectiveRoot = Math.min(plant.rootDepth, waterTable);
+
+  const waterCanAbsorb = effectiveRoot * SIM.WATER_ABSORPTION_PER_ROOT;
   let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
   cell.waterLevel -= waterAbsorbed;
 
-  // Root competition: deep roots drain water from neighboring cells
+  // Root competition: effective roots drain water from neighboring cells
   let remainingDemand = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
   if (remainingDemand > 0.01) {
-    const drainRate = plant.rootDepth / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
+    const drainRate = effectiveRoot / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
     for (const [dx, dy] of NEIGHBORS) {
       if (remainingDemand <= 0.01) break;
       const nx = plant.x + dx;
@@ -171,10 +178,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
 
-  // Root-gated nutrient access
-  const rootAccess = SIM.NUTRIENT_ROOT_ACCESS_MIN
-    + (1 - SIM.NUTRIENT_ROOT_ACCESS_MIN) * (plant.rootDepth / maxRoot);
-  const nutrientBonus = 1 + cell.nutrients * rootAccess * SIM.NUTRIENT_GROWTH_BONUS;
+  const nutrientBonus = 1 + cell.nutrients * SIM.NUTRIENT_GROWTH_BONUS;
 
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
@@ -243,7 +247,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
   const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
   const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
 
-  // Normalize genome priorities (hoisted for use in both growth and seed fitness)
+  // Normalize genome priorities for growth allocation
   const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
   const rFrac = total > 0 ? plant.genome.rootPriority / total : 0;
   const hFrac = total > 0 ? plant.genome.heightPriority / total : 0;
@@ -279,22 +283,6 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const tt = world.grid[ty][tx].terrainType;
     if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
 
-    // Terrain seed fitness: genome-terrain matching affects seedling energy
-    // Uses raw genome values (0-1) for stronger signal than normalized fracs
-    const gR = plant.genome.rootPriority;
-    const gH = plant.genome.heightPriority;
-    const gL = plant.genome.leafSize;
-    let fitness = 1.0;
-    if (tt === TerrainType.Hill) {
-      fitness += SIM.HILL_SEED_ROOT_WEIGHT * gR + SIM.HILL_SEED_HEIGHT_WEIGHT * gH + SIM.HILL_SEED_LEAF_WEIGHT * gL;
-    } else if (tt === TerrainType.Wetland) {
-      fitness += SIM.WETLAND_SEED_ROOT_WEIGHT * gR + SIM.WETLAND_SEED_HEIGHT_WEIGHT * gH + SIM.WETLAND_SEED_LEAF_WEIGHT * gL;
-    } else if (tt === TerrainType.Arid) {
-      fitness += SIM.ARID_SEED_ROOT_WEIGHT * gR + SIM.ARID_SEED_HEIGHT_WEIGHT * gH + SIM.ARID_SEED_LEAF_WEIGHT * gL;
-    }
-    if (fitness <= 0) continue; // too mismatched — seed fails
-    fitness = Math.min(fitness, 2.0); // cap bonus
-
     // Mate search: scan nearby cells for a same-species mate
     let mateGenome: Genome | null = null;
     const mateR = SIM.CROSSOVER_MATE_RADIUS;
@@ -320,7 +308,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const child: Plant = {
       id: childId, speciesId: plant.speciesId, archetype: plant.archetype, x: tx, y: ty,
       height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
-      energy: seedEnergy * eraSeedEnergyMult * fitness, age: 0, alive: true,
+      energy: seedEnergy * eraSeedEnergyMult, age: 0, alive: true,
       genome: childGenome,
       lastLightReceived: 0, lastWaterAbsorbed: 0,
       lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
