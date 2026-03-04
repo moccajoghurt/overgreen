@@ -729,8 +729,8 @@ Grass dominates from tick 1 (684 vs 281) via cheaper seeds (0.4 vs 0.8), faster 
 
 ### Experiment 11: Nutrient Cycle
 **Goal:** Does decomposition enrichment create a meaningful nutrient feedback loop? Do deep-rooted species benefit more from nutrient-rich soil?
-**Result:** Deep Root Oak dominates at 76%, Shallow Leaf Fern survives at 24%. Both coexist through 2800 ticks.
+**Result:** Shallow Leaf Fern dominates at 86%, Deep Root Oak survives at 14%. Both coexist through 3000 ticks.
 
-Nutrient feedback loop clearly working: early population flat at ~50-80 (low soil nutrients, 47% water stress), then exponential growth as decomposition enriches soil — peak 1768 plants by Year 6 with water stress dropping to 0-3%. Deep Root Oak wins via nutrient access (rootAccess 0.67 vs Fern's 0.42) and evolves aggressive seed investment (0.50→0.69). Oak also evolves bigger leaves (0.10→0.44), enabled by nutrient advantage. Fern survives by converging toward deeper roots (0.10→0.43) and maintaining higher per-plant energy. Convergent evolution and coexistence are both nature-aligned — real forests have canopy trees and understory species.
+Nutrient feedback loop still working: early population flat at ~64 (low soil nutrients, 31-65% water stress), then exponential growth as decomposition enriches soil — peak 2379 plants. Root-gated nutrient access now uses absolute depth (rootDepth/10), narrowing the gap between species (Oak rootAccess 0.64 vs Fern's 0.55). Fern wins via reproduction speed — more leaf area → more energy → more seeds. Both species converge toward balanced genomes: Fern gains root (0.10→0.36), Oak gains leaf (0.12→0.44). Oak maintains higher per-plant energy (1.67 vs 1.53) but is outnumbered 6:1.
 
-**Conclusion:** Nutrient cycle creates healthy positive feedback without runaway growth. Root-gated nutrient access correctly rewards deep-rooted species. No tuning needed.
+**Conclusion:** Nutrient cycle creates healthy positive feedback without runaway growth. Root-gated access still rewards deep roots but the gap is narrower with absolute scaling. No tuning needed.
