@@ -98,7 +98,7 @@ export const SIM = {
   SOIL_WATER_TABLE: 4.0,
   HILL_WATER_TABLE: 5.0,
   WETLAND_WATER_TABLE: 0.5,
-  ARID_WATER_TABLE: 3.0,
+  ARID_WATER_TABLE: 5.0,
   GROUNDWATER_ABSORPTION_RATE: 0.3,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
