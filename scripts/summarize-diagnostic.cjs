@@ -51,8 +51,8 @@ if (d.seasonTransitions.length > 0) {
 // ── Timeline table ──
 
 p(`## Timeline`);
-p(`tick |  sea | pop  | spp | births | deaths | net_e  | water | shannon | shaded | seed%`);
-p(`-----|------|------|-----|--------|--------|--------|-------|---------|--------|------`);
+p(`tick |  sea | pop  | spp | births | deaths | prod   | maint  | net_e  | water | w_occ | w_str% | shaded | seed%`);
+p(`-----|------|------|-----|--------|--------|--------|--------|--------|-------|-------|--------|--------|------`);
 for (const s of snaps) {
   const row = [
     String(s.tick).padStart(4),
@@ -61,9 +61,12 @@ for (const s of snaps) {
     String(s.speciesCount).padStart(3),
     String(s.birthsInPeriod).padStart(6),
     String(s.deathsInPeriod.total).padStart(6),
+    s.energy.avgProduction.toFixed(3).padStart(6),
+    s.energy.avgMaintenance.toFixed(3).padStart(6),
     s.energy.avgNetEnergy.toFixed(3).padStart(6),
     s.resources.avgWater.toFixed(1).padStart(5),
-    s.diversity.shannonIndex.toFixed(2).padStart(7),
+    (s.resources.avgWaterOnOccupied !== undefined ? s.resources.avgWaterOnOccupied.toFixed(1) : '  n/a').padStart(5),
+    (s.competition.pctWaterStressed.toFixed(0) + '%').padStart(6),
     (s.competition.pctShaded.toFixed(0) + '%').padStart(6),
     (s.reproduction.seedSuccessRate * 100).toFixed(0).padStart(4) + '%',
   ];
