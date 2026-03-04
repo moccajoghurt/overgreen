@@ -1,0 +1,31 @@
+import { TerrainType, Genome, Archetype, SpeciesColor } from './core';
+
+export interface ScenarioCell {
+  x: number;
+  y: number;
+  terrain: TerrainType;
+  elevation?: number;
+  water?: number;
+  waterRecharge?: number;
+  nutrients?: number;
+}
+
+export interface ScenarioSpecies {
+  id: number;
+  name: string;
+  archetype: Archetype;
+  genome: Genome;
+  color: SpeciesColor;
+  placements: { x: number; y: number }[];
+}
+
+export interface Scenario {
+  id: string;
+  name: string;
+  description: string;
+  size: number;
+  defaultTerrain: TerrainType;
+  defaultElevation?: number;
+  cells: ScenarioCell[];
+  species: ScenarioSpecies[];
+}

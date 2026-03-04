@@ -1,10 +1,10 @@
-import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES } from './types';
+import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
 import { ERA_NAMES } from './simulation/eras';
 import { createWorld, seedInitialPlants, tickWorld, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { updateInspector } from './inspector';
-import { createHistory, recordTick } from './history';
+import { createHistory, recordTick, resetHistory } from './history';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
 import { createGenomePanel } from './genome-panel';
@@ -15,6 +15,8 @@ import { createShowcase } from './species-showcase';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
+import { loadScenario } from './scenario-loader';
+import { SCENARIOS } from './scenarios';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -59,6 +61,70 @@ btnSandbox.addEventListener('click', () => {
   const next = !sandboxPanel.isVisible();
   sandboxPanel.setVisible(next);
 });
+
+// Scenario selector
+const scenarioSelect = document.getElementById('scenario-select') as HTMLSelectElement;
+for (const s of SCENARIOS) {
+  const opt = document.createElement('option');
+  opt.value = s.id;
+  opt.textContent = s.name;
+  scenarioSelect.appendChild(opt);
+}
+
+const btnLoadScenario = document.getElementById('btn-load-scenario') as HTMLButtonElement;
+btnLoadScenario.addEventListener('click', () => {
+  const id = scenarioSelect.value;
+  if (id === '') {
+    doLoadRandom();
+  } else {
+    const scenario = SCENARIOS.find(s => s.id === id);
+    if (scenario) doLoadScenario(scenario);
+  }
+});
+
+function doLoadScenario(scenario: Scenario): void {
+  controls.paused = true;
+  document.getElementById('btn-play-pause')!.textContent = 'Play';
+  sandboxPanel.reset();
+  controls.selectedCell = null;
+  controls.hoveredSpecies = null;
+  loadScenario(world, scenario);
+  resetAllState();
+}
+
+function doLoadRandom(): void {
+  controls.paused = true;
+  document.getElementById('btn-play-pause')!.textContent = 'Play';
+  sandboxPanel.reset();
+  controls.selectedCell = null;
+  controls.hoveredSpecies = null;
+
+  const fresh = createWorld(GRID_WIDTH, GRID_HEIGHT);
+  seedInitialPlants(fresh, 40);
+
+  // Copy all fields into existing world object
+  Object.assign(world, fresh);
+
+  resetAllState();
+}
+
+function resetAllState(): void {
+  resetHistory(history);
+  diagLogger.reset();
+  ticker.reset();
+  commentary.reset();
+  showcase.reset();
+  speciesLabels.reset();
+  genomePanel.reset();
+  chart.reset();
+  traitChart.reset();
+  renderer.rebuildTerrain();
+  renderer.rebuildWater();
+  terrainLabels.rebuild(world);
+  lastUITick = -1;
+  updateUI();
+  renderer.moveTo(world.width / 2, world.height / 2);
+}
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');

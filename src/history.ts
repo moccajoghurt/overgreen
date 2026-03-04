@@ -22,6 +22,18 @@ export function createHistory(): History {
   };
 }
 
+export function resetHistory(history: History): void {
+  history.snapshots.length = 0;
+  history.species.clear();
+  history.events.length = 0;
+  history.eventSeq = 0;
+  history.prevPopulations.clear();
+  history.prevDominant = null;
+  history.firedAgeMilestones.clear();
+  history.firedPopMilestones.clear();
+  history.prevHerbivoreCount = 0;
+}
+
 function spName(world: World, speciesId: number): string {
   return world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`;
 }

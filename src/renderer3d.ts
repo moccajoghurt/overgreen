@@ -9,7 +9,7 @@ import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } f
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
-import { createTerrain, createPlantMeshes, createGrassMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 
 export function createRenderer3D(
@@ -32,13 +32,15 @@ export function createRenderer3D(
   const terrain = createTerrain(world);
   scene.add(terrain.terrainMesh);
   scene.add(terrain.groundMesh);
-  const { colorArray, colorAttr, getCellElevation, groundMat, rockFormations } = terrain;
+  const { colorArray, colorAttr, groundMat } = terrain;
+  let getCellElevation = terrain.getCellElevation;
+  let rockFormations = terrain.rockFormations;
 
   // ── Distant environment (hills + forest ring) ──
   const distantEnvironment = createDistantEnvironment(scene);
 
   // ── Water surface ──
-  const waterSurface = createWaterSurface(world);
+  let waterSurface = createWaterSurface(world);
   scene.add(waterSurface.mesh);
 
   // ── Plants ──
@@ -299,5 +301,43 @@ export function createRenderer3D(
 
   function markPlantsDirty(): void { state.plantsDirty = true; }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, canvas: webgl.domElement };
+  function rebuildTerrain(): void {
+    const result = rebuildTerrainGeometry(world, terrain);
+    getCellElevation = result.getCellElevation;
+    rockFormations = result.rockFormations;
+    state.getCellElevation = getCellElevation;
+    state.rockFormations = rockFormations;
+
+    // Clear all animation state
+    state.prevSnapshots.clear();
+    state.dyingPlants.clear();
+    state.burningPlants.clear();
+    state.growingPlants.clear();
+    state.flyingSeeds.length = 0;
+    state.plantColorCache.clear();
+    state.nextSnapshots.clear();
+    state.prevHerbivoreSnapshots.clear();
+    state.dyingHerbivores.clear();
+    state.movingHerbivores.clear();
+
+    // Force full update on next frame
+    state.lastProcessedTick = -1;
+    state.lastTerrainTick = -1;
+    state.lastPlantTick = -1;
+    state.lastHerbivoreTick = -1;
+    state.plantsDirty = true;
+  }
+
+  function rebuildWater(): void {
+    // Remove old water mesh
+    scene.remove(waterSurface.mesh);
+    if (waterSurface.mesh.geometry) waterSurface.mesh.geometry.dispose();
+
+    // Create new water surface
+    waterSurface = createWaterSurface(world);
+    scene.add(waterSurface.mesh);
+    state.waterSurface = waterSurface;
+  }
+
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement };
 }

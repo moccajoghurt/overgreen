@@ -62,7 +62,12 @@ export function createEventTicker(container: HTMLElement) {
     container.innerHTML = '';
   }
 
-  return { update, destroy };
+  function reset(): void {
+    container.innerHTML = '';
+    lastSeq = 0;
+  }
+
+  return { update, destroy, reset };
 }
 
 function escapeHtml(s: string): string {

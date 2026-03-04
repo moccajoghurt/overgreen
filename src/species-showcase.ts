@@ -41,7 +41,7 @@ export function createShowcase(
   renderer: Renderer,
   mapContainer: HTMLElement,
   history: History,
-): { update(world: World): void } {
+): { update(world: World): void; reset(): void } {
   // Shared offscreen renderer (single WebGL context)
   const offRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   offRenderer.setSize(RENDER_SIZE, RENDER_SIZE);
@@ -637,5 +637,9 @@ export function createShowcase(
     }
   }
 
-  return { update };
+  function reset(): void {
+    lastUpdateTick = -UPDATE_EVERY_N_TICKS;
+  }
+
+  return { update, reset };
 }

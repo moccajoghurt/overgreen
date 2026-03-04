@@ -149,5 +149,34 @@ export function createTerrainLabelsOverlay(
     }
   }
 
-  return { setVisible, updatePositions };
+  function rebuild(w: World): void {
+    // Remove old labels
+    for (const lbl of labels) {
+      overlay.removeChild(lbl.el);
+    }
+    labels.length = 0;
+
+    // Recompute regions from new world state
+    const newRegions = findTerrainRegions(w);
+    for (const region of newRegions) {
+      const color = TERRAIN_LABEL_COLORS[region.type] ?? '#888';
+      const name = TERRAIN_NAMES[region.type] ?? '?';
+
+      const el = document.createElement('div');
+      el.style.cssText = `
+        position:absolute; transform:translate(-50%, -50%);
+        font-family:monospace; font-size:13px; font-weight:bold;
+        text-transform:uppercase; letter-spacing:1px;
+        color:${color}; opacity:0.85;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.5);
+        white-space:nowrap; display:none;
+      `;
+      el.textContent = name;
+      overlay.appendChild(el);
+
+      labels.push({ el, gridX: region.centroidX, gridY: region.centroidY });
+    }
+  }
+
+  return { setVisible, updatePositions, rebuild };
 }

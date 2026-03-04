@@ -215,7 +215,12 @@ export function createPopulationChart(container: HTMLElement) {
     canvas.remove();
   }
 
-  return { update, destroy };
+  function reset(): void {
+    lastRenderedTick = -1;
+    tracked.clear();
+  }
+
+  return { update, destroy, reset };
 }
 
 function niceStep(range: number, targetLines: number): number {

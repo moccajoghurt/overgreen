@@ -216,5 +216,12 @@ export function createCommentary(container: HTMLElement) {
     style.remove();
   }
 
-  return { update, destroy };
+  function reset(): void {
+    lastEventSeq = 0;
+    lastShowTime = 0;
+    // Hide current bubble
+    topOverlay.style.display = 'none';
+  }
+
+  return { update, destroy, reset };
 }

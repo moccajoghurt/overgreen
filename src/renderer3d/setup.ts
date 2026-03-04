@@ -99,6 +99,67 @@ export function createTerrain(world: World): TerrainResult {
   return { terrainMesh, colorArray, colorAttr, getCellElevation, groundMesh, groundMat, rockFormations };
 }
 
+/**
+ * Rebuild terrain vertex heights in-place from current world grid elevations.
+ * Recomputes rock formations and corner heights, then updates the existing mesh.
+ */
+export function rebuildTerrainGeometry(
+  world: World,
+  terrain: TerrainResult,
+): { getCellElevation: (cx: number, cy: number) => number; rockFormations: RockFormations } {
+  const rockFormations = createRockFormations(world);
+  const rockOverlay = rockFormations.heightOverlay;
+
+  const cornerSize = GRID + 1;
+  const corners = new Float32Array(cornerSize * cornerSize);
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let sum = 0, count = 0;
+      let rockSum = 0;
+      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+        const gx = cx + dx;
+        const gy = cy + dy;
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          sum += world.grid[gy][gx].elevation;
+          rockSum += rockOverlay[gy * GRID + gx];
+          count++;
+        }
+      }
+      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE + rockSum / count;
+    }
+  }
+
+  const posAttr = terrain.terrainMesh.geometry.attributes.position;
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const base = (row * GRID + col) * 6;
+      const eTL = corners[row * cornerSize + col];
+      const eTR = corners[row * cornerSize + col + 1];
+      const eBL = corners[(row + 1) * cornerSize + col];
+      const eBR = corners[(row + 1) * cornerSize + col + 1];
+
+      posAttr.setY(base + 0, eTL);
+      posAttr.setY(base + 1, eBL);
+      posAttr.setY(base + 2, eTR);
+      posAttr.setY(base + 3, eBL);
+      posAttr.setY(base + 4, eBR);
+      posAttr.setY(base + 5, eTR);
+    }
+  }
+  posAttr.needsUpdate = true;
+  terrain.terrainMesh.geometry.computeVertexNormals();
+
+  function getCellElevation(cx: number, cy: number): number {
+    const tl = corners[cy * cornerSize + cx];
+    const tr = corners[cy * cornerSize + cx + 1];
+    const bl = corners[(cy + 1) * cornerSize + cx];
+    const br = corners[(cy + 1) * cornerSize + cx + 1];
+    return (tl + tr + bl + br) * 0.25;
+  }
+
+  return { getCellElevation, rockFormations };
+}
+
 // ── Plant meshes ──
 
 export interface PlantMeshes {

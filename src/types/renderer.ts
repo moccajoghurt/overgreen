@@ -8,4 +8,6 @@ export interface Renderer {
   setColorMode(mode: ColorMode): void;
   setHoveredSpecies(speciesId: number | null): void;
   markPlantsDirty(): void;
+  rebuildTerrain(): void;
+  rebuildWater(): void;
 }

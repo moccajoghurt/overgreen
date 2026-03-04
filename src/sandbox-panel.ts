@@ -29,7 +29,7 @@ export function createSandboxPanel(
   controls: Controls,
   canvas: HTMLCanvasElement,
   onPlantsDirty?: () => void,
-): { update(world: World): void; setVisible(visible: boolean): void; isVisible(): boolean } {
+): { update(world: World): void; setVisible(visible: boolean): void; isVisible(): boolean; reset(): void } {
 
   let visible = false;
   let archetype: Archetype = 'tree';
@@ -460,9 +460,17 @@ export function createSandboxPanel(
   // Initialize preview
   updatePreview();
 
+  function reset(): void {
+    customSpecies.clear();
+    setPlaceMode(false);
+    lastUpdateTick = -1;
+    rebuildPlacedList();
+  }
+
   return {
     update,
     setVisible,
     isVisible: () => visible,
+    reset,
   };
 }

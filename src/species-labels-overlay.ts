@@ -393,5 +393,13 @@ export function createSpeciesLabelsOverlay(
     updatePositions();
   }
 
-  return { update, updatePositions, setVisible, setHoveredSpecies };
+  function reset(): void {
+    lastUpdateTick = -UPDATE_EVERY_N_TICKS;
+    for (const entry of labels.values()) {
+      entry.el.remove();
+    }
+    labels.clear();
+  }
+
+  return { update, updatePositions, setVisible, setHoveredSpecies, reset };
 }

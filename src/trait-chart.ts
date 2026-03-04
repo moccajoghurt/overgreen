@@ -119,7 +119,11 @@ export function createTraitChart(container: HTMLElement) {
     canvas.remove();
   }
 
-  return { update, destroy };
+  function reset(): void {
+    lastRenderedTick = -1;
+  }
+
+  return { update, destroy, reset };
 }
 
 function niceStep(range: number, targetLines: number): number {
