@@ -634,6 +634,7 @@ Run each for 2000-3000 ticks and observe population/genome trends.
 | 10 | Grass vs Trees | Archetype competition | Flat soil | 2: grass vs tree (same genome) |
 | 11 | Nutrient Cycle | Decomposition enrichment | Flat soil, low nutrients | 1 species, sparse start |
 | 12 | Terrain Isolated | Local adaptation without gene flow | 4 terrain bands with rock barriers | 4 identical generalists |
+| 13 | Seed Bank Resilience | Dormant seed persistence, germination thresholds, recolonization after drought | Pure arid | 2: high-seed grass (0.65) vs low-seed grass (0.45) |
 
 ---
 
@@ -757,3 +758,23 @@ Nutrient feedback loop still working: early population flat at ~64 (low soil nut
 - **Population:** Stable 1200-2200. All species coexist with 0% extinction rate across 35k ticks.
 
 **Conclusion:** Selective 1-2 gene mutation with 0.2 rate produces realistic, pronounced local adaptation given sufficient time. Each terrain produces a genuinely distinct species — not just minor variations of a generalist. Harsh terrains adapt fast, mild terrains adapt slowly but eventually diverge just as strongly. No sim changes needed.
+
+### Experiment 13: Seed Bank Resilience
+**Goal:** Validate the seed bank system — do dormant seeds persist through harsh conditions, germinate when water returns, and buffer population crashes? Two grass species with identical genomes except seed investment (0.65 vs 0.45) on pure arid terrain.
+**Result:** Seedbank Grass (0.65) dominates 100%, Holdfast Sedge (0.45) extinct by ~tick 2000. Seed bank mechanics confirmed working.
+
+**Seed bank mechanics validated:**
+- **Dormancy works:** 89-99% seed success rate throughout. Seeds land dormant and germinate when water hits threshold (1.5 for grass). Massive seasonal churn — up to 22k births and 23k deaths per 250-tick interval in summer — confirms seeds accumulating during dry periods then germinating in waves when water returns.
+- **Germination gating works:** Water stress oscillates 16-79% across seasons. During high-stress periods (summer drought), seeds sit dormant. During low-stress periods (spring/winter recharge), germination bursts occur. The boom/bust population cycle (peak 3213, trough 1478) is driven by seed bank dynamics.
+- **Seed decay works:** Seed success rate slowly declines from 99% to 88-93% over the run — some seeds are dying before conditions improve, as intended.
+- **Competitive germination works:** When multiple seeds compete per cell, highest-energy seed wins. The heavy seeder floods cells with more candidates, increasing its odds of winning germination slots.
+
+**Why higher seed investment dominates on arid:**
+On harsh terrain with frequent drought, the population bottleneck is recolonization speed — how fast a species can fill empty cells after a die-off. Higher seed investment → more dormant seeds in the bank → faster recolonization → numerical advantage that compounds each cycle. Even a moderate gap (0.65 vs 0.45) is decisive because the advantage compounds over multiple drought cycles.
+
+**Evolutionary pressure confirms seed bank importance:**
+- Seedbank Grass's seed investment evolved toward 0.70 (slight optimization from 0.65)
+- Holdfast Sedge's last survivor (tick 1750) had evolved seed investment from 0.45 → **0.85** — the strongest directional selection observed in any experiment for a single trait
+- Both species evolved deeper roots (→0.62-0.68) for arid groundwater access, matching Experiment 8
+
+**Conclusion:** Seed bank system working as designed. Dormant seeds persist, germinate on water threshold, decay over time, and compete per-cell. On harsh terrain, seed bank size (driven by seed investment) is the single most important survival trait — even more important than growth strategy. The system creates realistic seasonal boom/bust dynamics. No sim changes needed.
