@@ -117,6 +117,14 @@ function killPlantByFire(world: World, x: number, y: number): void {
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
   }
+
+  // Fire destroys dormant seeds
+  for (const seed of cell.seeds) {
+    const count = world.seedPopulations.get(seed.speciesId) ?? 1;
+    if (count <= 1) world.seedPopulations.delete(seed.speciesId);
+    else world.seedPopulations.set(seed.speciesId, count - 1);
+  }
+  cell.seeds.length = 0;
 }
 
 function advanceFires(world: World): void {

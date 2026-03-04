@@ -48,6 +48,15 @@ export function updateInspector(world: World, controls: Controls): void {
     }
   }
 
+  // Show dormant seeds
+  if (cell.seeds.length > 0) {
+    text += `\n\nDormant Seeds: ${cell.seeds.length}`;
+    for (const seed of cell.seeds) {
+      const seedName = world.speciesNames.get(seed.speciesId) ?? `Sp ${seed.speciesId}`;
+      text += `\n  ${seedName}  E:${seed.energy.toFixed(1)}  Age:${seed.age}`;
+    }
+  }
+
   // Herbivores at this cell
   for (const h of world.herbivores.values()) {
     if (h.x === x && h.y === y && h.alive) {

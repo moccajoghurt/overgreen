@@ -278,6 +278,7 @@ export function createWorld(width: number, height: number): World {
         lightLevel: SIM.BASE_LIGHT,
         plantId: null,
         lastSpeciesId: null,
+        seeds: [],
       });
     }
     grid.push(row);
@@ -298,7 +299,8 @@ export function createWorld(width: number, height: number): World {
     width, height, grid, plants: new Map(), tick: 0,
     nextPlantId: 1, nextSpeciesId: 1,
     speciesColors: new Map(), speciesNames: new Map(),
-    seedEvents: [], fireDeathEvents: [], deathEvents: [], seedsAttempted: 0,
+    seedLandingEvents: [], germinationEvents: [], fireDeathEvents: [], deathEvents: [],
+    seedsAttempted: 0, seedPopulations: new Map(),
     environment: createEnvironment(), environmentEvents: [],
     herbivores: new Map(), nextHerbivoreId: 1,
     herbivoreDeathEvents: [], herbivoreBirthEvents: [],

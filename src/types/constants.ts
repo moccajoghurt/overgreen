@@ -123,6 +123,12 @@ export const SIM = {
   DEFENSE_GRAZE_REDUCTION: 0.7,
   DEFENSE_HERBIVORE_DAMAGE: 0.3,
   DEFENSE_MAINTENANCE_RATE: 0.05,
+
+  // Seed bank
+  SEED_MAX_AGE: 50,
+  SEED_DECAY_RATE: 0.04,
+  SEED_GERMINATION_WATER: 2.0,
+  SEED_MAX_PER_CELL: 8,
 } as const;
 
 export const GRASS = {
@@ -153,6 +159,10 @@ export const GRASS = {
   SEEDLING_HEIGHT: 0.3,
   SEEDLING_ROOT: 0.3,
   SEEDLING_LEAF: 0.5,
+
+  // Seed bank (grass-specific overrides)
+  SEED_MAX_AGE: 40,
+  SEED_GERMINATION_WATER: 1.5,
 } as const;
 
 export const INITIAL_GRASS_FRACTION = 0.4;

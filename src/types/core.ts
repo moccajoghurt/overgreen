@@ -62,6 +62,7 @@ export interface Cell {
   lightLevel: number;
   plantId: number | null;
   lastSpeciesId: number | null;
+  seeds: Seed[];
 }
 
 export interface World {
@@ -74,10 +75,12 @@ export interface World {
   nextSpeciesId: number;
   speciesColors: Map<number, SpeciesColor>;
   speciesNames: Map<number, string>;
-  seedEvents: SeedEvent[];
+  seedLandingEvents: SeedLandingEvent[];
+  germinationEvents: GerminationEvent[];
   fireDeathEvents: FireDeathEvent[];
   deathEvents: DeathEvent[];
   seedsAttempted: number;
+  seedPopulations: Map<number, number>;
   environment: Environment;
   environmentEvents: EnvironmentEvent[];
   herbivores: Map<number, Herbivore>;
@@ -104,12 +107,28 @@ export interface FireDeathEvent {
   archetype: Archetype;
 }
 
-export interface SeedEvent {
+export interface Seed {
+  speciesId: number;
+  archetype: Archetype;
+  genome: Genome;
+  energy: number;
+  age: number;
+  generation: number;
+}
+
+export interface SeedLandingEvent {
   parentX: number;
   parentY: number;
   childX: number;
   childY: number;
-  childId: number;
+  speciesId: number;
+  archetype: Archetype;
+}
+
+export interface GerminationEvent {
+  x: number;
+  y: number;
+  plantId: number;
   speciesId: number;
   archetype: Archetype;
 }

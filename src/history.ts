@@ -131,6 +131,8 @@ function detectExtinctions(
 ): void {
   for (const [speciesId, prevCount] of history.prevPopulations) {
     if (prevCount > 0 && !populations.has(speciesId)) {
+      // Skip extinction if species still has dormant seeds
+      if ((world.seedPopulations.get(speciesId) ?? 0) > 0) continue;
       const rec = history.species.get(speciesId);
       if (rec && (world.tick - rec.firstSeenTick) >= MIN_TICKS_FOR_EXTINCTION) {
         rec.extinct = true;

@@ -20,13 +20,15 @@ export function loadScenario(world: World, scenario: Scenario): void {
   world.herbivores.clear();
   world.speciesColors.clear();
   world.speciesNames.clear();
-  world.seedEvents.length = 0;
+  world.seedLandingEvents.length = 0;
+  world.germinationEvents.length = 0;
   world.fireDeathEvents.length = 0;
   world.deathEvents.length = 0;
   world.environmentEvents.length = 0;
   world.herbivoreDeathEvents.length = 0;
   world.herbivoreBirthEvents.length = 0;
   world.seedsAttempted = 0;
+  world.seedPopulations.clear();
   world.nextPlantId = 1;
   world.nextHerbivoreId = 1;
 
@@ -55,6 +57,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
         lightLevel: SIM.BASE_LIGHT,
         plantId: null as number | null,
         lastSpeciesId: null as number | null,
+        seeds: [],
       };
       applyTerrainDefaults(cell, scenario.defaultTerrain, defaultElev);
       row.push(cell);

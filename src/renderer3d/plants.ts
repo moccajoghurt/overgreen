@@ -44,10 +44,10 @@ export function updatePlants(state: RendererState): void {
   const baseMtx = grassBases.instanceMatrix.array as Float32Array;
   const baseClr = grassBases.instanceColor!.array as Float32Array;
 
-  // ── Ingest seed events (once per simulation tick) ──
+  // ── Ingest seed landing events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
     state.lastProcessedTick = world.tick;
-    for (const evt of world.seedEvents) {
+    for (const evt of world.seedLandingEvents) {
       // O(1) parent lookup via grid cell instead of scanning all plants
       let parentHeight = 1.0;
       const cell = world.grid[evt.parentY]?.[evt.parentX];
@@ -65,20 +65,14 @@ export function updatePlants(state: RendererState): void {
       flyingSeeds.push({
         parentX: evt.parentX, parentY: evt.parentY,
         childX: evt.childX, childY: evt.childY,
-        childId: evt.childId, speciesId: evt.speciesId,
+        childId: 0, speciesId: evt.speciesId,
         progress: 0, startY, arcPeak,
       });
     }
-  }
 
-  // ── Build set of plants whose seeds are still in flight ──
-  const flyingChildIds = new Set<number>();
-  for (let i = 0; i < flyingSeeds.length; i++) flyingChildIds.add(flyingSeeds[i].childId);
-
-  // ── Clean up flying seeds for plants that no longer exist ──
-  for (let i = flyingSeeds.length - 1; i >= 0; i--) {
-    if (!world.plants.has(flyingSeeds[i].childId)) {
-      flyingSeeds.splice(i, 1);
+    // Ingest germination events — trigger growth animation for new plants
+    for (const evt of world.germinationEvents) {
+      growingPlants.set(evt.plantId, { plantId: evt.plantId, progress: 0 });
     }
   }
 
@@ -99,7 +93,7 @@ export function updatePlants(state: RendererState): void {
 
   // ── Detect deaths: plants in prev snapshot but no longer in world ──
   for (const [id, snap] of state.prevSnapshots) {
-    if (!world.plants.has(id) && !flyingChildIds.has(id) && !fireDeathIds.has(id)) {
+    if (!world.plants.has(id) && !fireDeathIds.has(id)) {
       dyingPlants.set(id, { ...snap, progress: 0 });
     }
   }
@@ -135,9 +129,6 @@ export function updatePlants(state: RendererState): void {
       genome: plant.genome,
       archetype: plant.archetype,
     });
-
-    // Skip rendering if seed is still in flight
-    if (flyingChildIds.has(plant.id)) continue;
 
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
@@ -444,9 +435,7 @@ export function updateSeeds(state: RendererState): void {
     fs.progress += 1 / SEED_FLIGHT_FRAMES;
 
     if (fs.progress >= 1) {
-      if (world.plants.has(fs.childId)) {
-        growingPlants.set(fs.childId, { plantId: fs.childId, progress: 0 });
-      }
+      // Seed lands as dormant — no plant to show; growth animation triggered by germinationEvents
       flyingSeeds.splice(i, 1);
       continue;
     }
@@ -473,8 +462,8 @@ export function updateSeeds(state: RendererState): void {
     dummy.matrix.toArray(seedMtx, seedIdx * 16);
 
     const ci = seedIdx * 3;
-    const childPlant = world.plants.get(fs.childId);
-    const isGrassSeed = childPlant?.archetype === 'grass';
+    // Detect grass seeds from arc peak heuristic (grass seeds have lower arcs)
+    const isGrassSeed = fs.arcPeak < 1.0;
     if (state.colorMode !== 'species') {
       if (isGrassSeed) {
         // Grass seeds: lighter straw color

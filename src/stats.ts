@@ -10,6 +10,7 @@ export interface TickAccumulator {
   deathsByDisease: number;
   seedsAttempted: number;
   seedsLanded: number;
+  seedsGerminated: number;
   totalEnergyProduced: number;
   totalMaintenanceCost: number;
 }
@@ -86,6 +87,8 @@ export interface Snapshot {
     seedsAttempted: number;
     seedsLanded: number;
     seedSuccessRate: number;
+    seedBank: number;
+    seedsGerminated: number;
   };
 
   topSpecies: Array<{
@@ -110,14 +113,16 @@ export function createAccumulator(): TickAccumulator {
     deathsByDisease: 0,
     seedsAttempted: 0,
     seedsLanded: 0,
+    seedsGerminated: 0,
     totalEnergyProduced: 0,
     totalMaintenanceCost: 0,
   };
 }
 
 export function accumulateTick(accum: TickAccumulator, world: World): void {
-  accum.births += world.seedEvents.length;
-  accum.seedsLanded += world.seedEvents.length;
+  accum.births += world.germinationEvents.length;
+  accum.seedsLanded += world.seedLandingEvents.length;
+  accum.seedsGerminated += world.germinationEvents.length;
   accum.seedsAttempted += world.seedsAttempted;
   for (const evt of world.deathEvents) {
     switch (evt.cause) {
@@ -406,6 +411,8 @@ export function computeSnapshot(
       seedsAttempted: accum.seedsAttempted,
       seedsLanded: accum.seedsLanded,
       seedSuccessRate: accum.seedsAttempted > 0 ? accum.seedsLanded / accum.seedsAttempted : 0,
+      seedBank: [...world.seedPopulations.values()].reduce((a, b) => a + b, 0),
+      seedsGerminated: accum.seedsGerminated,
     },
     topSpecies,
   };

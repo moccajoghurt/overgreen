@@ -1,4 +1,4 @@
-import { Cell, Genome, GRASS, Plant, SIM, TerrainType, World } from './types';
+import { Cell, Genome, GRASS, Plant, Seed, SIM, TerrainType, World } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import { mutateGenome, crossoverGenome } from './simulation/plants';
 import { phaseEnvironment } from './simulation/environment';
@@ -276,9 +276,10 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const tx = plant.x + dx;
     const ty = plant.y + dy;
     if (!inBounds(tx, ty, world.width, world.height)) continue;
-    if (world.grid[ty][tx].plantId !== null) continue;
-    const tt = world.grid[ty][tx].terrainType;
+    const targetCell = world.grid[ty][tx];
+    const tt = targetCell.terrainType;
     if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
+    if (targetCell.seeds.length >= SIM.SEED_MAX_PER_CELL) continue;
 
     // Mate search: scan nearby cells for a same-species mate
     let mateGenome: Genome | null = null;
@@ -301,24 +302,26 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
       ? mutateGenome(crossoverGenome(plant.genome, mateGenome), eraMutationRate)
       : mutateGenome(plant.genome, eraMutationRate);
 
-    const childId = world.nextPlantId++;
-    const child: Plant = {
-      id: childId, speciesId: plant.speciesId, archetype: plant.archetype, x: tx, y: ty,
-      height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
-      energy: seedEnergy * eraSeedEnergyMult, age: 0, alive: true,
+    // Create dormant seed instead of a live plant
+    const seed: Seed = {
+      speciesId: plant.speciesId,
+      archetype: plant.archetype,
       genome: childGenome,
-      lastLightReceived: 0, lastWaterAbsorbed: 0,
-      lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
-      generation: plant.generation + 1, parentId: plant.id, offspringCount: 0,
+      energy: seedEnergy * eraSeedEnergyMult,
+      age: 0,
+      generation: plant.generation + 1,
     };
     plant.offspringCount++;
-    world.plants.set(childId, child);
-    world.grid[ty][tx].plantId = childId;
-    world.grid[ty][tx].lastSpeciesId = plant.speciesId;
-    world.seedEvents.push({
+    targetCell.seeds.push(seed);
+
+    // Track seed population per species
+    world.seedPopulations.set(seed.speciesId,
+      (world.seedPopulations.get(seed.speciesId) ?? 0) + 1);
+
+    world.seedLandingEvents.push({
       parentX: plant.x, parentY: plant.y,
       childX: tx, childY: ty,
-      childId, speciesId: plant.speciesId,
+      speciesId: plant.speciesId,
       archetype: plant.archetype,
     });
   }
@@ -414,6 +417,83 @@ function phaseDeath(world: World): void {
   }
 }
 
+function phaseGermination(world: World): void {
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.grid[y][x];
+      if (cell.seeds.length === 0) continue;
+
+      // Age and decay all seeds; remove dead ones
+      for (let i = cell.seeds.length - 1; i >= 0; i--) {
+        const seed = cell.seeds[i];
+        seed.age++;
+        seed.energy -= SIM.SEED_DECAY_RATE;
+        const maxAge = seed.archetype === 'grass' ? GRASS.SEED_MAX_AGE : SIM.SEED_MAX_AGE;
+        if (seed.energy <= 0 || seed.age >= maxAge) {
+          // Decrement seed population tracking
+          const count = world.seedPopulations.get(seed.speciesId) ?? 1;
+          if (count <= 1) world.seedPopulations.delete(seed.speciesId);
+          else world.seedPopulations.set(seed.speciesId, count - 1);
+          cell.seeds.splice(i, 1);
+        }
+      }
+
+      // Germinate if cell is empty and has enough water
+      if (cell.plantId !== null || cell.seeds.length === 0) continue;
+
+      // Find highest-energy seed that meets water threshold
+      let bestIdx = -1;
+      let bestEnergy = -1;
+      for (let i = 0; i < cell.seeds.length; i++) {
+        const seed = cell.seeds[i];
+        const waterThreshold = seed.archetype === 'grass'
+          ? GRASS.SEED_GERMINATION_WATER : SIM.SEED_GERMINATION_WATER;
+        if (cell.waterLevel >= waterThreshold && seed.energy > bestEnergy) {
+          bestEnergy = seed.energy;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx < 0) continue;
+      const winner = cell.seeds[bestIdx];
+      cell.seeds.splice(bestIdx, 1);
+
+      // Decrement seed population tracking
+      const count = world.seedPopulations.get(winner.speciesId) ?? 1;
+      if (count <= 1) world.seedPopulations.delete(winner.speciesId);
+      else world.seedPopulations.set(winner.speciesId, count - 1);
+
+      // Create plant from seed
+      const isGrass = winner.archetype === 'grass';
+      const seedlingH = isGrass ? GRASS.SEEDLING_HEIGHT : 0.5;
+      const seedlingR = isGrass ? GRASS.SEEDLING_ROOT : 0.5;
+      const seedlingL = isGrass ? GRASS.SEEDLING_LEAF : 0.5;
+
+      const childId = world.nextPlantId++;
+      const child: Plant = {
+        id: childId, speciesId: winner.speciesId, archetype: winner.archetype,
+        x, y,
+        height: seedlingH, rootDepth: seedlingR, leafArea: seedlingL,
+        energy: winner.energy, age: 0, alive: true,
+        genome: winner.genome,
+        lastLightReceived: 0, lastWaterAbsorbed: 0,
+        lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
+        generation: winner.generation, parentId: null, offspringCount: 0,
+      };
+      world.plants.set(childId, child);
+      cell.plantId = childId;
+      cell.lastSpeciesId = winner.speciesId;
+
+      world.germinationEvents.push({
+        x, y,
+        plantId: childId,
+        speciesId: winner.speciesId,
+        archetype: winner.archetype,
+      });
+    }
+  }
+}
+
 function phaseDecomposition(world: World): void {
   const toRemove: number[] = [];
   for (const plant of world.plants.values()) {
@@ -440,7 +520,8 @@ function phaseDecomposition(world: World): void {
 }
 
 export function tickWorld(world: World): void {
-  world.seedEvents.length = 0;
+  world.seedLandingEvents.length = 0;
+  world.germinationEvents.length = 0;
   world.deathEvents.length = 0;
   world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
@@ -451,5 +532,6 @@ export function tickWorld(world: World): void {
   phaseHerbivores(world);
   phaseDeath(world);
   phaseDecomposition(world);
+  phaseGermination(world);
   world.tick++;
 }
