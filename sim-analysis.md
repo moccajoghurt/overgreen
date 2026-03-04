@@ -696,13 +696,11 @@ With groundwater boosting overall energy surplus, defense's fixed cost (0.025/ti
 
 ### Experiment 7: Hill Specialist
 **Goal:** Do terrain pressures enforce specialization? Root/height/leaf specialists on pure hills.
-**Result:** Tall Spruce (height 0.6) dominates at 81%, Deep Root Pine (root 0.6) survives at 19%, Broad Leaf Holly (leaf 0.6) extinct by tick 900.
+**Result:** Deep Root Pine (root 0.6) dominates at 69%, Tall Spruce (height 0.6) survives at 31%, Broad Leaf Holly (leaf 0.6) extinct by tick ~1500. Winner flipped from height to roots.
 
-Prediction was leaf would win (hills: +0.3 seed fitness, 1.0x leaf maint). Instead height won because hills are water-scarce (0.4x recharge) — big leaves need water to photosynthesize, making them a liability. Height's shading advantage (+0.35 hill light bonus amplifies tall plants' competitive edge) compounds over time. This matches real nature: conifers (tall, small leaves) dominate hillsides over broadleaf species.
+Groundwater system gives deep-rooted plants direct subsurface water access — on hills with only 0.4x recharge, this is the decisive advantage. Water stress 5-19% in summer (higher than flat soil's 0-9%), confirming hills remain water-limited. Deep Root Pine leads from tick 1 (270 vs 55 vs 8). Tall Spruce survived only by massively evolving roots (0.20 → 0.62) while shedding height (0.64 → 0.33) — essentially becoming a root-height hybrid. Broad Leaf Holly died fast (3x leaf maintenance + high water demand). Population volatile with wild seasonal swings (peak 4203, trough 333).
 
-Deep Root Pine persisted via water access (roots drifted 0.57→0.66) but couldn't overcome 3x root maintenance cost. Both surviving species converged: Spruce gained roots (0.20→0.49), Pine gained height (0.19→0.37).
-
-**Conclusion:** Hill terrain working well. Terrain pressure successfully enforces differentiation from flat-soil outcomes. No sim changes needed.
+**Conclusion:** Hill terrain still enforces specialization away from leaves, but groundwater shifted the winning strategy from height to roots. Deep root access to subsurface water now trumps height's shading advantage on water-scarce terrain. No sim changes needed.
 
 ### Experiment 8: Arid Specialist
 **Goal:** Do arid terrain pressures enforce root specialization?
