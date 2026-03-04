@@ -115,21 +115,16 @@ function phaseCalculateLight(world: World): void {
 function absorbWater(plant: Plant, cell: Cell, world: World): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF;
-  // Water table limits effective root depth for water absorption
-  let waterTable = SIM.SOIL_WATER_TABLE;
-  if (cell.terrainType === TerrainType.Hill) waterTable = SIM.HILL_WATER_TABLE;
-  else if (cell.terrainType === TerrainType.Wetland) waterTable = SIM.WETLAND_WATER_TABLE;
-  else if (cell.terrainType === TerrainType.Arid) waterTable = SIM.ARID_WATER_TABLE;
-  const effectiveRoot = Math.min(plant.rootDepth, waterTable);
 
-  const waterCanAbsorb = effectiveRoot * SIM.WATER_ABSORPTION_PER_ROOT;
+  // Surface absorption: full rootDepth, draws from cell water
+  const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
   let waterAbsorbed = Math.min(waterNeeded, waterCanAbsorb, cell.waterLevel);
   cell.waterLevel -= waterAbsorbed;
 
-  // Root competition: effective roots drain water from neighboring cells
+  // Root competition: drain water from neighboring cells
   let remainingDemand = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
   if (remainingDemand > 0.01) {
-    const drainRate = effectiveRoot / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
+    const drainRate = plant.rootDepth / SIM.MAX_ROOT_DEPTH * SIM.ROOT_COMPETITION_RATE;
     for (const [dx, dy] of NEIGHBORS) {
       if (remainingDemand <= 0.01) break;
       const nx = plant.x + dx;
@@ -143,19 +138,18 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
     }
   }
 
-  // Arid aquifer: deep roots tap groundwater
-  if (cell.terrainType === TerrainType.Arid) {
-    const isGrass = plant.archetype === 'grass';
-    const maxRoot = isGrass ? GRASS.MAX_ROOT_DEPTH : SIM.MAX_ROOT_DEPTH;
-    const rootFrac = plant.rootDepth / maxRoot;
-    if (rootFrac > SIM.ARID_AQUIFER_ROOT_THRESHOLD) {
-      const aquiferAccess = (rootFrac - SIM.ARID_AQUIFER_ROOT_THRESHOLD)
-        / (1 - SIM.ARID_AQUIFER_ROOT_THRESHOLD);
-      const deficit = Math.min(waterNeeded, waterCanAbsorb) - waterAbsorbed;
-      if (deficit > 0.01) {
-        const bonus = Math.min(deficit, aquiferAccess * SIM.ARID_AQUIFER_WATER_BONUS);
-        waterAbsorbed += bonus;
-      }
+  // Groundwater: roots below water table access saturated zone (all terrains)
+  let waterTable = SIM.SOIL_WATER_TABLE;
+  if (cell.terrainType === TerrainType.Hill) waterTable = SIM.HILL_WATER_TABLE;
+  else if (cell.terrainType === TerrainType.Wetland) waterTable = SIM.WETLAND_WATER_TABLE;
+  else if (cell.terrainType === TerrainType.Arid) waterTable = SIM.ARID_WATER_TABLE;
+
+  if (plant.rootDepth > waterTable) {
+    const saturatedDepth = plant.rootDepth - waterTable;
+    const groundwaterAvail = saturatedDepth * SIM.GROUNDWATER_ABSORPTION_RATE;
+    const deficit = waterNeeded - waterAbsorbed;
+    if (deficit > 0.01) {
+      waterAbsorbed += Math.min(deficit, groundwaterAvail);
     }
   }
 

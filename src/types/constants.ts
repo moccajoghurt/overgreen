@@ -94,14 +94,12 @@ export const SIM = {
   ARID_WATER_RECHARGE: 0.2,
   ARID_NUTRIENT_MAX: 1.5,
   ARID_LIGHT_BONUS: 0.2,
-  ARID_AQUIFER_ROOT_THRESHOLD: 0.25,
-  ARID_AQUIFER_WATER_BONUS: 0.6,
-
-  // Water table depth per terrain (roots beyond this get no water benefit)
-  SOIL_WATER_TABLE: 6.0,
-  HILL_WATER_TABLE: 3.0,
-  WETLAND_WATER_TABLE: 2.0,
+  // Water table depth per terrain (depth to saturated zone — roots below this access groundwater)
+  SOIL_WATER_TABLE: 4.0,
+  HILL_WATER_TABLE: 5.0,
+  WETLAND_WATER_TABLE: 0.5,
   ARID_WATER_TABLE: 3.0,
+  GROUNDWATER_ABSORPTION_RATE: 0.3,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
   HILL_MAINT_ROOT_MULT: 3.0,     // rock is hard to dig

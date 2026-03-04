@@ -3,8 +3,8 @@ import { Scenario, ScenarioCell, TerrainType } from '../types';
 /**
  * EXPERIMENT: Arid Specialist
  * Three tree species with different trait priorities on pure arid terrain.
- * Arid: 0.12 water recharge, aquifer at 40% root depth, 3x leaf maint, 0.8x root maint.
- * Root specialist expected to dominate via aquifer access and cheap maintenance.
+ * Arid: 0.2 water recharge, water table at depth 3.0 (deep roots tap groundwater), 3x leaf maint, 0.8x root maint.
+ * Root specialist expected to dominate via groundwater access and cheap maintenance.
  */
 export const experimentAridSpecialist: Scenario = (() => {
   const size = 80;
