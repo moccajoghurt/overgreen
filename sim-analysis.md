@@ -659,3 +659,17 @@ Run each for 2000-3000 ticks and observe population/genome trends.
 Water stress is real — 20-37% of trees water-stressed in summer, occupied cells drop to near-zero water in autumn. But light competition from shading (50%+ of trees shaded at peak) is the stronger selective pressure on soil. Deep roots help survive but don't help win. Species genomes converge over time (Broad Leaf drifts toward more roots, Deep Root drifts toward more leaves).
 
 **Conclusion:** Matches real temperate forests — light decides winners on decent soil, water is survivability insurance. No sim changes needed.
+
+**Note:** Original run had species in separate clusters — no actual competition occurred. Fixed by intermixing placements in same area. Added `x_spp%` (cross-species neighbor %) column to diagnostic to detect this in future.
+
+### Experiment 3: Light Competition
+**Goal:** Does growing tall (shading others) or spreading leaves (more photosynthesis) win?
+**Result:** Tall wins but doesn't eliminate short-leafy. Healthy coexistence at 64/36% split.
+
+Cross-species interaction confirmed: 73-74% of plants had a different-species neighbor at peak density. At high density (shading 40-65%), Tall Pine's height advantage suppresses Spread Fern's light. But at low density (winter/spring, shading <10%), Spread Fern's extra leaf area produces more raw energy. Both strategies remain viable across 4 years.
+
+Interesting evolution: both species drifted toward higher seed investment (0.50 → 0.56-0.60) and higher roots (0.25 → 0.35-0.41). Spread Fern's height crept from 0.23 → 0.29 (adapting to compete). Allelopathy drifting up naturally in both (0.02 → 0.10-0.12).
+
+Shannon diversity stable at 0.65 (vs 0.69 start). No extinction risk.
+
+**Conclusion:** Height gives a real but not overwhelming competitive edge on flat soil. Both tall canopy and short leafy strategies coexist — matches real forest structure. No sim changes needed.

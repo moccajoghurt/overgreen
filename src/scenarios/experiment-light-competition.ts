@@ -1,21 +1,20 @@
 import { Scenario, ScenarioCell, TerrainType } from '../types';
 
 /**
- * EXPERIMENT: Water Competition
- * Two tree species on flat soil — one root-leaning, one leaf-leaning.
- * Uses moderate genomes (0.5/0.25/0.25) to stay viable while still
- * testing whether root investment vs leaf investment makes a difference.
- * Run 1 with extreme genomes (0.8/0.1/0.1) → both went extinct at tick 500.
- * Extreme specialists can't generate enough surplus to reproduce.
+ * EXPERIMENT: Light Competition
+ * Two tree species on flat soil — one height-leaning, one leaf-leaning.
+ * Tests whether growing tall (shading others) beats spreading leaves (more photosynthesis).
+ * Both have moderate root to stay viable.
+ * Both species intermixed in the same central area so they directly compete for light.
  */
-export const experimentWaterCompetition: Scenario = (() => {
+export const experimentLightCompetition: Scenario = (() => {
   const size = 80;
   const cells: ScenarioCell[] = [];
 
   return {
-    id: 'experiment-water-competition',
-    name: '[Exp] Water Competition',
-    description: 'Root-leaning vs leaf-leaning trees on flat soil. Tests whether root investment pays off via water absorption advantage.',
+    id: 'experiment-light-competition',
+    name: '[Exp] Light Competition',
+    description: 'Tall trees vs short leafy trees on flat soil. Tests whether height investment (shading) beats leaf investment (photosynthesis).',
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.5,
@@ -23,22 +22,22 @@ export const experimentWaterCompetition: Scenario = (() => {
     species: [
       {
         id: 1,
-        name: 'Deep Root Fern',
+        name: 'Tall Pine',
         archetype: 'tree',
         genome: {
-          rootPriority: 0.5,
-          heightPriority: 0.25,
+          rootPriority: 0.25,
+          heightPriority: 0.5,
           leafSize: 0.25,
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
         },
-        color: { r: 0.2, g: 0.6, b: 0.2 },
+        color: { r: 0.1, g: 0.5, b: 0.1 },
         placements: scatter(30, 50, 30, 50, 15),
       },
       {
         id: 2,
-        name: 'Broad Leaf Fern',
+        name: 'Spread Fern',
         archetype: 'tree',
         genome: {
           rootPriority: 0.25,
@@ -48,7 +47,7 @@ export const experimentWaterCompetition: Scenario = (() => {
           allelopathy: 0.0,
           defense: 0.0,
         },
-        color: { r: 0.2, g: 0.3, b: 0.8 },
+        color: { r: 0.7, g: 0.5, b: 0.1 },
         placements: scatter(30, 50, 30, 50, 15),
       },
     ],

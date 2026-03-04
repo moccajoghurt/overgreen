@@ -63,6 +63,7 @@ interface DiagnosticSnapshot {
     pctShaded: number;
     avgRootDepth: number;
     pctWaterStressed: number;
+    crossSpeciesNeighborPct: number;
   };
 
   spatial: {
@@ -190,7 +191,7 @@ function computeSnapshot(
   let sumEnergy = 0, minEnergy = Infinity, maxEnergy = -Infinity;
   let sumProduction = 0, sumMaintenance = 0;
   let energyPositiveCount = 0;
-  let sumLight = 0, shadedCount = 0;
+  let sumLight = 0, shadedCount = 0, crossSpeciesCount = 0;
   let sumRootDepth = 0, waterStressedCount = 0;
   let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0;
   let sumRootSq = 0, sumHeightSq = 0, sumLeafSq = 0, sumSeedSq = 0;
@@ -231,6 +232,24 @@ function computeSnapshot(
     if (waterNeeded > 0.01 && plant.lastWaterAbsorbed / waterNeeded < 0.5) {
       waterStressedCount++;
     }
+
+    // Check if any adjacent cell has a plant of a different species
+    let hasCrossSpeciesNeighbor = false;
+    for (let dy = -1; dy <= 1 && !hasCrossSpeciesNeighbor; dy++) {
+      for (let dx = -1; dx <= 1 && !hasCrossSpeciesNeighbor; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = plant.x + dx, ny = plant.y + dy;
+        if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
+        const nc = world.grid[ny][nx];
+        if (nc.plantId !== null) {
+          const neighbor = world.plants.get(nc.plantId);
+          if (neighbor && neighbor.alive && neighbor.speciesId !== plant.speciesId) {
+            hasCrossSpeciesNeighbor = true;
+          }
+        }
+      }
+    }
+    if (hasCrossSpeciesNeighbor) crossSpeciesCount++;
 
     const r = plant.genome.rootPriority;
     const h = plant.genome.heightPriority;
@@ -371,6 +390,7 @@ function computeSnapshot(
       pctShaded: totalAlive > 0 ? (shadedCount / totalAlive) * 100 : 0,
       avgRootDepth: sumRootDepth / n,
       pctWaterStressed: totalAlive > 0 ? (waterStressedCount / totalAlive) * 100 : 0,
+      crossSpeciesNeighborPct: totalAlive > 0 ? (crossSpeciesCount / totalAlive) * 100 : 0,
     },
     spatial: {
       plantsBySoil: plantsSoil,
