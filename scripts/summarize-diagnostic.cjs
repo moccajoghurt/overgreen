@@ -39,7 +39,7 @@ p();
 
 // ── Season transitions ──
 
-if (d.seasonTransitions.length > 0) {
+if (d.seasonTransitions && d.seasonTransitions.length > 0) {
   const names = ['Spring', 'Summer', 'Autumn', 'Winter'];
   p(`## Season Transitions`);
   for (const st of d.seasonTransitions) {
