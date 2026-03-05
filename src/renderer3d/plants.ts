@@ -149,7 +149,7 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
-    const cellTerrain = world.grid[plant.y][plant.x].terrain;
+    const cellTerrain = world.grid[plant.y][plant.x].terrainType;
     const succulence = isGrass ? 0 : computeSucculence(plant.genome, cellTerrain);
     const isSucculent = !isGrass && succulence >= 0.45;
 
@@ -313,7 +313,7 @@ export function updatePlants(state: RendererState): void {
         wx, wz, baseY, gsil, cr, cg, cb, shrink,
         gtMtx, gtClr);
     } else {
-      const dySucculence = computeSucculence(dp.genome, world.grid[dp.y]?.[dp.x]?.terrain);
+      const dySucculence = computeSucculence(dp.genome, world.grid[dp.y]?.[dp.x]?.terrainType);
       const dyIsSucculent = dySucculence >= 0.45;
 
       if (dyIsSucculent) {
@@ -423,7 +423,7 @@ export function updatePlants(state: RendererState): void {
         wx, wz, baseY, gsil, cr, cg, cb, burnShrink,
         gtMtx, gtClr);
     } else {
-      const bnSucculence = computeSucculence(bp.genome, world.grid[bp.y]?.[bp.x]?.terrain);
+      const bnSucculence = computeSucculence(bp.genome, world.grid[bp.y]?.[bp.x]?.terrainType);
       const bnIsSucculent = bnSucculence >= 0.45;
       const burnShrink = 1 - bp.progress * 0.3;
 
