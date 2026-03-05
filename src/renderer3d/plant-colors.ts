@@ -64,6 +64,13 @@ export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number
     b += strength * 0.06;
   }
 
+  // Shrubby warmth: low canopy + broad leaves → lusher green
+  if ((1 - heightPriority) * leafSize > 0.3) {
+    r += 0.03;
+    g += 0.06;
+    b -= 0.02;
+  }
+
   out.cr = Math.max(0.06, Math.min(0.45, r));
   out.cg = Math.max(0.18, Math.min(0.72, g));
   out.cb = Math.max(0.04, Math.min(0.30, b));
@@ -99,6 +106,13 @@ export function naturalTrunkColor(genome: Genome, out: { tr: number; tg: number;
   r -= genome.defense * 0.12;
   g -= genome.defense * 0.08;
   b -= genome.defense * 0.02;
+
+  // Shrubby warmth: smooth manzanita-like bark
+  if ((1 - heightPriority) * leafSize > 0.3) {
+    r += 0.06;
+    g += 0.04;
+    b += 0.02;
+  }
 
   out.tr = Math.max(0.12, Math.min(0.50, r));
   out.tg = Math.max(0.08, Math.min(0.38, g));

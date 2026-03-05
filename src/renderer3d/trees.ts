@@ -190,14 +190,16 @@ export function writeBranchesAndCanopies(
   // ── Level 1: Primary branches ──
   // leafSize → many (bushy), heightPriority → few (conifer), seedInvestment → moderate-many
   const rawPrimaryCount = Math.max(2, Math.min(6,
-    Math.round(2 + genome.leafSize * 3 - genome.heightPriority * 2 + genome.seedInvestment * 1.5)));
+    Math.round(2 + genome.leafSize * 3 - genome.heightPriority * 2 + genome.seedInvestment * 1.5
+      + sil.shrubiness * 1.0)));
   // LOD: reduce primaries when zoomed out
   const primaryCount = branchLOD < 1 ? Math.max(2, Math.round(rawPrimaryCount * branchLOD)) : rawPrimaryCount;
 
   // Tilt from vertical: leafSize → near-horizontal, heightPriority → near-vertical
   const primaryTilt = Math.max(0.15, Math.min(1.5,
     0.6 + genome.leafSize * 0.7 - genome.heightPriority * 0.7
-        + genome.rootPriority * 0.1 + genome.seedInvestment * 0.2));
+        + genome.rootPriority * 0.1 + genome.seedInvestment * 0.2
+        + sil.shrubiness * 0.3));
 
   // Branch length: leafSize → long reaching, heightPriority → short stubs
   const primaryLength = sil.trunkH * (
@@ -221,8 +223,8 @@ export function writeBranchesAndCanopies(
   const volumeShare = 1 / Math.pow(Math.max(1, totalTips), Math.max(0.2, sizeExponent));
 
   // Attachment height range: genome-driven distribution
-  const attachLow = 0.50 - genome.heightPriority * 0.30 - genome.seedInvestment * 0.15;
-  const attachHigh = 0.90 + genome.heightPriority * 0.05;
+  const attachLow = 0.50 - genome.heightPriority * 0.30 - genome.seedInvestment * 0.15 - sil.shrubiness * 0.30;
+  const attachHigh = 0.90 + genome.heightPriority * 0.05 - sil.shrubiness * 0.30;
 
   for (let i = 0; i < primaryCount; i++) {
     if (segmentCount >= MAX_BRANCHES_PER_PLANT) break;
@@ -381,7 +383,7 @@ export function writeBranchesAndCanopies(
   }
 
   // ── Conifer apex: extra canopy blob at tallest stem's tip ──
-  if (genome.heightPriority > 0.4 && segmentCount < MAX_BRANCHES_PER_PLANT) {
+  if (genome.heightPriority > 0.4 && sil.shrubiness < 0.5 && segmentCount < MAX_BRANCHES_PER_PLANT) {
     const apexStrength = Math.min(1, (genome.heightPriority - 0.4) * 2.5);
     const apexSize = sil.canopyY * volumeShare * 0.7 * apexStrength;
 

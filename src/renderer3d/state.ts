@@ -195,16 +195,21 @@ export function plantHash(plantId: number, salt: number): number {
   return (h & 0x7FFFFFFF) / 0x7FFFFFFF;
 }
 
+export function computeShrubiness(genome: Genome): number {
+  const raw = (1 - genome.heightPriority) * genome.leafSize - genome.seedInvestment * 0.2;
+  return Math.max(0, Math.min(1, raw));
+}
+
 export function computeSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
   const leafRatio = leafArea / SIM.MAX_LEAF_AREA;
   const rootRatio = rootDepth / SIM.MAX_ROOT_DEPTH;
 
   // Trunk height: heightPriority → taller, rootPriority → squatter
   const heightMult = 0.35 + genome.heightPriority * 0.15 - genome.rootPriority * 0.08;
-  const trunkH = Math.max(0.1, height * heightMult);
+  let trunkH = Math.max(0.1, height * heightMult);
 
   // Trunk thickness: rootPriority → very fat (baobab), seedInvestment → thinner, defense → much thicker (armored bark)
-  const trunkThickness = Math.max(0.15,
+  let trunkThickness = Math.max(0.15,
     0.3 + rootRatio * 2.5 - genome.seedInvestment * 0.4 + genome.defense * 1.5);
 
   // Canopy size driven by actual leaf growth; seedInvestment → smaller individual blobs
@@ -213,8 +218,8 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   // Canopy shape: leafSize → wide & flat (acacia), heightPriority → narrow & tall (conifer)
   const spread = Math.max(0.15,
     (0.5 + genome.leafSize * 1.2 - genome.heightPriority * 0.7 + genome.rootPriority * 0.1) * 1.2);
-  const canopyX = canopyBase * spread;
-  const canopyY = canopyBase / spread;
+  let canopyX = canopyBase * spread;
+  let canopyY = canopyBase / spread;
 
   // Hide branches on seedlings/small plants
   const branchVisibility = Math.max(0, Math.min(1, (trunkH - 0.2) * 3));
@@ -222,18 +227,31 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
   // Stem count: bushy root-heavy trees fork, tall trees stay single
   const stemRaw = genome.leafSize * 0.6 + genome.rootPriority * 0.3
     - genome.heightPriority * 0.5 - genome.seedInvestment * 0.2;
-  const stemCount = trunkH < 0.3 ? 1 : stemRaw >= 0.35 ? 3 : stemRaw >= 0.15 ? 2 : 1;
+  let stemCount = trunkH < 0.3 ? 1 : stemRaw >= 0.35 ? 3 : stemRaw >= 0.15 ? 2 : 1;
 
   // Trunk lean: gentle tilt off-vertical (visible but not extreme)
-  const trunkLean = Math.max(0, Math.min(0.20,
+  let trunkLean = Math.max(0, Math.min(0.20,
     0.12 - genome.rootPriority * 0.08 - genome.defense * 0.05 + genome.seedInvestment * 0.06));
 
   // Fork fraction: where multi-stems diverge (only used when stemCount > 1)
-  const forkFrac = Math.max(0.15, Math.min(0.45,
+  let forkFrac = Math.max(0.15, Math.min(0.45,
     0.25 + genome.rootPriority * 0.15 - genome.leafSize * 0.1));
 
+  // ── Shrub blending ──
+  const shrubiness = computeShrubiness(genome);
+  if (shrubiness > 0.15) {
+    const s = (shrubiness - 0.15) / 0.85; // normalized 0-1 within active range
+    stemCount = Math.min(5, stemCount + Math.round(s * 2));
+    forkFrac = forkFrac + (0.05 - forkFrac) * s; // pull toward ground-level fork
+    trunkH *= 1 - s * 0.45; // shorter
+    trunkThickness *= 1 - s * 0.40; // thinner per stem
+    canopyX *= 1 + s * 0.35; // wider
+    canopyY *= 1 - s * 0.30; // flatter
+    trunkLean += s * 0.04; // slight organic lean
+  }
+
   return { trunkH, trunkThickness, canopyX, canopyY, canopyZ: canopyX,
-    branchVisibility, stemCount, trunkLean, forkFrac };
+    branchVisibility, stemCount, trunkLean, forkFrac, shrubiness };
 }
 
 export function computeGrassSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {

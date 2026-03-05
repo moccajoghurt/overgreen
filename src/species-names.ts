@@ -60,6 +60,36 @@ const GRASS_NOUNS: string[][] = [
   ['Razors', 'Sedges', 'Sawgrass', 'Needles', 'Barbs', 'Thistles'],
 ];
 
+const SHRUB_ADJECTIVES: string[][] = [
+  // rootPriority
+  ['Scrubby', 'Rugged', 'Hardy', 'Tenacious', 'Gnarled', 'Stunted'],
+  // heightPriority
+  ['Arching', 'Vaulted', 'Domed', 'Mounded', 'Reaching', 'Bowed'],
+  // leafSize
+  ['Bushy', 'Thicket', 'Tangled', 'Dense', 'Matted', 'Woven'],
+  // seedInvestment
+  ['Berried', 'Fruiting', 'Laden', 'Bountiful', 'Clustered', 'Generous'],
+  // seedSize
+  ['Plump', 'Swollen', 'Bulging', 'Heavy', 'Pendulous', 'Drooping'],
+  // defense
+  ['Thorny', 'Prickly', 'Brambly', 'Spiny', 'Barbed', 'Jagged'],
+];
+
+const SHRUB_NOUNS: string[][] = [
+  // rootPriority
+  ['Scrub', 'Chaparral', 'Brush', 'Heaths', 'Maquis', 'Garrigue'],
+  // heightPriority
+  ['Hollies', 'Laurels', 'Myrtles', 'Privets', 'Hazels', 'Elders'],
+  // leafSize
+  ['Thickets', 'Hedges', 'Copses', 'Tangles', 'Brakes', 'Coverts'],
+  // seedInvestment
+  ['Berries', 'Haws', 'Drupes', 'Currants', 'Sloes', 'Rosehips'],
+  // seedSize
+  ['Sumacs', 'Viburnums', 'Buckthorns', 'Dogwoods', 'Junipers', 'Yews'],
+  // defense
+  ['Brambles', 'Briars', 'Gorses', 'Roses', 'Barberries', 'Hawthorns'],
+];
+
 export function generateSpeciesName(genome: Genome, speciesId: number, woodiness?: number): string {
   const traits = [
     genome.rootPriority,
@@ -82,8 +112,24 @@ export function generateSpeciesName(genome: Genome, speciesId: number, woodiness
     }
   }
 
-  const adjs = woodiness !== undefined && woodiness < 0.4 ? GRASS_ADJECTIVES : ADJECTIVES;
-  const nouns = woodiness !== undefined && woodiness < 0.4 ? GRASS_NOUNS : NOUNS;
+  // Three-way vocabulary: grass / shrub / tree
+  let adjs: string[][];
+  let nouns: string[][];
+  if (woodiness !== undefined && woodiness < 0.4) {
+    adjs = GRASS_ADJECTIVES;
+    nouns = GRASS_NOUNS;
+  } else {
+    // Inline shrubiness formula to avoid renderer import
+    const shrubiness = Math.max(0, Math.min(1,
+      (1 - genome.heightPriority) * genome.leafSize - genome.seedInvestment * 0.2));
+    if (shrubiness > 0.35) {
+      adjs = SHRUB_ADJECTIVES;
+      nouns = SHRUB_NOUNS;
+    } else {
+      adjs = ADJECTIVES;
+      nouns = NOUNS;
+    }
+  }
   const adjPool = adjs[first];
   const nounPool = nouns[second];
   const adj = adjPool[speciesId % adjPool.length];

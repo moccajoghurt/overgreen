@@ -224,7 +224,7 @@ export function updatePlants(state: RendererState): void {
         }
       }
 
-      if (idx + 4 >= MAX_INSTANCES) continue;
+      if (idx + 6 >= MAX_INSTANCES) continue;
       const trunkResult = writeTrunkSegments(state, idx, plant.id, wx, wz, baseY, sil,
         trf, tgf, tbf, 0, 0, trunkMtx, trunkClr, branchLOD);
       idx += trunkResult.trunkCount;
@@ -293,6 +293,7 @@ export function updatePlants(state: RendererState): void {
         stemCount: 1,
         trunkLean: 0,
         forkFrac: raw.forkFrac,
+        shrubiness: 0,
       };
 
       const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
@@ -366,7 +367,7 @@ export function updatePlants(state: RendererState): void {
       grassBaseIdx += result.baseCount;
     } else {
       // Burning tree: use full trunk variation (no tilt during fire)
-      if (idx + 4 >= MAX_INSTANCES) continue;
+      if (idx + 6 >= MAX_INSTANCES) continue;
       const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
 
       const burnShrink = 1 - bp.progress * 0.3;
@@ -380,6 +381,7 @@ export function updatePlants(state: RendererState): void {
         stemCount: raw.stemCount,
         trunkLean: raw.trunkLean,
         forkFrac: raw.forkFrac,
+        shrubiness: raw.shrubiness,
       };
 
       const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);
