@@ -193,10 +193,14 @@ Woodiness is a continuous genome trait (0.01-0.99) that replaces the old binary 
 - **High woodiness (woody):** Tall (h=10), deep roots (r=10), strong shading (+0.25), long-lived (2500), but expensive maintenance, expensive seeds (0.8), slow growth (0.3 eff)
 - **Mid woodiness (shrub):** Intermediate everything — moderate caps, costs, and advantages
 
-### Key design questions:
-1. Does woodiness evolve differently per terrain?
-2. Do populations naturally spread across the woodiness spectrum or converge?
-3. Does the continuous spectrum produce richer ecology than the binary archetype?
+### Observed woodiness evolution by terrain:
+
+| Terrain | Woodiness direction | Reason |
+|---------|-------------------|--------|
+| Flat soil | ↑ 0.85-0.92 | Resources cover woody costs; height/shadow/longevity pay off |
+| Hill | ↓ 0.46-0.71 | Resource-scarce; cheap costs matter more than high ceilings |
+| Arid | ↓ 0.20-0.59 | Water-scarce; herbaceous reproduction speed dominates |
+| Wetland | ↑ 0.92-0.97 | Abundant water + 1.5× height bonus strongly rewards woodiness |
 
 ---
 
@@ -270,110 +274,55 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
    11. Climate eras & disasters
    12. Seed bank dynamics
 
-  UNCERTAIN:
-   13. Allelopathy — situational
-   14. Defense — depends on herbivore pressure
-   15. Root competition — 6% drain seems weak
+  WEAK:
+   13. Allelopathy — passive wins 72/28%, trait evolves away
+   14. Defense — undefended wins 65/35%, net negative on flat soil
+   15. Root competition — 6% drain is noise
 ```
 
 ---
 
 ## TEST SCENARIOS
 
-### All experiments re-validated with woodiness gene (3000-5000 ticks):
+| # | Scenario | Result | Woodiness evolution |
+|---|----------|--------|-------------------|
+| 1 | Monoculture Baseline | Single species survives. Pop 3500-4900. | w: 0.22→0.70 ↑ |
+| 2 | Water Competition | Leaf wins 64/36%. Shannon 0.65, stable coexistence. | w: 0.80→0.89-0.92 ↑ |
+| 3 | Light Competition | Tall wins 71/29%. Shading is decisive advantage. | w: 0.78→0.85-0.89 ↑ |
+| 4 | Seed Tradeoff | High seed 74%, mid 26%, low extinct. Optimal seedInvestment ~0.65. | w: 0.78→0.87-0.92 ↑ |
+| 5 | Allelopathy Duel | Passive wins 72/28%. Allelopathy evolving away (0.50→0.37). | w: →0.90 ↑ |
+| 6 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
+| 7 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
+| 8 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
+| 9 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
+| 11 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
+| 12 | Terrain Isolated | All 4 species survive. Shannon 1.26. Each terrain drives distinct woodiness + growth strategy. | Hill 0.71↓, Soil 0.85↑, Wetland 0.92↑↑ |
+| 13 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
 
-#### Experiment 1: Monoculture Baseline
-Single species survives fine. Woodiness drifted up steadily: **w: 0.22→0.70** — on well-watered flat soil, higher woodiness pays off (bigger caps, better shading, longer lifespan). Population healthy at 3500-4900.
+### Experiment details
 
-**vs pre-woodiness:** Same outcome (survival confirmed). New finding: woodiness naturally increases on resource-rich soil.
+#### 7: Hill Specialist
+Deep Root Pine evolved w: 0.80→0.46 — dramatic shift toward herbaceous. Cheaper maintenance + faster growth is critical on resource-scarce hills. Root priority dominant (r: 0.64), rising allelopathy (0.18) and defense (0.22).
 
-#### Experiment 2: Water Competition
-**Winner:** Broad Leaf Fern 64%, Deep Root Fern 36%. Shannon 0.65 — stable coexistence. Both evolved toward higher woodiness (0.80→0.89-0.92). Both converged on balanced genomes.
+#### 8: Arid Specialist
+Broad Leaf Agave went herbaceous (w: 0.80→0.59) while growing deep roots (r: 0.57) and keeping large leaves (l: 0.49). Cheaper herbaceous costs + deep roots for water = best of both worlds. Mesquite stayed woody (w: 0.76) and lost.
 
-**vs pre-woodiness:** Consistent (was 67/33%). Leaf strategy still wins on well-watered soil.
+#### 9: Wetland Specialist
+All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height bonus + cheap leaf maintenance + abundant water covers the higher woody costs. Being maximally woody is optimal here.
 
-#### Experiment 3: Light Competition
-**Winner:** Tall Pine 71%, Spread Fern 29%. Shannon 0.61. Both trend toward higher woodiness (0.78→0.85-0.89). Spread Fern converging toward Tall Pine's strategy (h: 0.26→0.38).
+#### 12: Terrain Isolated (5000 ticks)
+| Species | Terrain | Root | Height | Leaf | Woodiness |
+|---------|---------|------|--------|------|-----------|
+| Alpha Fern | Hill | 0.33→0.57 | 0.33→0.20 | 0.34→0.15 | 0.80→0.71 ↓ |
+| Beta Spruce | Soil | 0.33→0.33 | 0.33→0.39 | 0.34→0.26 | 0.80→0.85 ↑ |
+| Gamma Willow | Wetland | 0.33→0.27 | 0.33→0.46 | 0.34→0.43 | 0.80→0.92 ↑↑ |
+| Delta Cactus | Arid | — | — | — | small band (~200 pop) |
 
-**vs pre-woodiness:** Nearly identical (was 70/30%). Shading remains the decisive advantage.
+### Open tests:
 
-#### Experiment 4: Seed Tradeoff
-**Winner:** High Seed Birch 74%, Mid Seed Elm 26%, Low Seed Oak extinct. Both survivors converge to seedInvestment ~0.64-0.66. Both evolved higher woodiness (0.78→0.87-0.92).
-
-**vs pre-woodiness:** Consistent (was 67/33%). Optimal seed investment ~0.65 confirmed.
-
-#### Experiment 5: Allelopathy Duel
-**Winner:** Peaceful Maple 72%, Toxic Walnut 28%. Allelopathy evolving away (0.50→0.37). Both converge on high woodiness (~0.90). **Shifted from near-even to passive winning decisively.**
-
-**vs pre-woodiness:** Was 52/48%. Allelopathy even less effective now — higher woodiness means more energy surplus to absorb chemical damage.
-
-#### Experiment 6: Defense vs Herbivores
-**Winner:** Soft Willow 65%, Thorny Holly 35%. Defense holding at 0.42 for Holly but Willow wins via faster reproduction. Both evolve toward woodiness 0.87-0.89. **Winner flipped.**
-
-**vs pre-woodiness:** Was Holly 63/37%. Defense is now a net negative on flat soil — higher woodiness provides enough energy surplus that herbivore damage is absorbed without defense investment.
-
-#### Experiment 10: Grass vs Trees
-**OBSOLETE — binary archetypes removed.**
-
-#### Experiment 7: Hill Specialist
-**Winner:** Deep Root Pine 91%, Tall Spruce 9%. Broad Leaf Holly extinct by ~tick 1000.
-
-Woodiness is the new story: Deep Root Pine evolved **w: 0.80→0.46** — dramatic shift toward herbaceous. Lower woodiness = cheaper maintenance + faster growth, critical on resource-scarce hills. Tall Spruce also declined (w: 0.80→0.63). Root priority remained dominant (r: 0.64), with rising allelopathy (0.18) and defense (0.22).
-
-**vs pre-woodiness:** Same winner (root specialist). New finding: hills strongly select for lower woodiness.
-
-#### Experiment 8: Arid Specialist
-**Winner:** Broad Leaf Agave 72%, Deep Root Mesquite 28%. Tall Saguaro extinct by ~tick 1250. **Result flipped from pre-woodiness** (was Mesquite 97%).
-
-Agave evolved herbaceous (w: 0.80→0.59) while growing deep roots (r: 0.57) and keeping large leaves (l: 0.49) — a strategy impossible under the old binary archetype. Cheaper herbaceous costs + deep roots for water = best of both worlds. Mesquite stayed woody (w: 0.76), relying on height/shading but at higher cost.
-
-**vs pre-woodiness:** Winner flipped. Continuous woodiness opened a new "herbaceous deep-root" strategy that outcompetes the old woody root specialist.
-
-#### Experiment 9: Wetland Specialist
-**Winner:** Broad Leaf Lotus 64%, Tall Mangrove 32%, Deep Root Cypress 4%. All 3 species survive — best diversity.
-
-All species evolved **toward higher woodiness**: Lotus 0.80→0.93, Mangrove 0.80→0.93, Cypress 0.80→0.97. Wetland's 1.5× height bonus + cheap leaf maintenance + abundant water covers the higher woody maintenance costs. Being maximally woody is the optimal strategy here.
-
-**vs pre-woodiness:** Similar winner order (leaf > height > root). New finding: wetland strongly selects for maximum woodiness.
-
-#### Experiment 11: Nutrient Cycle
-**Winner:** Shallow Leaf Fern 100%, Deep Root Oak extinct by ~tick 2000. Leaf Fern evolved upward in woodiness (0.76→0.86) and gained roots organically (0.15→0.40). Nutrient feedback loop still healthy — early bottleneck (pop 30 at tick 500) then exponential growth to 4594.
-
-**vs pre-woodiness:** Consistent (was 86/14%). Same winner, same nutrient dynamics.
-
-#### Experiment 12: Terrain Isolated (5000 ticks)
-**All 4 species survive.** Shannon diversity 1.26.
-
-Woodiness diverged by terrain — the key result:
-
-| Species | Terrain | Root | Height | Leaf | Woodiness | Direction |
-|---------|---------|------|--------|------|-----------|-----------|
-| Alpha Fern | Hill | 0.33→0.57 | 0.33→0.20 | 0.34→0.15 | 0.80→**0.71** | ↓ less woody |
-| Beta Spruce | Soil | 0.33→0.33 | 0.33→0.39 | 0.34→0.26 | 0.80→**0.85** | ↑ more woody |
-| Gamma Willow | Wetland | 0.33→0.27 | 0.33→0.46 | 0.34→0.43 | 0.80→**0.92** | ↑↑ most woody |
-| Delta Cactus | Arid | — | — | — | — | small band (~200 pop) |
-
-Each terrain drives woodiness in a different direction: Hill → less woody (cheap costs), Soil → moderate woody, Wetland → highly woody (height bonus payoff). Growth trait evolution matches previous results. Confirms woodiness adds meaningful terrain-specific adaptation without breaking existing differentiation.
-
-#### Experiment 13: Seed Bank Resilience
-**Winner:** Seedbank Grass 86%, Holdfast Sedge 14% — both survive (was 100% vs extinction). Both stay very herbaceous (w: 0.15→0.22) — on arid terrain, low woodiness is optimal. Boom/bust dynamics confirmed. Both evolved deep roots (0.58-0.59) for arid groundwater.
-
-**vs pre-woodiness:** Similar but Sedge now survives. Seed bank mechanics unchanged.
-
-### Woodiness evolution summary across all experiments:
-
-| Terrain | Woodiness direction | Reason |
-|---------|-------------------|--------|
-| Flat soil | ↑ 0.85-0.92 | Resources cover woody costs; height/shadow/longevity pay off |
-| Hill | ↓ 0.46-0.71 | Resource-scarce; cheap costs matter more than high ceilings |
-| Arid | ↓ 0.20-0.59 | Water-scarce; herbaceous reproduction speed dominates |
-| Wetland | ↑ 0.92-0.97 | Abundant water + 1.5× height bonus strongly rewards woodiness |
-
-### New tests needed (woodiness-specific):
-
-| # | Scenario | Tests | Setup |
-|---|----------|-------|-------|
-| 14 | Woodiness Evolution | Does woodiness naturally diverge on flat soil? Do herbaceous and woody niches emerge? | Flat soil, 3+ species with different starting woodiness (0.2, 0.5, 0.8), identical growth genomes |
-| 15 | Woodiness × Terrain | Does each terrain favor a different woodiness level? | 4 terrain bands (hill/soil/wetland/arid) with rock barriers, all species start at woodiness=0.5 |
-| 16 | Woodiness Spectrum Coexistence | Can herbaceous and woody plants coexist through niche differentiation? | Flat soil, 2 species: herbaceous (w=0.2) vs woody (w=0.8), balanced growth genomes |
-| 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy? (different germination thresholds, seed lifespans) | Pure arid, 2 species same growth genome but w=0.2 vs w=0.8 |
+| # | Scenario | Question | Setup |
+|---|----------|----------|-------|
+| 14 | Woodiness Evolution | Does woodiness diverge on flat soil? Do herbaceous/woody niches emerge? | Flat soil, 3+ species at w=0.2/0.5/0.8, identical growth genomes |
+| 15 | Woodiness × Terrain | Starting at w=0.5, does each terrain drive woodiness differently? | 4 terrain bands with rock barriers, all start w=0.5 |
+| 16 | Woodiness Coexistence | Can w=0.2 vs w=0.8 coexist on flat soil? | Flat soil, 2 species with balanced growth genomes |
+| 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy on arid? | Pure arid, same growth genome, w=0.2 vs w=0.8 |
