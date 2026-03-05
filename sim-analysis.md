@@ -298,7 +298,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 8 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
 | 9 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
 | 11 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
-| 12 | Terrain Isolated | All 4 species survive. Shannon 1.26. Each terrain drives distinct woodiness + growth strategy. | Hill 0.71↓, Soil 0.85↑, Wetland 0.92↑↑ |
+| 12 | Terrain Isolated | All 4 survive. Shannon 1.29. Starting w=0.5, each terrain drives woodiness differently. | Hill 0.46↓, Soil 0.71↑, Wetland 0.91↑↑ |
 | 13 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
 | 14 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
 
@@ -313,13 +313,13 @@ Broad Leaf Agave went herbaceous (w: 0.80→0.59) while growing deep roots (r: 0
 #### 9: Wetland Specialist
 All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height bonus + cheap leaf maintenance + abundant water covers the higher woody costs. Being maximally woody is optimal here.
 
-#### 12: Terrain Isolated (5000 ticks)
+#### 12: Terrain Isolated (5000 ticks, all start w=0.5)
 | Species | Terrain | Root | Height | Leaf | Woodiness |
 |---------|---------|------|--------|------|-----------|
-| Alpha Fern | Hill | 0.33→0.57 | 0.33→0.20 | 0.34→0.15 | 0.80→0.71 ↓ |
-| Beta Spruce | Soil | 0.33→0.33 | 0.33→0.39 | 0.34→0.26 | 0.80→0.85 ↑ |
-| Gamma Willow | Wetland | 0.33→0.27 | 0.33→0.46 | 0.34→0.43 | 0.80→0.92 ↑↑ |
-| Delta Cactus | Arid | — | — | — | small band (~200 pop) |
+| Alpha Fern | Hill | 0.33→0.54 | 0.33→0.28 | 0.34→0.20 | 0.50→0.46 ↓ |
+| Beta Spruce | Soil | 0.33→0.42 | 0.33→0.42 | 0.34→0.28 | 0.50→0.71 ↑ |
+| Gamma Willow | Wetland | 0.33→0.25 | 0.33→0.46 | 0.34→0.37 | 0.50→0.91 ↑↑ |
+| Delta Cactus | Arid | — | — | — | small band (pop not shown separately) |
 
 #### 14: Woodiness Evolution
 All 3 species survived but converged upward — no herbaceous niche emerged on flat soil. Herb (w:0.20→0.60) compensated with heavy roots (r:0.63) and leaves (l:0.42) but still lost population share. Shade advantage of higher woodiness dominates on flat soil. Acceptable: trees win open ground, harsher terrains push woodiness down.
@@ -328,6 +328,5 @@ All 3 species survived but converged upward — no herbaceous niche emerged on f
 
 | # | Scenario | Question | Setup |
 |---|----------|----------|-------|
-| 15 | Woodiness × Terrain | Starting at w=0.5, does each terrain drive woodiness differently? | 4 terrain bands with rock barriers, all start w=0.5 |
 | 16 | Woodiness Coexistence | Can w=0.2 vs w=0.8 coexist on flat soil? | Flat soil, 2 species with balanced growth genomes |
 | 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy on arid? | Pure arid, same growth genome, w=0.2 vs w=0.8 |
