@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, GRASS, Genome, World, Season, ColorMode } from '../types';
+import { SIM, GRASS, Genome, World, Season, ColorMode, TerrainType } from '../types';
 import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
@@ -256,11 +256,13 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
     branchVisibility, stemCount, trunkLean, forkFrac, shrubiness };
 }
 
-export function computeSucculence(genome: Genome): number {
+export function computeSucculence(genome: Genome, terrain?: TerrainType): number {
+  if (genome.waterStorage < 0.5) return 0;
+  if (terrain !== undefined && terrain !== TerrainType.Arid && terrain !== TerrainType.Hill) return 0;
   return Math.max(0, Math.min(1,
-    genome.waterStorage * 0.5
-    + (1 - genome.heightPriority) * 0.2
-    + (1 - genome.leafSize) * 0.2
+    genome.waterStorage * 0.7
+    + (1 - genome.heightPriority) * 0.1
+    + (1 - genome.leafSize) * 0.1
     + genome.rootPriority * 0.1
   ));
 }

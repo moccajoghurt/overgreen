@@ -9,7 +9,8 @@ import { Scenario, ScenarioCell, TerrainType } from '../types';
  *   Middle: 2 transitional/borderline succulents (bottle tree, desert rose)
  *   Right: 1 succulent grass + 1 normal tree for comparison
  *
- * Succulence formula: clamp(waterStorage*0.5 + (1-heightPriority)*0.2 + (1-leafSize)*0.2 + rootPriority*0.1, 0, 1)
+ * Succulence formula: waterStorage < 0.5 or terrain not arid/hill → 0,
+ *   else clamp(waterStorage*0.7 + (1-heightPriority)*0.1 + (1-leafSize)*0.1 + rootPriority*0.1, 0, 1)
  * Threshold: succulence >= 0.45 triggers succulent render path (non-grass, woodiness >= 0.4)
  */
 export const experimentSucculentGallery: Scenario = (() => {
@@ -48,7 +49,7 @@ export const experimentSucculentGallery: Scenario = (() => {
       // ── HIGH SUCCULENCE ──
 
       {
-        // succulence = 0.9*0.5 + 0.9*0.2 + 0.7*0.2 + 0.5*0.1 = 0.82
+        // succulence = 0.9*0.7 + 0.9*0.1 + 0.7*0.1 + 0.5*0.1 = 0.84
         id: 1,
         name: 'Barrel Cactus',
         genome: {
@@ -65,7 +66,7 @@ export const experimentSucculentGallery: Scenario = (() => {
         placements: spacedStrip(0, 8, 5, 75, 4),
       },
       {
-        // succulence = 0.8*0.5 + 0.3*0.2 + 0.65*0.2 + 0.4*0.1 = 0.63
+        // succulence = 0.8*0.7 + 0.3*0.1 + 0.65*0.1 + 0.4*0.1 = 0.70
         id: 2,
         name: 'Saguaro Column',
         genome: {
@@ -82,7 +83,7 @@ export const experimentSucculentGallery: Scenario = (() => {
         placements: spacedStrip(10, 18, 5, 75, 4),
       },
       {
-        // succulence = 0.7*0.5 + 0.85*0.2 + 0.2*0.2 + 0.5*0.1 = 0.61
+        // succulence = 0.7*0.7 + 0.85*0.1 + 0.2*0.1 + 0.5*0.1 = 0.65
         id: 3,
         name: 'Prickly Pear',
         genome: {
@@ -99,7 +100,7 @@ export const experimentSucculentGallery: Scenario = (() => {
         placements: spacedStrip(20, 28, 5, 75, 4),
       },
       {
-        // succulence = 0.6*0.5 + 0.7*0.2 + 0.5*0.2 + 0.4*0.1 = 0.58 (seedInvestment doesn't affect succulence)
+        // succulence = 0.6*0.7 + 0.7*0.1 + 0.5*0.1 + 0.4*0.1 = 0.58
         id: 4,
         name: 'Jade Tree',
         genome: {
@@ -119,7 +120,7 @@ export const experimentSucculentGallery: Scenario = (() => {
       // ── TRANSITIONAL / BORDERLINE ──
 
       {
-        // succulence = 0.5*0.5 + 0.6*0.2 + 0.55*0.2 + 0.5*0.1 = 0.53
+        // succulence = 0.5*0.7 + 0.6*0.1 + 0.55*0.1 + 0.5*0.1 = 0.52
         id: 5,
         name: 'Bottle Tree',
         genome: {
@@ -136,7 +137,7 @@ export const experimentSucculentGallery: Scenario = (() => {
         placements: spacedStrip(40, 48, 5, 75, 4),
       },
       {
-        // succulence = 0.45*0.5 + 0.75*0.2 + 0.4*0.2 + 0.35*0.1 = 0.49
+        // succulence = 0.5*0.7 + 0.75*0.1 + 0.4*0.1 + 0.35*0.1 = 0.50
         id: 6,
         name: 'Desert Rose',
         genome: {
@@ -147,7 +148,7 @@ export const experimentSucculentGallery: Scenario = (() => {
           seedSize: 0.5,
           defense: 0.15,
           woodiness: 0.6,
-          waterStorage: 0.45,
+          waterStorage: 0.50,
         },
         color: { r: 0.35, g: 0.45, b: 0.35 },
         placements: spacedStrip(50, 58, 5, 75, 4),

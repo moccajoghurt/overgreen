@@ -103,7 +103,7 @@ export function updateTerrainColors(state: RendererState): void {
       let tr: number, tg: number, tb: number, tw: number;
 
       // Classify plant type (matches rendering pipeline order)
-      const succulence = computeSucculence(genome);
+      const succulence = computeSucculence(genome, cell.terrain);
       if (succulence >= 0.45) {
         continue; // Succulents: no ground tint (keep arid sand)
       } else if (genome.woodiness < 0.4) {
