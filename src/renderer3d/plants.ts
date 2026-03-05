@@ -2,19 +2,22 @@ import { GRID_WIDTH, WeatherOverlay } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
-  computeSilhouette, computeGrassSilhouette, computeSeasonalFoliageFactor, easeOutCubic, lerp,
+  computeSilhouette, computeGrassSilhouette, computeSucculence, computeSucculentSilhouette,
+  computeSeasonalFoliageFactor, easeOutCubic, lerp,
 } from './state';
 import { MAX_GRASS_BLADES } from './setup';
 import {
   _clr, _season,
   naturalCanopyColor, naturalTrunkColor, naturalGrassColor,
-  seasonalGrassColor, seasonalCanopyColor, getPlantColors,
+  naturalSucculentBodyColor,
+  seasonalGrassColor, seasonalCanopyColor, seasonalSucculentColor, getPlantColors,
 } from './plant-colors';
 import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
 import { writeGrassInstances } from './grass';
+import { writeSucculentBody } from './succulents';
 
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, branches, grassBlades, grassBases,
+  const { world, trunks, canopies, branches, grassBlades, grassBases, succulentBodies,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   // Skip full rebuild if no tick occurred and no animations are active
@@ -43,6 +46,8 @@ export function updatePlants(state: RendererState): void {
   const gbClr = grassBlades.instanceColor!.array as Float32Array;
   const baseMtx = grassBases.instanceMatrix.array as Float32Array;
   const baseClr = grassBases.instanceColor!.array as Float32Array;
+  const bodyMtx = succulentBodies.instanceMatrix.array as Float32Array;
+  const bodyClr = succulentBodies.instanceColor!.array as Float32Array;
 
   // ── Ingest seed landing events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
@@ -116,6 +121,7 @@ export function updatePlants(state: RendererState): void {
   let canopyIdx = 0;
   let grassBladeIdx = 0;
   let grassBaseIdx = 0;
+  let bodyIdx = 0;
 
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
@@ -145,6 +151,9 @@ export function updatePlants(state: RendererState): void {
         growScale = Math.max(0.05, easeOutCubic(growing.progress));
       }
     }
+
+    const succulence = isGrass ? 0 : computeSucculence(plant.genome);
+    const isSucculent = !isGrass && succulence >= 0.45;
 
     if (isGrass) {
       // ── Grass rendering ──
@@ -177,6 +186,37 @@ export function updatePlants(state: RendererState): void {
         gbMtx, gbClr, baseMtx, baseClr);
       grassBladeIdx += result.bladeCount;
       grassBaseIdx += result.baseCount;
+    } else if (isSucculent) {
+      // ── Succulent rendering — single body per plant ──
+      const ssil = computeSucculentSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome, succulence);
+
+      const colors = getPlantColors(state, plant.id, plant.speciesId, plant.genome, false, true);
+      let { cr, cg, cb } = colors;
+
+      // Seasonal color — minimal for succulents (evergreen)
+      seasonalSucculentColor(cr, cg, cb, env, _season);
+      cr = _season.cr; cg = _season.cg; cb = _season.cb;
+
+      if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
+        cr = lerp(cr, 0.50, 0.45);
+        cg = lerp(cg, 0.45, 0.45);
+        cb = lerp(cb, 0.10, 0.45);
+      }
+
+      // Hovered species glow / dim
+      if (state.hoveredSpecies !== null) {
+        if (plant.speciesId === state.hoveredSpecies) {
+          cr = Math.min(cr * 1.5, 1.0);
+          cg = Math.min(cg * 1.5, 1.0);
+          cb = Math.min(cb * 1.5, 1.0);
+        } else {
+          cr *= 0.5; cg *= 0.5; cb *= 0.5;
+        }
+      }
+
+      bodyIdx += writeSucculentBody(state, bodyIdx, plant.id,
+        wx, wz, baseY, ssil, cr, cg, cb, growScale,
+        bodyMtx, bodyClr);
     } else {
       // ── Tree rendering ──
       const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome);
@@ -279,57 +319,82 @@ export function updatePlants(state: RendererState): void {
       grassBladeIdx += result.bladeCount;
       grassBaseIdx += result.baseCount;
     } else {
-      // Dying tree: force single stem, no lean
-      if (idx + 4 >= MAX_INSTANCES) continue;
+      const dySucculence = computeSucculence(dp.genome);
+      const dyIsSucculent = dySucculence >= 0.45;
 
-      const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
-      const sil = {
-        trunkH: raw.trunkH * shrink,
-        trunkThickness: raw.trunkThickness * shrink,
-        canopyX: raw.canopyX * shrink * canopyScale,
-        canopyY: raw.canopyY * shrink * canopyScale,
-        canopyZ: raw.canopyZ * shrink * canopyScale,
-        branchVisibility: raw.branchVisibility,
-        stemCount: 1,
-        trunkLean: 0,
-        forkFrac: raw.forkFrac,
-        shrubiness: 0,
-      };
+      if (dyIsSucculent) {
+        // Dying succulent: shrink + brown out
+        const ssil = computeSucculentSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome, dySucculence);
+        naturalSucculentBodyColor(dp.genome, dySucculence, _clr);
+        if (state.colorMode === 'species') {
+          const sc = world.speciesColors.get(dp.speciesId);
+          const gr = 0.2 + dp.genome.rootPriority * 0.6;
+          const gg = 0.3 + dp.genome.leafSize * 0.5;
+          const gb = 0.2 + dp.genome.heightPriority * 0.6;
+          _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
+          _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
+          _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
+        }
+        const cr = _clr.cr * (1 - p) + 0.35 * p;
+        const cg = _clr.cg * (1 - p) + 0.20 * p;
+        const cb = _clr.cb * (1 - p) + 0.08 * p;
 
-      const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
-      const tiltAngle = tiltProgress * (Math.PI / 3);
-      const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
+        bodyIdx += writeSucculentBody(state, bodyIdx, id,
+          wx, wz, baseY, ssil, cr, cg, cb, shrink,
+          bodyMtx, bodyClr);
+      } else {
+        // Dying tree: force single stem, no lean
+        if (idx + 4 >= MAX_INSTANCES) continue;
 
-      naturalCanopyColor(dp.genome, _clr);
-      naturalTrunkColor(dp.genome, _clr as any);
-      if (state.colorMode === 'species') {
-        const sc = world.speciesColors.get(dp.speciesId);
-        const gr = 0.2 + dp.genome.rootPriority * 0.6;
-        const gg = 0.3 + dp.genome.leafSize * 0.5;
-        const gb = 0.2 + dp.genome.heightPriority * 0.6;
-        _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-        _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-        _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-        _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
-        _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
-        _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
+        const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
+        const sil = {
+          trunkH: raw.trunkH * shrink,
+          trunkThickness: raw.trunkThickness * shrink,
+          canopyX: raw.canopyX * shrink * canopyScale,
+          canopyY: raw.canopyY * shrink * canopyScale,
+          canopyZ: raw.canopyZ * shrink * canopyScale,
+          branchVisibility: raw.branchVisibility,
+          stemCount: 1,
+          trunkLean: 0,
+          forkFrac: raw.forkFrac,
+          shrubiness: 0,
+        };
+
+        const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
+        const tiltAngle = tiltProgress * (Math.PI / 3);
+        const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
+
+        naturalCanopyColor(dp.genome, _clr);
+        naturalTrunkColor(dp.genome, _clr as any);
+        if (state.colorMode === 'species') {
+          const sc = world.speciesColors.get(dp.speciesId);
+          const gr = 0.2 + dp.genome.rootPriority * 0.6;
+          const gg = 0.3 + dp.genome.leafSize * 0.5;
+          const gb = 0.2 + dp.genome.heightPriority * 0.6;
+          _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
+          _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
+          _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
+          _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
+          _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
+          _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
+        }
+        seasonalCanopyColor(_clr.cr, _clr.cg, _clr.cb, env, _season);
+        const cr = _season.cr * (1 - p) + 0.35 * p;
+        const cg = _season.cg * (1 - p) + 0.20 * p;
+        const cb = _season.cb * (1 - p) + 0.08 * p;
+        const tr = _clr.tr * (1 - p) + 0.20 * p;
+        const tg = _clr.tg * (1 - p) + 0.12 * p;
+        const tb = _clr.tb * (1 - p) + 0.06 * p;
+
+        const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
+          tr, tg, tb, tiltAngle, tiltDir, trunkMtx, trunkClr, branchLOD);
+        idx += trunkResult.trunkCount;
+        const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
+          wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
+          brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
+        branchIdx += dyingResult.branchCount;
+        canopyIdx += dyingResult.canopyCount;
       }
-      seasonalCanopyColor(_clr.cr, _clr.cg, _clr.cb, env, _season);
-      const cr = _season.cr * (1 - p) + 0.35 * p;
-      const cg = _season.cg * (1 - p) + 0.20 * p;
-      const cb = _season.cb * (1 - p) + 0.08 * p;
-      const tr = _clr.tr * (1 - p) + 0.20 * p;
-      const tg = _clr.tg * (1 - p) + 0.12 * p;
-      const tb = _clr.tb * (1 - p) + 0.06 * p;
-
-      const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
-        tr, tg, tb, tiltAngle, tiltDir, trunkMtx, trunkClr, branchLOD);
-      idx += trunkResult.trunkCount;
-      const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
-        wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
-      branchIdx += dyingResult.branchCount;
-      canopyIdx += dyingResult.canopyCount;
     }
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -366,36 +431,47 @@ export function updatePlants(state: RendererState): void {
       grassBladeIdx += result.bladeCount;
       grassBaseIdx += result.baseCount;
     } else {
-      // Burning tree: use full trunk variation (no tilt during fire)
-      if (idx + 6 >= MAX_INSTANCES) continue;
-      const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
-
+      const bnSucculence = computeSucculence(bp.genome);
+      const bnIsSucculent = bnSucculence >= 0.45;
       const burnShrink = 1 - bp.progress * 0.3;
-      const sil = {
-        trunkH: raw.trunkH * burnShrink,
-        trunkThickness: raw.trunkThickness * burnShrink,
-        canopyX: raw.canopyX * burnShrink * canopyScale,
-        canopyY: raw.canopyY * burnShrink * canopyScale,
-        canopyZ: raw.canopyZ * burnShrink * canopyScale,
-        branchVisibility: raw.branchVisibility,
-        stemCount: raw.stemCount,
-        trunkLean: raw.trunkLean,
-        forkFrac: raw.forkFrac,
-        shrubiness: raw.shrubiness,
-      };
 
       const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);
       const cg = lerp(0.6, 0.05, t) * (0.7 + flicker * 0.3);
       const cb = lerp(0.1, 0.02, t);
 
-      const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
-        cr, cg, cb, 0, 0, trunkMtx, trunkClr, branchLOD);
-      idx += trunkResult.trunkCount;
-      const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
-        wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
-      branchIdx += burnResult.branchCount;
-      canopyIdx += burnResult.canopyCount;
+      if (bnIsSucculent) {
+        // Burning succulent: orange flicker + shrink
+        const ssil = computeSucculentSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome, bnSucculence);
+        bodyIdx += writeSucculentBody(state, bodyIdx, id,
+          wx, wz, baseY, ssil, cr, cg, cb, burnShrink,
+          bodyMtx, bodyClr);
+      } else {
+        // Burning tree: use full trunk variation (no tilt during fire)
+        if (idx + 6 >= MAX_INSTANCES) continue;
+        const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
+
+        const sil = {
+          trunkH: raw.trunkH * burnShrink,
+          trunkThickness: raw.trunkThickness * burnShrink,
+          canopyX: raw.canopyX * burnShrink * canopyScale,
+          canopyY: raw.canopyY * burnShrink * canopyScale,
+          canopyZ: raw.canopyZ * burnShrink * canopyScale,
+          branchVisibility: raw.branchVisibility,
+          stemCount: raw.stemCount,
+          trunkLean: raw.trunkLean,
+          forkFrac: raw.forkFrac,
+          shrubiness: raw.shrubiness,
+        };
+
+        const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
+          cr, cg, cb, 0, 0, trunkMtx, trunkClr, branchLOD);
+        idx += trunkResult.trunkCount;
+        const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
+          wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
+          brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
+        branchIdx += burnResult.branchCount;
+        canopyIdx += burnResult.canopyCount;
+      }
     }
   }
   for (const id of burnToRemove) burningPlants.delete(id);
@@ -405,6 +481,7 @@ export function updatePlants(state: RendererState): void {
   branches.count = branchIdx;
   grassBlades.count = grassBladeIdx;
   grassBases.count = grassBaseIdx;
+  succulentBodies.count = bodyIdx;
   trunks.instanceMatrix.needsUpdate = true;
   trunks.instanceColor!.needsUpdate = true;
   if (canopyIdx > 0) {
@@ -422,6 +499,10 @@ export function updatePlants(state: RendererState): void {
   if (grassBaseIdx > 0) {
     grassBases.instanceMatrix.needsUpdate = true;
     grassBases.instanceColor!.needsUpdate = true;
+  }
+  if (bodyIdx > 0) {
+    succulentBodies.instanceMatrix.needsUpdate = true;
+    succulentBodies.instanceColor!.needsUpdate = true;
   }
 }
 

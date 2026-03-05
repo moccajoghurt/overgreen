@@ -9,7 +9,7 @@ import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } f
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
-import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createSucculentMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 
 export function createRenderer3D(
@@ -54,6 +54,10 @@ export function createRenderer3D(
   const grass = createGrassMeshes();
   scene.add(grass.grassBlades);
   scene.add(grass.grassBases);
+
+  // ── Succulents ──
+  const succulents = createSucculentMeshes();
+  scene.add(succulents.succulentBodies);
 
   // ── Weather particles ──
   const weather = createWeatherMeshes();
@@ -139,6 +143,7 @@ export function createRenderer3D(
     branches: plants.branches,
     grassBlades: grass.grassBlades,
     grassBases: grass.grassBases,
+    succulentBodies: succulents.succulentBodies,
     seeds: plants.seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),

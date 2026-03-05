@@ -242,6 +242,36 @@ export function createGrassMeshes(): GrassMeshes {
   return { grassBlades, grassBases };
 }
 
+// ── Succulent meshes ──
+
+export const MAX_SUCCULENT_BODIES = MAX_INSTANCES; // one body per succulent plant
+
+export interface SucculentMeshes {
+  succulentBodies: THREE.InstancedMesh;
+}
+
+export function createSucculentMeshes(): SucculentMeshes {
+  // Capsule with few radial segments → visible vertical ribs (cactus-like)
+  // length=0 makes it sphere-shaped; per-instance Y-scaling elongates for columnar vs barrel
+  // 8 radial segments = 8 vertical ribs visible via flat shading
+  const capsule = new THREE.CapsuleGeometry(0.5, 0, 2, 8);
+  const bodyGeo = capsule.toNonIndexed(); // required for proper flat shading
+  capsule.dispose();
+  bodyGeo.computeVertexNormals();
+
+  // Flat shading → each facet is a distinct panel (reads as cactus ribs)
+  const mat = new THREE.MeshLambertMaterial({ flatShading: true });
+  const succulentBodies = new THREE.InstancedMesh(bodyGeo, mat, MAX_SUCCULENT_BODIES);
+  succulentBodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  succulentBodies.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_SUCCULENT_BODIES * 3), 3,
+  );
+  succulentBodies.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  succulentBodies.count = 0;
+  succulentBodies.frustumCulled = false;
+  return { succulentBodies };
+}
+
 export function createPlantMeshes(): PlantMeshes {
   const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
   const trunks = createInstancedMesh(trunkGeo, MAX_INSTANCES);

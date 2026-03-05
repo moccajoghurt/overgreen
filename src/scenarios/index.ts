@@ -15,6 +15,7 @@ import { experimentSeedBank } from './experiment-seed-bank';
 import { experimentWoodinessEvolution } from './experiment-woodiness-evolution';
 import { experimentWoodinessSeedbank } from './experiment-woodiness-seedbank';
 import { experimentShrubGallery } from './experiment-shrub-gallery';
+import { experimentSucculentGallery } from './experiment-succulent-gallery';
 
 export const SCENARIOS: Scenario[] = [
   experimentMonoculture,
@@ -33,4 +34,5 @@ export const SCENARIOS: Scenario[] = [
   experimentWoodinessEvolution,
   experimentWoodinessSeedbank,
   experimentShrubGallery,
+  experimentSucculentGallery,
 ];

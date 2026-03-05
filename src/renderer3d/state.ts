@@ -111,6 +111,9 @@ export interface RendererState {
   grassBlades: THREE.InstancedMesh;
   grassBases: THREE.InstancedMesh;
 
+  // Succulent meshes
+  succulentBodies: THREE.InstancedMesh;
+
   // Seed mesh
   seeds: THREE.InstancedMesh;
 
@@ -254,6 +257,39 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
     branchVisibility, stemCount, trunkLean, forkFrac, shrubiness };
 }
 
+export function computeSucculence(genome: Genome): number {
+  return Math.max(0, Math.min(1,
+    genome.waterStorage * 0.5
+    + (1 - genome.heightPriority) * 0.2
+    + (1 - genome.leafSize) * 0.2
+    + genome.rootPriority * 0.1
+  ));
+}
+
+export interface SucculentSilhouette {
+  bodyH: number;
+  bodyRadius: number;
+}
+
+export function computeSucculentSilhouette(
+  height: number, _rootDepth: number, _leafArea: number, genome: Genome, _succulence: number,
+): SucculentSilhouette {
+  // Cap height — succulents don't grow as tall as trees
+  const cappedH = Math.min(height, 6);
+
+  // Columnar (heightPriority high): tall narrow pillar
+  // Barrel (heightPriority low): squat round sphere
+  const bodyH = Math.max(0.3, cappedH * (0.2 + genome.heightPriority * 0.4));
+
+  // Width: fatter with more storage, much narrower when columnar
+  const bodyRadius = Math.max(0.2,
+    0.2 + genome.waterStorage * 0.5
+    - genome.heightPriority * 0.5
+    + genome.rootPriority * 0.2);
+
+  return { bodyH, bodyRadius };
+}
+
 export function computeGrassSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
   const leafRatio = leafArea / GRASS.MAX_LEAF_AREA;
   const rootRatio = rootDepth / GRASS.MAX_ROOT_DEPTH;
@@ -262,16 +298,22 @@ export function computeGrassSilhouette(height: number, rootDepth: number, leafAr
   const bladeH = Math.max(0.1, height * (0.4 + genome.heightPriority * 0.3));
 
   // Blade count: 3-8 driven by leafSize
-  const bladeCount = Math.max(3, Math.min(8, Math.round(3 + leafRatio * 5)));
+  let bladeCount = Math.max(3, Math.min(8, Math.round(3 + leafRatio * 5)));
 
   // How far blades splay outward
-  const spread = Math.max(0.1, 0.15 + leafRatio * 0.25 + rootRatio * 0.1);
+  let spread = Math.max(0.1, 0.15 + leafRatio * 0.25 + rootRatio * 0.1);
 
   // Blade width from leafSize
-  const bladeWidth = Math.max(0.04, (0.06 + genome.leafSize * 0.06) * 1.35);
+  let bladeWidth = Math.max(0.04, (0.06 + genome.leafSize * 0.06) * 1.35);
 
   // Ground tuft size
-  const baseSize = Math.max(0.1, 0.15 + rootRatio * 0.15 + leafRatio * 0.1);
+  let baseSize = Math.max(0.1, 0.15 + rootRatio * 0.15 + leafRatio * 0.1);
+
+  // waterStorage → fleshy succulent grass (agave-like)
+  bladeWidth *= 1 + genome.waterStorage * 1.2;
+  bladeCount = Math.max(3, bladeCount - Math.round(genome.waterStorage * 2));
+  spread *= 1 + genome.waterStorage * 0.4;
+  baseSize *= 1 + genome.waterStorage * 0.8;
 
   return { bladeH, bladeCount, spread, bladeWidth, baseSize };
 }

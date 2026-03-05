@@ -241,21 +241,90 @@ export function seasonalCanopyColor(
   out.cb = lerp(cb, tb, blendStrength);
 }
 
+// ── Succulent colors ──
+
+export function naturalSucculentBodyColor(genome: Genome, _succulence: number, out: { cr: number; cg: number; cb: number }) {
+  // Base: sage green (green-dominant, slight blue tint)
+  let r = 0.30;
+  let g = 0.54;
+  let b = 0.30;
+
+  // waterStorage high → slight blue-green tint (waxy coating)
+  r -= genome.waterStorage * 0.06;
+  g -= genome.waterStorage * 0.03;
+  b += genome.waterStorage * 0.08;
+
+  // rootPriority high → warmer olive-green (barrel cacti)
+  r += genome.rootPriority * 0.12;
+  g += genome.rootPriority * 0.04;
+  b -= genome.rootPriority * 0.08;
+
+  // heightPriority high → cooler green (columnar cacti)
+  r -= genome.heightPriority * 0.06;
+  g += genome.heightPriority * 0.02;
+  b += genome.heightPriority * 0.04;
+
+  // defense high → darker, gray-green
+  r -= genome.defense * 0.06;
+  g -= genome.defense * 0.04;
+  b -= genome.defense * 0.02;
+
+  out.cr = Math.max(0.18, Math.min(0.45, r));
+  out.cg = Math.max(0.38, Math.min(0.65, g));
+  out.cb = Math.max(0.20, Math.min(0.55, b));
+}
+
+
+/** Succulents are evergreen — minimal seasonal shift (blend capped at 0.15) */
+export function seasonalSucculentColor(
+  cr: number, cg: number, cb: number,
+  env: { season: Season; seasonProgress: number },
+  out: { cr: number; cg: number; cb: number },
+): void {
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  const s0 = env.season;
+  const s1 = (env.season + 1) % 4;
+  const c0r = s0 === 1 ? cr : SEASON_TARGETS[s0][0];
+  const c0g = s0 === 1 ? cg : SEASON_TARGETS[s0][1];
+  const c0b = s0 === 1 ? cb : SEASON_TARGETS[s0][2];
+  const c1r = s1 === 1 ? cr : SEASON_TARGETS[s1][0];
+  const c1g = s1 === 1 ? cg : SEASON_TARGETS[s1][1];
+  const c1b = s1 === 1 ? cb : SEASON_TARGETS[s1][2];
+  const tr = c0r + (c1r - c0r) * t;
+  const tg = c0g + (c1g - c0g) * t;
+  const tb = c0b + (c1b - c0b) * t;
+
+  // Cap blend strength at 0.15 — succulents stay green year-round
+  out.cr = lerp(cr, tr, 0.15);
+  out.cg = lerp(cg, tg, 0.15);
+  out.cb = lerp(cb, tb, 0.15);
+}
+
 /**
  * Get base plant colors, using per-plant cache to avoid recomputation.
  * Cache is invalidated when colorMode changes.
  */
-export function getPlantColors(state: RendererState, plantId: number, speciesId: number, genome: Genome, isGrass = false) {
+export function getPlantColors(state: RendererState, plantId: number, speciesId: number, genome: Genome, isGrass = false, isSucculent = false) {
   const cached = state.plantColorCache.get(plantId);
   if (cached) return cached;
 
   if (state.colorMode !== 'species') {
     if (isGrass) {
       naturalGrassColor(genome, _clr);
+      // waterStorage high → silvery blue-green (succulent grass)
+      _clr.cr -= genome.waterStorage * 0.08;
+      _clr.cg -= genome.waterStorage * 0.06;
+      _clr.cb += genome.waterStorage * 0.10;
       // Grass base color: darker version of blade color
       _clr.tr = _clr.cr * 0.6;
       _clr.tg = _clr.cg * 0.5;
       _clr.tb = _clr.cb * 0.4;
+    } else if (isSucculent) {
+      naturalSucculentBodyColor(genome, 0, _clr);
+      // Succulent "trunk" is green photosynthetic stem — use body color
+      _clr.tr = _clr.cr * 0.85;
+      _clr.tg = _clr.cg * 0.80;
+      _clr.tb = _clr.cb * 0.75;
     } else {
       naturalCanopyColor(genome, _clr);
       naturalTrunkColor(genome, _clr as any);
