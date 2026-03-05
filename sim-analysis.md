@@ -1,5 +1,7 @@
 # Overgreen Simulation — Analysis & Test Reference
 
+> This file documents the **current state** of the simulation mechanics and their health. It is not a changelog — when mechanics change, update the analysis and re-run experiments. Only keep the latest results.
+
 ## Tick Pipeline
 
 ```
