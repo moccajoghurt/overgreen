@@ -89,7 +89,9 @@ btnLoadScenario.addEventListener('click', () => {
 
 function doLoadScenario(scenario: Scenario): void {
   controls.paused = true;
-  document.getElementById('btn-play-pause')!.textContent = 'Play';
+  const btn = document.getElementById('btn-play-pause')!;
+  btn.textContent = 'Play';
+  btn.classList.add('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
   controls.hoveredSpecies = null;
@@ -99,7 +101,9 @@ function doLoadScenario(scenario: Scenario): void {
 
 function doLoadRandom(): void {
   controls.paused = true;
-  document.getElementById('btn-play-pause')!.textContent = 'Play';
+  const btn = document.getElementById('btn-play-pause')!;
+  btn.textContent = 'Play';
+  btn.classList.add('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
   controls.hoveredSpecies = null;
@@ -175,6 +179,7 @@ function updateUI(): void {
 let lastTickTime = 0;
 let lastUITick = -1;
 let lastUISelectedCell: { x: number; y: number } | null = null;
+let frameCount = 0;
 
 function doTick(): void {
   tickWorld(world);
@@ -182,27 +187,41 @@ function doTick(): void {
   diagLogger.recordTick(world);
 }
 
+const FF_BUDGET_MS = 14;  // max ms to spend ticking per frame in ff mode
+
 function loop(now: number): void {
+  frameCount++;
+  const ffMode = controls.renderSkip > 0;
+  const shouldRender = !ffMode || frameCount % controls.renderSkip === 0;
+
   if (!controls.paused) {
-    if (now - lastTickTime >= controls.tickInterval) {
+    if (ffMode) {
+      // Time-budgeted: run as many ticks as fit in FF_BUDGET_MS
+      const deadline = performance.now() + FF_BUDGET_MS;
+      while (performance.now() < deadline) {
+        doTick();
+      }
+      lastTickTime = now;
+    } else if (controls.ticksPerFrame > 0) {
+      for (let i = 0; i < controls.ticksPerFrame; i++) doTick();
+      lastTickTime = now;
+    } else if (now - lastTickTime >= controls.tickInterval) {
       doTick();
       lastTickTime = now;
     }
-  } else if (controls.stepRequested) {
-    doTick();
-    controls.stepRequested = false;
-    lastTickTime = now;
   }
 
-  renderer.setHoveredSpecies(controls.hoveredSpecies);
-  renderer.render(controls.selectedCell);
-  speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
-  speciesLabels.updatePositions();
-  terrainLabels.updatePositions();
+  if (shouldRender) {
+    renderer.setHoveredSpecies(controls.hoveredSpecies);
+    renderer.render(controls.selectedCell);
+    speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
+    speciesLabels.updatePositions();
+    terrainLabels.updatePositions();
+  }
 
-  // Only update UI when simulation has ticked or selected cell changed
+  // Only update UI when rendering and simulation has ticked or selected cell changed
   const selChanged = controls.selectedCell !== lastUISelectedCell;
-  if (world.tick !== lastUITick || selChanged) {
+  if (shouldRender && (world.tick !== lastUITick || selChanged)) {
     lastUITick = world.tick;
     lastUISelectedCell = controls.selectedCell;
     updateUI();

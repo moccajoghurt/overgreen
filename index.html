@@ -33,9 +33,53 @@
       min-height: 120px; max-height: 200px; overflow-y: auto;
       flex-shrink: 0;
     }
-    #showcase::-webkit-scrollbar { display: none; }
     label { font-size: 12px; }
-    input[type="range"] { width: 100%; }
+
+    /* Section groups */
+    .section-group { display: flex; flex-direction: column; gap: 6px; }
+    .section-group + .section-group { border-top: 1px solid #2a2a2a; padding-top: 8px; }
+    .group-label { font-size: 10px; color: #555; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    /* Scenario row */
+    .scenario-row { display: flex; gap: 4px; align-items: center; }
+    #scenario-select {
+      flex: 1; font-family: monospace; font-size: 12px;
+      background: #333; color: #ccc; border: 1px solid #555; padding: 3px 4px;
+    }
+    #btn-load-scenario { font-size: 11px; padding: 3px 8px; }
+
+    /* Play/Pause */
+    #btn-play-pause {
+      width: 100%; font-size: 16px; padding: 8px 0;
+      background: #2a3a2a; color: #8f8; border-color: #4a7a4a;
+    }
+    #btn-play-pause:hover { background: #334a33; }
+    #btn-play-pause.paused { background: #333; color: #888; border-color: #555; }
+    #btn-play-pause.paused:hover { background: #3a3a3a; color: #aaa; }
+
+    /* Speed presets */
+    .speed-group { display: flex; gap: 3px; }
+    .speed-btn { flex: 1; padding: 4px 0; font-size: 11px; text-align: center; }
+    .speed-btn.active { background: #2a3a2a; color: #8f8; border-color: #4a7a4a; }
+
+    /* Fast-forward pulse */
+    @keyframes ff-pulse {
+      0%, 100% { border-color: #4a7a4a; }
+      50% { border-color: #8f8; }
+    }
+    #btn-play-pause.ff-active:not(.paused) {
+      animation: ff-pulse 1s ease-in-out infinite;
+    }
+
+    /* Sandbox */
+    #btn-sandbox { width: 100%; }
+
+    /* Era label */
+    #era-label { color: #d4a030; font-weight: bold; }
+
+    /* Showcase */
+    #showcase { flex: 1; overflow-y: auto; scrollbar-width: none; }
+    #showcase::-webkit-scrollbar { display: none; }
     #bottom-panel {
       height: 190px; flex-shrink: 0;
       display: flex; background: #1e1e1e;
@@ -85,38 +129,60 @@
 <body>
   <div id="top-row">
   <div id="sidebar">
-    <h1>Overgreen</h1>
-    <div style="display:flex; gap:4px; align-items:center;">
-      <select id="scenario-select" style="flex:1; font-family:monospace; font-size:12px; background:#333; color:#ccc; border:1px solid #555; padding:3px 4px;">
-        <option value="">Random (default)</option>
-      </select>
-      <button id="btn-load-scenario" style="font-size:11px; padding:3px 8px;">Load</button>
+    <div class="section-group">
+      <h1>Overgreen</h1>
     </div>
-    <div class="btn-group">
+
+    <div class="section-group">
+      <div class="group-label">Scenario</div>
+      <div class="scenario-row">
+        <select id="scenario-select">
+          <option value="">Random (default)</option>
+        </select>
+        <button id="btn-load-scenario">Load</button>
+      </div>
+    </div>
+
+    <div class="section-group">
+      <div class="group-label">Playback</div>
       <button id="btn-play-pause">Pause</button>
-      <button id="btn-step">Step</button>
+      <div class="speed-group">
+        <button class="speed-btn" data-preset="1x">1&times;</button>
+        <button class="speed-btn active" data-preset="2x">2&times;</button>
+        <button class="speed-btn" data-preset="5x">5&times;</button>
+        <button class="speed-btn" data-preset="10x">10&times;</button>
+        <button class="speed-btn" data-preset="ff">&gt;&gt;</button>
+      </div>
     </div>
-    <div>
-      <label>Speed: <span id="speed-label">5</span> ticks/sec</label>
-      <input type="range" id="speed-slider" min="1" max="50" value="3" />
-    </div>
-    <div>
+
+    <div class="section-group">
+      <div class="group-label">View</div>
       <label><input type="checkbox" id="color-mode-toggle" /> Species colors</label>
-      <br>
       <label><input type="checkbox" id="labels-toggle" /> Species labels</label>
-      <br>
       <label><input type="checkbox" id="terrain-view-toggle" /> Terrain labels</label>
-      <br>
       <label><input type="checkbox" id="hover-toggle" checked /> Hover highlight</label>
     </div>
-    <button id="btn-sandbox" style="width:100%; margin-top:4px;">Sandbox</button>
-    <div class="stats">
-      <div>Tick: <span id="tick-label">0</span> &mdash; <span id="season-label">Spring</span> (Year <span id="year-label">1</span>)</div>
-      <div>Era: <span id="era-label" style="color:#d4a030; font-weight:bold;">Temperate</span></div>
-      <div>Plants: <span id="plant-count">0</span> &nbsp; Deer: <span id="herbivore-count">0</span></div>
+
+    <div class="section-group">
+      <div class="group-label">Tools</div>
+      <button id="btn-sandbox">Sandbox</button>
     </div>
-    <div class="inspector" id="inspector">Click a cell to inspect...</div>
-    <div id="showcase" style="flex:1; overflow-y:auto; border-top:1px solid #333; padding-top:8px; margin-top:4px; scrollbar-width:none;"></div>
+
+    <div class="section-group">
+      <div class="group-label">Status</div>
+      <div class="stats">
+        <div>Tick: <span id="tick-label">0</span> &mdash; <span id="season-label">Spring</span> (Year <span id="year-label">1</span>)</div>
+        <div>Era: <span id="era-label">Temperate</span></div>
+        <div>Plants: <span id="plant-count">0</span> &nbsp; Deer: <span id="herbivore-count">0</span></div>
+      </div>
+    </div>
+
+    <div class="section-group">
+      <div class="group-label">Inspector</div>
+      <div class="inspector" id="inspector">Click a cell to inspect...</div>
+    </div>
+
+    <div id="showcase"></div>
   </div>
   <div id="canvas-container"></div>
   <div id="sandbox-panel" class="hidden"></div>

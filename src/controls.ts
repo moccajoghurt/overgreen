@@ -3,7 +3,9 @@ import { updateInspector } from './inspector';
 
 export interface Controls {
   paused: boolean;
-  tickInterval: number; // ms between ticks
+  tickInterval: number;   // ms between ticks (timer mode, when ticksPerFrame === 0)
+  ticksPerFrame: number;  // >0 = batch mode: run N ticks per rAF frame
+  renderSkip: number;     // >0 = render only every Nth frame (0 = every frame)
   stepRequested: boolean;
   selectedCell: { x: number; y: number } | null;
   hoveredSpecies: number | null;
@@ -11,6 +13,16 @@ export interface Controls {
   mode: 'inspect' | 'place';
   onPlaceClick: ((x: number, y: number) => void) | null;
 }
+
+type SpeedPreset = '1x' | '2x' | '5x' | '10x' | 'ff';
+
+const PRESETS: Record<SpeedPreset, { tickInterval: number; ticksPerFrame: number; renderSkip: number }> = {
+  '1x':  { tickInterval: 500, ticksPerFrame: 0, renderSkip: 0 },
+  '2x':  { tickInterval: 200, ticksPerFrame: 0, renderSkip: 0 },
+  '5x':  { tickInterval: 67,  ticksPerFrame: 0, renderSkip: 0 },
+  '10x': { tickInterval: 0,   ticksPerFrame: 4, renderSkip: 0 },
+  'ff':  { tickInterval: 0,   ticksPerFrame: 0, renderSkip: 10 },  // time-budgeted
+};
 
 export function initControls(
   canvas: HTMLCanvasElement,
@@ -20,6 +32,8 @@ export function initControls(
   const controls: Controls = {
     paused: false,
     tickInterval: 200,
+    ticksPerFrame: 0,
+    renderSkip: 0,
     stepRequested: false,
     selectedCell: null,
     hoveredSpecies: null,
@@ -29,34 +43,25 @@ export function initControls(
   };
 
   const btnPlayPause = document.getElementById('btn-play-pause') as HTMLButtonElement;
-  const btnStep = document.getElementById('btn-step') as HTMLButtonElement;
-  const speedSlider = document.getElementById('speed-slider') as HTMLInputElement;
-  const speedLabel = document.getElementById('speed-label')!;
 
   btnPlayPause.addEventListener('click', () => {
     controls.paused = !controls.paused;
     btnPlayPause.textContent = controls.paused ? 'Play' : 'Pause';
+    btnPlayPause.classList.toggle('paused', controls.paused);
   });
 
-  btnStep.addEventListener('click', () => {
-    if (!controls.paused) {
-      controls.paused = true;
-      btnPlayPause.textContent = 'Play';
-    }
-    controls.stepRequested = true;
-  });
-
-  // Slider: 1 (slow, 500ms) to 10 (fast, 20ms). Default 3 = 200ms.
-  speedSlider.value = '3';
-  speedLabel.textContent = '5';
-  const intervalFromSlider = (v: number) => Math.round(500 / v);
-  controls.tickInterval = intervalFromSlider(3);
-
-  speedSlider.addEventListener('input', () => {
-    const v = parseInt(speedSlider.value, 10);
-    controls.tickInterval = intervalFromSlider(v);
-    const tps = Math.round(1000 / controls.tickInterval);
-    speedLabel.textContent = String(tps);
+  // Speed presets
+  const speedBtns = document.querySelectorAll<HTMLButtonElement>('.speed-btn');
+  speedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset as SpeedPreset;
+      const cfg = PRESETS[preset];
+      controls.tickInterval = cfg.tickInterval;
+      controls.ticksPerFrame = cfg.ticksPerFrame;
+      controls.renderSkip = cfg.renderSkip;
+      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+      btnPlayPause.classList.toggle('ff-active', preset === 'ff');
+    });
   });
 
   canvas.addEventListener('click', (e) => {
