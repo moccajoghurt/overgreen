@@ -13,7 +13,7 @@ import {
   seasonalGrassColor, seasonalCanopyColor, seasonalSucculentColor, getPlantColors,
 } from './plant-colors';
 import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
-import { writeGrassInstance } from './grass';
+import { writeGrassTufts } from './grass';
 import { writeSucculentBody } from './succulents';
 
 export function updatePlants(state: RendererState): void {
@@ -178,7 +178,7 @@ export function updatePlants(state: RendererState): void {
         }
       }
 
-      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, plant.id,
+      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, plant.id,
         wx, wz, baseY, gsil, cr, cg, cb, growScale,
         gtMtx, gtClr);
     } else if (isSucculent) {
@@ -308,7 +308,7 @@ export function updatePlants(state: RendererState): void {
       const cg = _season.cg * (1 - p) + 0.30 * p;
       const cb = _season.cb * (1 - p) + 0.10 * p;
 
-      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, id,
+      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, id,
         wx, wz, baseY, gsil, cr, cg, cb, shrink,
         gtMtx, gtClr);
     } else {
@@ -418,7 +418,7 @@ export function updatePlants(state: RendererState): void {
       const cg = lerp(0.7, 0.08, t) * (0.7 + flicker * 0.3);
       const cb = lerp(0.15, 0.02, t);
 
-      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, id,
+      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, id,
         wx, wz, baseY, gsil, cr, cg, cb, burnShrink,
         gtMtx, gtClr);
     } else {

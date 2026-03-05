@@ -293,16 +293,18 @@ export function computeGrassSilhouette(height: number, rootDepth: number, leafAr
   const leafRatio = leafArea / GRASS.MAX_LEAF_AREA;
   const rootRatio = rootDepth / GRASS.MAX_ROOT_DEPTH;
 
-  // Tuft height from plant height + heightPriority
-  const tuftH = Math.max(0.2, height * (0.5 + genome.heightPriority * 0.3));
+  // Tuft height — grass stays low to the ground, much shorter than shrubs
+  const tuftH = Math.min(1.0, Math.max(0.15, height * (0.20 + genome.heightPriority * 0.20)));
 
-  // Tuft width — covers most of the cell (cell = 1 unit)
-  let tuftW = Math.max(0.55, 0.65 + leafRatio * 0.2 + rootRatio * 0.1);
+  // Per-clump width (smaller since multiple clumps overlap to fill the cell)
+  let tuftW = Math.max(0.45, 0.50 + leafRatio * 0.15 + genome.leafSize * 0.10);
+  tuftW = Math.min(0.85, tuftW * (1 + genome.waterStorage * 0.15));
 
-  // waterStorage → wider, fleshier tuft
-  tuftW = Math.min(1.0, tuftW * (1 + genome.waterStorage * 0.3));
+  // Clump count: leafy grass is denser, sparse grass has fewer tufts
+  const clumpCount = Math.max(2, Math.min(4,
+    2 + Math.round(leafRatio * 0.8 + genome.leafSize * 0.8)));
 
-  return { height: tuftH, width: tuftW };
+  return { height: tuftH, width: tuftW, clumpCount };
 }
 
 export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {

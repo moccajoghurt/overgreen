@@ -192,45 +192,41 @@ export interface GrassMeshes {
 }
 
 function createGrassTuftGeometry(): THREE.BufferGeometry {
-  // Cross-plane "star": 3 vertical planes at 60° intervals, each with a
-  // grass-blade silhouette (jagged peaks). Looks full from any viewing angle.
-  // One instance per grass plant — far cheaper than per-blade instancing.
+  // Two cross-planes at 90° with an asymmetric blade silhouette.
+  // Multiple instances per plant (randomly positioned/rotated) create
+  // natural-looking coverage without the "pizza" pattern of 3-plane stars.
   const vertices: number[] = [];
   const normals: number[] = [];
   const indices: number[] = [];
 
-  const PLANES = 3;
-  const HALF_W = 0.5;
+  const PLANES = 2;
+  const HALF_W = 0.55;
 
-  // Top silhouette: valley, peak, valley, peak, ... valley (5 blade tips)
-  // Edge valleys at 0 so the silhouette fades out naturally at the edges
-  const topHeights = [0.0, 0.70, 0.10, 0.88, 0.13, 1.0, 0.13, 0.82, 0.10, 0.65, 0.0];
+  // Asymmetric silhouette: peak right of center, gentle left ramp, steeper right drop.
+  // Shallow valleys (0.35-0.55) so it reads as a dense clump, not spikes.
+  const topHeights = [0.0, 0.35, 0.58, 0.48, 0.72, 0.60, 0.88, 1.0, 0.65, 0.78, 0.50, 0.38, 0.0];
   const topN = topHeights.length;
 
   for (let p = 0; p < PLANES; p++) {
-    const angle = (p / PLANES) * Math.PI;
+    const angle = (p / PLANES) * Math.PI; // 0° and 90°
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const nx = -sin, nz = cos; // normal perpendicular to plane
+    const nx = -sin, nz = cos;
 
     const vBase = vertices.length / 3;
 
-    // For each silhouette point, emit a bottom vertex (y=0) and a top vertex
     for (let i = 0; i < topN; i++) {
       const t = i / (topN - 1);
       const localX = (t - 0.5) * 2 * HALF_W;
       const wx = localX * cos;
       const wz = localX * sin;
 
-      // Bottom vertex
       vertices.push(wx, 0, wz);
       normals.push(nx, 0, nz);
-      // Top vertex
       vertices.push(wx, topHeights[i], wz);
       normals.push(nx, 0, nz);
     }
 
-    // Quad-strip triangulation between bottom/top rows
     for (let i = 0; i < topN - 1; i++) {
       const bl = vBase + i * 2;
       const tl = bl + 1;
@@ -259,6 +255,7 @@ export function createGrassMeshes(): GrassMeshes {
   grassTufts.instanceColor.setUsage(THREE.DynamicDrawUsage);
   grassTufts.count = 0;
   grassTufts.frustumCulled = false;
+
   return { grassTufts };
 }
 

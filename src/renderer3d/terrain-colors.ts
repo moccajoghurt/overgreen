@@ -49,6 +49,55 @@ export function updateTerrainColors(state: RendererState): void {
   const sb = seasonColorsData[si0 + 2] + (seasonColorsData[si1 + 2] - seasonColorsData[si0 + 2]) * st;
   const snowCov = computeSnowCoverage(env);
 
+  // ── Per-vertex grass ground tinting ──
+  // Pre-compute which cells have living grass
+  const cornerSize = GRID + 1;
+  const isGrass = new Uint8Array(GRID * GRID);
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cell = world.grid[y][x];
+      if (cell.plantId != null) {
+        const plant = world.plants.get(cell.plantId);
+        if (plant && plant.alive && plant.genome.woodiness < 0.4) {
+          isGrass[y * GRID + x] = 1;
+        }
+      }
+    }
+  }
+
+  // Compute grass fraction at each terrain corner (shared by up to 4 cells).
+  // This creates smooth gradients at grass/soil boundaries.
+  const cornerGrass = new Float32Array(cornerSize * cornerSize);
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let grassCount = 0, totalCount = 0;
+      for (let dy = -1; dy <= 0; dy++) {
+        for (let dx = -1; dx <= 0; dx++) {
+          const gx = cx + dx;
+          const gy = cy + dy;
+          if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+            totalCount++;
+            grassCount += isGrass[gy * GRID + gx];
+          }
+        }
+      }
+      cornerGrass[cy * cornerSize + cx] = totalCount > 0 ? grassCount / totalCount : 0;
+    }
+  }
+
+  // Seasonal grass ground color (darker than blade tufts — reads as shaded under-layer)
+  const grassGroundColors = [
+    [0.22, 0.45, 0.12], // Spring: dark green
+    [0.20, 0.38, 0.10], // Summer: deep green
+    [0.40, 0.30, 0.10], // Autumn: olive-brown
+    [0.35, 0.30, 0.18], // Winter: dull straw
+  ];
+  const gg0 = grassGroundColors[env.season];
+  const gg1 = grassGroundColors[(env.season + 1) % 4];
+  const grassR = gg0[0] + (gg1[0] - gg0[0]) * st;
+  const grassG = gg0[1] + (gg1[1] - gg0[1]) * st;
+  const grassB = gg0[2] + (gg1[2] - gg0[2]) * st;
+
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
@@ -152,14 +201,41 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.b = lerp(tmpColor.b, 0.12, blend);
       }
 
-      // 6 vertices per cell, 3 floats per vertex
+      // ── Per-vertex grass blending ──
+      // Look up corner grass fractions for this cell's 4 corners.
+      // Vertices: 0=TL, 1=BL, 2=TR, 3=BL(dup), 4=BR, 5=TR(dup)
+      const gTL = cornerGrass[row * cornerSize + col];
+      const gTR = cornerGrass[row * cornerSize + col + 1];
+      const gBL = cornerGrass[(row + 1) * cornerSize + col];
+      const gBR = cornerGrass[(row + 1) * cornerSize + col + 1];
+
       const base = (row * GRID + col) * 18;
-      for (let v = 0; v < 6; v++) {
-        const i = base + v * 3;
-        arr[i] = tmpColor.r;
-        arr[i + 1] = tmpColor.g;
-        arr[i + 2] = tmpColor.b;
-      }
+      const br = tmpColor.r, bg = tmpColor.g, bb = tmpColor.b;
+
+      // vertex 0 — TL
+      arr[base]      = lerp(br, grassR, gTL);
+      arr[base + 1]  = lerp(bg, grassG, gTL);
+      arr[base + 2]  = lerp(bb, grassB, gTL);
+      // vertex 1 — BL
+      arr[base + 3]  = lerp(br, grassR, gBL);
+      arr[base + 4]  = lerp(bg, grassG, gBL);
+      arr[base + 5]  = lerp(bb, grassB, gBL);
+      // vertex 2 — TR
+      arr[base + 6]  = lerp(br, grassR, gTR);
+      arr[base + 7]  = lerp(bg, grassG, gTR);
+      arr[base + 8]  = lerp(bb, grassB, gTR);
+      // vertex 3 — BL (duplicate)
+      arr[base + 9]  = arr[base + 3];
+      arr[base + 10] = arr[base + 4];
+      arr[base + 11] = arr[base + 5];
+      // vertex 4 — BR
+      arr[base + 12] = lerp(br, grassR, gBR);
+      arr[base + 13] = lerp(bg, grassG, gBR);
+      arr[base + 14] = lerp(bb, grassB, gBR);
+      // vertex 5 — TR (duplicate)
+      arr[base + 15] = arr[base + 6];
+      arr[base + 16] = arr[base + 7];
+      arr[base + 17] = arr[base + 8];
     }
   }
 
