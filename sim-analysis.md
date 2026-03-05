@@ -328,5 +328,4 @@ All 3 species survived but converged upward — no herbaceous niche emerged on f
 
 | # | Scenario | Question | Setup |
 |---|----------|----------|-------|
-| 16 | Woodiness Coexistence | Can w=0.2 vs w=0.8 coexist on flat soil? | Flat soil, 2 species with balanced growth genomes |
 | 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy on arid? | Pure arid, same growth genome, w=0.2 vs w=0.8 |
