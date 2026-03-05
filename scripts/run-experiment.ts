@@ -44,6 +44,10 @@ if (!scenario) {
 
 const totalTicks = getFlag('--ticks', 3000);
 const interval = getFlag('--interval', 250);
+const outputFile = (() => {
+  const idx = args.indexOf('--out');
+  return (idx !== -1 && idx + 1 < args.length) ? args[idx + 1] : null;
+})();
 
 // ── Run simulation ──
 
@@ -98,4 +102,12 @@ const report: ExperimentReport = {
   snapshots,
 };
 
-process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+import { writeFileSync } from 'fs';
+
+const jsonOutput = JSON.stringify(report, null, 2) + '\n';
+if (outputFile) {
+  writeFileSync(outputFile, jsonOutput);
+  process.stderr.write(`Report written to ${outputFile}\n`);
+} else {
+  process.stdout.write(jsonOutput);
+}

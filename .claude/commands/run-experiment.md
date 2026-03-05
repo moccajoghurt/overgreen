@@ -4,11 +4,12 @@ $ARGUMENTS should be a scenario id (e.g., "experiment-monoculture") optionally f
 
 ## Steps
 
-1. Run the experiment, saving JSON to a temp file:
+1. Run the experiment, saving JSON to a file via `--out`:
 ```bash
-npx tsx scripts/run-experiment.ts <scenario-id> [--ticks N] [--interval N] > experiment-result.json
+npx tsx scripts/run-experiment.ts <scenario-id> [--ticks N] [--interval N] --out experiment-result.json
 ```
 Defaults: `--ticks 3000`, `--interval 250`
+**IMPORTANT:** Use `--out` to write JSON to a file. Do NOT use shell redirection (`>` or `2>&1`) — progress messages go to stderr and will corrupt the JSON if redirected.
 
 2. Summarize the result using the diagnostic summarizer:
 ```bash
