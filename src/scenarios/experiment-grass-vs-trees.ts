@@ -8,7 +8,7 @@ export const experimentGrassVsTrees: Scenario = (() => {
     id: 'experiment-grass-vs-trees',
     name: '[Exp] Grass vs Trees',
     description:
-      'Tests archetype competition on flat soil. Grass is cheap, fast-spreading, and short-lived. Trees are tall, shade-casting, and long-lived. Both use balanced genomes so the test isolates archetype mechanics, not genome strategy.',
+      'Tests woodiness competition on flat soil. Low-woodiness species are cheap, fast-spreading, and short-lived. High-woodiness species are tall, shade-casting, and long-lived. Both use balanced genomes so the test isolates woodiness mechanics, not genome strategy.',
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.5,
@@ -17,7 +17,6 @@ export const experimentGrassVsTrees: Scenario = (() => {
       {
         id: 1,
         name: 'Prairie Grass',
-        archetype: 'grass',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -25,6 +24,7 @@ export const experimentGrassVsTrees: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.1,
         },
         color: { r: 0.5, g: 0.8, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 20),
@@ -32,7 +32,6 @@ export const experimentGrassVsTrees: Scenario = (() => {
       {
         id: 2,
         name: 'Oak Tree',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -40,6 +39,7 @@ export const experimentGrassVsTrees: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.9,
         },
         color: { r: 0.2, g: 0.5, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 20),

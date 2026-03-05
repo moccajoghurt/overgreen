@@ -29,7 +29,6 @@ export const experimentHillSpecialist: Scenario = (() => {
       {
         id: 1,
         name: 'Deep Root Pine',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.6,
           heightPriority: 0.2,
@@ -37,6 +36,7 @@ export const experimentHillSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.6, g: 0.3, b: 0.1 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -44,7 +44,6 @@ export const experimentHillSpecialist: Scenario = (() => {
       {
         id: 2,
         name: 'Tall Spruce',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.2,
           heightPriority: 0.6,
@@ -52,6 +51,7 @@ export const experimentHillSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.1, g: 0.4, b: 0.6 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -59,7 +59,6 @@ export const experimentHillSpecialist: Scenario = (() => {
       {
         id: 3,
         name: 'Broad Leaf Holly',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.2,
           heightPriority: 0.2,
@@ -67,6 +66,7 @@ export const experimentHillSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.7, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 15),

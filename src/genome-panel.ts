@@ -204,12 +204,12 @@ export function createGenomePanel(
     lastRenderedTick = world.tick;
 
     // Gather all species (no limit)
-    const buckets = new Map<number, { count: number; root: number; height: number; leaf: number; seed: number; allelo: number; def: number }>();
+    const buckets = new Map<number, { count: number; root: number; height: number; leaf: number; seed: number; allelo: number; def: number; wood: number }>();
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
       let b = buckets.get(plant.speciesId);
       if (!b) {
-        b = { count: 0, root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0 };
+        b = { count: 0, root: 0, height: 0, leaf: 0, seed: 0, allelo: 0, def: 0, wood: 0 };
         buckets.set(plant.speciesId, b);
       }
       b.count++;
@@ -219,6 +219,7 @@ export function createGenomePanel(
       b.seed += plant.genome.seedInvestment;
       b.allelo += plant.genome.allelopathy;
       b.def += plant.genome.defense;
+      b.wood += plant.genome.woodiness;
     }
 
     const sorted = [...buckets.entries()].sort((a, b) => b[1].count - a[1].count);
@@ -234,6 +235,7 @@ export function createGenomePanel(
         seedInvestment: b.seed / b.count,
         allelopathy: b.allelo / b.count,
         defense: b.def / b.count,
+        woodiness: b.wood / b.count,
       } as Record<string, number>,
     }));
 

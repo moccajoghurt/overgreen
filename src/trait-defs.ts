@@ -14,4 +14,5 @@ export const TRAITS: TraitDef[] = [
   { genomeKey: 'seedInvestment', shortKey: 'seed',   label: 'Seed',   color: '#c6c' },
   { genomeKey: 'allelopathy',    shortKey: 'allelo', label: 'Allelo', color: '#96c' },
   { genomeKey: 'defense',        shortKey: 'def',    label: 'Def',    color: '#c66' },
+  { genomeKey: 'woodiness',      shortKey: 'wood',   label: 'Wood',   color: '#a86' },
 ];

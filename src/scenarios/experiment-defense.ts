@@ -22,7 +22,6 @@ export const experimentDefense: Scenario = (() => {
       {
         id: 1,
         name: 'Thorny Holly',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -30,6 +29,7 @@ export const experimentDefense: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.5,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.4, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -37,7 +37,6 @@ export const experimentDefense: Scenario = (() => {
       {
         id: 2,
         name: 'Soft Willow',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -45,6 +44,7 @@ export const experimentDefense: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.5, g: 0.7, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 15),

@@ -8,7 +8,7 @@ export const _season = { cr: 0, cg: 0, cb: 0 };
 export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number; cb: number }) {
   const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
 
-  // Compute normalized dominance for nonlinear archetype accents
+  // Compute normalized dominance for nonlinear strategy accents
   const sum = rootPriority + heightPriority + leafSize + seedInvestment + 0.01;
   const rDom = rootPriority / sum;
   const hDom = heightPriority / sum;
@@ -39,7 +39,7 @@ export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number
   g += seedInvestment * 0.08;
   b -= seedInvestment * 0.04;
 
-  // Nonlinear archetype accents (kick in when a gene is clearly dominant)
+  // Nonlinear strategy accents (kick in when a gene is clearly dominant)
   if (hDom > 0.30) {
     const strength = (hDom - 0.30) * 2.0;
     r -= strength * 0.06;

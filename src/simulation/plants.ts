@@ -1,6 +1,6 @@
 import {
-  Archetype, Genome, Plant, SIM, GRASS,
-  SpeciesColor, TerrainType, World,
+  Genome, Plant, SIM,
+  SpeciesColor, TerrainType, World, getPlantConstants,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
 
@@ -32,7 +32,8 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const ds = a.seedInvestment - b.seedInvestment;
   const da = a.allelopathy - b.allelopathy;
   const dd = a.defense - b.defense;
-  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + da * da + dd * dd);
+  const dw = a.woodiness - b.woodiness;
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + da * da + dd * dd + dw * dw);
 }
 
 export function crossoverGenome(a: Genome, b: Genome): Genome {
@@ -44,6 +45,7 @@ export function crossoverGenome(a: Genome, b: Genome): Genome {
     seedInvestment: pick(a.seedInvestment, b.seedInvestment),
     allelopathy: pick(a.allelopathy, b.allelopathy),
     defense: pick(a.defense, b.defense),
+    woodiness: pick(a.woodiness, b.woodiness),
   };
 }
 
@@ -55,16 +57,17 @@ export function randomGenome(): Genome {
     seedInvestment: 0.1 + Math.random() * 0.8,
     allelopathy: 0.1 + Math.random() * 0.8,
     defense: 0.1 + Math.random() * 0.8,
+    woodiness: 0.1 + Math.random() * 0.8,
   };
 }
 
-export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number, archetype: Archetype = 'tree'): Plant {
-  const isGrass = archetype === 'grass';
+export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number): Plant {
+  const pc = getPlantConstants(genome.woodiness);
   return {
-    id, speciesId, archetype, x, y, genome,
-    height: isGrass ? GRASS.SEEDLING_HEIGHT : 1,
-    rootDepth: isGrass ? GRASS.SEEDLING_ROOT : 1,
-    leafArea: isGrass ? GRASS.SEEDLING_LEAF : 1,
+    id, speciesId, x, y, genome,
+    height: pc.seedlingHeight,
+    rootDepth: pc.seedlingRoot,
+    leafArea: pc.seedlingLeaf,
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
     lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
@@ -77,7 +80,7 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   const clamp = (val: number) => Math.max(0.01, Math.min(0.99, val));
   const keys: (keyof Genome)[] = [
     'rootPriority', 'heightPriority', 'leafSize',
-    'seedInvestment', 'allelopathy', 'defense',
+    'seedInvestment', 'allelopathy', 'defense', 'woodiness',
   ];
   // Pick 1-2 genes to mutate (like real point mutations)
   const count = Math.random() < 0.5 ? 1 : 2;
@@ -96,7 +99,6 @@ export function seedInitialPlants(world: World, _count: number): void {
   const CLUSTER_COUNT = 10;
   const CLUSTER_RADIUS = 8;
   const SPECIES_PER_CLUSTER = 4;
-  const GRASS_PER_CLUSTER = 2;
   const COPIES_PER_SPECIES = 2;
 
   // Generate 12 candidate centers on a jittered 4x3 grid, take 10
@@ -116,7 +118,7 @@ export function seedInitialPlants(world: World, _count: number): void {
     }
   }
 
-  // Shuffle and take 8 centers
+  // Shuffle and take 10 centers
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -126,11 +128,10 @@ export function seedInitialPlants(world: World, _count: number): void {
   // Seed species in each cluster
   for (const center of centers) {
     for (let s = 0; s < SPECIES_PER_CLUSTER; s++) {
-      const archetype: Archetype = s < GRASS_PER_CLUSTER ? 'grass' : 'tree';
       const genome = randomGenome();
       const speciesId = world.nextSpeciesId++;
       world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, archetype));
+      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
 
       // Place 2 copies of this species within cluster radius
       for (let copy = 0; copy < COPIES_PER_SPECIES; copy++) {
@@ -145,7 +146,7 @@ export function seedInitialPlants(world: World, _count: number): void {
           if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
 
           const id = world.nextPlantId++;
-          const plant = createPlant(id, px, py, genome, speciesId, archetype);
+          const plant = createPlant(id, px, py, genome, speciesId);
           world.plants.set(id, plant);
           cell.plantId = id;
           cell.lastSpeciesId = speciesId;

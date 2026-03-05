@@ -24,7 +24,6 @@ export const experimentWaterCompetition: Scenario = (() => {
       {
         id: 1,
         name: 'Deep Root Fern',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.5,
           heightPriority: 0.25,
@@ -32,6 +31,7 @@ export const experimentWaterCompetition: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.6, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -39,7 +39,6 @@ export const experimentWaterCompetition: Scenario = (() => {
       {
         id: 2,
         name: 'Broad Leaf Fern',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.25,
           heightPriority: 0.25,
@@ -47,6 +46,7 @@ export const experimentWaterCompetition: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.3, b: 0.8 },
         placements: scatter(30, 50, 30, 50, 15),

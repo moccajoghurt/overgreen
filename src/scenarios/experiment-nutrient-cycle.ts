@@ -17,7 +17,6 @@ export const experimentNutrientCycle: Scenario = (() => {
       {
         id: 1,
         name: 'Deep Root Oak',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.6,
           heightPriority: 0.3,
@@ -25,6 +24,7 @@ export const experimentNutrientCycle: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.4, g: 0.3, b: 0.1 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -32,7 +32,6 @@ export const experimentNutrientCycle: Scenario = (() => {
       {
         id: 2,
         name: 'Shallow Leaf Fern',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.1,
           heightPriority: 0.3,
@@ -40,6 +39,7 @@ export const experimentNutrientCycle: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.7, b: 0.4 },
         placements: scatter(30, 50, 30, 50, 15),

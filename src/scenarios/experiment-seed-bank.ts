@@ -42,7 +42,6 @@ export const experimentSeedBank: Scenario = (() => {
       {
         id: 1,
         name: 'Seedbank Grass',
-        archetype: 'grass',
         genome: {
           rootPriority: 0.5,
           heightPriority: 0.15,
@@ -50,6 +49,7 @@ export const experimentSeedBank: Scenario = (() => {
           seedInvestment: 0.65,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.15,
         },
         color: { r: 0.7, g: 0.7, b: 0.2 },
         placements: scatter(25, 55, 25, 55, 25),
@@ -57,7 +57,6 @@ export const experimentSeedBank: Scenario = (() => {
       {
         id: 2,
         name: 'Holdfast Sedge',
-        archetype: 'grass',
         genome: {
           rootPriority: 0.5,
           heightPriority: 0.15,
@@ -65,6 +64,7 @@ export const experimentSeedBank: Scenario = (() => {
           seedInvestment: 0.45,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.15,
         },
         color: { r: 0.4, g: 0.5, b: 0.2 },
         placements: scatter(25, 55, 25, 55, 25),

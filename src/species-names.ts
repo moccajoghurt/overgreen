@@ -1,4 +1,4 @@
-import { Archetype, Genome } from './types';
+import { Genome } from './types';
 
 const ADJECTIVES: string[][] = [
   // rootPriority
@@ -60,7 +60,7 @@ const GRASS_NOUNS: string[][] = [
   ['Razors', 'Sedges', 'Sawgrass', 'Needles', 'Barbs', 'Thistles'],
 ];
 
-export function generateSpeciesName(genome: Genome, speciesId: number, archetype?: Archetype): string {
+export function generateSpeciesName(genome: Genome, speciesId: number, woodiness?: number): string {
   const traits = [
     genome.rootPriority,
     genome.heightPriority,
@@ -82,8 +82,8 @@ export function generateSpeciesName(genome: Genome, speciesId: number, archetype
     }
   }
 
-  const adjs = archetype === 'grass' ? GRASS_ADJECTIVES : ADJECTIVES;
-  const nouns = archetype === 'grass' ? GRASS_NOUNS : NOUNS;
+  const adjs = woodiness !== undefined && woodiness < 0.4 ? GRASS_ADJECTIVES : ADJECTIVES;
+  const nouns = woodiness !== undefined && woodiness < 0.4 ? GRASS_NOUNS : NOUNS;
   const adjPool = adjs[first];
   const nounPool = nouns[second];
   const adj = adjPool[speciesId % adjPool.length];

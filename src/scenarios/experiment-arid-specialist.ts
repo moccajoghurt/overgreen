@@ -28,7 +28,6 @@ export const experimentAridSpecialist: Scenario = (() => {
       {
         id: 1,
         name: 'Deep Root Mesquite',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.6,
           heightPriority: 0.2,
@@ -36,6 +35,7 @@ export const experimentAridSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.6, g: 0.4, b: 0.1 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -43,7 +43,6 @@ export const experimentAridSpecialist: Scenario = (() => {
       {
         id: 2,
         name: 'Tall Saguaro',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.2,
           heightPriority: 0.6,
@@ -51,6 +50,7 @@ export const experimentAridSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.1, g: 0.5, b: 0.5 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -58,7 +58,6 @@ export const experimentAridSpecialist: Scenario = (() => {
       {
         id: 3,
         name: 'Broad Leaf Agave',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.2,
           heightPriority: 0.2,
@@ -66,6 +65,7 @@ export const experimentAridSpecialist: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.7, b: 0.2 },
         placements: scatter(30, 50, 30, 50, 15),

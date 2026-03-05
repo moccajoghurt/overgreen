@@ -29,7 +29,6 @@ export const experimentName: Scenario = (() => {
       {
         id: 1,
         name: 'Species Name',
-        archetype: 'grass', // only 'grass' or 'tree' are valid
         genome: {
           rootPriority: 0.5,
           heightPriority: 0.5,
@@ -37,6 +36,7 @@ export const experimentName: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8, // 0.01-0.99: low = herbaceous/grass, high = woody/tree
         },
         color: { r: 0.3, g: 0.7, b: 0.3 },
         placements: scatter(35, 45, 35, 45, 20),

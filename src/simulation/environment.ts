@@ -100,14 +100,12 @@ function killPlantByFire(world: World, x: number, y: number): void {
       height: plant.height, rootDepth: plant.rootDepth,
       leafArea: plant.leafArea, speciesId: plant.speciesId,
       genome: { ...plant.genome },
-      archetype: plant.archetype,
     });
     plant.alive = false;
     plant.causeOfDeath = 'fire';
     world.deathEvents.push({
       id: plant.id,
       speciesId: plant.speciesId,
-      archetype: plant.archetype,
       cause: 'fire',
       age: plant.age,
       offspringCount: plant.offspringCount,

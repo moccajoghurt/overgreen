@@ -59,7 +59,7 @@ export function updatePlants(state: RendererState): void {
       const dx = Math.abs(evt.childX - evt.parentX);
       const dy = Math.abs(evt.childY - evt.parentY);
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const arcPeak = evt.archetype === 'grass'
+      const arcPeak = evt.woodiness < 0.4
         ? Math.max(0.8, startY * 0.3 + dist * 0.3)
         : Math.max(1.5, startY * 0.5 + dist * 0.5);
       flyingSeeds.push({
@@ -85,7 +85,7 @@ export function updatePlants(state: RendererState): void {
       height: evt.height, rootDepth: evt.rootDepth,
       leafArea: evt.leafArea, speciesId: evt.speciesId,
       genome: evt.genome,
-      archetype: evt.archetype,
+      woodiness: evt.genome.woodiness,
       progress: 0,
     });
   }
@@ -119,7 +119,7 @@ export function updatePlants(state: RendererState): void {
 
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    const isGrass = plant.archetype === 'grass';
+    const isGrass = plant.genome.woodiness < 0.4;
 
     // Reference genome directly (immutable per plant — no need to copy)
     newSnapshots.set(plant.id, {
@@ -127,7 +127,7 @@ export function updatePlants(state: RendererState): void {
       height: plant.height, rootDepth: plant.rootDepth,
       leafArea: plant.leafArea, speciesId: plant.speciesId,
       genome: plant.genome,
-      archetype: plant.archetype,
+      woodiness: plant.genome.woodiness,
     });
 
     const wx = plant.x - HALF + 0.5;
@@ -252,7 +252,7 @@ export function updatePlants(state: RendererState): void {
     const baseY = getCellElevation(dp.x, dp.y);
     const p = dp.progress;
 
-    if (dp.archetype === 'grass') {
+    if (dp.woodiness < 0.4) {
       // Dying grass: shrink + brown out (no tilt)
       if (grassBladeIdx >= MAX_GRASS_BLADES) continue;
       const gsil = computeGrassSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
@@ -336,7 +336,7 @@ export function updatePlants(state: RendererState): void {
   // ── Render burning plants (fire deaths) ──
   const burnToRemove: number[] = [];
   for (const [id, bp] of burningPlants) {
-    const burnFrames = bp.archetype === 'grass' ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
+    const burnFrames = bp.woodiness < 0.4 ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
     bp.progress += 1 / burnFrames;
     if (bp.progress >= 1) {
       burnToRemove.push(id);
@@ -350,7 +350,7 @@ export function updatePlants(state: RendererState): void {
     const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
     const t = bp.progress;
 
-    if (bp.archetype === 'grass') {
+    if (bp.woodiness < 0.4) {
       // Burning grass: quick flash-burn with orange-yellow
       if (grassBladeIdx >= MAX_GRASS_BLADES) continue;
       const gsil = computeGrassSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
@@ -424,7 +424,7 @@ export function updatePlants(state: RendererState): void {
 }
 
 export function updateSeeds(state: RendererState): void {
-  const { world, dummy, seeds, flyingSeeds, growingPlants, getCellElevation } = state;
+  const { world, dummy, seeds, flyingSeeds, getCellElevation } = state;
 
   const seedMtx = seeds.instanceMatrix.array as Float32Array;
   const seedClr = seeds.instanceColor!.array as Float32Array;

@@ -22,7 +22,6 @@ export const experimentMonoculture: Scenario = (() => {
       {
         id: 1,
         name: 'Baseline Fern',
-        archetype: 'grass',
         genome: {
           rootPriority: 0.5,
           heightPriority: 0.5,
@@ -30,6 +29,7 @@ export const experimentMonoculture: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.15,
         },
         color: { r: 0.3, g: 0.7, b: 0.3 },
         placements: scatter(35, 45, 35, 45, 20),

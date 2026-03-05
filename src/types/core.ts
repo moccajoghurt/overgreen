@@ -1,8 +1,6 @@
 import { Environment, EnvironmentEvent } from './environment';
 import { Herbivore, HerbivoreDeathEvent, HerbivoreBirthEvent } from './herbivore';
 
-export type Archetype = 'tree' | 'grass';
-
 export enum TerrainType {
   Soil = 0,
   River = 1,
@@ -25,12 +23,12 @@ export interface Genome {
   seedInvestment: number;
   allelopathy: number;   // 0.01-0.99 — chemical suppression of neighbors
   defense: number;       // 0.01-0.99 — resistance to herbivore grazing
+  woodiness: number;     // 0.01-0.99 — herbaceous (low) to woody/tree-like (high)
 }
 
 export interface Plant {
   id: number;
   speciesId: number;
-  archetype: Archetype;
   x: number;
   y: number;
   height: number;
@@ -92,7 +90,6 @@ export interface World {
 export interface DeathEvent {
   id: number;
   speciesId: number;
-  archetype: Archetype;
   cause: 'starvation' | 'age' | 'fire' | 'disease';
   age: number;
   offspringCount: number;
@@ -104,12 +101,10 @@ export interface FireDeathEvent {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
-  archetype: Archetype;
 }
 
 export interface Seed {
   speciesId: number;
-  archetype: Archetype;
   genome: Genome;
   energy: number;
   age: number;
@@ -122,7 +117,7 @@ export interface SeedLandingEvent {
   childX: number;
   childY: number;
   speciesId: number;
-  archetype: Archetype;
+  woodiness: number;
 }
 
 export interface GerminationEvent {
@@ -130,5 +125,5 @@ export interface GerminationEvent {
   y: number;
   plantId: number;
   speciesId: number;
-  archetype: Archetype;
+  woodiness: number;
 }

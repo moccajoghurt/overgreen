@@ -213,7 +213,7 @@ export function writeBranchesAndCanopies(
     Math.round(genome.leafSize * 2.0 - genome.heightPriority * 1.2 + genome.seedInvestment * 0.5 - 0.2)));
   const secondaryPerPrimary = branchLOD < 0.6 ? 0 : rawSecondary;
 
-  // Per-tip canopy sizing: archetype-aware volume distribution
+  // Per-tip canopy sizing: genome-aware volume distribution
   const totalTips = Math.min(MAX_BRANCHES_PER_PLANT,
     primaryCount * (1 + secondaryPerPrimary));
   const sizeExponent = 1 / 3 + genome.heightPriority * 0.1 + genome.seedInvestment * 0.15

@@ -91,7 +91,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (cell.plantId !== null) continue;
 
       const id = world.nextPlantId++;
-      const plant = createPlant(id, pos.x, pos.y, sp.genome, sp.id, sp.archetype);
+      const plant = createPlant(id, pos.x, pos.y, sp.genome, sp.id);
       world.plants.set(id, plant);
       cell.plantId = id;
       cell.lastSpeciesId = sp.id;

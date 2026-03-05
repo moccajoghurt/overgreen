@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { SIM, GRASS, Genome, Archetype, World, Season, ColorMode } from '../types';
+import { SIM, GRASS, Genome, World, Season, ColorMode } from '../types';
 import type { SkyDome } from './sky';
 import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
@@ -36,7 +36,7 @@ export interface PlantSnapshot {
   x: number; y: number;
   height: number; rootDepth: number; leafArea: number;
   speciesId: number; genome: Genome;
-  archetype: Archetype;
+  woodiness: number;
   causeOfDeath?: 'fire' | 'disease';
 }
 

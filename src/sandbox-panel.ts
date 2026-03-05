@@ -4,13 +4,12 @@ import {
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
 import { speciesColorToRgb } from './ui-utils';
-import { World, Genome, Archetype, TerrainType } from './types';
+import { World, Genome, TerrainType } from './types';
 import { Controls } from './controls';
 
 interface CustomSpecies {
   name: string;
   genome: Genome;
-  archetype: Archetype;
   placedCount: number;
 }
 
@@ -32,11 +31,10 @@ export function createSandboxPanel(
 ): { update(world: World): void; setVisible(visible: boolean): void; isVisible(): boolean; reset(): void } {
 
   let visible = false;
-  let archetype: Archetype = 'tree';
   let placeModeActive = false;
   let currentGenome: Genome = {
     rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5,
-    seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5,
+    seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5, woodiness: 0.5,
   };
   const customSpecies = new Map<number, CustomSpecies>();
   let lastUpdateTick = -1;
@@ -63,15 +61,7 @@ export function createSandboxPanel(
       display: flex; flex-direction: column; gap: 10px;
     }
     .sb-section-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-    .sb-archetype-row { display: flex; gap: 4px; }
-    .sb-archetype-btn {
-      flex: 1; padding: 4px 8px; cursor: pointer;
-      background: #333; color: #ccc; border: 1px solid #555;
-      font-family: monospace; font-size: 12px; text-align: center;
-    }
-    .sb-archetype-btn:hover { background: #444; }
-    .sb-archetype-btn.active { background: #2a4a2a; border-color: #8f8; color: #8f8; }
-    .sb-slider-group { display: flex; flex-direction: column; gap: 6px; }
+.sb-slider-group { display: flex; flex-direction: column; gap: 6px; }
     .sb-slider-row { display: flex; align-items: center; gap: 6px; }
     .sb-slider-label { font-size: 11px; width: 44px; flex-shrink: 0; }
     .sb-slider-row input[type="range"] { flex: 1; height: 14px; }
@@ -125,31 +115,6 @@ export function createSandboxPanel(
   const body = document.createElement('div');
   body.className = 'sb-body';
   container.appendChild(body);
-
-  // --- Archetype toggle ---
-  const archetypeSection = document.createElement('div');
-  archetypeSection.innerHTML = '<div class="sb-section-label">Archetype</div>';
-  const archetypeRow = document.createElement('div');
-  archetypeRow.className = 'sb-archetype-row';
-  const btnTree = document.createElement('button');
-  btnTree.className = 'sb-archetype-btn active';
-  btnTree.textContent = 'Tree';
-  const btnGrass = document.createElement('button');
-  btnGrass.className = 'sb-archetype-btn';
-  btnGrass.textContent = 'Grass';
-  archetypeRow.appendChild(btnTree);
-  archetypeRow.appendChild(btnGrass);
-  archetypeSection.appendChild(archetypeRow);
-  body.appendChild(archetypeSection);
-
-  function setArchetype(a: Archetype): void {
-    archetype = a;
-    btnTree.classList.toggle('active', a === 'tree');
-    btnGrass.classList.toggle('active', a === 'grass');
-    updatePreview();
-  }
-  btnTree.addEventListener('click', () => setArchetype('tree'));
-  btnGrass.addEventListener('click', () => setArchetype('grass'));
 
   // --- Genome sliders ---
   const sliderSection = document.createElement('div');
@@ -218,7 +183,7 @@ export function createSandboxPanel(
     btn.className = 'sb-preset-btn';
     btn.textContent = name;
     btn.addEventListener('click', () => {
-      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5 };
+      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5, woodiness: 0.5 };
       for (const [k, v] of Object.entries(values)) {
         (g as any)[k] = v;
       }
@@ -251,7 +216,7 @@ export function createSandboxPanel(
     // Check if current genome matches an existing custom species
     let matchId: number | null = null;
     for (const [sid, sp] of customSpecies) {
-      if (sp.archetype === archetype && genomeDistance(sp.genome, currentGenome) < 0.001) {
+      if (genomeDistance(sp.genome, currentGenome) < 0.001) {
         matchId = sid;
         break;
       }
@@ -265,7 +230,7 @@ export function createSandboxPanel(
     } else {
       const color = generateSpeciesColor(world.nextSpeciesId);
       previewDot.style.background = speciesColorToRgb(color);
-      previewName.textContent = generateSpeciesName(currentGenome, world.nextSpeciesId, archetype);
+      previewName.textContent = generateSpeciesName(currentGenome, world.nextSpeciesId, currentGenome.woodiness);
     }
   }
 
@@ -385,7 +350,6 @@ export function createSandboxPanel(
       row.appendChild(countEl);
 
       row.addEventListener('click', () => {
-        setArchetype(sp.archetype);
         setSliders(sp.genome);
       });
 
@@ -401,10 +365,10 @@ export function createSandboxPanel(
 
     const genome = { ...currentGenome };
 
-    // Species matching — find existing custom species with same archetype and genome
+    // Species matching — find existing custom species with same genome
     let speciesId: number | null = null;
     for (const [sid, sp] of customSpecies) {
-      if (sp.archetype === archetype && genomeDistance(sp.genome, genome) < 0.001) {
+      if (genomeDistance(sp.genome, genome) < 0.001) {
         speciesId = sid;
         sp.placedCount++;
         break;
@@ -415,15 +379,15 @@ export function createSandboxPanel(
     if (speciesId === null) {
       speciesId = world.nextSpeciesId++;
       const color = generateSpeciesColor(speciesId);
-      const name = generateSpeciesName(genome, speciesId, archetype);
+      const name = generateSpeciesName(genome, speciesId, genome.woodiness);
       world.speciesColors.set(speciesId, color);
       world.speciesNames.set(speciesId, name);
-      customSpecies.set(speciesId, { name, genome, archetype, placedCount: 1 });
+      customSpecies.set(speciesId, { name, genome, placedCount: 1 });
     }
 
     // Create plant
     const id = world.nextPlantId++;
-    const plant = createPlant(id, x, y, genome, speciesId, archetype);
+    const plant = createPlant(id, x, y, genome, speciesId);
     world.plants.set(id, plant);
     cell.plantId = id;
     cell.lastSpeciesId = speciesId;

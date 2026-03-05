@@ -1,6 +1,6 @@
 // ── History / Analytics ──
 
-export type TraitAverages = { root: number; height: number; leaf: number; seed: number; allelo: number; def: number };
+export type TraitAverages = { root: number; height: number; leaf: number; seed: number; allelo: number; def: number; wood: number };
 export type TerrainCounts = { soil: number; hill: number; wetland: number; arid: number };
 
 export interface TickSnapshot {

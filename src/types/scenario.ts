@@ -1,4 +1,4 @@
-import { TerrainType, Genome, Archetype, SpeciesColor } from './core';
+import { TerrainType, Genome, SpeciesColor } from './core';
 import { ClimateEra } from './environment';
 
 export interface ScenarioCell {
@@ -14,7 +14,6 @@ export interface ScenarioCell {
 export interface ScenarioSpecies {
   id: number;
   name: string;
-  archetype: Archetype;
   genome: Genome;
   color: SpeciesColor;
   placements: { x: number; y: number }[];

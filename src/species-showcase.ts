@@ -608,7 +608,7 @@ export function createShowcase(
         entry.plantId = sp.representative.id;
         entry.plantScore = score;
 
-        const group = sp.representative.archetype === 'grass'
+        const group = sp.representative.genome.woodiness < 0.4
           ? buildGrassGroup(sp.representative)
           : buildTreeGroup(sp.representative);
         renderTreeToCanvas(group, entry.ctx);

@@ -34,7 +34,6 @@ export const experimentTerrainMosaic: Scenario = (() => {
       {
         id: 1,
         name: 'Alpha Fern',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -42,6 +41,7 @@ export const experimentTerrainMosaic: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.6, b: 0.2 },
         placements: scatter(10, 70, 5, 75, 10),
@@ -49,7 +49,6 @@ export const experimentTerrainMosaic: Scenario = (() => {
       {
         id: 2,
         name: 'Beta Spruce',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -57,6 +56,7 @@ export const experimentTerrainMosaic: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.6, g: 0.4, b: 0.1 },
         placements: scatter(10, 70, 5, 75, 10),
@@ -64,7 +64,6 @@ export const experimentTerrainMosaic: Scenario = (() => {
       {
         id: 3,
         name: 'Gamma Willow',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -72,6 +71,7 @@ export const experimentTerrainMosaic: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.3, g: 0.3, b: 0.7 },
         placements: scatter(10, 70, 5, 75, 10),
@@ -79,7 +79,6 @@ export const experimentTerrainMosaic: Scenario = (() => {
       {
         id: 4,
         name: 'Delta Cactus',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -87,6 +86,7 @@ export const experimentTerrainMosaic: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.7, g: 0.2, b: 0.4 },
         placements: scatter(10, 70, 5, 75, 10),

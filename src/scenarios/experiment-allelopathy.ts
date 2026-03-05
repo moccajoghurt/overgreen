@@ -21,7 +21,6 @@ export const experimentAllelopathy: Scenario = (() => {
       {
         id: 1,
         name: 'Toxic Walnut',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -29,6 +28,7 @@ export const experimentAllelopathy: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.5,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.6, g: 0.1, b: 0.6 },
         placements: scatter(30, 50, 30, 50, 15),
@@ -36,7 +36,6 @@ export const experimentAllelopathy: Scenario = (() => {
       {
         id: 2,
         name: 'Peaceful Maple',
-        archetype: 'tree',
         genome: {
           rootPriority: 0.33,
           heightPriority: 0.33,
@@ -44,6 +43,7 @@ export const experimentAllelopathy: Scenario = (() => {
           seedInvestment: 0.5,
           allelopathy: 0.0,
           defense: 0.0,
+          woodiness: 0.8,
         },
         color: { r: 0.2, g: 0.7, b: 0.3 },
         placements: scatter(30, 50, 30, 50, 15),

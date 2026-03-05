@@ -165,4 +165,65 @@ export const GRASS = {
   SEED_GERMINATION_WATER: 1.5,
 } as const;
 
-export const INITIAL_GRASS_FRACTION = 0.4;
+/** All archetype-dependent constants, interpolated by woodiness. */
+export interface PlantConstants {
+  maxHeight: number;
+  maxRootDepth: number;
+  maxLeafArea: number;
+  maintenanceBase: number;
+  maintenancePerHeight: number;
+  maintenancePerRoot: number;
+  maintenancePerLeaf: number;
+  seedEnergyCost: number;
+  seedRangeMax: number;
+  seedRangeHeightDivisor: number;
+  seedInitialEnergy: number;
+  growthEfficiency: number;
+  maxAge: number;
+  shadowReduction: number;
+  shadowHeightScale: number;
+  heightLightBonus: number;
+  decompWaterBoost: number;
+  decompNutrientBoost: number;
+  decompNutrientPerHeight: number;
+  seedlingHeight: number;
+  seedlingRoot: number;
+  seedlingLeaf: number;
+  seedMaxAge: number;
+  seedGerminationWater: number;
+}
+
+function lerpVal(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** Linearly interpolate all plant constants between herbaceous (w=0) and woody (w=1) endpoints. */
+export function getPlantConstants(woodiness: number): PlantConstants {
+  const w = Math.max(0, Math.min(1, woodiness));
+  return {
+    maxHeight: lerpVal(GRASS.MAX_HEIGHT, SIM.MAX_HEIGHT, w),
+    maxRootDepth: lerpVal(GRASS.MAX_ROOT_DEPTH, SIM.MAX_ROOT_DEPTH, w),
+    maxLeafArea: lerpVal(GRASS.MAX_LEAF_AREA, SIM.MAX_LEAF_AREA, w),
+    maintenanceBase: lerpVal(GRASS.MAINTENANCE_BASE, SIM.MAINTENANCE_BASE, w),
+    maintenancePerHeight: lerpVal(GRASS.MAINTENANCE_PER_HEIGHT, SIM.MAINTENANCE_PER_HEIGHT, w),
+    maintenancePerRoot: lerpVal(GRASS.MAINTENANCE_PER_ROOT, SIM.MAINTENANCE_PER_ROOT, w),
+    maintenancePerLeaf: lerpVal(GRASS.MAINTENANCE_PER_LEAF, SIM.MAINTENANCE_PER_LEAF, w),
+    seedEnergyCost: lerpVal(GRASS.SEED_ENERGY_COST, SIM.SEED_ENERGY_COST, w),
+    seedRangeMax: lerpVal(GRASS.SEED_RANGE_MAX, SIM.SEED_RANGE_MAX, w),
+    seedRangeHeightDivisor: lerpVal(GRASS.SEED_RANGE_HEIGHT_DIVISOR, SIM.SEED_RANGE_HEIGHT_DIVISOR, w),
+    seedInitialEnergy: lerpVal(GRASS.SEED_INITIAL_ENERGY, SIM.SEED_INITIAL_ENERGY, w),
+    growthEfficiency: lerpVal(GRASS.GROWTH_EFFICIENCY, SIM.GROWTH_EFFICIENCY, w),
+    maxAge: lerpVal(GRASS.MAX_AGE, SIM.MAX_AGE, w),
+    shadowReduction: lerpVal(GRASS.SHADOW_REDUCTION, SIM.SHADOW_REDUCTION, w),
+    shadowHeightScale: lerpVal(GRASS.SHADOW_HEIGHT_SCALE, SIM.SHADOW_HEIGHT_SCALE, w),
+    heightLightBonus: lerpVal(GRASS.HEIGHT_LIGHT_BONUS, SIM.HEIGHT_LIGHT_BONUS, w),
+    decompWaterBoost: lerpVal(GRASS.DECOMP_WATER_BOOST, SIM.DECOMP_WATER_BOOST, w),
+    decompNutrientBoost: lerpVal(GRASS.DECOMP_NUTRIENT_BOOST, SIM.DECOMP_NUTRIENT_BOOST, w),
+    decompNutrientPerHeight: lerpVal(GRASS.DECOMP_NUTRIENT_PER_HEIGHT, SIM.DECOMP_NUTRIENT_PER_HEIGHT, w),
+    seedlingHeight: lerpVal(GRASS.SEEDLING_HEIGHT, 1, w),
+    seedlingRoot: lerpVal(GRASS.SEEDLING_ROOT, 1, w),
+    seedlingLeaf: lerpVal(GRASS.SEEDLING_LEAF, 1, w),
+    seedMaxAge: lerpVal(GRASS.SEED_MAX_AGE, SIM.SEED_MAX_AGE, w),
+    seedGerminationWater: lerpVal(GRASS.SEED_GERMINATION_WATER, SIM.SEED_GERMINATION_WATER, w),
+  };
+}
