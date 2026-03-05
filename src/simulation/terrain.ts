@@ -253,6 +253,7 @@ export function createEnvironment(): Environment {
     seedMult: 1.0,
     era: initEraState(),
     droughts: [],
+    aridDrySpell: null,
     fires: [],
     diseases: [],
     scorchedCells: new Map(),

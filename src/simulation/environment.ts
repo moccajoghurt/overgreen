@@ -355,6 +355,16 @@ function rebuildWeatherOverlay(world: World): void {
       }
     }
   }
+  // Arid dry spell: mark all arid cells as drought
+  if (world.environment.aridDrySpell) {
+    for (let y = 0; y < world.height; y++) {
+      for (let x = 0; x < world.width; x++) {
+        if (world.grid[y][x].terrainType === TerrainType.Arid && overlay[y * world.width + x] === WeatherOverlay.None) {
+          overlay[y * world.width + x] = WeatherOverlay.Drought;
+        }
+      }
+    }
+  }
   for (const fire of world.environment.fires) {
     for (const [key] of fire.cells) {
       const [fx, fy] = parseKey(key);
@@ -414,6 +424,20 @@ export function phaseEnvironment(world: World): void {
   // Drought spawning (summer only, scaled by era)
   if (env.season === Season.Summer && Math.random() < 0.008 * eraMults.droughtMult) {
     spawnDrought(world);
+  }
+
+  // Arid dry spell lifecycle
+  if (env.aridDrySpell) {
+    env.aridDrySpell.ticksRemaining--;
+    if (env.aridDrySpell.ticksRemaining <= 0) {
+      env.aridDrySpell = null;
+      world.environmentEvents.push({ type: 'drought_end', message: 'Arid dry spell ended' });
+    }
+  } else if (env.season === Season.Summer && Math.random() < SIM.ARID_DRY_SPELL_CHANCE) {
+    env.aridDrySpell = {
+      ticksRemaining: randomIntRange(SIM.ARID_DRY_SPELL_DURATION_MIN, SIM.ARID_DRY_SPELL_DURATION_MAX + 1),
+    };
+    world.environmentEvents.push({ type: 'drought_start', message: 'Arid dry spell began' });
   }
 
   // Fire spawning (summer, after 30% progress, scaled by era)

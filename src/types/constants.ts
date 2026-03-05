@@ -78,6 +78,15 @@ export const SIM = {
   // Drought
   DROUGHT_EVAPORATION_RATE: 0.3,
 
+  // Arid dry spells (terrain-wide zero-recharge episodes, summer only)
+  ARID_DRY_SPELL_CHANCE: 0.008,
+  ARID_DRY_SPELL_DURATION_MIN: 15,
+  ARID_DRY_SPELL_DURATION_MAX: 35,
+  ARID_DRY_SPELL_EVAP: 0.05,
+
+  // Succulent transpiration reduction
+  WATER_STORAGE_TRANSPIRATION_REDUCTION: 0.3,
+
   // Terrain
   RIVER_WATER_RECHARGE: 1.2,
   ROCK_WATER_RECHARGE: 0.08,

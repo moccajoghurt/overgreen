@@ -48,7 +48,8 @@
 
 ### Water absorption:
 ```
-  waterNeeded = effectiveLeaf × 0.55
+  transpirationReduction = (storedWater / capacity) × 0.3
+  waterNeeded = effectiveLeaf × 0.55 × (1 - transpirationReduction)
   waterCanAbsorb = rootDepth × 0.4
   waterAbsorbed = min(needed, canAbsorb, cellWater)
   if waterAbsorbed < waterNeeded: draw from storedWater to cover deficit
@@ -85,6 +86,8 @@ All base/per-trait maintenance constants are interpolated by woodiness (see Sect
   Water tables: Soil 4.0, Hill 5.0, Wetland 0.5, Arid 5.0
   River seepage: +0.4 water, +0.1 nutrients to all 8 neighbors/tick
 ```
+
+Arid terrain also has periodic dry spells (summer only, 0.8%/tick chance, 15-35 ticks duration) that zero out recharge and evaporate 0.05 water/tick across all arid cells. These are separate from localized drought events.
 
 Water genuinely limits growth on Soil and especially Arid. Wetland is rarely limiting.
 
@@ -227,7 +230,8 @@ Long-term shifts (2500-5000 ticks) multiplying existing mechanics. Population-re
 
 ## 10. DISASTERS
 
-- **Drought:** Summer, local radius, reduces recharge + evaporates 0.3/tick
+- **Drought:** Summer, local radius, reduces recharge + evaporates 0.3/tick (all terrains)
+- **Arid dry spell:** Summer, terrain-wide, zeroes recharge + evaporates 0.05/tick on all arid cells (15-35 ticks)
 - **Fire:** Summer, spreads via low-water high-leaf cells, kills instantly, rivers block
 - **Disease:** Targets genetic uniformity >50% — the monoculture punisher
 
@@ -292,7 +296,7 @@ Seed mass (seedSize: 0.01-0.99) controls the tradeoff between many small seeds v
 
 ## 14. WATER STORAGE (waterStorage genome)
 
-Internal water tank for drought tolerance. Genome trait `waterStorage: 0.01-0.99`, plant field `storedWater`.
+Internal water tank for drought tolerance + succulent transpiration reduction. Genome trait `waterStorage: 0.01-0.99`, plant field `storedWater`.
 
 ### Mechanics:
 ```
@@ -300,18 +304,22 @@ Internal water tank for drought tolerance. Genome trait `waterStorage: 0.01-0.99
   Fill rate: rootDepth × 0.5 (from cell water, only when transpiration fully met)
   Maintenance: waterStorage × 0.015/tick
   Draw: when waterFraction < 1, draw deficit from tank before scaling photosynthesis
+  Transpiration reduction: (storedWater/capacity) × 0.3 → up to 30% less water needed
+    Only active when tank has water — empty tank = no benefit
   Seedling provision: seedSizeVigor × waterStorage × 3.0 initial stored water
 ```
+
+The transpiration reduction is the key mechanic that makes waterStorage an active adaptation rather than just a passive buffer. Plants with full tanks need less water, creating a positive feedback loop: stored water → less demand → higher waterFraction → more photosynthesis. On non-arid terrains where tanks rarely fill (roots solve water needs cheaper), the reduction is negligible.
 
 ### Observed waterStorage evolution by terrain:
 | Terrain | wst direction | Reason |
 |---------|--------------|--------|
-| Soil | stable 0.34-0.40 | Moderate value; buffer for summer stress, low maintenance cost |
-| Hill | ↑ 0.49 | Water-scarce terrain; tank buffers seasonal drought |
-| Arid | ↑ 0.37-0.49 | Primary drought adaptation alongside deep roots |
-| Wetland | ↑ 0.35-0.41 | Water abundant, filling is cheap, buffer for winter |
+| Soil | stable ~0.36 | Tanks rarely full; transpiration reduction negligible |
+| Hill | stable ~0.35 | Same — expensive roots mean less surplus to fill tank |
+| Arid | ↑↑ 0.53-0.63 | Dry spells create fill/drain cycles; transpiration reduction is decisive |
+| Wetland | stable ~0.35 | Water abundant, tank benefit near zero |
 
-Water storage is universally viable — stable or rising on all terrains. On arid, it's the key drought adaptation (replaces the expected "large seed" strategy). On wetland, cheap filling makes even modest storage worthwhile.
+Water storage is strongly selected on arid terrain where periodic dry spells create boom/bust water availability. On other terrains it drifts neutrally — the transpiration reduction only helps when the tank is full, which requires surplus water that non-arid plants spend on growth instead.
 
 ---
 
@@ -354,10 +362,10 @@ Water storage is universally viable — stable or rising on all terrains. On ari
 | 4 | Seed Tradeoff | Birch 64%, Elm 36%, Oak extinct. Stable coexistence. | w: 0.82 stable, wst: 0.30→0.34 stable, sz: 0.52→0.46 slight ↓ |
 | 5 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
 | 6 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
-| 7 | Arid Specialist | Agave 95%, Saguaro 5%. Succulent rosette strategy: deep roots + big tank + many small seeds. | w: 0.81→0.25 ↓, wst: 0.29→0.49 ↑↑, sz: 0.50→0.28 ↓ |
+| 7 | Arid Specialist | Mesquite 71%, Agave 29%. Deep roots + large tank + many small seeds. Dry spells cause dramatic boom/bust. | w: 0.81→0.08-0.10 ↓↓, wst: 0.30→0.53-0.63 ↑↑↑, sz: 0.50→0.22-0.26 ↓ |
 | 8 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
 | 9 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
-| 10 | Terrain Isolated | All 4 survive. Shannon 1.36. Strong trait divergence by terrain. | See detail below |
+| 10 | Terrain Isolated | All 4 survive. Shannon 1.36. Strong trait divergence by terrain. wst diverges: arid 0.37-0.40, others ~0.35. | See detail below |
 | 11 | Seed Bank | High seeder 88%, sedge 12%. Pop oscillates 800-5600 seasonally on arid. | w: 0.12→0.04, wst: 0.38→0.37 stable, sz: 0.45→0.29 ↓ |
 | 12 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
 | 13 | Woodiness × Seed Bank | Herb 97%, woody collapsed to 3%. Woody species evolved down to w=0.22 to survive. | w: 0.20→0.21 (stable), 0.80→0.22 ↓↓↓ |
@@ -365,17 +373,17 @@ Water storage is universally viable — stable or rising on all terrains. On ari
 ### Experiment details
 
 #### 7: Arid Specialist
-Agave dominates (95%) with a succulent rosette strategy: deep roots (r: 0.55), large water tank (wst: 0.49), broad leaves (l: 0.49), low woodiness (w: 0.25), many small seeds (sz: 0.28). Water storage is the primary drought adaptation — plants store water when available and draw from the tank during dry spells. Seed mass drifts down because the r-strategy (many cheap seeds) outperforms K-strategy when waterStorage provides seedling survival via tank provisioning. Population healthy with seasonal oscillation, 4090 at tick 3000.
+Deep Root Mesquite dominates (71%) with succulent strategy: deep roots (r: 0.48), large water tank (wst: 0.63), low woodiness (w: 0.10), many small seeds (sz: 0.26). Arid dry spells (terrain-wide zero-recharge, 15-35 ticks) create dramatic boom/bust cycles — population swings from 5676 to 350 and back. Water storage with transpiration reduction is the primary drought adaptation: full tanks reduce water demand by up to 30%, enabling photosynthesis during dry spells. The transpiration benefit only activates when the tank has water, making it an arid-specific advantage (other terrains rarely fill tanks). Seed mass drifts down — r-strategy dominates when waterStorage provides seedling survival via tank provisioning.
 
-#### 10: Terrain Isolated (7000 ticks, all start w=0.5, sz=0.5, wst=0.5)
+#### 10: Terrain Isolated (5000 ticks, all start w=0.5, sz=0.5, wst=0.3)
 | Species | Terrain | Root | Height | Leaf | Woodiness | Seed Mass | Water Storage |
 |---------|---------|------|--------|------|-----------|-----------|---------------|
-| Alpha Fern | Hill | 0.83 | 0.31 | 0.26 | 0.04 ↓↓ | 0.24 ↓↓ | 0.49 ↑ |
-| Beta Spruce | Soil | 0.43 | 0.59 | 0.38 | 0.37 ↓ | 0.33 ↓ | 0.40 ↑ |
-| Gamma Willow | Wetland | 0.14 | 0.57 | 0.36 | 0.86 ↑↑ | 0.77 ↑↑ | 0.35 ↑ |
-| Delta Cactus | Arid | 0.52 | 0.37 | 0.18 | 0.04 ↓↓ | 0.21 ↓↓ | ~0.49 ↑ (est.) |
+| Alpha Fern | Hill | 0.50 | 0.32 | 0.22 | 0.04 ↓↓ | 0.14 ↓↓ | 0.35 stable |
+| Beta Spruce | Soil | 0.30 | 0.47 | 0.31 | 0.48 ↓ | 0.42 ↓ | 0.36 stable |
+| Gamma Willow | Wetland | 0.20 | 0.45 | 0.44 | 0.70 ↑↑ | 0.67 ↑↑ | 0.35 stable |
+| Delta Cactus | Arid | — | — | — | ↓↓ | ↓↓ | 0.37-0.40 ↑ |
 
-Water storage evolves upward on all terrains (highest on hill/arid where drought pressure is strongest). Seed mass diverges: up on wetland (large-seeded tree strategy), down on hill/arid (many cheap seeds). Wetland drives maximum woodiness + seed mass + moderate storage — the "tall canopy tree with big seeds" niche.
+Water storage now differentiates by terrain: neutral drift on hill/soil/wetland (~0.35), mild upward on arid (0.37-0.40). The small arid zone (640 cells, 8 rows) limits selective pressure — pure arid experiments show much stronger wst evolution (0.53-0.63). Seed mass diverges: up on wetland (large-seeded tree strategy), down on hill/arid (many cheap seeds).
 
 #### 11: Seed Bank
 On all-arid terrain, Seedbank Grass dominates with ultra-herbaceous strategy (w→0.04). Water storage holds steady at 0.37 (no longer collapses like pre-tuning). High seed investment (0.75) + small seeds (0.29) = maximum reproductive throughput. Broad leaves (0.58) maximize photosynthesis during brief wet windows.
@@ -387,6 +395,7 @@ On all-arid terrain, Seedbank Grass dominates with ultra-herbaceous strategy (w�
 ### Observations (not necessarily bugs)
 - **Seed mass evolves down on soil** (#1, #4): Pre-waterStorage, establishment delay created K-selection pressure that pushed sz upward on soil. With waterStorage providing an alternative seedling survival buffer, that pressure is weakened. Seed mass now only evolves upward on wetland. This may be acceptable — the tradeoff still functions, it just resolves differently.
 - **Woodiness on soil is lower than pre-waterStorage era** (#1): w reaches 0.28 vs previous 0.70. Plants split their maintenance budget between woodiness and waterStorage. Longer runs or light-competition scenarios may push woodiness higher.
+- **Arid dry spells cause dramatic population crashes**: Pop can swing from 5000+ to 350 in a single dry spell. This is ecologically realistic (desert boom/bust) but may look alarming in the UI.
 
 ### Experiments to re-run after any major mechanic change
 - #1 Monoculture Baseline (sanity check)

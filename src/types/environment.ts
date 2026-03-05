@@ -102,6 +102,7 @@ export interface Environment {
   seedMult: number;
   era: EraState;
   droughts: DroughtPatch[];
+  aridDrySpell: { ticksRemaining: number } | null;
   fires: FireEvent[];
   diseases: DiseaseEvent[];
   scorchedCells: Map<string, number>; // "x,y" -> ticks remaining

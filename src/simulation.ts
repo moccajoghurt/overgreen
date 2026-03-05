@@ -33,6 +33,12 @@ function phaseRechargeWater(world: World): void {
         }
       }
 
+      // Arid dry spell: zero recharge + mild evaporation for all arid cells
+      if (cell.terrainType === TerrainType.Arid && env.aridDrySpell) {
+        recharge = 0;
+        cell.waterLevel = Math.max(0, cell.waterLevel - SIM.ARID_DRY_SPELL_EVAP);
+      }
+
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
       if (cell.terrainType === TerrainType.Hill) {
@@ -112,7 +118,10 @@ function phaseCalculateLight(world: World): void {
 
 function absorbWater(plant: Plant, cell: Cell, world: World): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF;
+  const capacity = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
+  const tankFraction = capacity > 0.01 ? plant.storedWater / capacity : 0;
+  const transpirationReduction = tankFraction * SIM.WATER_STORAGE_TRANSPIRATION_REDUCTION;
+  const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF * (1 - transpirationReduction);
 
   // Surface absorption: full rootDepth, draws from cell water
   const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
@@ -161,7 +170,6 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
 
   // FILL: if transpiration fully met, absorb extra cell water into tank
   if (waterAbsorbed >= waterNeeded) {
-    const capacity = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
     const space = capacity - plant.storedWater;
     if (space > 0.01) {
       const fillRate = plant.rootDepth * SIM.WATER_STORAGE_FILL_RATE;
