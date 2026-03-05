@@ -13,6 +13,7 @@ import { experimentNutrientCycle } from './experiment-nutrient-cycle';
 import { experimentTerrainMosaic } from './experiment-terrain-mosaic';
 import { experimentTerrainIsolated } from './experiment-terrain-isolated';
 import { experimentSeedBank } from './experiment-seed-bank';
+import { experimentWoodinessEvolution } from './experiment-woodiness-evolution';
 
 export const SCENARIOS: Scenario[] = [
   experimentMonoculture,
@@ -29,4 +30,5 @@ export const SCENARIOS: Scenario[] = [
   experimentTerrainMosaic,
   experimentTerrainIsolated,
   experimentSeedBank,
+  experimentWoodinessEvolution,
 ];

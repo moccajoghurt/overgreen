@@ -300,6 +300,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 11 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
 | 12 | Terrain Isolated | All 4 species survive. Shannon 1.26. Each terrain drives distinct woodiness + growth strategy. | Hill 0.71↓, Soil 0.85↑, Wetland 0.92↑↑ |
 | 13 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
+| 14 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
 
 ### Experiment details
 
@@ -320,11 +321,13 @@ All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height
 | Gamma Willow | Wetland | 0.33→0.27 | 0.33→0.46 | 0.34→0.43 | 0.80→0.92 ↑↑ |
 | Delta Cactus | Arid | — | — | — | small band (~200 pop) |
 
+#### 14: Woodiness Evolution
+All 3 species survived but converged upward — no herbaceous niche emerged on flat soil. Herb (w:0.20→0.60) compensated with heavy roots (r:0.63) and leaves (l:0.42) but still lost population share. Shade advantage of higher woodiness dominates on flat soil. Acceptable: trees win open ground, harsher terrains push woodiness down.
+
 ### Open tests:
 
 | # | Scenario | Question | Setup |
 |---|----------|----------|-------|
-| 14 | Woodiness Evolution | Does woodiness diverge on flat soil? Do herbaceous/woody niches emerge? | Flat soil, 3+ species at w=0.2/0.5/0.8, identical growth genomes |
 | 15 | Woodiness × Terrain | Starting at w=0.5, does each terrain drive woodiness differently? | 4 terrain bands with rock barriers, all start w=0.5 |
 | 16 | Woodiness Coexistence | Can w=0.2 vs w=0.8 coexist on flat soil? | Flat soil, 2 species with balanced growth genomes |
 | 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy on arid? | Pure arid, same growth genome, w=0.2 vs w=0.8 |
