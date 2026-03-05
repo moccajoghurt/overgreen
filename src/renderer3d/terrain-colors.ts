@@ -142,17 +142,31 @@ export function updateTerrainColors(state: RendererState): void {
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
 
+      // ── Per-vertex grass blending (before snow/weather so overlays cover it) ──
+      // Look up corner grass fractions for this cell's 4 corners.
+      // Vertices: 0=TL, 1=BL, 2=TR, 3=BL(dup), 4=BR, 5=TR(dup)
+      const gTL = cornerGrass[row * cornerSize + col];
+      const gTR = cornerGrass[row * cornerSize + col + 1];
+      const gBL = cornerGrass[(row + 1) * cornerSize + col];
+      const gBR = cornerGrass[(row + 1) * cornerSize + col + 1];
+
       // Snow coverage — blend toward cold snow-white (snowCov pre-computed above loop)
+      let cellSnow = 0;
       if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
         let boost = 1.0;
         if (cell.terrainType === TerrainType.Rock) boost = 1.2;
         else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
         else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
-        const s = Math.min(1, snowCov * boost);
-        tmpColor.r = lerp(tmpColor.r, 0.82, s);
-        tmpColor.g = lerp(tmpColor.g, 0.85, s);
-        tmpColor.b = lerp(tmpColor.b, 0.92, s);
+        cellSnow = Math.min(1, snowCov * boost);
+        tmpColor.r = lerp(tmpColor.r, 0.82, cellSnow);
+        tmpColor.g = lerp(tmpColor.g, 0.85, cellSnow);
+        tmpColor.b = lerp(tmpColor.b, 0.92, cellSnow);
       }
+
+      // Snow-blended grass color: lerp grass ground color toward snow-white
+      const snowGrassR = lerp(grassR, 0.82, cellSnow);
+      const snowGrassG = lerp(grassG, 0.85, cellSnow);
+      const snowGrassB = lerp(grassB, 0.92, cellSnow);
 
       // Weather overlay
       const overlayVal = env.weatherOverlay[row * GRID + col];
@@ -201,37 +215,29 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.b = lerp(tmpColor.b, 0.12, blend);
       }
 
-      // ── Per-vertex grass blending ──
-      // Look up corner grass fractions for this cell's 4 corners.
-      // Vertices: 0=TL, 1=BL, 2=TR, 3=BL(dup), 4=BR, 5=TR(dup)
-      const gTL = cornerGrass[row * cornerSize + col];
-      const gTR = cornerGrass[row * cornerSize + col + 1];
-      const gBL = cornerGrass[(row + 1) * cornerSize + col];
-      const gBR = cornerGrass[(row + 1) * cornerSize + col + 1];
-
       const base = (row * GRID + col) * 18;
       const br = tmpColor.r, bg = tmpColor.g, bb = tmpColor.b;
 
       // vertex 0 — TL
-      arr[base]      = lerp(br, grassR, gTL);
-      arr[base + 1]  = lerp(bg, grassG, gTL);
-      arr[base + 2]  = lerp(bb, grassB, gTL);
+      arr[base]      = lerp(br, snowGrassR, gTL);
+      arr[base + 1]  = lerp(bg, snowGrassG, gTL);
+      arr[base + 2]  = lerp(bb, snowGrassB, gTL);
       // vertex 1 — BL
-      arr[base + 3]  = lerp(br, grassR, gBL);
-      arr[base + 4]  = lerp(bg, grassG, gBL);
-      arr[base + 5]  = lerp(bb, grassB, gBL);
+      arr[base + 3]  = lerp(br, snowGrassR, gBL);
+      arr[base + 4]  = lerp(bg, snowGrassG, gBL);
+      arr[base + 5]  = lerp(bb, snowGrassB, gBL);
       // vertex 2 — TR
-      arr[base + 6]  = lerp(br, grassR, gTR);
-      arr[base + 7]  = lerp(bg, grassG, gTR);
-      arr[base + 8]  = lerp(bb, grassB, gTR);
+      arr[base + 6]  = lerp(br, snowGrassR, gTR);
+      arr[base + 7]  = lerp(bg, snowGrassG, gTR);
+      arr[base + 8]  = lerp(bb, snowGrassB, gTR);
       // vertex 3 — BL (duplicate)
       arr[base + 9]  = arr[base + 3];
       arr[base + 10] = arr[base + 4];
       arr[base + 11] = arr[base + 5];
       // vertex 4 — BR
-      arr[base + 12] = lerp(br, grassR, gBR);
-      arr[base + 13] = lerp(bg, grassG, gBR);
-      arr[base + 14] = lerp(bb, grassB, gBR);
+      arr[base + 12] = lerp(br, snowGrassR, gBR);
+      arr[base + 13] = lerp(bg, snowGrassG, gBR);
+      arr[base + 14] = lerp(bb, snowGrassB, gBR);
       // vertex 5 — TR (duplicate)
       arr[base + 15] = arr[base + 6];
       arr[base + 16] = arr[base + 7];
