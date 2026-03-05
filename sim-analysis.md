@@ -276,7 +276,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 
   WEAK:
    13. Defense — undefended wins 65/35%, net negative on flat soil
-   15. Root competition — 6% drain is noise
+   14. Root competition — 6% drain is noise
 ```
 
 ---
@@ -290,27 +290,27 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 3 | Light Competition | Tall wins 71/29%. Shading is decisive advantage. | w: 0.78→0.85-0.89 ↑ |
 | 4 | Seed Tradeoff | High seed 74%, mid 26%, low extinct. Optimal seedInvestment ~0.65. | w: 0.78→0.87-0.92 ↑ |
 | 5 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
-| 7 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
-| 8 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
-| 9 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
-| 11 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
-| 12 | Terrain Isolated | All 4 survive. Shannon 1.29. Starting w=0.5, each terrain drives woodiness differently. | Hill 0.46↓, Soil 0.71↑, Wetland 0.91↑↑ |
-| 13 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
-| 14 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
-| 15 | Woodiness × Seed Bank | Herb 97%, woody collapsed to 3%. Woody species evolved down to w=0.22 to survive. | w: 0.20→0.21 (stable), 0.80→0.22 ↓↓↓ |
+| 6 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
+| 7 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
+| 8 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
+| 9 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
+| 10 | Terrain Isolated | All 4 survive. Shannon 1.29. Starting w=0.5, each terrain drives woodiness differently. | Hill 0.46↓, Soil 0.71↑, Wetland 0.91↑↑ |
+| 11 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
+| 12 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
+| 13 | Woodiness × Seed Bank | Herb 97%, woody collapsed to 3%. Woody species evolved down to w=0.22 to survive. | w: 0.20→0.21 (stable), 0.80→0.22 ↓↓↓ |
 
 ### Experiment details
 
-#### 7: Hill Specialist
+#### 6: Hill Specialist
 Deep Root Pine evolved w: 0.80→0.46 — dramatic shift toward herbaceous. Cheaper maintenance + faster growth is critical on resource-scarce hills. Root priority dominant (r: 0.64), rising defense (0.22).
 
-#### 8: Arid Specialist
+#### 7: Arid Specialist
 Broad Leaf Agave went herbaceous (w: 0.80→0.59) while growing deep roots (r: 0.57) and keeping large leaves (l: 0.49). Cheaper herbaceous costs + deep roots for water = best of both worlds. Mesquite stayed woody (w: 0.76) and lost.
 
-#### 9: Wetland Specialist
+#### 8: Wetland Specialist
 All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height bonus + cheap leaf maintenance + abundant water covers the higher woody costs. Being maximally woody is optimal here.
 
-#### 12: Terrain Isolated (5000 ticks, all start w=0.5)
+#### 10: Terrain Isolated (5000 ticks, all start w=0.5)
 | Species | Terrain | Root | Height | Leaf | Woodiness |
 |---------|---------|------|--------|------|-----------|
 | Alpha Fern | Hill | 0.33→0.54 | 0.33→0.28 | 0.34→0.20 | 0.50→0.46 ↓ |
@@ -318,8 +318,8 @@ All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height
 | Gamma Willow | Wetland | 0.33→0.25 | 0.33→0.46 | 0.34→0.37 | 0.50→0.91 ↑↑ |
 | Delta Cactus | Arid | — | — | — | small band (pop not shown separately) |
 
-#### 14: Woodiness Evolution
+#### 12: Woodiness Evolution
 All 3 species survived but converged upward — no herbaceous niche emerged on flat soil. Herb (w:0.20→0.60) compensated with heavy roots (r:0.63) and leaves (l:0.42) but still lost population share. Shade advantage of higher woodiness dominates on flat soil. Acceptable: trees win open ground, harsher terrains push woodiness down.
 
-#### 15: Woodiness × Seed Bank
+#### 13: Woodiness × Seed Bank
 Herb (w=0.2) dominates 97% on arid. Arid Tree (w=0.8) collapsed from 87 to 36, evolving *down* to w=0.22 — effectively becoming herbaceous to survive. Confirms arid strongly selects against woodiness. Low woodiness = cheaper seeds + cheaper maintenance = better seed bank recovery after drought crashes.
