@@ -16,9 +16,10 @@
                              │                    │                  │               │                      │
                              v                    v                  v               v                      v
                       absorb water          graze leaves       energy<=0?      seeds sprout          dead plants
-                      photosynthesize       move & breed       age>=max?       best-energy wins      return water
-                      pay maintenance       metabolize                                               return nutrients
+                      photosynthesize*      move & breed       age>=max?       best-energy wins      return water
+                      pay maintenance       metabolize                         vigor scaling         return nutrients
                       grow + seed                                                                    free cell
+                    * seedlings skip photosynthesis for first 5 ticks (establishment delay)
 ```
 
 ---
@@ -241,6 +242,52 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 
 ---
 
+## 13. SEED MASS (seedSize genome)
+
+Seed mass (seedSize: 0.01-0.99) controls the tradeoff between many small seeds vs few large seeds.
+
+### Cost curve (how many seeds):
+```
+  seedSizeMult = 0.3 + seedSize × 1.4    → range 0.3x to 1.7x
+  effectiveSeedCost = baseSeedCost × seedSizeMult
+  effectiveSeedEnergy = baseSeedEnergy × seedSizeMult
+  Small seeds (sz=0.05): cost 0.3x → ~3x more seeds per energy budget
+  Large seeds (sz=0.95): cost 1.7x → fewer but better-provisioned seeds
+```
+
+### Seedling vigor (how big seedlings start):
+```
+  seedSizeVigor = 0.2 + seedSize × 1.8    → range 0.2x to 2.0x
+  Seedling height/root/leaf = base seedling size × seedSizeVigor
+  Small seeds: tiny seedlings (0.2x base size)
+  Large seeds: double-sized seedlings (2.0x base size)
+```
+
+### Establishment delay:
+```
+  Seedlings cannot photosynthesize for first 5 ticks (ESTABLISHMENT_TICKS).
+  During establishment: zero income, full maintenance costs.
+  Large seedlings survive on reserves; tiny seedlings may starve.
+  Terrain maintenance multipliers make harsh terrain harder to establish on.
+```
+
+### Dispersal bonus:
+```
+  Small seeds disperse further: seedRange += (1 - seedSize) × 3
+```
+
+### Observed seed mass evolution by terrain:
+| Terrain | sz direction | Reason |
+|---------|-------------|--------|
+| Soil | ↑ 0.49→0.49 stable, or ↑ 0.69-0.74 | Vigor advantage on easy terrain; establishment cost manageable |
+| Wetland | ↑ 0.46→0.65 | Cheap establishment (low maint), vigor wins |
+| Hill | ↓ 0.42→0.21 | Expensive establishment; many cheap seeds hedge bets |
+| Arid | ↓ 0.37→0.22 | Plants go ultra-herbaceous (w→0.08), tiny maint makes establishment trivial |
+
+**Known limitation:** Arid should select for larger seeds (desert plants need reserves), but currently plants evolve toward minimum woodiness which makes establishment costs negligible. A water storage mechanic would create the missing drought-tolerance axis and naturally fix this.
+
+---
+
 ## MECHANICS RANKED BY IMPACT
 
 ```
@@ -255,6 +302,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
     6. Light & shadow competition
     7. Seasons (winter lethality)
     8. Reproduction / seedInvestment tradeoff
+    9. Seed mass / establishment delay (terrain-dependent seedling survival)
 
   MODERATE:
    10. Nutrient cycling
@@ -275,14 +323,14 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 1 | Monoculture Baseline | Single species survives. Pop 3500-4900. | w: 0.22→0.70 ↑ |
 | 2 | Water Competition | Leaf wins 64/36%. Shannon 0.65, stable coexistence. | w: 0.80→0.89-0.92 ↑ |
 | 3 | Light Competition | Tall wins 71/29%. Shading is decisive advantage. | w: 0.78→0.85-0.89 ↑ |
-| 4 | Seed Tradeoff | High seed 74%, mid 26%, low extinct. Optimal seedInvestment ~0.65. | w: 0.78→0.87-0.92 ↑ |
+| 4 | Seed Tradeoff | Mid 52%, high 48%, low extinct. Both evolve sz upward (0.69-0.74). Seed mass matters on soil. | w: 0.79→0.88-0.89 ↑, sz: 0.42→0.69-0.74 ↑ |
 | 5 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
 | 6 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
-| 7 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
+| 7 | Arid Specialist | Agave 83%, Saguaro 17%, Mesquite extinct. All go herbaceous + deep roots. sz drifts down. | w: 0.80→0.08-0.23 ↓↓, sz: 0.50→0.20-0.22 ↓ |
 | 8 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
 | 9 | Nutrient Cycle | Leaf fern 100%. Nutrient feedback healthy. Early bottleneck then exponential growth. | w: 0.76→0.86 ↑ |
-| 10 | Terrain Isolated | All 4 survive. Shannon 1.29. Starting w=0.5, each terrain drives woodiness differently. | Hill 0.46↓, Soil 0.71↑, Wetland 0.91↑↑ |
-| 11 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
+| 10 | Terrain Isolated | All 4 survive. Shannon 1.36. Seed mass diverges by terrain: up on wetland, down on hill. | w/sz: Hill 0.06/0.21↓, Soil 0.74/0.49, Wetland 0.53/0.65↑ |
+| 11 | Seed Bank | High seeder 100%. Pop declines then stabilizes ~1800. sz drifts down on arid. | w: 0.15→0.02, sz: 0.48→0.28 ↓ |
 | 12 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
 | 13 | Woodiness × Seed Bank | Herb 97%, woody collapsed to 3%. Woody species evolved down to w=0.22 to survive. | w: 0.20→0.21 (stable), 0.80→0.22 ↓↓↓ |
 
@@ -292,21 +340,44 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 Deep Root Pine evolved w: 0.80→0.46 — dramatic shift toward herbaceous. Cheaper maintenance + faster growth is critical on resource-scarce hills. Root priority dominant (r: 0.64), rising defense (0.22).
 
 #### 7: Arid Specialist
-Broad Leaf Agave went herbaceous (w: 0.80→0.59) while growing deep roots (r: 0.57) and keeping large leaves (l: 0.49). Cheaper herbaceous costs + deep roots for water = best of both worlds. Mesquite stayed woody (w: 0.76) and lost.
+All species evolved toward minimum woodiness (w: 0.80→0.08-0.23). Agave dominates with deep roots (r: 0.63) and large leaves (l: 0.50). Seed mass drifts down (sz: 0.50→0.22) — ultra-cheap herbaceous plants have trivial establishment costs, so small seeds work fine. Water storage mechanic needed to create drought-tolerance pressure for larger seeds.
 
 #### 8: Wetland Specialist
 All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height bonus + cheap leaf maintenance + abundant water covers the higher woody costs. Being maximally woody is optimal here.
 
-#### 10: Terrain Isolated (5000 ticks, all start w=0.5)
-| Species | Terrain | Root | Height | Leaf | Woodiness |
-|---------|---------|------|--------|------|-----------|
-| Alpha Fern | Hill | 0.33→0.54 | 0.33→0.28 | 0.34→0.20 | 0.50→0.46 ↓ |
-| Beta Spruce | Soil | 0.33→0.42 | 0.33→0.42 | 0.34→0.28 | 0.50→0.71 ↑ |
-| Gamma Willow | Wetland | 0.33→0.25 | 0.33→0.46 | 0.34→0.37 | 0.50→0.91 ↑↑ |
-| Delta Cactus | Arid | — | — | — | small band (pop not shown separately) |
+#### 10: Terrain Isolated (7000 ticks, all start w=0.5, sz=0.5)
+| Species | Terrain | Root | Height | Leaf | Woodiness | Seed Mass |
+|---------|---------|------|--------|------|-----------|-----------|
+| Alpha Fern | Hill | 0.33→0.65 | 0.33→0.21 | 0.34→0.30 | 0.50→0.06 ↓↓ | 0.50→0.21 ↓↓ |
+| Beta Spruce | Soil | 0.33→0.36 | 0.33→0.53 | 0.34→0.33 | 0.50→0.74 ↑ | 0.50→0.49 stable |
+| Gamma Willow | Wetland | 0.33→0.18 | 0.33→0.69 | 0.34→0.39 | 0.50→0.53 ↑ | 0.50→0.65 ↑ |
+| Delta Cactus | Arid | — | — | — | — | small band (~600 pop) |
+
+Seed mass diverges by terrain: wetland selects for large seeds (cheap establishment, vigor pays off), hill selects for small seeds (expensive establishment, quantity hedges).
 
 #### 12: Woodiness Evolution
 All 3 species survived but converged upward — no herbaceous niche emerged on flat soil. Herb (w:0.20→0.60) compensated with heavy roots (r:0.63) and leaves (l:0.42) but still lost population share. Shade advantage of higher woodiness dominates on flat soil. Acceptable: trees win open ground, harsher terrains push woodiness down.
 
 #### 13: Woodiness × Seed Bank
 Herb (w=0.2) dominates 97% on arid. Arid Tree (w=0.8) collapsed from 87 to 36, evolving *down* to w=0.22 — effectively becoming herbaceous to survive. Confirms arid strongly selects against woodiness. Low woodiness = cheaper seeds + cheaper maintenance = better seed bank recovery after drought crashes.
+
+#### 4: Seed Tradeoff (with seed mass)
+Both surviving species evolved seed mass upward on flat soil (Elm sz: 0.42→0.69, Birch sz: 0.47→0.74). Establishment delay creates genuine K-selection pressure — larger seeds produce bigger seedlings that survive the 5-tick no-photosynthesis window. Low Seed Oak extinct by tick 1000 (seedInvestment too low).
+
+---
+
+## KNOWN ISSUES & PENDING WORK
+
+### Unrealistic results (need fixing)
+- **Seed mass on arid/hill evolves down** (#7, #10, #11): Should evolve UP (desert plants have large seeds with reserves). Cause: ultra-low woodiness makes establishment trivial. Blocked on: water storage mechanic.
+- **Arid woodiness collapses to near-zero** (#7): All arid species evolve w→0.02-0.08. Real deserts have woody shrubs and succulents, not just grasses. Blocked on: water storage mechanic (gives woody plants a drought-tolerance advantage).
+
+### Experiments to re-run after water storage is added
+- #7 Arid Specialist — expect sz to evolve upward, woodiness to stabilize higher
+- #10 Terrain Isolated — expect arid seed mass to rise, Delta Cactus to be viable
+- #11 Seed Bank — expect sz to stabilize or rise on arid
+
+### Experiments to re-run after any major mechanic change
+- #1 Monoculture Baseline (sanity check)
+- #4 Seed Tradeoff (seed mass health)
+- #10 Terrain Isolated (terrain differentiation health)

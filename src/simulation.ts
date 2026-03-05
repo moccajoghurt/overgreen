@@ -342,8 +342,10 @@ function phaseUpdatePlants(world: World): void {
     }
     plant.isDiseased = isDiseased;
 
-    const waterFraction = absorbWater(plant, cell, world);
-    const energyProduced = photosynthesize(plant, cell, waterFraction, isDiseased);
+    // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
+    const establishing = plant.age < SIM.ESTABLISHMENT_TICKS;
+    const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
+    const energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
     const maintenance = calculateMaintenance(plant, world, isDiseased);
 
     plant.lastEnergyProduced = energyProduced;
