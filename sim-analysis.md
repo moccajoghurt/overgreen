@@ -301,6 +301,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 12 | Terrain Isolated | All 4 survive. Shannon 1.29. Starting w=0.5, each terrain drives woodiness differently. | Hill 0.46↓, Soil 0.71↑, Wetland 0.91↑↑ |
 | 13 | Seed Bank | High seeder 86%, low seeder 14%. Both survive. Boom/bust dynamics on arid. | w: 0.15→0.22 (stays low) |
 | 14 | Woodiness Evolution | All 3 survive (Shannon 0.99). No niche divergence — all converge upward. Shade advantage dominates. | w: 0.20→0.60, 0.50→0.77, 0.80→0.84 |
+| 15 | Woodiness × Seed Bank | Herb 97%, woody collapsed to 3%. Woody species evolved down to w=0.22 to survive. | w: 0.20→0.21 (stable), 0.80→0.22 ↓↓↓ |
 
 ### Experiment details
 
@@ -324,8 +325,5 @@ All species evolved toward maximum woodiness (0.93-0.97). Wetland's 1.5× height
 #### 14: Woodiness Evolution
 All 3 species survived but converged upward — no herbaceous niche emerged on flat soil. Herb (w:0.20→0.60) compensated with heavy roots (r:0.63) and leaves (l:0.42) but still lost population share. Shade advantage of higher woodiness dominates on flat soil. Acceptable: trees win open ground, harsher terrains push woodiness down.
 
-### Open tests:
-
-| # | Scenario | Question | Setup |
-|---|----------|----------|-------|
-| 17 | Woodiness × Seed Bank | Does woodiness affect seed bank strategy on arid? | Pure arid, same growth genome, w=0.2 vs w=0.8 |
+#### 15: Woodiness × Seed Bank
+Herb (w=0.2) dominates 97% on arid. Arid Tree (w=0.8) collapsed from 87 to 36, evolving *down* to w=0.22 — effectively becoming herbaceous to survive. Confirms arid strongly selects against woodiness. Low woodiness = cheaper seeds + cheaper maintenance = better seed bank recovery after drought crashes.
