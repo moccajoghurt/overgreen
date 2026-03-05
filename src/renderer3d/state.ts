@@ -244,7 +244,7 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
     stemCount = Math.min(5, stemCount + Math.round(s * 2));
     forkFrac = forkFrac + (0.05 - forkFrac) * s; // pull toward ground-level fork
     trunkH *= 1 - s * 0.45; // shorter
-    trunkThickness *= 1 - s * 0.40; // thinner per stem
+    trunkThickness *= 1 - s * 0.75; // thin wispy canes
     canopyX *= 1 + s * 0.35; // wider
     canopyY *= 1 - s * 0.30; // flatter
     trunkLean += s * 0.04; // slight organic lean
