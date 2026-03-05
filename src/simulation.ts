@@ -151,6 +151,26 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
     }
   }
 
+  // DRAW: if transpiration not fully met, draw from stored water
+  if (waterAbsorbed < waterNeeded && plant.storedWater > 0) {
+    const deficit = waterNeeded - waterAbsorbed;
+    const drawn = Math.min(deficit, plant.storedWater);
+    plant.storedWater -= drawn;
+    waterAbsorbed += drawn;
+  }
+
+  // FILL: if transpiration fully met, absorb extra cell water into tank
+  if (waterAbsorbed >= waterNeeded) {
+    const capacity = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
+    const space = capacity - plant.storedWater;
+    if (space > 0.01) {
+      const fillRate = plant.rootDepth * SIM.WATER_STORAGE_FILL_RATE;
+      const filled = Math.min(space, fillRate, cell.waterLevel);
+      cell.waterLevel -= filled;
+      plant.storedWater += filled;
+    }
+  }
+
   plant.lastWaterAbsorbed = waterAbsorbed;
   return waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
 }
@@ -215,7 +235,8 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     + plant.height * mHeight * heightMult
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
-    + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE;
+    + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
+    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE;
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
   return maintenance;
 }
@@ -350,7 +371,15 @@ function phaseUpdatePlants(world: World): void {
 
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
-    plant.energy += energyProduced - maintenance;
+
+    // Establishing seedlings can offset maintenance with stored water
+    if (establishing && plant.storedWater > 0) {
+      const offset = Math.min(maintenance, plant.storedWater);
+      plant.storedWater -= offset;
+      plant.energy += energyProduced - (maintenance - offset);
+    } else {
+      plant.energy += energyProduced - maintenance;
+    }
 
     // Energy-based leaf drop: plant sheds leaves when losing energy in harsh conditions
     if (energyProduced < maintenance && world.environment.leafMaintenanceMult > 1.0) {
@@ -455,6 +484,7 @@ function phaseGermination(world: World): void {
         genome: winner.genome,
         lastLightReceived: 0, lastWaterAbsorbed: 0,
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
+        storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         generation: winner.generation, parentId: null, offspringCount: 0,
       };
       world.plants.set(childId, child);

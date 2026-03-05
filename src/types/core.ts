@@ -24,6 +24,7 @@ export interface Genome {
   seedSize: number;      // 0.01-0.99 — small (many cheap) to large (few expensive) seeds
   defense: number;       // 0.01-0.99 — resistance to herbivore grazing
   woodiness: number;     // 0.01-0.99 — herbaceous (low) to woody/tree-like (high)
+  waterStorage: number;  // 0.01-0.99 — internal water tank capacity
 }
 
 export interface Plant {
@@ -44,6 +45,7 @@ export interface Plant {
   lastEnergyProduced: number;
   lastMaintenanceCost: number;
   isDiseased: boolean;
+  storedWater: number;
   generation: number;
   parentId: number | null;
   offspringCount: number;

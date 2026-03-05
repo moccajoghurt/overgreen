@@ -30,6 +30,7 @@ export const experimentMonoculture: Scenario = (() => {
           seedSize: 0.5,
           defense: 0.0,
           woodiness: 0.15,
+      waterStorage: 0.3,
         },
         color: { r: 0.3, g: 0.7, b: 0.3 },
         placements: scatter(35, 45, 35, 45, 20),

@@ -33,7 +33,8 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const dsz = a.seedSize - b.seedSize;
   const dd = a.defense - b.defense;
   const dw = a.woodiness - b.woodiness;
-  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw);
+  const dwst = a.waterStorage - b.waterStorage;
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw + dwst * dwst);
 }
 
 export function crossoverGenome(a: Genome, b: Genome): Genome {
@@ -46,6 +47,7 @@ export function crossoverGenome(a: Genome, b: Genome): Genome {
     seedSize: pick(a.seedSize, b.seedSize),
     defense: pick(a.defense, b.defense),
     woodiness: pick(a.woodiness, b.woodiness),
+    waterStorage: pick(a.waterStorage, b.waterStorage),
   };
 }
 
@@ -58,6 +60,7 @@ export function randomGenome(): Genome {
     seedSize: 0.1 + Math.random() * 0.8,
     defense: 0.1 + Math.random() * 0.8,
     woodiness: 0.1 + Math.random() * 0.8,
+    waterStorage: 0.1 + Math.random() * 0.8,
   };
 }
 
@@ -70,7 +73,7 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
     leafArea: pc.seedlingLeaf,
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
-    lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
+    lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false, storedWater: 0,
     generation: 0, parentId: null, offspringCount: 0,
   };
 }
@@ -80,7 +83,7 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   const clamp = (val: number) => Math.max(0.01, Math.min(0.99, val));
   const keys: (keyof Genome)[] = [
     'rootPriority', 'heightPriority', 'leafSize',
-    'seedInvestment', 'seedSize', 'defense', 'woodiness',
+    'seedInvestment', 'seedSize', 'defense', 'woodiness', 'waterStorage',
   ];
   // Pick 1-2 genes to mutate (like real point mutations)
   const count = Math.random() < 0.5 ? 1 : 2;
