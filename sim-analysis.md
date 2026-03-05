@@ -130,18 +130,6 @@ Nutrients amplify energy but don't hard-gate like water. Decomposition creates l
   └──────────┴───────┴────────┴──────┘
 ```
 
-### Seed fitness weights:
-```
-  ┌──────────┬───────┬────────┬──────┐
-  │ Terrain  │ Root  │ Height │ Leaf │
-  ├──────────┼───────┼────────┼──────┤
-  │ Hill     │ -0.8  │ -0.5   │ +0.3 │
-  │ Wetland  │ -0.8  │ +0.25  │ +0.4 │
-  │ Arid     │ +0.6  │ -0.4   │ -0.8 │
-  └──────────┴───────┴────────┴──────┘
-  fitness = 1.0 + (root×wR + height×wH + leaf×wL), capped [0, 2.0]
-```
-
 ---
 
 ## 6. GROWTH ALLOCATION & CAPS
@@ -267,7 +255,6 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
     6. Light & shadow competition
     7. Seasons (winter lethality)
     8. Reproduction / seedInvestment tradeoff
-    9. Terrain seed fitness
 
   MODERATE:
    10. Nutrient cycling

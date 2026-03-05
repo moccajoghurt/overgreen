@@ -440,14 +440,15 @@ function phaseGermination(world: World): void {
       if (count <= 1) world.seedPopulations.delete(winner.speciesId);
       else world.seedPopulations.set(winner.speciesId, count - 1);
 
-      // Create plant from seed
+      // Create plant from seed — large seeds produce larger seedlings
       const wpc = getPlantConstants(winner.genome.woodiness);
+      const seedSizeVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
 
       const childId = world.nextPlantId++;
       const child: Plant = {
         id: childId, speciesId: winner.speciesId,
         x, y,
-        height: wpc.seedlingHeight, rootDepth: wpc.seedlingRoot, leafArea: wpc.seedlingLeaf,
+        height: wpc.seedlingHeight * seedSizeVigor, rootDepth: wpc.seedlingRoot * seedSizeVigor, leafArea: wpc.seedlingLeaf * seedSizeVigor,
         energy: winner.energy, age: 0, alive: true,
         genome: winner.genome,
         lastLightReceived: 0, lastWaterAbsorbed: 0,
