@@ -108,8 +108,7 @@ export interface RendererState {
   branches: THREE.InstancedMesh;
 
   // Grass meshes
-  grassBlades: THREE.InstancedMesh;
-  grassBases: THREE.InstancedMesh;
+  grassTufts: THREE.InstancedMesh;
 
   // Succulent meshes
   succulentBodies: THREE.InstancedMesh;
@@ -294,28 +293,16 @@ export function computeGrassSilhouette(height: number, rootDepth: number, leafAr
   const leafRatio = leafArea / GRASS.MAX_LEAF_AREA;
   const rootRatio = rootDepth / GRASS.MAX_ROOT_DEPTH;
 
-  // Blade height from plant height + heightPriority
-  const bladeH = Math.max(0.1, height * (0.4 + genome.heightPriority * 0.3));
+  // Tuft height from plant height + heightPriority
+  const tuftH = Math.max(0.2, height * (0.5 + genome.heightPriority * 0.3));
 
-  // Blade count: 3-8 driven by leafSize
-  let bladeCount = Math.max(3, Math.min(8, Math.round(3 + leafRatio * 5)));
+  // Tuft width — covers most of the cell (cell = 1 unit)
+  let tuftW = Math.max(0.55, 0.65 + leafRatio * 0.2 + rootRatio * 0.1);
 
-  // How far blades splay outward
-  let spread = Math.max(0.1, 0.15 + leafRatio * 0.25 + rootRatio * 0.1);
+  // waterStorage → wider, fleshier tuft
+  tuftW = Math.min(1.0, tuftW * (1 + genome.waterStorage * 0.3));
 
-  // Blade width from leafSize
-  let bladeWidth = Math.max(0.04, (0.06 + genome.leafSize * 0.06) * 1.35);
-
-  // Ground tuft size
-  let baseSize = Math.max(0.1, 0.15 + rootRatio * 0.15 + leafRatio * 0.1);
-
-  // waterStorage → fleshy succulent grass (agave-like)
-  bladeWidth *= 1 + genome.waterStorage * 1.2;
-  bladeCount = Math.max(3, bladeCount - Math.round(genome.waterStorage * 2));
-  spread *= 1 + genome.waterStorage * 0.4;
-  baseSize *= 1 + genome.waterStorage * 0.8;
-
-  return { bladeH, bladeCount, spread, bladeWidth, baseSize };
+  return { height: tuftH, width: tuftW };
 }
 
 export function computeSeasonalFoliageFactor(env: { season: Season; seasonProgress: number }): number {

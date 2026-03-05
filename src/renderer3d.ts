@@ -52,8 +52,7 @@ export function createRenderer3D(
 
   // ── Grass ──
   const grass = createGrassMeshes();
-  scene.add(grass.grassBlades);
-  scene.add(grass.grassBases);
+  scene.add(grass.grassTufts);
 
   // ── Succulents ──
   const succulents = createSucculentMeshes();
@@ -141,8 +140,7 @@ export function createRenderer3D(
     trunks: plants.trunks,
     canopies: plants.canopies,
     branches: plants.branches,
-    grassBlades: grass.grassBlades,
-    grassBases: grass.grassBases,
+    grassTufts: grass.grassTufts,
     succulentBodies: succulents.succulentBodies,
     seeds: plants.seeds,
     prevSnapshots: new Map(),

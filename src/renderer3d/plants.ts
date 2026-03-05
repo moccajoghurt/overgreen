@@ -5,7 +5,7 @@ import {
   computeSilhouette, computeGrassSilhouette, computeSucculence, computeSucculentSilhouette,
   computeSeasonalFoliageFactor, easeOutCubic, lerp,
 } from './state';
-import { MAX_GRASS_BLADES } from './setup';
+import { MAX_GRASS_TUFTS } from './setup';
 import {
   _clr, _season,
   naturalCanopyColor, naturalTrunkColor, naturalGrassColor,
@@ -13,11 +13,11 @@ import {
   seasonalGrassColor, seasonalCanopyColor, seasonalSucculentColor, getPlantColors,
 } from './plant-colors';
 import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
-import { writeGrassInstances } from './grass';
+import { writeGrassInstance } from './grass';
 import { writeSucculentBody } from './succulents';
 
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, branches, grassBlades, grassBases, succulentBodies,
+  const { world, trunks, canopies, branches, grassTufts, succulentBodies,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   // Skip full rebuild if no tick occurred and no animations are active
@@ -42,10 +42,8 @@ export function updatePlants(state: RendererState): void {
   const canopyClr = canopies.instanceColor!.array as Float32Array;
   const brMtx = branches.instanceMatrix.array as Float32Array;
   const brClr = branches.instanceColor!.array as Float32Array;
-  const gbMtx = grassBlades.instanceMatrix.array as Float32Array;
-  const gbClr = grassBlades.instanceColor!.array as Float32Array;
-  const baseMtx = grassBases.instanceMatrix.array as Float32Array;
-  const baseClr = grassBases.instanceColor!.array as Float32Array;
+  const gtMtx = grassTufts.instanceMatrix.array as Float32Array;
+  const gtClr = grassTufts.instanceColor!.array as Float32Array;
   const bodyMtx = succulentBodies.instanceMatrix.array as Float32Array;
   const bodyClr = succulentBodies.instanceColor!.array as Float32Array;
 
@@ -119,8 +117,7 @@ export function updatePlants(state: RendererState): void {
   let idx = 0;
   let branchIdx = 0;
   let canopyIdx = 0;
-  let grassBladeIdx = 0;
-  let grassBaseIdx = 0;
+  let grassTuftIdx = 0;
   let bodyIdx = 0;
 
   for (const plant of world.plants.values()) {
@@ -181,11 +178,9 @@ export function updatePlants(state: RendererState): void {
         }
       }
 
-      const result = writeGrassInstances(state, grassBladeIdx, grassBaseIdx, plant.id,
+      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, plant.id,
         wx, wz, baseY, gsil, cr, cg, cb, growScale,
-        gbMtx, gbClr, baseMtx, baseClr);
-      grassBladeIdx += result.bladeCount;
-      grassBaseIdx += result.baseCount;
+        gtMtx, gtClr);
     } else if (isSucculent) {
       // ── Succulent rendering — single body per plant ──
       const ssil = computeSucculentSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome, succulence);
@@ -294,7 +289,7 @@ export function updatePlants(state: RendererState): void {
 
     if (dp.woodiness < 0.4) {
       // Dying grass: shrink + brown out (no tilt)
-      if (grassBladeIdx >= MAX_GRASS_BLADES) continue;
+      if (grassTuftIdx >= MAX_GRASS_TUFTS) continue;
       const gsil = computeGrassSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
 
       naturalGrassColor(dp.genome, _clr);
@@ -313,11 +308,9 @@ export function updatePlants(state: RendererState): void {
       const cg = _season.cg * (1 - p) + 0.30 * p;
       const cb = _season.cb * (1 - p) + 0.10 * p;
 
-      const result = writeGrassInstances(state, grassBladeIdx, grassBaseIdx, id,
+      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, id,
         wx, wz, baseY, gsil, cr, cg, cb, shrink,
-        gbMtx, gbClr, baseMtx, baseClr);
-      grassBladeIdx += result.bladeCount;
-      grassBaseIdx += result.baseCount;
+        gtMtx, gtClr);
     } else {
       const dySucculence = computeSucculence(dp.genome);
       const dyIsSucculent = dySucculence >= 0.45;
@@ -418,18 +411,16 @@ export function updatePlants(state: RendererState): void {
 
     if (bp.woodiness < 0.4) {
       // Burning grass: quick flash-burn with orange-yellow
-      if (grassBladeIdx >= MAX_GRASS_BLADES) continue;
+      if (grassTuftIdx >= MAX_GRASS_TUFTS) continue;
       const gsil = computeGrassSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
       const burnShrink = 1 - t * 0.5;
       const cr = lerp(1.0, 0.3, t) * (0.8 + flicker * 0.2);
       const cg = lerp(0.7, 0.08, t) * (0.7 + flicker * 0.3);
       const cb = lerp(0.15, 0.02, t);
 
-      const result = writeGrassInstances(state, grassBladeIdx, grassBaseIdx, id,
+      grassTuftIdx += writeGrassInstance(state, grassTuftIdx, id,
         wx, wz, baseY, gsil, cr, cg, cb, burnShrink,
-        gbMtx, gbClr, baseMtx, baseClr);
-      grassBladeIdx += result.bladeCount;
-      grassBaseIdx += result.baseCount;
+        gtMtx, gtClr);
     } else {
       const bnSucculence = computeSucculence(bp.genome);
       const bnIsSucculent = bnSucculence >= 0.45;
@@ -479,8 +470,7 @@ export function updatePlants(state: RendererState): void {
   trunks.count = idx;
   canopies.count = canopyIdx;
   branches.count = branchIdx;
-  grassBlades.count = grassBladeIdx;
-  grassBases.count = grassBaseIdx;
+  grassTufts.count = grassTuftIdx;
   succulentBodies.count = bodyIdx;
   trunks.instanceMatrix.needsUpdate = true;
   trunks.instanceColor!.needsUpdate = true;
@@ -492,13 +482,9 @@ export function updatePlants(state: RendererState): void {
     branches.instanceMatrix.needsUpdate = true;
     branches.instanceColor!.needsUpdate = true;
   }
-  if (grassBladeIdx > 0) {
-    grassBlades.instanceMatrix.needsUpdate = true;
-    grassBlades.instanceColor!.needsUpdate = true;
-  }
-  if (grassBaseIdx > 0) {
-    grassBases.instanceMatrix.needsUpdate = true;
-    grassBases.instanceColor!.needsUpdate = true;
+  if (grassTuftIdx > 0) {
+    grassTufts.instanceMatrix.needsUpdate = true;
+    grassTufts.instanceColor!.needsUpdate = true;
   }
   if (bodyIdx > 0) {
     succulentBodies.instanceMatrix.needsUpdate = true;

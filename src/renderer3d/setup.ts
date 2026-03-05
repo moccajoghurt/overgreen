@@ -185,37 +185,60 @@ function createInstancedMesh(
 
 // ── Grass meshes ──
 
-export const MAX_GRASS_BLADES = MAX_INSTANCES * 8; // up to 8 blades per plant
-export const MAX_GRASS_BASES = MAX_INSTANCES;
+export const MAX_GRASS_TUFTS = MAX_INSTANCES;
 
 export interface GrassMeshes {
-  grassBlades: THREE.InstancedMesh;
-  grassBases: THREE.InstancedMesh;
+  grassTufts: THREE.InstancedMesh;
 }
 
-function createGrassBladeGeometry(): THREE.BufferGeometry {
-  // Tapered quad strip: 4 segments, wide at base, pointed at tip, slight outward curve
-  const segments = 4;
+function createGrassTuftGeometry(): THREE.BufferGeometry {
+  // Cross-plane "star": 3 vertical planes at 60° intervals, each with a
+  // grass-blade silhouette (jagged peaks). Looks full from any viewing angle.
+  // One instance per grass plant — far cheaper than per-blade instancing.
   const vertices: number[] = [];
   const normals: number[] = [];
   const indices: number[] = [];
 
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const width = 0.5 * (1 - t * t); // tapers to point
-    const y = t;
-    // Slight outward curve
-    const z = Math.sin(t * Math.PI * 0.3) * 0.15;
+  const PLANES = 3;
+  const HALF_W = 0.5;
 
-    vertices.push(-width, y, z); // left
-    vertices.push(width, y, z);  // right
-    normals.push(0, 0, 1, 0, 0, 1);
-  }
+  // Top silhouette: valley, peak, valley, peak, ... valley (5 blade tips)
+  // Edge valleys at 0 so the silhouette fades out naturally at the edges
+  const topHeights = [0.0, 0.70, 0.10, 0.88, 0.13, 1.0, 0.13, 0.82, 0.10, 0.65, 0.0];
+  const topN = topHeights.length;
 
-  for (let i = 0; i < segments; i++) {
-    const base = i * 2;
-    indices.push(base, base + 2, base + 1);
-    indices.push(base + 1, base + 2, base + 3);
+  for (let p = 0; p < PLANES; p++) {
+    const angle = (p / PLANES) * Math.PI;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const nx = -sin, nz = cos; // normal perpendicular to plane
+
+    const vBase = vertices.length / 3;
+
+    // For each silhouette point, emit a bottom vertex (y=0) and a top vertex
+    for (let i = 0; i < topN; i++) {
+      const t = i / (topN - 1);
+      const localX = (t - 0.5) * 2 * HALF_W;
+      const wx = localX * cos;
+      const wz = localX * sin;
+
+      // Bottom vertex
+      vertices.push(wx, 0, wz);
+      normals.push(nx, 0, nz);
+      // Top vertex
+      vertices.push(wx, topHeights[i], wz);
+      normals.push(nx, 0, nz);
+    }
+
+    // Quad-strip triangulation between bottom/top rows
+    for (let i = 0; i < topN - 1; i++) {
+      const bl = vBase + i * 2;
+      const tl = bl + 1;
+      const br = vBase + (i + 1) * 2;
+      const tr = br + 1;
+      indices.push(bl, br, tl);
+      indices.push(tl, br, tr);
+    }
   }
 
   const geo = new THREE.BufferGeometry();
@@ -226,20 +249,17 @@ function createGrassBladeGeometry(): THREE.BufferGeometry {
 }
 
 export function createGrassMeshes(): GrassMeshes {
-  const bladeGeo = createGrassBladeGeometry();
-  const grassBlades = createInstancedMesh(bladeGeo, MAX_GRASS_BLADES);
-
-  // Flattened sphere for ground tuft
-  const baseGeo = new THREE.SphereGeometry(0.5, 6, 4);
-  // Flatten it
-  const pos = baseGeo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, pos.getY(i) * 0.3);
-  }
-  baseGeo.computeVertexNormals();
-  const grassBases = createInstancedMesh(baseGeo, MAX_GRASS_BASES);
-
-  return { grassBlades, grassBases };
+  const tuftGeo = createGrassTuftGeometry();
+  const mat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+  const grassTufts = new THREE.InstancedMesh(tuftGeo, mat, MAX_GRASS_TUFTS);
+  grassTufts.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  grassTufts.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_GRASS_TUFTS * 3), 3,
+  );
+  grassTufts.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  grassTufts.count = 0;
+  grassTufts.frustumCulled = false;
+  return { grassTufts };
 }
 
 // ── Succulent meshes ──
