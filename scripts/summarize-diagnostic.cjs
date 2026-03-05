@@ -114,7 +114,7 @@ for (const tick of keyTicks) {
   for (const sp of snap.topSpecies.slice(0, 3)) {
     const g = sp.avgGenome;
     const terrain = Object.entries(sp.terrain).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ');
-    p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count} e=${sp.avgEnergy.toFixed(2)} [r:${g.root.toFixed(2)} h:${g.height.toFixed(2)} l:${g.leaf.toFixed(2)} s:${g.seed.toFixed(2)} a:${g.allelo.toFixed(2)} d:${g.def.toFixed(2)}] {${terrain}}`);
+    p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count} e=${sp.avgEnergy.toFixed(2)} [r:${g.root.toFixed(2)} h:${g.height.toFixed(2)} l:${g.leaf.toFixed(2)} s:${g.seed.toFixed(2)} a:${g.allelo.toFixed(2)} d:${g.def.toFixed(2)} w:${(g.wood ?? 0).toFixed(2)}] {${terrain}}`);
   }
   p();
 }
