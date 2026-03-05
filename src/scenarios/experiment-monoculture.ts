@@ -27,7 +27,6 @@ export const experimentMonoculture: Scenario = (() => {
           heightPriority: 0.5,
           leafSize: 0.5,
           seedInvestment: 0.5,
-          allelopathy: 0.0,
           defense: 0.0,
           woodiness: 0.15,
         },

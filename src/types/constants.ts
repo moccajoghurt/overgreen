@@ -115,10 +115,6 @@ export const SIM = {
   ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress
   ARID_MAINT_LEAF_MULT: 3.0,     // transpiration water loss
 
-  // Allelopathy
-  ALLELOPATHY_DAMAGE_RATE: 0.15,
-  ALLELOPATHY_MAINTENANCE_RATE: 0.06,
-
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,
   DEFENSE_HERBIVORE_DAMAGE: 0.3,

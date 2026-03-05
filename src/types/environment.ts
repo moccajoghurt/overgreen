@@ -82,7 +82,7 @@ export interface FireEvent {
 }
 
 export interface DiseaseEvent {
-  targetGenome: { rootPriority: number; heightPriority: number; leafSize: number; seedInvestment: number; allelopathy: number; defense: number; woodiness: number };
+  targetGenome: { rootPriority: number; heightPriority: number; leafSize: number; seedInvestment: number; defense: number; woodiness: number };
   cells: Map<string, number>; // "x,y" -> ticks remaining per cell
   ticksRemaining: number;
   originX: number;

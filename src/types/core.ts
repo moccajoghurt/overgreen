@@ -21,7 +21,6 @@ export interface Genome {
   heightPriority: number;
   leafSize: number;
   seedInvestment: number;
-  allelopathy: number;   // 0.01-0.99 — chemical suppression of neighbors
   defense: number;       // 0.01-0.99 — resistance to herbivore grazing
   woodiness: number;     // 0.01-0.99 — herbaceous (low) to woody/tree-like (high)
 }

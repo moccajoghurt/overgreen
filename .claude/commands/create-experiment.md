@@ -1,6 +1,6 @@
 Create a scenario file for a simulation experiment.
 
-$ARGUMENTS should describe what to test (e.g., "monoculture carrying capacity", "tree vs grass competition on hills", "high allelopathy impact"). If empty, choose something interesting based on recent tuning changes or known issues.
+$ARGUMENTS should describe what to test (e.g., "monoculture carrying capacity", "tree vs grass competition on hills", "defense vs undefended"). If empty, choose something interesting based on recent tuning changes or known issues.
 
 ## Steps
 1. Create `src/scenarios/experiment-<name>.ts` following the template below.
@@ -34,7 +34,6 @@ export const experimentName: Scenario = (() => {
           heightPriority: 0.5,
           leafSize: 0.5,
           seedInvestment: 0.5,
-          allelopathy: 0.0,
           defense: 0.0,
           woodiness: 0.8, // 0.01-0.99: low = herbaceous/grass, high = woody/tree
         },

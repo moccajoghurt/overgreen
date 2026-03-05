@@ -54,7 +54,7 @@
 ### Maintenance:
 ```
   cost = base + height×perHeight + rootDepth×perRoot + effectiveLeaf×perLeaf
-       + allelopathy×0.06 + defense×0.05
+       + defense×0.05
   (terrain multipliers applied per-trait, see Section 5)
 ```
 
@@ -241,9 +241,7 @@ Long-term shifts (2500-5000 ticks) multiplying existing mechanics. Population-re
 
 ---
 
-## 11. ALLELOPATHY & DEFENSE
-
-**Allelopathy:** damage = strength × 0.15/neighbor/tick, cost = 0.06/tick. Strong in dense areas, self-defeating (kills neighbors → removes benefit).
+## 11. DEFENSE
 
 **Defense:** Reduces grazing by up to 70%, cost = 0.05/tick. Value depends entirely on herbivore pressure.
 
@@ -277,8 +275,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
    12. Seed bank dynamics
 
   WEAK:
-   13. Allelopathy — passive wins 72/28%, trait evolves away
-   14. Defense — undefended wins 65/35%, net negative on flat soil
+   13. Defense — undefended wins 65/35%, net negative on flat soil
    15. Root competition — 6% drain is noise
 ```
 
@@ -292,8 +289,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 | 2 | Water Competition | Leaf wins 64/36%. Shannon 0.65, stable coexistence. | w: 0.80→0.89-0.92 ↑ |
 | 3 | Light Competition | Tall wins 71/29%. Shading is decisive advantage. | w: 0.78→0.85-0.89 ↑ |
 | 4 | Seed Tradeoff | High seed 74%, mid 26%, low extinct. Optimal seedInvestment ~0.65. | w: 0.78→0.87-0.92 ↑ |
-| 5 | Allelopathy Duel | Passive wins 72/28%. Allelopathy evolving away (0.50→0.37). | w: →0.90 ↑ |
-| 6 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
+| 5 | Defense vs Herbivores | Undefended wins 65/35%. Defense is net negative on flat soil. | w: →0.87-0.89 ↑ |
 | 7 | Hill Specialist | Root specialist 91%. Leaf specialist extinct. | w: 0.80→0.46 ↓↓ |
 | 8 | Arid Specialist | Leaf-root hybrid 72%. Height specialist extinct. Herbaceous + deep roots = best strategy. | w: 0.80→0.59 ↓ |
 | 9 | Wetland Specialist | Leaf 64%, height 32%, root 4%. All 3 survive — best diversity. | w: 0.80→0.93-0.97 ↑↑ |
@@ -306,7 +302,7 @@ Seeds land as dormant objects, germinate when cell water exceeds threshold (inte
 ### Experiment details
 
 #### 7: Hill Specialist
-Deep Root Pine evolved w: 0.80→0.46 — dramatic shift toward herbaceous. Cheaper maintenance + faster growth is critical on resource-scarce hills. Root priority dominant (r: 0.64), rising allelopathy (0.18) and defense (0.22).
+Deep Root Pine evolved w: 0.80→0.46 — dramatic shift toward herbaceous. Cheaper maintenance + faster growth is critical on resource-scarce hills. Root priority dominant (r: 0.64), rising defense (0.22).
 
 #### 8: Arid Specialist
 Broad Leaf Agave went herbaceous (w: 0.80→0.59) while growing deep roots (r: 0.57) and keeping large leaves (l: 0.49). Cheaper herbaceous costs + deep roots for water = best of both worlds. Mesquite stayed woody (w: 0.76) and lost.

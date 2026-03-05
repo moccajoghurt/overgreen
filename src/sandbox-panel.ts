@@ -14,12 +14,11 @@ interface CustomSpecies {
 }
 
 const PRESETS: Record<string, Partial<Record<keyof Genome, number>>> = {
-  Towering:   { heightPriority: 0.9, rootPriority: 0.3, leafSize: 0.4, seedInvestment: 0.2, allelopathy: 0.1, defense: 0.1 },
-  'Deep Roots': { rootPriority: 0.9, heightPriority: 0.3, leafSize: 0.4, seedInvestment: 0.3, allelopathy: 0.2, defense: 0.2 },
-  Leafy:      { leafSize: 0.9, rootPriority: 0.3, heightPriority: 0.3, seedInvestment: 0.3, allelopathy: 0.1, defense: 0.1 },
-  Spreader:   { seedInvestment: 0.9, rootPriority: 0.3, heightPriority: 0.3, leafSize: 0.4, allelopathy: 0.1, defense: 0.1 },
-  Toxic:      { allelopathy: 0.9, rootPriority: 0.4, heightPriority: 0.3, leafSize: 0.5, seedInvestment: 0.3, defense: 0.2 },
-  Fortress:   { defense: 0.9, rootPriority: 0.4, heightPriority: 0.5, leafSize: 0.4, seedInvestment: 0.2, allelopathy: 0.1 },
+  Towering:   { heightPriority: 0.9, rootPriority: 0.3, leafSize: 0.4, seedInvestment: 0.2, defense: 0.1 },
+  'Deep Roots': { rootPriority: 0.9, heightPriority: 0.3, leafSize: 0.4, seedInvestment: 0.3, defense: 0.2 },
+  Leafy:      { leafSize: 0.9, rootPriority: 0.3, heightPriority: 0.3, seedInvestment: 0.3, defense: 0.1 },
+  Spreader:   { seedInvestment: 0.9, rootPriority: 0.3, heightPriority: 0.3, leafSize: 0.4, defense: 0.1 },
+  Fortress:   { defense: 0.9, rootPriority: 0.4, heightPriority: 0.5, leafSize: 0.4, seedInvestment: 0.2 },
 };
 
 export function createSandboxPanel(
@@ -34,7 +33,7 @@ export function createSandboxPanel(
   let placeModeActive = false;
   let currentGenome: Genome = {
     rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5,
-    seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5, woodiness: 0.5,
+    seedInvestment: 0.5, defense: 0.5, woodiness: 0.5,
   };
   const customSpecies = new Map<number, CustomSpecies>();
   let lastUpdateTick = -1;
@@ -183,7 +182,7 @@ export function createSandboxPanel(
     btn.className = 'sb-preset-btn';
     btn.textContent = name;
     btn.addEventListener('click', () => {
-      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, allelopathy: 0.5, defense: 0.5, woodiness: 0.5 };
+      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, defense: 0.5, woodiness: 0.5 };
       for (const [k, v] of Object.entries(values)) {
         (g as any)[k] = v;
       }

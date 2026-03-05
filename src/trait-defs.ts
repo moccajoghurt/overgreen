@@ -12,7 +12,6 @@ export const TRAITS: TraitDef[] = [
   { genomeKey: 'heightPriority', shortKey: 'height', label: 'Height', color: '#69c' },
   { genomeKey: 'leafSize',       shortKey: 'leaf',   label: 'Leaf',   color: '#6c6' },
   { genomeKey: 'seedInvestment', shortKey: 'seed',   label: 'Seed',   color: '#c6c' },
-  { genomeKey: 'allelopathy',    shortKey: 'allelo', label: 'Allelo', color: '#96c' },
   { genomeKey: 'defense',        shortKey: 'def',    label: 'Def',    color: '#c66' },
   { genomeKey: 'woodiness',      shortKey: 'wood',   label: 'Wood',   color: '#a86' },
 ];
