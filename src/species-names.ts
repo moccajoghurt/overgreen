@@ -9,6 +9,8 @@ const ADJECTIVES: string[][] = [
   ['Broad', 'Lush', 'Verdant', 'Wide', 'Leafy', 'Shaded'],
   // seedInvestment
   ['Prolific', 'Spreading', 'Fertile', 'Drifting', 'Scattering', 'Restless'],
+  // seedSize
+  ['Heavy', 'Plump', 'Laden', 'Swollen', 'Fat', 'Stout'],
   // defense
   ['Thorny', 'Armored', 'Barbed', 'Spiny', 'Guarded', 'Bristled'],
 ];
@@ -22,6 +24,8 @@ const NOUNS: string[][] = [
   ['Canopy', 'Crowns', 'Fronds', 'Leaves', 'Boughs', 'Fans'],
   // seedInvestment
   ['Seeders', 'Drifters', 'Sowers', 'Casters', 'Wanderers', 'Floaters'],
+  // seedSize
+  ['Acorns', 'Pods', 'Nuts', 'Drupes', 'Pomes', 'Hulks'],
   // defense
   ['Thorns', 'Shields', 'Bristles', 'Spines', 'Armors', 'Barbs'],
 ];
@@ -35,6 +39,8 @@ const GRASS_ADJECTIVES: string[][] = [
   ['Broad', 'Lush', 'Thick', 'Verdant', 'Plush', 'Feathered'],
   // seedInvestment
   ['Feathery', 'Wispy', 'Plumed', 'Seeding', 'Windblown', 'Drifting'],
+  // seedSize
+  ['Heavy', 'Plump', 'Bulging', 'Laden', 'Round', 'Stout'],
   // defense
   ['Sharp', 'Cutting', 'Wiry', 'Stiff', 'Rigid', 'Bristling'],
 ];
@@ -48,6 +54,8 @@ const GRASS_NOUNS: string[][] = [
   ['Meadows', 'Pastures', 'Fields', 'Lawns', 'Prairies', 'Sweeps'],
   // seedInvestment
   ['Grains', 'Seedheads', 'Plumes', 'Tassels', 'Chaff', 'Florets'],
+  // seedSize
+  ['Kernels', 'Berries', 'Pods', 'Capsules', 'Hulls', 'Bulbs'],
   // defense
   ['Razors', 'Sedges', 'Sawgrass', 'Needles', 'Barbs', 'Thistles'],
 ];
@@ -58,6 +66,7 @@ export function generateSpeciesName(genome: Genome, speciesId: number, woodiness
     genome.heightPriority,
     genome.leafSize,
     genome.seedInvestment,
+    genome.seedSize,
     genome.defense,
   ];
 

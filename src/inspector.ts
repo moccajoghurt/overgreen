@@ -35,7 +35,7 @@ export function updateInspector(world: World, controls: Controls): void {
       text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
       text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
       text += `Energy: ${plant.energy.toFixed(1)}\n`;
-      text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} S=${plant.genome.seedInvestment.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)}\n`;
+      text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} S=${plant.genome.seedInvestment.toFixed(2)} Sz=${plant.genome.seedSize.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)}\n`;
       text += `\nLight: ${plant.lastLightReceived.toFixed(2)}  Water: ${plant.lastWaterAbsorbed.toFixed(2)}\n`;
       text += `Energy +${plant.lastEnergyProduced.toFixed(2)}  Maint -${plant.lastMaintenanceCost.toFixed(2)}`;
       const net = plant.lastEnergyProduced - plant.lastMaintenanceCost;

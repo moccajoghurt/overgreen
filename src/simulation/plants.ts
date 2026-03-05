@@ -30,9 +30,10 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const dh = a.heightPriority - b.heightPriority;
   const dl = a.leafSize - b.leafSize;
   const ds = a.seedInvestment - b.seedInvestment;
+  const dsz = a.seedSize - b.seedSize;
   const dd = a.defense - b.defense;
   const dw = a.woodiness - b.woodiness;
-  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dd * dd + dw * dw);
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw);
 }
 
 export function crossoverGenome(a: Genome, b: Genome): Genome {
@@ -42,6 +43,7 @@ export function crossoverGenome(a: Genome, b: Genome): Genome {
     heightPriority: pick(a.heightPriority, b.heightPriority),
     leafSize: pick(a.leafSize, b.leafSize),
     seedInvestment: pick(a.seedInvestment, b.seedInvestment),
+    seedSize: pick(a.seedSize, b.seedSize),
     defense: pick(a.defense, b.defense),
     woodiness: pick(a.woodiness, b.woodiness),
   };
@@ -53,6 +55,7 @@ export function randomGenome(): Genome {
     heightPriority: 0.1 + Math.random() * 0.8,
     leafSize: 0.1 + Math.random() * 0.8,
     seedInvestment: 0.1 + Math.random() * 0.8,
+    seedSize: 0.1 + Math.random() * 0.8,
     defense: 0.1 + Math.random() * 0.8,
     woodiness: 0.1 + Math.random() * 0.8,
   };
@@ -77,7 +80,7 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   const clamp = (val: number) => Math.max(0.01, Math.min(0.99, val));
   const keys: (keyof Genome)[] = [
     'rootPriority', 'heightPriority', 'leafSize',
-    'seedInvestment', 'defense', 'woodiness',
+    'seedInvestment', 'seedSize', 'defense', 'woodiness',
   ];
   // Pick 1-2 genes to mutate (like real point mutations)
   const count = Math.random() < 0.5 ? 1 : 2;

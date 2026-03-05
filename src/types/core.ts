@@ -21,6 +21,7 @@ export interface Genome {
   heightPriority: number;
   leafSize: number;
   seedInvestment: number;
+  seedSize: number;      // 0.01-0.99 — small (many cheap) to large (few expensive) seeds
   defense: number;       // 0.01-0.99 — resistance to herbivore grazing
   woodiness: number;     // 0.01-0.99 — herbaceous (low) to woody/tree-like (high)
 }

@@ -256,9 +256,15 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
   }
 
+  // Seed size scaling — small seeds: cheap & far, large seeds: expensive & close
+  const seedSizeMult = SIM.SEED_SIZE_MULT_MIN + plant.genome.seedSize * SIM.SEED_SIZE_MULT_RANGE;
+  const effectiveSeedCost = seedCost * seedSizeMult;
+  const effectiveSeedEnergy = seedEnergy * seedSizeMult;
+  const dispersalBonus = Math.round((1 - plant.genome.seedSize) * SIM.SEED_SIZE_DISPERSAL_BONUS);
+
   // Seed spawning — taller plants disperse further
-  const seedRange = Math.round(seedRangeMax) + Math.floor(plant.height / seedRangeDiv);
-  const seedsToSpawn = Math.floor(seedBudget / seedCost);
+  const seedRange = Math.round(seedRangeMax) + Math.floor(plant.height / seedRangeDiv) + dispersalBonus;
+  const seedsToSpawn = Math.floor(seedBudget / effectiveSeedCost);
   for (let i = 0; i < seedsToSpawn; i++) {
     world.seedsAttempted++;
     const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
@@ -297,7 +303,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const seed: Seed = {
       speciesId: plant.speciesId,
       genome: childGenome,
-      energy: seedEnergy * eraSeedEnergyMult,
+      energy: effectiveSeedEnergy * eraSeedEnergyMult,
       age: 0,
       generation: plant.generation + 1,
     };

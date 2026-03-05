@@ -39,6 +39,11 @@ export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number
   g += seedInvestment * 0.08;
   b -= seedInvestment * 0.04;
 
+  // seedSize high → warm amber shift (heavy fruit-bearing)
+  r += genome.seedSize * 0.04;
+  g += genome.seedSize * 0.02;
+  b -= genome.seedSize * 0.02;
+
   // Nonlinear strategy accents (kick in when a gene is clearly dominant)
   if (hDom > 0.30) {
     const strength = (hDom - 0.30) * 2.0;
@@ -122,6 +127,10 @@ export function naturalGrassColor(genome: Genome, out: { cr: number; cg: number;
   r += seedInvestment * 0.12;
   g += seedInvestment * 0.06;
   b -= seedInvestment * 0.04;
+
+  // seedSize high → warm golden shift (heavy seed heads)
+  r += genome.seedSize * 0.06;
+  g -= genome.seedSize * 0.02;
 
   // heightPriority high → darker blue-green (tall fescue)
   r -= heightPriority * 0.06;
