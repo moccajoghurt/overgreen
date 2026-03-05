@@ -119,9 +119,7 @@ function phaseCalculateLight(world: World): void {
 function absorbWater(plant: Plant, cell: Cell, world: World): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const capacity = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
-  const tankFraction = capacity > 0.01 ? plant.storedWater / capacity : 0;
-  const transpirationReduction = tankFraction * SIM.WATER_STORAGE_TRANSPIRATION_REDUCTION;
-  const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF * (1 - transpirationReduction);
+  const waterNeeded = effectiveLeaf * SIM.TRANSPIRATION_PER_LEAF;
 
   // Surface absorption: full rootDepth, draws from cell water
   const waterCanAbsorb = plant.rootDepth * SIM.WATER_ABSORPTION_PER_ROOT;
