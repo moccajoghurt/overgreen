@@ -1,5 +1,5 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
-import { RendererState, GRID, lerp } from './state';
+import { RendererState, GRID, lerp, computeSucculence, computeShrubiness } from './state';
 
 /**
  * Snow coverage factor (0→1) based on season + progress.
@@ -49,54 +49,113 @@ export function updateTerrainColors(state: RendererState): void {
   const sb = seasonColorsData[si0 + 2] + (seasonColorsData[si1 + 2] - seasonColorsData[si0 + 2]) * st;
   const snowCov = computeSnowCoverage(env);
 
-  // ── Per-vertex grass ground tinting ──
-  // Pre-compute which cells have living grass
+  // ── Per-plant-type ground tinting ──
+  // Each plant type tints the terrain differently with smooth corner blending.
   const cornerSize = GRID + 1;
-  const isGrass = new Uint8Array(GRID * GRID);
+
+  // Seasonal ground tint colors: [spring, summer, autumn, winter] × [r, g, b]
+  const grassTintColors = [
+    0.22, 0.45, 0.12,  // Spring: dark green
+    0.20, 0.38, 0.10,  // Summer: deep green
+    0.40, 0.30, 0.10,  // Autumn: olive-brown
+    0.35, 0.30, 0.18,  // Winter: dull straw
+  ];
+  const treeTintColors = [
+    0.18, 0.28, 0.10,  // Spring: mossy dark brown
+    0.15, 0.22, 0.08,  // Summer: deep shade brown
+    0.38, 0.22, 0.08,  // Autumn: reddish leaf litter
+    0.25, 0.20, 0.15,  // Winter: bare dark soil
+  ];
+  const shrubTintColors = [
+    0.20, 0.35, 0.12,  // Spring: dark green-brown
+    0.18, 0.30, 0.10,  // Summer: dark green
+    0.38, 0.28, 0.10,  // Autumn: warm brown
+    0.30, 0.25, 0.16,  // Winter: muted brown
+  ];
+
+  // Interpolate each table by season progress
+  const ti0 = env.season * 3, ti1 = ((env.season + 1) % 4) * 3;
+  const grassTR = grassTintColors[ti0] + (grassTintColors[ti1] - grassTintColors[ti0]) * st;
+  const grassTG = grassTintColors[ti0 + 1] + (grassTintColors[ti1 + 1] - grassTintColors[ti0 + 1]) * st;
+  const grassTB = grassTintColors[ti0 + 2] + (grassTintColors[ti1 + 2] - grassTintColors[ti0 + 2]) * st;
+  const treeTR = treeTintColors[ti0] + (treeTintColors[ti1] - treeTintColors[ti0]) * st;
+  const treeTG = treeTintColors[ti0 + 1] + (treeTintColors[ti1 + 1] - treeTintColors[ti0 + 1]) * st;
+  const treeTB = treeTintColors[ti0 + 2] + (treeTintColors[ti1 + 2] - treeTintColors[ti0 + 2]) * st;
+  const shrubTR = shrubTintColors[ti0] + (shrubTintColors[ti1] - shrubTintColors[ti0]) * st;
+  const shrubTG = shrubTintColors[ti0 + 1] + (shrubTintColors[ti1 + 1] - shrubTintColors[ti0 + 1]) * st;
+  const shrubTB = shrubTintColors[ti0 + 2] + (shrubTintColors[ti1 + 2] - shrubTintColors[ti0 + 2]) * st;
+
+  // Per-cell: pre-multiplied tint color (r×w, g×w, b×w) and blend weight
+  const cellCount = GRID * GRID;
+  const cellRW = new Float32Array(cellCount);
+  const cellGW = new Float32Array(cellCount);
+  const cellBW = new Float32Array(cellCount);
+  const cellW = new Float32Array(cellCount);
+
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
       const cell = world.grid[y][x];
-      if (cell.plantId != null) {
-        const plant = world.plants.get(cell.plantId);
-        if (plant && plant.alive && plant.genome.woodiness < 0.4) {
-          isGrass[y * GRID + x] = 1;
+      if (cell.plantId == null) continue;
+      const plant = world.plants.get(cell.plantId);
+      if (!plant || !plant.alive) continue;
+
+      const genome = plant.genome;
+      let tr: number, tg: number, tb: number, tw: number;
+
+      // Classify plant type (matches rendering pipeline order)
+      const succulence = computeSucculence(genome);
+      if (succulence >= 0.45) {
+        continue; // Succulents: no ground tint (keep arid sand)
+      } else if (genome.woodiness < 0.4) {
+        tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
+      } else {
+        const shrubiness = computeShrubiness(genome);
+        if (shrubiness > 0.15) {
+          tr = shrubTR; tg = shrubTG; tb = shrubTB; tw = 0.65;
+        } else {
+          tr = treeTR; tg = treeTG; tb = treeTB; tw = 0.5;
         }
       }
+
+      const idx = y * GRID + x;
+      cellRW[idx] = tr * tw;
+      cellGW[idx] = tg * tw;
+      cellBW[idx] = tb * tw;
+      cellW[idx] = tw;
     }
   }
 
-  // Compute grass fraction at each terrain corner (shared by up to 4 cells).
-  // This creates smooth gradients at grass/soil boundaries.
-  const cornerGrass = new Float32Array(cornerSize * cornerSize);
+  // Corner averaging: blend weight = mean(cell weights), tint color = weighted average
+  const cornerR = new Float32Array(cornerSize * cornerSize);
+  const cornerG = new Float32Array(cornerSize * cornerSize);
+  const cornerB = new Float32Array(cornerSize * cornerSize);
+  const cornerW = new Float32Array(cornerSize * cornerSize);
+
   for (let cy = 0; cy <= GRID; cy++) {
     for (let cx = 0; cx <= GRID; cx++) {
-      let grassCount = 0, totalCount = 0;
+      let sumRW = 0, sumGW = 0, sumBW = 0, sumW = 0, count = 0;
       for (let dy = -1; dy <= 0; dy++) {
         for (let dx = -1; dx <= 0; dx++) {
-          const gx = cx + dx;
-          const gy = cy + dy;
+          const gx = cx + dx, gy = cy + dy;
           if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-            totalCount++;
-            grassCount += isGrass[gy * GRID + gx];
+            const idx = gy * GRID + gx;
+            count++;
+            sumRW += cellRW[idx];
+            sumGW += cellGW[idx];
+            sumBW += cellBW[idx];
+            sumW += cellW[idx];
           }
         }
       }
-      cornerGrass[cy * cornerSize + cx] = totalCount > 0 ? grassCount / totalCount : 0;
+      const ci = cy * cornerSize + cx;
+      cornerW[ci] = count > 0 ? sumW / count : 0;
+      if (sumW > 0) {
+        cornerR[ci] = sumRW / sumW;
+        cornerG[ci] = sumGW / sumW;
+        cornerB[ci] = sumBW / sumW;
+      }
     }
   }
-
-  // Seasonal grass ground color (darker than blade tufts — reads as shaded under-layer)
-  const grassGroundColors = [
-    [0.22, 0.45, 0.12], // Spring: dark green
-    [0.20, 0.38, 0.10], // Summer: deep green
-    [0.40, 0.30, 0.10], // Autumn: olive-brown
-    [0.35, 0.30, 0.18], // Winter: dull straw
-  ];
-  const gg0 = grassGroundColors[env.season];
-  const gg1 = grassGroundColors[(env.season + 1) % 4];
-  const grassR = gg0[0] + (gg1[0] - gg0[0]) * st;
-  const grassG = gg0[1] + (gg1[1] - gg0[1]) * st;
-  const grassB = gg0[2] + (gg1[2] - gg0[2]) * st;
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -142,13 +201,12 @@ export function updateTerrainColors(state: RendererState): void {
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
 
-      // ── Per-vertex grass blending (before snow/weather so overlays cover it) ──
-      // Look up corner grass fractions for this cell's 4 corners.
-      // Vertices: 0=TL, 1=BL, 2=TR, 3=BL(dup), 4=BR, 5=TR(dup)
-      const gTL = cornerGrass[row * cornerSize + col];
-      const gTR = cornerGrass[row * cornerSize + col + 1];
-      const gBL = cornerGrass[(row + 1) * cornerSize + col];
-      const gBR = cornerGrass[(row + 1) * cornerSize + col + 1];
+      // ── Per-vertex ground tinting (before snow/weather so overlays cover it) ──
+      // Look up corner tint colors and blend weights for this cell's 4 corners.
+      const cTL = row * cornerSize + col;
+      const cTR = row * cornerSize + col + 1;
+      const cBL = (row + 1) * cornerSize + col;
+      const cBR = (row + 1) * cornerSize + col + 1;
 
       // Snow coverage — blend toward cold snow-white (snowCov pre-computed above loop)
       let cellSnow = 0;
@@ -162,11 +220,6 @@ export function updateTerrainColors(state: RendererState): void {
         tmpColor.g = lerp(tmpColor.g, 0.85, cellSnow);
         tmpColor.b = lerp(tmpColor.b, 0.92, cellSnow);
       }
-
-      // Snow-blended grass color: lerp grass ground color toward snow-white
-      const snowGrassR = lerp(grassR, 0.82, cellSnow);
-      const snowGrassG = lerp(grassG, 0.85, cellSnow);
-      const snowGrassB = lerp(grassB, 0.92, cellSnow);
 
       // Weather overlay
       const overlayVal = env.weatherOverlay[row * GRID + col];
@@ -218,26 +271,27 @@ export function updateTerrainColors(state: RendererState): void {
       const base = (row * GRID + col) * 18;
       const br = tmpColor.r, bg = tmpColor.g, bb = tmpColor.b;
 
+      // Per-vertex: lerp(base, lerp(tintColor, snowWhite, cellSnow), weight)
       // vertex 0 — TL
-      arr[base]      = lerp(br, snowGrassR, gTL);
-      arr[base + 1]  = lerp(bg, snowGrassG, gTL);
-      arr[base + 2]  = lerp(bb, snowGrassB, gTL);
+      arr[base]      = lerp(br, lerp(cornerR[cTL], 0.82, cellSnow), cornerW[cTL]);
+      arr[base + 1]  = lerp(bg, lerp(cornerG[cTL], 0.85, cellSnow), cornerW[cTL]);
+      arr[base + 2]  = lerp(bb, lerp(cornerB[cTL], 0.92, cellSnow), cornerW[cTL]);
       // vertex 1 — BL
-      arr[base + 3]  = lerp(br, snowGrassR, gBL);
-      arr[base + 4]  = lerp(bg, snowGrassG, gBL);
-      arr[base + 5]  = lerp(bb, snowGrassB, gBL);
+      arr[base + 3]  = lerp(br, lerp(cornerR[cBL], 0.82, cellSnow), cornerW[cBL]);
+      arr[base + 4]  = lerp(bg, lerp(cornerG[cBL], 0.85, cellSnow), cornerW[cBL]);
+      arr[base + 5]  = lerp(bb, lerp(cornerB[cBL], 0.92, cellSnow), cornerW[cBL]);
       // vertex 2 — TR
-      arr[base + 6]  = lerp(br, snowGrassR, gTR);
-      arr[base + 7]  = lerp(bg, snowGrassG, gTR);
-      arr[base + 8]  = lerp(bb, snowGrassB, gTR);
+      arr[base + 6]  = lerp(br, lerp(cornerR[cTR], 0.82, cellSnow), cornerW[cTR]);
+      arr[base + 7]  = lerp(bg, lerp(cornerG[cTR], 0.85, cellSnow), cornerW[cTR]);
+      arr[base + 8]  = lerp(bb, lerp(cornerB[cTR], 0.92, cellSnow), cornerW[cTR]);
       // vertex 3 — BL (duplicate)
       arr[base + 9]  = arr[base + 3];
       arr[base + 10] = arr[base + 4];
       arr[base + 11] = arr[base + 5];
       // vertex 4 — BR
-      arr[base + 12] = lerp(br, snowGrassR, gBR);
-      arr[base + 13] = lerp(bg, snowGrassG, gBR);
-      arr[base + 14] = lerp(bb, snowGrassB, gBR);
+      arr[base + 12] = lerp(br, lerp(cornerR[cBR], 0.82, cellSnow), cornerW[cBR]);
+      arr[base + 13] = lerp(bg, lerp(cornerG[cBR], 0.85, cellSnow), cornerW[cBR]);
+      arr[base + 14] = lerp(bb, lerp(cornerB[cBR], 0.92, cellSnow), cornerW[cBR]);
       // vertex 5 — TR (duplicate)
       arr[base + 15] = arr[base + 6];
       arr[base + 16] = arr[base + 7];
