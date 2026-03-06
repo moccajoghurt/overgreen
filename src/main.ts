@@ -39,11 +39,6 @@ const hookPhase = createHookPhase({
   worldWidth: world.width,
   worldHeight: world.height,
   onRevealComplete: () => {
-    // Enable species colors + labels now that the UI is visible
-    colorToggle.checked = true;
-    renderer.setColorMode('species');
-    labelsToggle.checked = true;
-    speciesLabels.setVisible(true);
     // Force UI refresh
     lastUITick = -1;
     updateUI();
