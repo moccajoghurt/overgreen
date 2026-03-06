@@ -102,18 +102,25 @@ export function updateTerrainColors(state: RendererState): void {
       const genome = plant.genome;
       let tr: number, tg: number, tb: number, tw: number;
 
-      // Classify plant type (matches rendering pipeline order)
-      const succulence = computeSucculence(genome, cell.terrainType);
-      if (succulence >= 0.45) {
-        continue; // Succulents: no ground tint (keep arid sand)
-      } else if (genome.woodiness < 0.4) {
-        tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
+      if (state.colorMode === 'species') {
+        // Species mode: tint ground with the species color
+        const sc = world.speciesColors.get(plant.speciesId);
+        if (!sc) continue;
+        tr = sc.r; tg = sc.g; tb = sc.b; tw = 0.55;
       } else {
-        const shrubiness = computeShrubiness(genome);
-        if (shrubiness > 0.15) {
-          tr = shrubTR; tg = shrubTG; tb = shrubTB; tw = 0.65;
+        // Natural mode: tint by plant type
+        const succulence = computeSucculence(genome, cell.terrainType);
+        if (succulence >= 0.45) {
+          continue; // Succulents: no ground tint (keep arid sand)
+        } else if (genome.woodiness < 0.4) {
+          tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
         } else {
-          tr = treeTR; tg = treeTG; tb = treeTB; tw = 0.5;
+          const shrubiness = computeShrubiness(genome);
+          if (shrubiness > 0.15) {
+            tr = shrubTR; tg = shrubTG; tb = shrubTB; tw = 0.65;
+          } else {
+            tr = treeTR; tg = treeTG; tb = treeTB; tw = 0.5;
+          }
         }
       }
 
@@ -171,30 +178,6 @@ export function updateTerrainColors(state: RendererState): void {
         default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil
       }
 
-      // Species territory tint
-      if (state.colorMode === 'species') {
-        let speciesId: number | null = null;
-        let blendFactor = 0;
-        if (cell.plantId !== null) {
-          const plant = world.plants.get(cell.plantId);
-          if (plant && plant.alive) {
-            speciesId = plant.speciesId;
-            blendFactor = 0.35;
-          }
-        }
-        if (speciesId === null && cell.lastSpeciesId !== null) {
-          speciesId = cell.lastSpeciesId;
-          blendFactor = 0.15;
-        }
-        if (speciesId !== null) {
-          const sc = world.speciesColors.get(speciesId);
-          if (sc) {
-            tmpColor.r = tmpColor.r * (1 - blendFactor) + sc.r * blendFactor;
-            tmpColor.g = tmpColor.g * (1 - blendFactor) + sc.g * blendFactor;
-            tmpColor.b = tmpColor.b * (1 - blendFactor) + sc.b * blendFactor;
-          }
-        }
-      }
 
       // Season tint (pre-computed above loop)
       tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
