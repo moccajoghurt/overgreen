@@ -84,9 +84,21 @@ export function updatePlants(state: RendererState): void {
       });
     }
 
-    // Ingest germination events — trigger growth animation for new plants
+    // Ingest germination events — delay growth until the flying seed lands
     for (const evt of world.germinationEvents) {
-      growingPlants.set(evt.plantId, { plantId: evt.plantId, progress: 0 });
+      // Find the matching flying seed to determine delay
+      let delayFrames = 0;
+      for (const fs of flyingSeeds) {
+        if (fs.childX === evt.x && fs.childY === evt.y && fs.progress < 1) {
+          delayFrames = Math.ceil((1 - fs.progress) * fs.flightFrames);
+          break;
+        }
+      }
+      // Negative progress = delay countdown; growth starts when progress reaches 0
+      growingPlants.set(evt.plantId, {
+        plantId: evt.plantId,
+        progress: -delayFrames / GROWTH_ANIM_FRAMES,
+      });
     }
   }
 
@@ -166,6 +178,8 @@ export function updatePlants(state: RendererState): void {
       growing.progress += 1 / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) {
         growingPlants.delete(plant.id);
+      } else if (growing.progress < 0) {
+        growScale = 0; // still waiting for seed to land
       } else {
         growScale = Math.max(0.05, easeOutCubic(growing.progress));
       }
