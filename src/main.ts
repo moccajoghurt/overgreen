@@ -51,8 +51,8 @@ const hookPhase = createHookPhase({
 
 // Auto-start hook for Genesis (don't pause)
 hookPhase.start();
-// Enable species colors during hook for visual richness
-renderer.setColorMode('species');
+// Natural colors during hook — species colors activate on reveal
+renderer.setColorMode('natural');
 
 const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
 colorToggle.addEventListener('change', () => {
