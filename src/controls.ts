@@ -48,6 +48,14 @@ export function initControls(
     controls.paused = !controls.paused;
     btnPlayPause.textContent = controls.paused ? 'Play' : 'Pause';
     btnPlayPause.classList.toggle('paused', controls.paused);
+    // Exit FF mode when pausing
+    if (controls.paused && controls.renderSkip > 0) {
+      controls.renderSkip = 0;
+      controls.tickInterval = 200;
+      controls.ticksPerFrame = 0;
+      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
+      btnPlayPause.classList.remove('ff-active');
+    }
   });
 
   // Speed presets
@@ -65,6 +73,15 @@ export function initControls(
   });
 
   canvas.addEventListener('click', (e) => {
+    // Exit FF mode on canvas click
+    if (controls.renderSkip > 0) {
+      controls.renderSkip = 0;
+      controls.tickInterval = 200;
+      controls.ticksPerFrame = 0;
+      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
+      btnPlayPause.classList.remove('ff-active');
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
     const pos = renderer.cellAt(e.clientX - rect.left, e.clientY - rect.top);
     if (controls.mode === 'place' && pos && controls.onPlaceClick) {

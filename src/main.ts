@@ -15,6 +15,7 @@ import { createShowcase } from './species-showcase';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
+import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 
@@ -41,6 +42,8 @@ const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInpu
 terrainToggle.addEventListener('change', () => {
   terrainLabels.setVisible(terrainToggle.checked);
 });
+
+const ffOverlay = createFFOverlay(container);
 
 const history = createHistory();
 const diagLogger = createDiagnosticLogger();
@@ -118,6 +121,15 @@ function doLoadRandom(): void {
 }
 
 function resetAllState(): void {
+  // Exit FF mode if active
+  if (controls.renderSkip > 0) {
+    controls.renderSkip = 0;
+    controls.tickInterval = 200;
+    controls.ticksPerFrame = 0;
+    document.querySelectorAll<HTMLButtonElement>('.speed-btn')
+      .forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
+    document.getElementById('btn-play-pause')!.classList.remove('ff-active');
+  }
   resetHistory(history);
   diagLogger.reset();
   ticker.reset();
@@ -187,21 +199,37 @@ function doTick(): void {
   diagLogger.recordTick(world);
 }
 
-const FF_BUDGET_MS = 14;  // max ms to spend ticking per frame in ff mode
+const FF_BUDGET_MS = 15;  // max ms to spend ticking per frame in ff mode (no rendering)
+let wasFFActive = false;
 
 function loop(now: number): void {
   frameCount++;
-  const ffMode = controls.renderSkip > 0;
-  const shouldRender = !ffMode || frameCount % controls.renderSkip === 0;
+  const ffActive = controls.renderSkip > 0 && !controls.paused;
+
+  // FF mode transitions
+  if (ffActive && !wasFFActive) {
+    ffOverlay.show();
+    speciesLabels.setVisible(false);
+    terrainLabels.setVisible(false);
+  } else if (!ffActive && wasFFActive) {
+    ffOverlay.hide();
+    speciesLabels.setVisible(labelsToggle.checked);
+    terrainLabels.setVisible(terrainToggle.checked);
+    lastUITick = -1; // force full UI refresh
+  }
+  wasFFActive = ffActive;
+
+  const shouldRender = !ffActive;
 
   if (!controls.paused) {
-    if (ffMode) {
-      // Time-budgeted: run as many ticks as fit in FF_BUDGET_MS
+    if (controls.renderSkip > 0) {
+      // FF: time-budgeted, no rendering
       const deadline = performance.now() + FF_BUDGET_MS;
       while (performance.now() < deadline) {
         doTick();
       }
       lastTickTime = now;
+      ffOverlay.update(world);
     } else if (controls.ticksPerFrame > 0) {
       for (let i = 0; i < controls.ticksPerFrame; i++) doTick();
       lastTickTime = now;
