@@ -401,14 +401,25 @@ builders['2.5'] = function() { // Palm — curved trunk + frond crown
   var fm = mat(0x4a8a2a, { side: THREE.DoubleSide });
   var topY = 2.3, topX = 0.05;
   for (var i = 0; i < 8; i++) {
-    var a = i * Math.PI / 4;
-    var frond = new THREE.Mesh(grassBlade(1.1, 0.18, 0.7), fm);
-    frond.position.set(topX + Math.cos(a) * 0.06, topY, Math.sin(a) * 0.06);
+    var a = i * Math.PI * 2 / 8;
+    // Custom frond: geometry goes outward (Z) and droops (Y)
+    var fLen = 1.1 + Math.random() * 0.2;
+    var fGeo = new THREE.PlaneGeometry(0.25, fLen, 1, 8);
+    var fPos = fGeo.attributes.position;
+    for (var vi = 0; vi < fPos.count; vi++) {
+      var origY = fPos.getY(vi);
+      var t = (origY + fLen / 2) / fLen; // 0=base, 1=tip
+      fPos.setX(vi, fPos.getX(vi) * (1 - 0.65 * t)); // taper
+      fPos.setY(vi, t * 0.2 - t * t * fLen * 0.45);   // slight rise then droop
+      fPos.setZ(vi, t * fLen * 0.85);                   // outward
+    }
+    fGeo.computeVertexNormals();
+    var frond = new THREE.Mesh(fGeo, fm);
+    frond.position.set(topX, topY, 0);
     frond.rotation.y = a;
-    frond.rotation.z = -0.15;
     g.add(frond);
   }
-  return { group: g, camY: 1.3, camDist: 4.8 };
+  return { group: g, camY: 1.2, camDist: 6.2 };
 };
 
 builders['2.6'] = function() { // Birch — slender white trunk, drooping branches
