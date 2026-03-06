@@ -379,7 +379,6 @@ export function writeBranchesAndCanopies(
       canopyClr[scci + 2] = cb;
       canopyCount++;
       segmentCount++;
-      if (canopyTips) canopyTips.push({ x: secTipX, y: secTipY, z: secTipZ, ry: sil.canopyY * volumeShare * secJitter * 0.5 });
     }
   }
 
