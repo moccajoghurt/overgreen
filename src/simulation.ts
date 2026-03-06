@@ -529,11 +529,27 @@ function phaseGermination(world: World): void {
         if (woodinessBracket(centroidGenome.woodiness) !== woodinessBracket(winner.genome.woodiness)) {
           threshold *= SIM.SPECIATION_ARCHETYPE_MULT;
         }
-        if (dist > threshold) {
-          finalSpeciesId = world.nextSpeciesId++;
-          world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
-          world.speciesNames.set(finalSpeciesId, generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness));
-          world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+        // Only established populations can produce new species
+        if (dist > threshold && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {
+          // Try to join an existing nearby species before creating a new one
+          let joined = false;
+          const joinThreshold = SIM.SPECIATION_DISTANCE_THRESHOLD * SIM.SPECIATION_JOIN_RATIO;
+          for (const [sid, centroid] of world.speciesCentroids) {
+            if (sid === winner.speciesId) continue;
+            const cdist = genomeDistance(winner.genome, getCentroidGenome(centroid));
+            if (cdist < joinThreshold) {
+              finalSpeciesId = sid;
+              addToCentroid(centroid, winner.genome);
+              joined = true;
+              break;
+            }
+          }
+          if (!joined) {
+            finalSpeciesId = world.nextSpeciesId++;
+            world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
+            world.speciesNames.set(finalSpeciesId, generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness));
+            world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+          }
         } else {
           addToCentroid(parentCentroid, winner.genome);
         }
