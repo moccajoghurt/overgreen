@@ -1,12 +1,17 @@
 import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
-import { mutateGenome, crossoverGenome } from './simulation/plants';
+import {
+  mutateGenome, crossoverGenome, genomeDistance, getCentroidGenome,
+  woodinessBracket, createSpeciesCentroid, addToCentroid, removeFromCentroid,
+  generateSpeciesColor,
+} from './simulation/plants';
+import { generateSpeciesName } from './species-names';
 import { phaseEnvironment } from './simulation/environment';
 import { getEffectiveEraMultipliers } from './simulation/eras';
 import { phaseHerbivores } from './simulation/herbivores';
 
 export { createWorld } from './simulation/terrain';
-export { seedInitialPlants } from './simulation/plants';
+export { seedInitialPlants, seedSinglePlant } from './simulation/plants';
 export { spawnFire, spawnDisease } from './simulation/environment';
 
 // ── Simulation phases ──
@@ -416,6 +421,13 @@ function phaseDeath(world: World): void {
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
+      // Remove from species centroid
+      const centroid = world.speciesCentroids.get(plant.speciesId);
+      if (centroid) {
+        removeFromCentroid(centroid, plant.genome);
+        if (centroid.count <= 0) world.speciesCentroids.delete(plant.speciesId);
+      }
+
       // Use disease flag computed in phaseUpdatePlants
       let cause: 'starvation' | 'age' | 'disease' = plant.age >= maxAge ? 'age' : 'starvation';
       if (cause === 'starvation' && plant.isDiseased) {
@@ -507,9 +519,31 @@ function phaseGermination(world: World): void {
       else if (cell.terrainType === TerrainType.Arid) dampen = SIM.ARID_VIGOR_DAMPEN;
       const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
+      // Speciation check: compare child genome to parent species centroid
+      let finalSpeciesId = winner.speciesId;
+      const parentCentroid = world.speciesCentroids.get(winner.speciesId);
+      if (parentCentroid) {
+        const centroidGenome = getCentroidGenome(parentCentroid);
+        const dist = genomeDistance(winner.genome, centroidGenome);
+        let threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
+        if (woodinessBracket(centroidGenome.woodiness) !== woodinessBracket(winner.genome.woodiness)) {
+          threshold *= SIM.SPECIATION_ARCHETYPE_MULT;
+        }
+        if (dist > threshold) {
+          finalSpeciesId = world.nextSpeciesId++;
+          world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
+          world.speciesNames.set(finalSpeciesId, generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness));
+          world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+        } else {
+          addToCentroid(parentCentroid, winner.genome);
+        }
+      } else {
+        world.speciesCentroids.set(winner.speciesId, createSpeciesCentroid(winner.genome));
+      }
+
       const childId = world.nextPlantId++;
       const child: Plant = {
-        id: childId, speciesId: winner.speciesId,
+        id: childId, speciesId: finalSpeciesId,
         x, y,
         height: wpc.seedlingHeight * seedSizeVigor, rootDepth: wpc.seedlingRoot * seedSizeVigor, leafArea: wpc.seedlingLeaf * seedSizeVigor,
         energy: winner.energy, age: 0, alive: true,
@@ -521,12 +555,12 @@ function phaseGermination(world: World): void {
       };
       world.plants.set(childId, child);
       cell.plantId = childId;
-      cell.lastSpeciesId = winner.speciesId;
+      cell.lastSpeciesId = finalSpeciesId;
 
       world.germinationEvents.push({
         x, y,
         plantId: childId,
-        speciesId: winner.speciesId,
+        speciesId: finalSpeciesId,
         woodiness: winner.genome.woodiness,
       });
     }

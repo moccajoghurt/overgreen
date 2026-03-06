@@ -1,6 +1,6 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
 import { ERA_NAMES } from './simulation/eras';
-import { createWorld, seedInitialPlants, tickWorld, spawnFire, spawnDisease } from './simulation';
+import { createWorld, seedInitialPlants, seedSinglePlant, tickWorld, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { updateInspector } from './inspector';
@@ -19,8 +19,13 @@ import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 
 const container = document.getElementById('canvas-container')!;
+const singleSeedToggle = document.getElementById('single-seed-toggle') as HTMLInputElement;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
-seedInitialPlants(world, 40);
+if (singleSeedToggle.checked) {
+  seedSinglePlant(world);
+} else {
+  seedInitialPlants(world, 40);
+}
 
 const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
@@ -109,7 +114,11 @@ function doLoadRandom(): void {
   controls.hoveredSpecies = null;
 
   const fresh = createWorld(GRID_WIDTH, GRID_HEIGHT);
-  seedInitialPlants(fresh, 40);
+  if (singleSeedToggle.checked) {
+    seedSinglePlant(fresh);
+  } else {
+    seedInitialPlants(fresh, 40);
+  }
 
   // Copy all fields into existing world object
   Object.assign(world, fresh);

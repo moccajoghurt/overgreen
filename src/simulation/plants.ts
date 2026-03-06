@@ -1,5 +1,5 @@
 import {
-  Genome, Plant, SIM,
+  Genome, Plant, SIM, SpeciesCentroid,
   SpeciesColor, TerrainType, World, getPlantConstants,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
@@ -35,6 +35,69 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const dw = a.woodiness - b.woodiness;
   const dwst = a.waterStorage - b.waterStorage;
   return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw + dwst * dwst);
+}
+
+/** Woodiness bracket: 0=grass (<0.4), 1=shrub (0.4-0.7), 2=tree (>0.7) */
+export function woodinessBracket(woodiness: number): number {
+  if (woodiness < 0.4) return 0;
+  if (woodiness <= 0.7) return 1;
+  return 2;
+}
+
+export function createSpeciesCentroid(genome: Genome): SpeciesCentroid {
+  return {
+    sumRoot: genome.rootPriority,
+    sumHeight: genome.heightPriority,
+    sumLeaf: genome.leafSize,
+    sumSeed: genome.seedInvestment,
+    sumSeedSize: genome.seedSize,
+    sumDefense: genome.defense,
+    sumWoodiness: genome.woodiness,
+    sumWaterStorage: genome.waterStorage,
+    count: 1,
+    foundingGenome: { ...genome },
+  };
+}
+
+export function addToCentroid(centroid: SpeciesCentroid, genome: Genome): void {
+  centroid.sumRoot += genome.rootPriority;
+  centroid.sumHeight += genome.heightPriority;
+  centroid.sumLeaf += genome.leafSize;
+  centroid.sumSeed += genome.seedInvestment;
+  centroid.sumSeedSize += genome.seedSize;
+  centroid.sumDefense += genome.defense;
+  centroid.sumWoodiness += genome.woodiness;
+  centroid.sumWaterStorage += genome.waterStorage;
+  centroid.count++;
+}
+
+export function removeFromCentroid(centroid: SpeciesCentroid, genome: Genome): void {
+  centroid.sumRoot -= genome.rootPriority;
+  centroid.sumHeight -= genome.heightPriority;
+  centroid.sumLeaf -= genome.leafSize;
+  centroid.sumSeed -= genome.seedInvestment;
+  centroid.sumSeedSize -= genome.seedSize;
+  centroid.sumDefense -= genome.defense;
+  centroid.sumWoodiness -= genome.woodiness;
+  centroid.sumWaterStorage -= genome.waterStorage;
+  centroid.count--;
+}
+
+export function getCentroidGenome(centroid: SpeciesCentroid): Genome {
+  if (centroid.count < SIM.SPECIATION_MIN_SPECIES_SIZE) {
+    return centroid.foundingGenome;
+  }
+  const n = centroid.count;
+  return {
+    rootPriority: centroid.sumRoot / n,
+    heightPriority: centroid.sumHeight / n,
+    leafSize: centroid.sumLeaf / n,
+    seedInvestment: centroid.sumSeed / n,
+    seedSize: centroid.sumSeedSize / n,
+    defense: centroid.sumDefense / n,
+    woodiness: centroid.sumWoodiness / n,
+    waterStorage: centroid.sumWaterStorage / n,
+  };
 }
 
 export function crossoverGenome(a: Genome, b: Genome): Genome {
@@ -98,6 +161,32 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   return result;
 }
 
+export function seedSinglePlant(world: World): void {
+  const cx = Math.floor(world.width / 2);
+  const cy = Math.floor(world.height / 2);
+  const genome: Genome = {
+    rootPriority: 0.5,
+    heightPriority: 0.5,
+    leafSize: 0.5,
+    seedInvestment: 0.5,
+    seedSize: 0.5,
+    defense: 0.5,
+    woodiness: 0.5,
+    waterStorage: 0.5,
+  };
+  const speciesId = world.nextSpeciesId++;
+  world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
+  world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
+
+  const id = world.nextPlantId++;
+  const plant = createPlant(id, cx, cy, genome, speciesId);
+  world.plants.set(id, plant);
+  const cell = world.grid[cy][cx];
+  cell.plantId = id;
+  cell.lastSpeciesId = speciesId;
+  world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
+}
+
 export function seedInitialPlants(world: World, _count: number): void {
   const CLUSTER_COUNT = 10;
   const CLUSTER_RADIUS = 8;
@@ -153,6 +242,14 @@ export function seedInitialPlants(world: World, _count: number): void {
           world.plants.set(id, plant);
           cell.plantId = id;
           cell.lastSpeciesId = speciesId;
+
+          // Track species centroid
+          const existing = world.speciesCentroids.get(speciesId);
+          if (!existing) {
+            world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
+          } else {
+            addToCentroid(existing, genome);
+          }
           break;
         }
       }

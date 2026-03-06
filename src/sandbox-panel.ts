@@ -1,6 +1,7 @@
 import { TRAITS } from './trait-defs';
 import {
   createPlant, genomeDistance, randomGenome, generateSpeciesColor,
+  createSpeciesCentroid, addToCentroid,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
 import { speciesColorToRgb } from './ui-utils';
@@ -390,6 +391,14 @@ export function createSandboxPanel(
     world.plants.set(id, plant);
     cell.plantId = id;
     cell.lastSpeciesId = speciesId;
+
+    // Track species centroid
+    const existingCentroid = world.speciesCentroids.get(speciesId);
+    if (!existingCentroid) {
+      world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
+    } else {
+      addToCentroid(existingCentroid, genome);
+    }
 
     rebuildPlacedList();
     updatePreview();
