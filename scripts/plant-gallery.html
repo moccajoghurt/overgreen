@@ -587,28 +587,52 @@ builders['3.4'] = function() { // Gorse — jagged spiny mound with golden flowe
   return { group: g, camY: 0.4, camDist: 3 };
 };
 
-builders['3.5'] = function() { // Creosote — sparse open desert shrub
+builders['3.5'] = function() { // Creosote — open spreading desert shrub
   var g = new THREE.Group();
   addGround(g, 1.5);
-  var stemMat = mat(0x8a7a6a);
+  var stemMat = mat(0x7a6a5a);
   var leafMat = mat(0x5a6a3a);
-  for (var i = 0; i < 10; i++) {
-    var a = Math.random() * Math.PI * 2;
-    var r = Math.random() * 0.12;
-    var h = 0.4 + Math.random() * 0.55;
-    var lean = 0.3 + Math.random() * 0.35;
-    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.018, h, 4), stemMat);
-    stem.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
-    stem.rotation.z = Math.cos(a) * lean;
-    stem.rotation.x = Math.sin(a) * lean;
-    g.add(stem);
-    var tipX = Math.cos(a) * (r + lean * h * 0.3);
-    var tipZ = Math.sin(a) * (r + lean * h * 0.3);
-    var leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.055, 0), leafMat);
-    leaf.position.set(tipX, h * 0.7, tipZ);
-    g.add(leaf);
+  // Multiple main stems emerging from base, each forking into sub-branches
+  var mainStems = [
+    { a: 0.0, lean: 0.35, h: 0.65 },
+    { a: 1.1, lean: 0.4, h: 0.55 },
+    { a: 2.3, lean: 0.3, h: 0.7 },
+    { a: 3.5, lean: 0.45, h: 0.5 },
+    { a: 4.7, lean: 0.35, h: 0.6 },
+    { a: 5.6, lean: 0.25, h: 0.55 },
+  ];
+  for (var i = 0; i < mainStems.length; i++) {
+    var s = mainStems[i];
+    // Main stem — curved using CatmullRom
+    var baseR = 0.03 + Math.random() * 0.03;
+    var midR = baseR + s.lean * s.h * 0.35;
+    var tipR = midR + s.lean * s.h * 0.25;
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(s.a) * baseR, 0, Math.sin(s.a) * baseR),
+      new THREE.Vector3(Math.cos(s.a) * midR, s.h * 0.5, Math.sin(s.a) * midR),
+      new THREE.Vector3(Math.cos(s.a) * tipR, s.h * 0.85, Math.sin(s.a) * tipR),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.015, 4, false), stemMat));
+    // Fork into 2-3 sub-branches at top, each with small foliage
+    var forkCount = 2 + Math.floor(Math.random() * 2);
+    for (var f = 0; f < forkCount; f++) {
+      var forkA = s.a + (f - forkCount / 2) * 0.5;
+      var forkLen = 0.15 + Math.random() * 0.12;
+      var forkBase = new THREE.Vector3(Math.cos(s.a) * tipR, s.h * 0.85, Math.sin(s.a) * tipR);
+      var forkTip = new THREE.Vector3(
+        Math.cos(forkA) * (tipR + forkLen * 0.7),
+        s.h * 0.85 + forkLen * 0.5,
+        Math.sin(forkA) * (tipR + forkLen * 0.7)
+      );
+      var fCurve = new THREE.CatmullRomCurve3([forkBase, forkTip]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(fCurve, 4, 0.008, 3, false), stemMat));
+      // Small foliage cluster at fork tip
+      var lf = new THREE.Mesh(jitter(new THREE.IcosahedronGeometry(0.06 + Math.random() * 0.03, 0), 0.01), leafMat);
+      lf.position.copy(forkTip);
+      g.add(lf);
+    }
   }
-  return { group: g, camY: 0.45, camDist: 3 };
+  return { group: g, camY: 0.4, camDist: 3.2 };
 };
 
 builders['3.6'] = function() { // Mangrove — prop roots + dense canopy
@@ -618,22 +642,51 @@ builders['3.6'] = function() { // Mangrove — prop roots + dense canopy
   var waterMesh = new THREE.Mesh(waterGeo, mat(0x4a7a8a, { roughness: 0.3, transparent: true, opacity: 0.7 }));
   waterMesh.position.y = -0.02;
   g.add(waterMesh);
-  addTrunk(g, 0, 0.2, 0, 0.08, 0.06, 0.8, 0x7a3a2a);
-  // Prop roots
-  var rootMat = mat(0x7a3a2a);
-  for (var i = 0; i < 6; i++) {
-    var a = i * Math.PI / 3 + Math.random() * 0.2;
+  // Short trunk — mostly hidden by canopy
+  addTrunk(g, 0, 0.35, 0, 0.06, 0.05, 0.25, 0x6a3525);
+  // Prop roots — thicker, arching wider, going into water
+  var rootMat = mat(0x6a3525);
+  // Irregular prop roots — varied angles, spreads, thicknesses
+  var roots = [
+    { a: 0.2, spread: 0.55, thick: 0.028, startY: 0.48 },
+    { a: 1.15, spread: 0.42, thick: 0.02, startY: 0.4 },
+    { a: 1.9, spread: 0.6, thick: 0.025, startY: 0.45 },
+    { a: 2.85, spread: 0.38, thick: 0.018, startY: 0.42 },
+    { a: 3.4, spread: 0.52, thick: 0.027, startY: 0.47 },
+    { a: 4.6, spread: 0.48, thick: 0.022, startY: 0.38 },
+    { a: 5.5, spread: 0.44, thick: 0.024, startY: 0.44 },
+  ];
+  for (var i = 0; i < roots.length; i++) {
+    var rt = roots[i];
+    var a = rt.a;
+    var sp = rt.spread;
+    // Wobble the midpoints so roots don't all arc the same way
+    var midOff = (Math.random() - 0.5) * 0.15;
     var curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0.55, 0),
-      new THREE.Vector3(Math.cos(a) * 0.3, 0.3, Math.sin(a) * 0.3),
-      new THREE.Vector3(Math.cos(a) * 0.55, -0.05, Math.sin(a) * 0.55),
+      new THREE.Vector3(0, rt.startY, 0),
+      new THREE.Vector3(Math.cos(a + midOff) * sp * 0.4, 0.22 + Math.random() * 0.08, Math.sin(a + midOff) * sp * 0.4),
+      new THREE.Vector3(Math.cos(a) * sp * 0.8, 0.02 + Math.random() * 0.05, Math.sin(a) * sp * 0.8),
+      new THREE.Vector3(Math.cos(a) * sp, -0.06 - Math.random() * 0.05, Math.sin(a) * sp),
     ]);
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.02, 4, false), rootMat));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, rt.thick, 5, false), rootMat));
+    // Occasional secondary dropper root
+    if (i % 3 === 0) {
+      var dropA = a + (Math.random() - 0.5) * 0.5;
+      var dropR = sp * (0.35 + Math.random() * 0.2);
+      var dropCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(Math.cos(a) * sp * 0.45, 0.18, Math.sin(a) * sp * 0.45),
+        new THREE.Vector3(Math.cos(dropA) * dropR, -0.02, Math.sin(dropA) * dropR),
+      ]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(dropCurve, 5, 0.013, 4, false), rootMat));
+    }
   }
-  addCanopy(g, 0, 1.2, 0, 0.55, 0x2a5a2a);
-  addCanopy(g, 0.25, 1.1, 0.2, 0.3, 0x2d5a25);
-  addCanopy(g, -0.2, 1.15, -0.15, 0.28, 0x2a5a2a);
-  return { group: g, camY: 0.7, camDist: 3.8 };
+  // Wider, flatter canopy — low enough to hide trunk
+  addCanopy(g, 0, 0.7, 0, 0.35, 0x2a5a2a);
+  addCanopy(g, 0.2, 0.65, 0.15, 0.25, 0x2d5a25);
+  addCanopy(g, -0.2, 0.68, -0.1, 0.25, 0x2a5a2a);
+  addCanopy(g, -0.1, 0.63, 0.22, 0.2, 0x2d5a25);
+  addCanopy(g, 0.15, 0.7, -0.2, 0.22, 0x2a5a2a);
+  return { group: g, camY: 0.5, camDist: 3.5 };
 };
 
 // ============================================================
