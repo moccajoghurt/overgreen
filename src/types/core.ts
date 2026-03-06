@@ -101,6 +101,7 @@ export interface World {
   herbivoreDeathEvents: HerbivoreDeathEvent[];
   herbivoreBirthEvents: HerbivoreBirthEvent[];
   speciesCentroids: Map<number, SpeciesCentroid>;
+  speciationEvents: SpeciationEvent[];
 }
 
 export interface DeathEvent {
@@ -142,4 +143,10 @@ export interface GerminationEvent {
   plantId: number;
   speciesId: number;
   woodiness: number;
+}
+
+export interface SpeciationEvent {
+  newSpeciesId: number;
+  parentSpeciesId: number;
+  newSpeciesName: string;
 }

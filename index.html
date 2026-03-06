@@ -149,21 +149,28 @@
     #hook-overlay {
       position: absolute; inset: 0; pointer-events: none;
       z-index: 50; display: flex; flex-direction: column;
-      justify-content: flex-end; padding: 24px;
+      justify-content: center; align-items: center;
     }
     #hook-overlay.hidden { display: none; }
     #hook-title {
-      font-size: 28px; color: #8f8; opacity: 0.5;
-      font-family: monospace; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-      transition: opacity 600ms ease;
+      font-size: 36px; color: #8f8; opacity: 0;
+      font-family: monospace; text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+      transition: opacity 800ms ease, font-size 500ms ease, transform 500ms ease;
+    }
+    #hook-title.visible { opacity: 0.7; }
+    #hook-title.corner {
+      position: absolute; bottom: 24px; left: 24px;
+      font-size: 20px; opacity: 0.4;
+      transform: none;
     }
     #hook-subtitle {
-      font-size: 13px; color: #888; opacity: 0;
-      font-family: monospace; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      transition: opacity 800ms ease;
-      margin-top: 2px;
+      font-size: 40px; color: #bbb; opacity: 0;
+      font-family: monospace; text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+      transition: opacity 1000ms ease;
+      margin-top: 8px;
     }
-    #hook-subtitle.visible { opacity: 0.7; }
+    #hook-subtitle.visible { opacity: 0.85; }
+    #hook-subtitle.faded { opacity: 0; }
     #hook-stats {
       position: absolute; bottom: 24px; right: 24px;
       font-size: 12px; color: #555; font-family: monospace;
@@ -189,6 +196,16 @@
       white-space: nowrap;
     }
     #hook-commentary.visible { opacity: 1; }
+
+    /* Speciation announcement — dramatic centered text */
+    #hook-speciation {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      font-size: 32px; color: #ff8; font-family: monospace;
+      text-shadow: 0 0 20px rgba(255,255,136,0.4), 0 2px 12px rgba(0,0,0,0.9);
+      opacity: 0; transition: opacity 800ms ease;
+      white-space: nowrap; pointer-events: none;
+    }
+    #hook-speciation.visible { opacity: 1; }
   </style>
 </head>
 <body class="hook-active">
@@ -252,6 +269,7 @@
   <div id="canvas-container">
     <div id="hook-overlay" class="hidden">
       <div id="hook-commentary"></div>
+      <div id="hook-speciation"></div>
       <button id="hook-skip">Skip intro</button>
       <div id="hook-stats"></div>
       <div id="hook-title">Overgreen</div>

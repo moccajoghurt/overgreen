@@ -547,8 +547,14 @@ function phaseGermination(world: World): void {
           if (!joined) {
             finalSpeciesId = world.nextSpeciesId++;
             world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
-            world.speciesNames.set(finalSpeciesId, generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness));
+            const newName = generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness);
+            world.speciesNames.set(finalSpeciesId, newName);
             world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+            world.speciationEvents.push({
+              newSpeciesId: finalSpeciesId,
+              parentSpeciesId: winner.speciesId,
+              newSpeciesName: newName,
+            });
           }
         } else {
           addToCentroid(parentCentroid, winner.genome);
@@ -615,6 +621,7 @@ export function tickWorld(world: World): void {
   world.fireDeathEvents.length = 0;
   world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
+  world.speciationEvents.length = 0;
   phaseEnvironment(world);
   phaseRechargeWater(world);
   phaseCalculateLight(world);

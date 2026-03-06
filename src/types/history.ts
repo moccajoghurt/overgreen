@@ -26,6 +26,7 @@ export interface SpeciesRecord {
 }
 
 export type SimEventType =
+  | 'speciation'
   | 'extinction'
   | 'population_record'
   | 'notable_age'

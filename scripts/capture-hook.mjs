@@ -24,13 +24,14 @@ const OUT = 'screenshots';
 
 // Time-based keyframes (seconds after page load)
 const KEYFRAMES = [
-  { sec: 0,  label: 'First paint' },
-  { sec: 3,  label: '3s — subtitle appears' },
-  { sec: 8,  label: '8s — first growth' },
-  { sec: 15, label: '15s — expanding' },
-  { sec: 25, label: '25s — approaching speciation' },
-  { sec: 40, label: '40s — reveal expected' },
-  { sec: 60, label: '60s — post-reveal' },
+  { sec: 0,  label: 'First paint — close-up, near ground' },
+  { sec: 2,  label: '2s — title card: "Overgreen"' },
+  { sec: 5,  label: '5s — post-card, growth starting' },
+  { sec: 10, label: '10s — colony expanding' },
+  { sec: 20, label: '20s — approaching speciation' },
+  { sec: 35, label: '35s — speciation commentary' },
+  { sec: 50, label: '50s — reveal expected' },
+  { sec: 65, label: '65s — post-reveal' },
 ];
 
 await mkdir(OUT, { recursive: true });

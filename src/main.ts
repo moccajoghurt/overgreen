@@ -232,12 +232,14 @@ function doTick(): void {
   recordTick(history, world);
   diagLogger.recordTick(world);
 
-  // Forward new events to hook commentary
+  // Forward new events to hook phase
   if (hookPhase.active && history.events.length > lastEventSeq) {
     for (let i = lastEventSeq; i < history.events.length; i++) {
       const ev = history.events[i];
-      if (ev.type === 'population_record' || ev.type === 'dominance_shift' || ev.type === 'extinction') {
-        hookPhase.showCommentary(ev.message);
+      if (ev.type === 'population_record' || ev.type === 'dominance_shift'
+        || ev.type === 'extinction' || ev.type === 'speciation'
+        || ev.type === 'mass_extinction') {
+        hookPhase.handleEvent(ev);
       }
     }
     lastEventSeq = history.events.length;

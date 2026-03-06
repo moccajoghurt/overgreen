@@ -4,10 +4,10 @@ import type { MapControls } from 'three/addons/controls/MapControls.js';
 /**
  * Hook-phase camera choreography.
  *
- * Ticks 0-80:   Close zoom on center seed, very slow orbit
- * Ticks 80-250: easeOutCubic dolly to ~70% zoom
- * Ticks 250+:   Hold steady
- * On reveal:    Smooth animate to default view, re-enable controls
+ * Ticks 0-120:     Hold close-up near ground level, very slow orbit
+ * Ticks 120-320:   easeOutCubic dolly out + pitch up to mid view
+ * Ticks 320+:      Hold steady
+ * On reveal:       Smooth animate to default view, re-enable controls
  */
 
 interface HookCameraOpts {
@@ -16,12 +16,15 @@ interface HookCameraOpts {
   worldCenter: { x: number; z: number };
 }
 
-const CLOSE_DISTANCE = 22;   // close zoom on seed
+const CLOSE_DISTANCE = 12;   // much closer to seed
 const MID_DISTANCE = 55;     // ~70% of max (120), never shows full map
 const DEFAULT_DISTANCE = 70; // where controls end up after reveal
-const ORBIT_SPEED = 0.003;   // radians per frame (~0.17°)
-const DOLLY_START_TICK = 80;
-const DOLLY_END_TICK = 250;
+const CLOSE_PITCH = 0.4;    // ~23° elevation, near ground level
+const MID_PITCH = 0.9;      // ~52° elevation angle
+const ORBIT_SPEED = 0.002;  // radians per frame (slower for intimacy)
+const HOLD_TICKS = 120;     // hold close-up before dolly begins
+const DOLLY_START_TICK = HOLD_TICKS;
+const DOLLY_END_TICK = HOLD_TICKS + 200;
 const REVEAL_DURATION_MS = 1200;
 
 function easeOutCubic(t: number): number {
@@ -46,20 +49,21 @@ export function createHookCamera(opts: HookCameraOpts) {
     revealing = false;
     mapControls.enabled = false;
 
-    // Position camera close, looking at world center
-    const pitch = 0.9; // ~52° elevation angle
-    const cx = worldCenter.x + Math.cos(orbitAngle) * CLOSE_DISTANCE * Math.cos(pitch);
-    const cy = CLOSE_DISTANCE * Math.sin(pitch);
-    const cz = worldCenter.z + Math.sin(orbitAngle) * CLOSE_DISTANCE * Math.cos(pitch);
+    // Position camera close and low, looking at world center
+    const cx = worldCenter.x + Math.cos(orbitAngle) * CLOSE_DISTANCE * Math.cos(CLOSE_PITCH);
+    const cy = CLOSE_DISTANCE * Math.sin(CLOSE_PITCH);
+    const cz = worldCenter.z + Math.sin(orbitAngle) * CLOSE_DISTANCE * Math.cos(CLOSE_PITCH);
 
     mapControls.target.set(worldCenter.x, 0, worldCenter.z);
     camera.position.set(cx, cy, cz);
     camera.lookAt(mapControls.target);
   }
 
-  // Target distance computed from tick; actual distance lerps toward it each frame
+  // Target distance/pitch computed from tick; actual values lerp toward them each frame
   let targetDist = CLOSE_DISTANCE;
   let currentDist = CLOSE_DISTANCE;
+  let targetPitch = CLOSE_PITCH;
+  let currentPitch = CLOSE_PITCH;
 
   function update(tick: number): void {
     if (!active) return;
@@ -69,26 +73,30 @@ export function createHookCamera(opts: HookCameraOpts) {
       return;
     }
 
-    // Compute target distance from tick (discrete, jumpy)
+    // Compute target distance and pitch from tick
     if (tick < DOLLY_START_TICK) {
       targetDist = CLOSE_DISTANCE;
+      targetPitch = CLOSE_PITCH;
     } else if (tick < DOLLY_END_TICK) {
       const t = (tick - DOLLY_START_TICK) / (DOLLY_END_TICK - DOLLY_START_TICK);
-      targetDist = CLOSE_DISTANCE + (MID_DISTANCE - CLOSE_DISTANCE) * easeOutCubic(t);
+      const ease = easeOutCubic(t);
+      targetDist = CLOSE_DISTANCE + (MID_DISTANCE - CLOSE_DISTANCE) * ease;
+      targetPitch = CLOSE_PITCH + (MID_PITCH - CLOSE_PITCH) * ease;
     } else {
       targetDist = MID_DISTANCE;
+      targetPitch = MID_PITCH;
     }
 
     // Smooth lerp toward target every frame (~60fps)
     currentDist += (targetDist - currentDist) * 0.04;
+    currentPitch += (targetPitch - currentPitch) * 0.04;
 
     // Slow orbit
     orbitAngle += ORBIT_SPEED;
 
-    const pitch = 0.9;
-    const cx = worldCenter.x + Math.cos(orbitAngle) * currentDist * Math.cos(pitch);
-    const cy = currentDist * Math.sin(pitch);
-    const cz = worldCenter.z + Math.sin(orbitAngle) * currentDist * Math.cos(pitch);
+    const cx = worldCenter.x + Math.cos(orbitAngle) * currentDist * Math.cos(currentPitch);
+    const cy = currentDist * Math.sin(currentPitch);
+    const cz = worldCenter.z + Math.sin(orbitAngle) * currentDist * Math.cos(currentPitch);
 
     camera.position.set(cx, cy, cz);
     camera.lookAt(mapControls.target);

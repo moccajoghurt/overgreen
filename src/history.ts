@@ -186,6 +186,18 @@ function detectDominanceShift(
   history.prevDominant = dominant;
 }
 
+function detectSpeciation(history: History, world: World): void {
+  for (const evt of world.speciationEvents) {
+    const parentName = spName(world, evt.parentSpeciesId);
+    pushEvent(history, {
+      tick: world.tick,
+      type: 'speciation',
+      message: `${evt.newSpeciesName} diverged from ${parentName}`,
+      speciesId: evt.newSpeciesId,
+    });
+  }
+}
+
 function detectAgeMilestones(history: History, world: World): void {
   let oldest: { age: number; plantId: number; speciesId: number } | null = null;
   for (const plant of world.plants.values()) {
@@ -278,6 +290,7 @@ export function recordTick(history: History, world: World): void {
     }
   }
 
+  detectSpeciation(history, world);
   detectExtinctions(history, world, populations);
   detectMassExtinction(history, world, sumValues(history.prevPopulations), totalAlive);
   detectDominanceShift(history, world, populations);
