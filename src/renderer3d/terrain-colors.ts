@@ -268,34 +268,69 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
+  // ── Pre-pass: compute per-cell base terrain color (switch + season tint) ──
+  const cellBaseR = new Float32Array(cellCount);
+  const cellBaseG = new Float32Array(cellCount);
+  const cellBaseB = new Float32Array(cellCount);
+
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
-
-      // Fixed natural terrain colors (no per-tick water/nutrient dynamics)
       switch (cell.terrainType) {
-        case TerrainType.River:  tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil-like — smooth water mesh handles the visual
+        case TerrainType.River:  tmpColor.setHSL(30 / 360, 0.40, 0.32); break;
         case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
         case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
         case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
         case TerrainType.Arid:   tmpColor.setHSL(40 / 360, 0.35, 0.48); break;
-        default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil
+        default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break;
       }
-
-
-      // Season tint (pre-computed above loop)
       tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
+      const idx = row * GRID + col;
+      cellBaseR[idx] = tmpColor.r;
+      cellBaseG[idx] = tmpColor.g;
+      cellBaseB[idx] = tmpColor.b;
+    }
+  }
 
-      // ── Per-vertex ground tinting (before snow/weather so overlays cover it) ──
-      // Look up corner tint colors and blend weights for this cell's 4 corners.
+  // ── Corner-average base terrain colors for smooth boundaries ──
+  const cornerBaseR = new Float32Array(cornerSize * cornerSize);
+  const cornerBaseG = new Float32Array(cornerSize * cornerSize);
+  const cornerBaseB = new Float32Array(cornerSize * cornerSize);
+
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (let dy = -1; dy <= 0; dy++) {
+        for (let dx = -1; dx <= 0; dx++) {
+          const gx = cx + dx, gy = cy + dy;
+          if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+            const idx = gy * GRID + gx;
+            sumR += cellBaseR[idx];
+            sumG += cellBaseG[idx];
+            sumB += cellBaseB[idx];
+            count++;
+          }
+        }
+      }
+      const ci = cy * cornerSize + cx;
+      cornerBaseR[ci] = sumR / count;
+      cornerBaseG[ci] = sumG / count;
+      cornerBaseB[ci] = sumB / count;
+    }
+  }
+
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const cell = world.grid[row][col];
+
       const cTL = row * cornerSize + col;
       const cTR = row * cornerSize + col + 1;
       const cBL = (row + 1) * cornerSize + col;
       const cBR = (row + 1) * cornerSize + col + 1;
 
-      // Snow coverage — blend toward cold snow-white (snowCov pre-computed above loop)
+      // Snow coverage (per-cell, applied to each vertex below)
       let cellSnow = 0;
       if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
         let boost = 1.0;
@@ -303,60 +338,34 @@ export function updateTerrainColors(state: RendererState): void {
         else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
         else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
         cellSnow = Math.min(1, snowCov * boost);
-        tmpColor.r = lerp(tmpColor.r, 0.82, cellSnow);
-        tmpColor.g = lerp(tmpColor.g, 0.85, cellSnow);
-        tmpColor.b = lerp(tmpColor.b, 0.92, cellSnow);
       }
 
-      // Weather overlay
+      // Weather overlay — compute blend target + factor (per-cell, sharp)
+      let wxR = 0, wxG = 0, wxB = 0, wxBlend = 0;
+      let wxUsesAvg = false;
       const overlayVal = env.weatherOverlay[row * GRID + col];
       if (overlayVal === WeatherOverlay.Drought) {
-        // Drought: desaturate + warm shift
-        const avg = (tmpColor.r + tmpColor.g + tmpColor.b) / 3;
-        tmpColor.r = lerp(tmpColor.r, avg + 0.1, 0.4);
-        tmpColor.g = lerp(tmpColor.g, avg - 0.02, 0.4);
-        tmpColor.b = lerp(tmpColor.b, avg - 0.08, 0.4);
+        wxUsesAvg = true; wxBlend = 0.4;
       } else if (overlayVal === WeatherOverlay.Burning) {
-        // Burning: bright orange-red
-        tmpColor.r = lerp(tmpColor.r, 0.9, 0.7);
-        tmpColor.g = lerp(tmpColor.g, 0.3, 0.7);
-        tmpColor.b = lerp(tmpColor.b, 0.05, 0.7);
+        wxR = 0.9; wxG = 0.3; wxB = 0.05; wxBlend = 0.7;
       } else if (overlayVal === WeatherOverlay.Scorched) {
-        // Scorched: dark charcoal/ash, fading over time
         const key = `${col},${row}`;
         const remaining = env.scorchedCells.get(key) ?? 0;
-        const intensity = Math.min(1, remaining / 40);
-        const blend = 0.6 * intensity;
-        tmpColor.r = lerp(tmpColor.r, 0.12, blend);
-        tmpColor.g = lerp(tmpColor.g, 0.08, blend);
-        tmpColor.b = lerp(tmpColor.b, 0.06, blend);
+        wxR = 0.12; wxG = 0.08; wxB = 0.06;
+        wxBlend = 0.6 * Math.min(1, remaining / 40);
       } else if (overlayVal === WeatherOverlay.Parched) {
-        // Parched: pale dry earth, fading over time
         const key = `${col},${row}`;
         const remaining = env.parchedCells.get(key) ?? 0;
-        const intensity = Math.min(1, remaining / 30);
-        const blend = 0.4 * intensity;
-        tmpColor.r = lerp(tmpColor.r, 0.55, blend);
-        tmpColor.g = lerp(tmpColor.g, 0.42, blend);
-        tmpColor.b = lerp(tmpColor.b, 0.28, blend);
+        wxR = 0.55; wxG = 0.42; wxB = 0.28;
+        wxBlend = 0.4 * Math.min(1, remaining / 30);
       } else if (overlayVal === WeatherOverlay.Diseased) {
-        // Active disease: sickly yellow-green
-        tmpColor.r = lerp(tmpColor.r, 0.45, 0.5);
-        tmpColor.g = lerp(tmpColor.g, 0.50, 0.5);
-        tmpColor.b = lerp(tmpColor.b, 0.08, 0.5);
+        wxR = 0.45; wxG = 0.50; wxB = 0.08; wxBlend = 0.5;
       } else if (overlayVal === WeatherOverlay.Blighted) {
-        // Blight scar: fading pale sickly
         const key = `${col},${row}`;
         const remaining = env.diseasedCells.get(key) ?? 0;
-        const intensity = Math.min(1, remaining / SIM.DISEASE_SCAR_DURATION);
-        const blend = 0.35 * intensity;
-        tmpColor.r = lerp(tmpColor.r, 0.40, blend);
-        tmpColor.g = lerp(tmpColor.g, 0.42, blend);
-        tmpColor.b = lerp(tmpColor.b, 0.12, blend);
+        wxR = 0.40; wxG = 0.42; wxB = 0.12;
+        wxBlend = 0.35 * Math.min(1, remaining / SIM.DISEASE_SCAR_DURATION);
       }
-
-      const base = (row * GRID + col) * 18;
-      const br = tmpColor.r, bg = tmpColor.g, bb = tmpColor.b;
 
       // Water adjacency blend factors per corner
       const waTL = cornerWaterAdj[cTL] * WET_BLEND;
@@ -364,31 +373,54 @@ export function updateTerrainColors(state: RendererState): void {
       const waBL = cornerWaterAdj[cBL] * WET_BLEND;
       const waBR = cornerWaterAdj[cBR] * WET_BLEND;
 
-      // Per-vertex: apply wet-earth blend, then plant tint + snow
-      // vertex 0 — TL
-      arr[base]      = lerp(lerp(br, wetR, waTL), lerp(cornerR[cTL], 0.82, cellSnow), cornerW[cTL]);
-      arr[base + 1]  = lerp(lerp(bg, wetG, waTL), lerp(cornerG[cTL], 0.85, cellSnow), cornerW[cTL]);
-      arr[base + 2]  = lerp(lerp(bb, wetB, waTL), lerp(cornerB[cTL], 0.92, cellSnow), cornerW[cTL]);
-      // vertex 1 — BL
-      arr[base + 3]  = lerp(lerp(br, wetR, waBL), lerp(cornerR[cBL], 0.82, cellSnow), cornerW[cBL]);
-      arr[base + 4]  = lerp(lerp(bg, wetG, waBL), lerp(cornerG[cBL], 0.85, cellSnow), cornerW[cBL]);
-      arr[base + 5]  = lerp(lerp(bb, wetB, waBL), lerp(cornerB[cBL], 0.92, cellSnow), cornerW[cBL]);
-      // vertex 2 — TR
-      arr[base + 6]  = lerp(lerp(br, wetR, waTR), lerp(cornerR[cTR], 0.82, cellSnow), cornerW[cTR]);
-      arr[base + 7]  = lerp(lerp(bg, wetG, waTR), lerp(cornerG[cTR], 0.85, cellSnow), cornerW[cTR]);
-      arr[base + 8]  = lerp(lerp(bb, wetB, waTR), lerp(cornerB[cTR], 0.92, cellSnow), cornerW[cTR]);
-      // vertex 3 — BL (duplicate)
-      arr[base + 9]  = arr[base + 3];
-      arr[base + 10] = arr[base + 4];
-      arr[base + 11] = arr[base + 5];
-      // vertex 4 — BR
-      arr[base + 12] = lerp(lerp(br, wetR, waBR), lerp(cornerR[cBR], 0.82, cellSnow), cornerW[cBR]);
-      arr[base + 13] = lerp(lerp(bg, wetG, waBR), lerp(cornerG[cBR], 0.85, cellSnow), cornerW[cBR]);
-      arr[base + 14] = lerp(lerp(bb, wetB, waBR), lerp(cornerB[cBR], 0.92, cellSnow), cornerW[cBR]);
-      // vertex 5 — TR (duplicate)
-      arr[base + 15] = arr[base + 6];
-      arr[base + 16] = arr[base + 7];
-      arr[base + 17] = arr[base + 8];
+      const base = (row * GRID + col) * 18;
+
+      // Per-vertex: corner-averaged base → snow → weather → wet-earth → plant tint
+      const corners = [cTL, cBL, cTR, cBL, cBR, cTR];
+      const waFactors = [waTL, waBL, waTR, waBL, waBR, waTR];
+      for (let v = 0; v < 6; v++) {
+        const ci = corners[v];
+        const wa = waFactors[v];
+        let vr = cornerBaseR[ci], vg = cornerBaseG[ci], vb = cornerBaseB[ci];
+
+        // Snow
+        if (cellSnow > 0) {
+          vr = lerp(vr, 0.82, cellSnow);
+          vg = lerp(vg, 0.85, cellSnow);
+          vb = lerp(vb, 0.92, cellSnow);
+        }
+
+        // Weather overlay
+        if (wxBlend > 0) {
+          if (wxUsesAvg) {
+            const avg = (vr + vg + vb) / 3;
+            vr = lerp(vr, avg + 0.1, wxBlend);
+            vg = lerp(vg, avg - 0.02, wxBlend);
+            vb = lerp(vb, avg - 0.08, wxBlend);
+          } else {
+            vr = lerp(vr, wxR, wxBlend);
+            vg = lerp(vg, wxG, wxBlend);
+            vb = lerp(vb, wxB, wxBlend);
+          }
+        }
+
+        // Wet-earth blend
+        vr = lerp(vr, wetR, wa);
+        vg = lerp(vg, wetG, wa);
+        vb = lerp(vb, wetB, wa);
+
+        // Plant tint
+        const cw = cornerW[ci];
+        if (cw > 0) {
+          vr = lerp(vr, lerp(cornerR[ci], 0.82, cellSnow), cw);
+          vg = lerp(vg, lerp(cornerG[ci], 0.85, cellSnow), cw);
+          vb = lerp(vb, lerp(cornerB[ci], 0.92, cellSnow), cw);
+        }
+
+        arr[base + v * 3] = vr;
+        arr[base + v * 3 + 1] = vg;
+        arr[base + v * 3 + 2] = vb;
+      }
     }
   }
 
