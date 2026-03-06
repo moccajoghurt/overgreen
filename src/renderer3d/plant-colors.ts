@@ -300,6 +300,45 @@ export function seasonalSucculentColor(
   out.cb = lerp(cb, tb, 0.15);
 }
 
+// ── Flower & fruit colors ──
+
+export function flowerColor(genome: Genome, out: { cr: number; cg: number; cb: number }): void {
+  // Vivid saturated flowers that contrast strongly with green foliage.
+  // seedInvestment → warm (golden/orange), seedSize → cool (pink/magenta)
+  const si = genome.seedInvestment;
+  const ss = genome.seedSize;
+
+  // Base: saturated hot pink (low green = pops against foliage)
+  let r = 0.80, g = 0.10, b = 0.35;
+
+  // seedInvestment pushes toward golden yellow/orange
+  r += si * 0.10;
+  g += si * 0.50;
+  b -= si * 0.30;
+
+  // seedSize pushes toward deep magenta / purple
+  r -= ss * 0.15;
+  g -= ss * 0.05;
+  b += ss * 0.35;
+
+  // heightPriority adds a blue/lavender tint
+  b += genome.heightPriority * 0.20;
+  g -= genome.heightPriority * 0.05;
+
+  out.cr = Math.max(0.45, Math.min(0.95, r));
+  out.cg = Math.max(0.05, Math.min(0.55, g));
+  out.cb = Math.max(0.10, Math.min(0.75, b));
+}
+
+export function fruitColor(genome: Genome, ripeness: number, out: { cr: number; cg: number; cb: number }): void {
+  // Bright red from the start → dark red/brown as ripeness goes 0→1
+  // Summer = bright cherry red, autumn = darkened/brownish red
+  const darkShift = genome.seedSize * 0.10;
+  out.cr = lerp(0.85, 0.50 - darkShift, ripeness);
+  out.cg = lerp(0.12, 0.10 - darkShift * 0.3, ripeness);
+  out.cb = lerp(0.10, 0.06, ripeness);
+}
+
 /**
  * Get base plant colors, using per-plant cache to avoid recomputation.
  * Cache is invalidated when colorMode changes.

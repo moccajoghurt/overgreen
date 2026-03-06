@@ -305,6 +305,26 @@ export function createPlantMeshes(): PlantMeshes {
   return { trunks, canopies, branches, seeds };
 }
 
+// ── Floral meshes (flowers, fruit, grass seed heads) ──
+
+export const MAX_FLORAL = 20000;
+export const MAX_GRASS_SEED_HEADS = 12000;
+
+export interface FloralMeshes {
+  flowerFruit: THREE.InstancedMesh;
+  grassSeedHeads: THREE.InstancedMesh;
+}
+
+export function createFloralMeshes(): FloralMeshes {
+  const flowerFruitGeo = new THREE.IcosahedronGeometry(0.12, 1);
+  const flowerFruit = createInstancedMesh(flowerFruitGeo, MAX_FLORAL);
+
+  const grassSeedGeo = new THREE.SphereGeometry(0.06, 4, 3);
+  const grassSeedHeads = createInstancedMesh(grassSeedGeo, MAX_GRASS_SEED_HEADS);
+
+  return { flowerFruit, grassSeedHeads };
+}
+
 // ── Weather meshes ──
 
 export interface WeatherMeshes {
