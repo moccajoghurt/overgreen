@@ -34,6 +34,20 @@ export function speciesColorToRgba(sc: SpeciesColor, alpha: number): string {
   return `rgba(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)},${alpha})`;
 }
 
+/** Compute a "nice" axis step size for chart grid lines */
+export function niceStep(range: number, targetLines: number): number {
+  if (range <= 0) return 1;
+  const rough = range / targetLines;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  let step: number;
+  if (norm < 1.5) step = 1;
+  else if (norm < 3.5) step = 2;
+  else if (norm < 7.5) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
 /** Convert a hex color (#rgb or #rrggbb) to an rgba() CSS string */
 export function hexToRgba(hex: string, alpha: number): string {
   let r: number, g: number, b: number;

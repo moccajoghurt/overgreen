@@ -1,5 +1,5 @@
 import { History, SpeciesColor, SEASON_LENGTH, YEAR_LENGTH } from './types';
-import { speciesColorToRgba } from './ui-utils';
+import { speciesColorToRgba, niceStep } from './ui-utils';
 
 const TOP_N = 8;
 const STICKY_TICKS = 50;
@@ -223,15 +223,3 @@ export function createPopulationChart(container: HTMLElement) {
   return { update, destroy, reset };
 }
 
-function niceStep(range: number, targetLines: number): number {
-  if (range <= 0) return 1;
-  const rough = range / targetLines;
-  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-  const norm = rough / mag;
-  let step: number;
-  if (norm < 1.5) step = 1;
-  else if (norm < 3.5) step = 2;
-  else if (norm < 7.5) step = 5;
-  else step = 10;
-  return step * mag;
-}

@@ -295,10 +295,8 @@ export function computeSucculentSilhouette(
   return { bodyH, bodyRadius };
 }
 
-export function computeGrassSilhouette(height: number, rootDepth: number, leafArea: number, genome: Genome) {
+export function computeGrassSilhouette(height: number, _rootDepth: number, leafArea: number, genome: Genome) {
   const leafRatio = leafArea / GRASS.MAX_LEAF_AREA;
-  const rootRatio = rootDepth / GRASS.MAX_ROOT_DEPTH;
-
   // Tuft height — grass stays low to the ground, much shorter than shrubs
   const tuftH = Math.min(1.0, Math.max(0.15, height * (0.20 + genome.heightPriority * 0.20)));
 

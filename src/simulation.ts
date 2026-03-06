@@ -380,7 +380,7 @@ function phaseUpdatePlants(world: World): void {
 
     // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
     // Harsh terrains take longer, rewarding large seeds with more energy reserves
-    let estTicks = SIM.SOIL_ESTABLISHMENT_TICKS;
+    let estTicks: number = SIM.SOIL_ESTABLISHMENT_TICKS;
     if (cell.terrainType === TerrainType.Hill) estTicks = SIM.HILL_ESTABLISHMENT_TICKS;
     else if (cell.terrainType === TerrainType.Wetland) estTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
     else if (cell.terrainType === TerrainType.Arid) estTicks = SIM.ARID_ESTABLISHMENT_TICKS;
@@ -513,7 +513,7 @@ function phaseGermination(world: World): void {
       // On productive terrain, dampen vigor toward 1.0 (resources equalize seedling size)
       const wpc = getPlantConstants(winner.genome.woodiness);
       const rawVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
-      let dampen = SIM.SOIL_VIGOR_DAMPEN;
+      let dampen: number = SIM.SOIL_VIGOR_DAMPEN;
       if (cell.terrainType === TerrainType.Wetland) dampen = SIM.WETLAND_VIGOR_DAMPEN;
       else if (cell.terrainType === TerrainType.Hill) dampen = SIM.HILL_VIGOR_DAMPEN;
       else if (cell.terrainType === TerrainType.Arid) dampen = SIM.ARID_VIGOR_DAMPEN;
@@ -612,6 +612,7 @@ export function tickWorld(world: World): void {
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
   world.deathEvents.length = 0;
+  world.fireDeathEvents.length = 0;
   world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
   phaseEnvironment(world);

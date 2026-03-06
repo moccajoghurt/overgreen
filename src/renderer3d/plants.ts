@@ -98,7 +98,6 @@ export function updatePlants(state: RendererState): void {
       progress: 0,
     });
   }
-  world.fireDeathEvents.length = 0;
 
   // ── Detect deaths: plants in prev snapshot but no longer in world ──
   for (const [id, snap] of state.prevSnapshots) {

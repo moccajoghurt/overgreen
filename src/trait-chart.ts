@@ -1,5 +1,6 @@
 import { History } from './types';
 import { TRAITS } from './trait-defs';
+import { niceStep } from './ui-utils';
 
 const GRID_COLOR = 'rgba(255,255,255,0.07)';
 const LABEL_COLOR = 'rgba(255,255,255,0.35)';
@@ -126,15 +127,3 @@ export function createTraitChart(container: HTMLElement) {
   return { update, destroy, reset };
 }
 
-function niceStep(range: number, targetLines: number): number {
-  if (range <= 0) return 1;
-  const rough = range / targetLines;
-  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-  const norm = rough / mag;
-  let step: number;
-  if (norm < 1.5) step = 1;
-  else if (norm < 3.5) step = 2;
-  else if (norm < 7.5) step = 5;
-  else step = 10;
-  return step * mag;
-}

@@ -1,3 +1,5 @@
+import { Genome } from './core';
+
 // ── Seasons / Environment ──
 
 export enum ClimateEra {
@@ -82,7 +84,7 @@ export interface FireEvent {
 }
 
 export interface DiseaseEvent {
-  targetGenome: { rootPriority: number; heightPriority: number; leafSize: number; seedInvestment: number; defense: number; woodiness: number };
+  targetGenome: Genome;
   cells: Map<string, number>; // "x,y" -> ticks remaining per cell
   ticksRemaining: number;
   originX: number;

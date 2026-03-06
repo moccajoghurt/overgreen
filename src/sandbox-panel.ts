@@ -34,7 +34,7 @@ export function createSandboxPanel(
   let placeModeActive = false;
   let currentGenome: Genome = {
     rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5,
-    seedInvestment: 0.5, seedSize: 0.5, defense: 0.5, woodiness: 0.5,
+    seedInvestment: 0.5, seedSize: 0.5, defense: 0.5, woodiness: 0.5, waterStorage: 0.5,
   };
   const customSpecies = new Map<number, CustomSpecies>();
   let lastUpdateTick = -1;
@@ -183,7 +183,7 @@ export function createSandboxPanel(
     btn.className = 'sb-preset-btn';
     btn.textContent = name;
     btn.addEventListener('click', () => {
-      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, seedSize: 0.5, defense: 0.5, woodiness: 0.5 };
+      const g: Genome = { rootPriority: 0.5, heightPriority: 0.5, leafSize: 0.5, seedInvestment: 0.5, seedSize: 0.5, defense: 0.5, woodiness: 0.5, waterStorage: 0.5 };
       for (const [k, v] of Object.entries(values)) {
         (g as any)[k] = v;
       }
