@@ -456,20 +456,33 @@ builders['2.6'] = function() { // Birch — slender white trunk, drooping branch
 // PLANT BUILDERS — SHRUBS
 // ============================================================
 
-builders['3.1'] = function() { // Boxwood — dense rounded dome
+builders['3.1'] = function() { // Boxwood — dense multi-cluster bush
   var g = new THREE.Group();
   addGround(g);
-  addTrunk(g, 0, 0, 0, 0.05, 0.04, 0.25, 0x5a3a1a);
-  var geo = jitter(new THREE.SphereGeometry(0.6, 10, 8), 0.04);
-  var pos = geo.attributes.position;
-  for (var i = 0; i < pos.count; i++) {
-    if (pos.getY(i) < -0.1) pos.setY(i, -0.1);
+  var stemMat = mat(0x5a3a1a);
+  var leafMat = mat(0x2a5a2a);
+  // Several short stems fanning out from base
+  var clusters = [
+    [0, 0, 0.45, 0.32],
+    [-0.2, 0.1, 0.4, 0.25],
+    [0.22, 0.05, 0.38, 0.24],
+    [0.05, -0.18, 0.42, 0.26],
+    [-0.1, 0.2, 0.35, 0.22],
+    [0.15, -0.1, 0.5, 0.28],
+  ];
+  for (var i = 0; i < clusters.length; i++) {
+    var cx = clusters[i][0], cz = clusters[i][1], cy = clusters[i][2], cr = clusters[i][3];
+    // Short stem visible at base
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, cy, 4), stemMat);
+    stem.position.set(cx * 0.3, cy / 2, cz * 0.3);
+    var lean = 0.2;
+    stem.rotation.z = cx * lean;
+    stem.rotation.x = cz * lean;
+    g.add(stem);
+    // Foliage cluster
+    addCanopy(g, cx, cy, cz, cr, 0x2a5a2a + (i % 3) * 0x020200);
   }
-  geo.computeVertexNormals();
-  var m = new THREE.Mesh(geo, mat(0x2a5a2a));
-  m.position.set(0, 0.55, 0);
-  g.add(m);
-  return { group: g, camY: 0.5, camDist: 2.8 };
+  return { group: g, camY: 0.35, camDist: 2.8 };
 };
 
 builders['3.2'] = function() { // Elderberry — multi-stemmed, arching
