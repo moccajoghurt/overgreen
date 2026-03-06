@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overgreen — Plant Subtype Gallery (Three.js)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f5f3ee; display: flex; flex-direction: column; align-items: center; font-family: 'Segoe UI', sans-serif; }
+  #wrap { position: relative; }
+  #main, #overlay { display: block; }
+  #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+  #save-btn {
+    position: fixed; top: 12px; right: 12px; z-index: 10;
+    padding: 8px 18px; font-size: 14px; cursor: pointer;
+    background: #654321; color: #fff; border: none; border-radius: 6px;
+  }
+  #save-btn:hover { background: #8a6a3a; }
+</style>
+</head>
+<body>
+<button id="save-btn">Save PNG</button>
+<div id="wrap">
+  <canvas id="main"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+// ============================================================
+// LAYOUT
+// ============================================================
+const COLS = 6, ROWS = 4;
+const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
+const TITLE_H = 80, PAD = 20;
+const W = PAD * 2 + COLS * CELL_W;
+const ROW_H = HEADER_H + CELL_3D + LABEL_H;
+const H = TITLE_H + ROWS * ROW_H + PAD;
+
+// ============================================================
+// PLANT DATA
+// ============================================================
+const ARCHETYPES = [
+  { name: 'GRASSES', color: '#4c8738', plants: [
+    { id:'1.1', name:'Turfgrass', species:'Poa pratensis' },
+    { id:'1.2', name:'Tallgrass', species:'Andropogon gerardii' },
+    { id:'1.3', name:'Bunch grass', species:'Festuca idahoensis' },
+    { id:'1.4', name:'Bamboo', species:'Phyllostachys edulis' },
+    { id:'1.5', name:'Spreading grass', species:'Cynodon dactylon' },
+    { id:'1.6', name:'Sedge/Rush', species:'Cyperus papyrus' },
+  ]},
+  { name: 'TREES', color: '#654321', plants: [
+    { id:'2.1', name:'Broadleaf deciduous', species:'Quercus robur' },
+    { id:'2.2', name:'Broadleaf evergreen', species:'Magnolia grandiflora' },
+    { id:'2.3', name:'Conifer', species:'Pinus sylvestris' },
+    { id:'2.4', name:'Tropical hardwood', species:'Swietenia mahagoni' },
+    { id:'2.5', name:'Palm', species:'Cocos nucifera' },
+    { id:'2.6', name:'Pioneer/fast-growth', species:'Betula pendula' },
+  ]},
+  { name: 'SHRUBS', color: '#8c783c', plants: [
+    { id:'3.1', name:'Evergreen shrub', species:'Buxus sempervirens' },
+    { id:'3.2', name:'Deciduous shrub', species:'Sambucus nigra' },
+    { id:'3.3', name:'Mediterranean', species:'Rosmarinus officinalis' },
+    { id:'3.4', name:'Thorny/Armed', species:'Ulex europaeus' },
+    { id:'3.5', name:'Desert shrub', species:'Larrea tridentata' },
+    { id:'3.6', name:'Mangrove', species:'Rhizophora mangle' },
+  ]},
+  { name: 'SUCCULENTS', color: '#558c64', plants: [
+    { id:'4.1', name:'Stem succulent', species:'Carnegiea gigantea' },
+    { id:'4.2', name:'Leaf succulent', species:'Aloe vera' },
+    { id:'4.3', name:'Caudiciform', species:'Adenium obesum' },
+    { id:'4.4', name:'Euphorbia', species:'Euphorbia ingens' },
+    { id:'4.5', name:'Ice plant/Mesemb', species:'Lithops' },
+    { id:'4.6', name:'Epiphytic succulent', species:'Schlumbergera' },
+  ]},
+];
+
+// ============================================================
+// THREE.JS HELPERS
+// ============================================================
+function mat(color, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign(
+    { color: color, roughness: 0.85, flatShading: true }, opts || {}
+  ));
+}
+
+function jitter(geo, amount) {
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    pos.setX(i, pos.getX(i) + (Math.random() - 0.5) * amount);
+    pos.setY(i, pos.getY(i) + (Math.random() - 0.5) * amount);
+    pos.setZ(i, pos.getZ(i) + (Math.random() - 0.5) * amount);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function grassBlade(h, w, bend, twist) {
+  twist = twist || 0;
+  var geo = new THREE.PlaneGeometry(w, h, 1, 6);
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    var y = pos.getY(i);
+    var t = (y + h / 2) / h;
+    pos.setZ(i, bend * t * t);
+    pos.setX(i, pos.getX(i) * (1 - 0.6 * t) + twist * t * t);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function addCanopy(group, x, y, z, radius, color) {
+  color = color || 0x2d5a1e;
+  var geo = jitter(new THREE.IcosahedronGeometry(radius, 1), radius * 0.15);
+  var m = new THREE.Mesh(geo, mat(color));
+  m.position.set(x, y, z);
+  group.add(m);
+  return m;
+}
+
+function addTrunk(group, x, y, z, rBot, rTop, h, color) {
+  color = color || 0x6a4a2a;
+  var geo = new THREE.CylinderGeometry(rTop, rBot, h, 7);
+  var m = new THREE.Mesh(geo, mat(color));
+  m.position.set(x, y + h / 2, z);
+  group.add(m);
+  return m;
+}
+
+function addGround(group, radius) {
+  radius = radius || 1.5;
+  var geo = new THREE.CylinderGeometry(radius, radius, 0.05, 16);
+  var m = new THREE.Mesh(geo, mat(0xc4a882, { roughness: 1 }));
+  m.position.y = -0.025;
+  group.add(m);
+}
+
+// ============================================================
+// PLANT BUILDERS — GRASSES
+// ============================================================
+var builders = {};
+
+builders['1.1'] = function() { // Turfgrass — short dense lawn
+  var g = new THREE.Group();
+  addGround(g, 1.8);
+  var bm = mat(0x4a8a3a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 140; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 1.4;
+    var h = 0.12 + Math.random() * 0.08;
+    var geo = grassBlade(h, 0.03, 0.02 * (Math.random() - 0.5));
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  return { group: g, camY: 0.4, camDist: 3.2 };
+};
+
+builders['1.2'] = function() { // Tallgrass — big bluestem
+  var g = new THREE.Group();
+  addGround(g);
+  var bm = mat(0x3a7a4a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 24; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.25;
+    var h = 1.2 + Math.random() * 0.8;
+    var bend = 0.3 + Math.random() * 0.4;
+    var geo = grassBlade(h, 0.06, bend, (Math.random() - 0.5) * 0.15);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  var sm = mat(0x8a6a4a);
+  for (var i = 0; i < 6; i++) {
+    var geo = new THREE.ConeGeometry(0.02, 0.15, 4);
+    var m = new THREE.Mesh(geo, sm);
+    m.position.set((Math.random() - 0.5) * 0.3, 1.5 + Math.random() * 0.4, (Math.random() - 0.5) * 0.3);
+    g.add(m);
+  }
+  return { group: g, camY: 0.9, camDist: 3.5 };
+};
+
+builders['1.3'] = function() { // Bunch grass — Idaho fescue tussock
+  var g = new THREE.Group();
+  addGround(g);
+  var bm = mat(0x6a8a6a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 60; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.15;
+    var h = 0.4 + Math.random() * 0.35;
+    var bend = 0.2 + Math.random() * 0.3;
+    var geo = grassBlade(h, 0.02, bend);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = a + (Math.random() - 0.5) * 0.5;
+    g.add(m);
+  }
+  return { group: g, camY: 0.35, camDist: 2.2 };
+};
+
+builders['1.4'] = function() { // Bamboo — segmented culms + leaf tufts
+  var g = new THREE.Group();
+  addGround(g);
+  var culmMat = mat(0x8aaa3a);
+  var leafMat = mat(0x2a6a2a, { side: THREE.DoubleSide });
+  var nodeMat = mat(0x6a8a2a);
+  for (var ci = 0; ci < 5; ci++) {
+    var cx = (Math.random() - 0.5) * 0.35;
+    var cz = (Math.random() - 0.5) * 0.35;
+    var totalH = 2.0 + Math.random() * 0.5;
+    var segH = 0.3;
+    var r = 0.035;
+    for (var s = 0; s < Math.floor(totalH / segH); s++) {
+      var seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, segH, 6), culmMat);
+      seg.position.set(cx, s * segH + segH / 2, cz);
+      g.add(seg);
+      if (s > 0 && s % 2 === 0) {
+        var node = new THREE.Mesh(new THREE.TorusGeometry(r * 1.4, r * 0.35, 4, 8), nodeMat);
+        node.position.set(cx, s * segH, cz);
+        node.rotation.x = Math.PI / 2;
+        g.add(node);
+      }
+    }
+    for (var l = 0; l < 6; l++) {
+      var la = l * Math.PI / 3 + Math.random() * 0.3;
+      var leaf = new THREE.Mesh(grassBlade(0.4, 0.06, 0.2), leafMat);
+      leaf.position.set(cx + Math.cos(la) * 0.1, totalH, cz + Math.sin(la) * 0.1);
+      leaf.rotation.y = la;
+      leaf.rotation.z = 0.3;
+      g.add(leaf);
+    }
+  }
+  return { group: g, camY: 1.2, camDist: 4.2 };
+};
+
+builders['1.5'] = function() { // Spreading grass — stolons + short shoots
+  var g = new THREE.Group();
+  addGround(g, 2);
+  var bm = mat(0x4a8a3a, { side: THREE.DoubleSide });
+  var sm = mat(0x6a7a3a);
+  for (var i = 0; i < 6; i++) {
+    var a = i * Math.PI / 3 + Math.random() * 0.3;
+    var len = 0.8 + Math.random() * 0.6;
+    var stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 4), sm);
+    stolon.position.set(Math.cos(a) * len / 2, 0.015, Math.sin(a) * len / 2);
+    stolon.rotation.z = Math.PI / 2;
+    stolon.rotation.y = -a;
+    g.add(stolon);
+    for (var j = 0; j < 3; j++) {
+      var t = (j + 1) / 4;
+      var sx = Math.cos(a) * len * t;
+      var sz = Math.sin(a) * len * t;
+      for (var k = 0; k < 5; k++) {
+        var h = 0.1 + Math.random() * 0.07;
+        var geo = grassBlade(h, 0.02, 0.01);
+        var m = new THREE.Mesh(geo, bm);
+        m.position.set(sx + (Math.random() - 0.5) * 0.05, h / 2, sz + (Math.random() - 0.5) * 0.05);
+        m.rotation.y = Math.random() * Math.PI;
+        g.add(m);
+      }
+    }
+  }
+  for (var i = 0; i < 20; i++) {
+    var h = 0.1 + Math.random() * 0.06;
+    var geo = grassBlade(h, 0.025, 0.01);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set((Math.random() - 0.5) * 0.15, h / 2, (Math.random() - 0.5) * 0.15);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  return { group: g, camY: 0.35, camDist: 3.5 };
+};
+
+builders['1.6'] = function() { // Papyrus — tall stems with umbrella tops
+  var g = new THREE.Group();
+  addGround(g);
+  var stemMat = mat(0x5a9a4a);
+  var umbMat = mat(0x3a8a3a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 5; i++) {
+    var sx = (Math.random() - 0.5) * 0.3;
+    var sz = (Math.random() - 0.5) * 0.3;
+    var h = 1.5 + Math.random() * 0.5;
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, h, 3), stemMat);
+    stem.position.set(sx, h / 2, sz);
+    g.add(stem);
+    for (var j = 0; j < 14; j++) {
+      var ba = j * Math.PI * 2 / 14;
+      var bract = new THREE.Mesh(grassBlade(0.5, 0.012, 0.3), umbMat);
+      bract.position.set(sx + Math.cos(ba) * 0.03, h, sz + Math.sin(ba) * 0.03);
+      bract.rotation.y = ba;
+      bract.rotation.z = -0.2;
+      g.add(bract);
+    }
+  }
+  return { group: g, camY: 1.0, camDist: 3.8 };
+};
+
+// ============================================================
+// PLANT BUILDERS — TREES
+// ============================================================
+
+builders['2.1'] = function() { // Oak — thick trunk, wide spreading crown
+  var g = new THREE.Group();
+  addGround(g, 2);
+  addTrunk(g, 0, 0, 0, 0.2, 0.12, 1.2, 0x5a3a1a);
+  // Major limbs
+  var t1 = addTrunk(g, -0.15, 1.0, 0, 0.08, 0.05, 0.7, 0x5a3a1a);
+  t1.rotation.z = 0.6;
+  var t2 = addTrunk(g, 0.15, 1.0, 0.1, 0.08, 0.05, 0.65, 0x5a3a1a);
+  t2.rotation.z = -0.5;
+  var t3 = addTrunk(g, 0, 1.0, -0.15, 0.07, 0.04, 0.5, 0x5a3a1a);
+  t3.rotation.x = 0.5;
+  addCanopy(g, 0, 1.9, 0, 0.75, 0x2a5a1a);
+  addCanopy(g, -0.6, 1.7, 0.15, 0.5, 0x2d5a1e);
+  addCanopy(g, 0.55, 1.65, -0.1, 0.48, 0x2a5a1a);
+  addCanopy(g, 0.1, 1.55, 0.45, 0.4, 0x335a22);
+  addCanopy(g, -0.3, 2.0, -0.35, 0.38, 0x2d5a1e);
+  return { group: g, camY: 1.2, camDist: 4.8 };
+};
+
+builders['2.2'] = function() { // Magnolia — dense oval canopy
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  addTrunk(g, 0, 0, 0, 0.12, 0.08, 1.0, 0x6a5a4a);
+  var geo = jitter(new THREE.SphereGeometry(0.8, 8, 6), 0.08);
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    pos.setY(i, pos.getY(i) * 1.3);
+  }
+  geo.computeVertexNormals();
+  var m = new THREE.Mesh(geo, mat(0x1a4a1a));
+  m.position.set(0, 1.8, 0);
+  g.add(m);
+  return { group: g, camY: 1.3, camDist: 4.5 };
+};
+
+builders['2.3'] = function() { // Conifer/Pine — triangular crown
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  addTrunk(g, 0, 0, 0, 0.1, 0.06, 1.5, 0x8a4a2a);
+  var nm = mat(0x1a4a2a);
+  for (var i = 0; i < 5; i++) {
+    var y = 0.7 + i * 0.35;
+    var r = 0.75 - i * 0.14;
+    var h = 0.35;
+    var cone = new THREE.Mesh(jitter(new THREE.ConeGeometry(r, h, 7), 0.04), nm);
+    cone.position.set(0, y, 0);
+    g.add(cone);
+  }
+  return { group: g, camY: 1.2, camDist: 4.2 };
+};
+
+builders['2.4'] = function() { // Mahogany — tall trunk, buttress, high crown
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  addTrunk(g, 0, 0, 0, 0.15, 0.08, 2.2, 0x6a5a4a);
+  var buttMat = mat(0x6a5a4a);
+  for (var i = 0; i < 4; i++) {
+    var a = i * Math.PI / 2 + 0.3;
+    var geo = new THREE.CylinderGeometry(0.015, 0.07, 0.5, 4);
+    var m = new THREE.Mesh(geo, buttMat);
+    m.position.set(Math.cos(a) * 0.13, 0.2, Math.sin(a) * 0.13);
+    m.rotation.z = Math.cos(a) * 0.35;
+    m.rotation.x = Math.sin(a) * 0.35;
+    g.add(m);
+  }
+  addCanopy(g, 0, 2.6, 0, 0.7, 0x2a6a2a);
+  addCanopy(g, 0.3, 2.4, 0.2, 0.4, 0x2d6a25);
+  addCanopy(g, -0.25, 2.5, -0.2, 0.38, 0x2a6a2a);
+  return { group: g, camY: 1.4, camDist: 5.2 };
+};
+
+builders['2.5'] = function() { // Palm — curved trunk + frond crown
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.06, 0.6, 0.03),
+    new THREE.Vector3(0.12, 1.3, 0),
+    new THREE.Vector3(0.08, 1.9, -0.02),
+    new THREE.Vector3(0.05, 2.3, 0),
+  ]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.06, 6, false), mat(0x8a7a6a)));
+  // Ring marks on trunk
+  var ringMat = mat(0x7a6a5a);
+  for (var ri = 1; ri < 8; ri++) {
+    var pt = curve.getPoint(ri / 8);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.01, 4, 8), ringMat);
+    ring.position.copy(pt);
+    ring.rotation.x = Math.PI / 2;
+    g.add(ring);
+  }
+  var fm = mat(0x4a8a2a, { side: THREE.DoubleSide });
+  var topY = 2.3, topX = 0.05;
+  for (var i = 0; i < 8; i++) {
+    var a = i * Math.PI / 4;
+    var frond = new THREE.Mesh(grassBlade(1.1, 0.18, 0.7), fm);
+    frond.position.set(topX + Math.cos(a) * 0.06, topY, Math.sin(a) * 0.06);
+    frond.rotation.y = a;
+    frond.rotation.z = -0.15;
+    g.add(frond);
+  }
+  return { group: g, camY: 1.3, camDist: 4.8 };
+};
+
+builders['2.6'] = function() { // Birch — slender white trunk, drooping branches
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  addTrunk(g, 0, 0, 0, 0.07, 0.04, 2.0, 0xd8d0c8);
+  // Dark bark patches
+  var patchMat = mat(0x3a3a3a);
+  for (var pi = 0; pi < 6; pi++) {
+    var pa = Math.random() * Math.PI * 2;
+    var py = 0.3 + Math.random() * 1.2;
+    var patch = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.02), patchMat);
+    patch.position.set(Math.cos(pa) * 0.06, py, Math.sin(pa) * 0.06);
+    patch.rotation.y = pa;
+    g.add(patch);
+  }
+  var brMat = mat(0x9a8a7a);
+  for (var i = 0; i < 7; i++) {
+    var a = i * Math.PI * 2 / 7 + Math.random() * 0.3;
+    var y = 1.1 + Math.random() * 0.7;
+    var len = 0.4 + Math.random() * 0.25;
+    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.02, len, 4), brMat);
+    branch.position.set(Math.cos(a) * len / 3, y, Math.sin(a) * len / 3);
+    branch.rotation.z = Math.cos(a) * 0.7;
+    branch.rotation.x = Math.sin(a) * 0.7;
+    g.add(branch);
+    addCanopy(g, Math.cos(a) * len * 0.6, y - 0.1, Math.sin(a) * len * 0.6, 0.2, 0x5aaa3a);
+  }
+  addCanopy(g, 0, 1.85, 0, 0.35, 0x5aaa3a);
+  return { group: g, camY: 1.2, camDist: 4.2 };
+};
+
+// ============================================================
+// PLANT BUILDERS — SHRUBS
+// ============================================================
+
+builders['3.1'] = function() { // Boxwood — dense rounded dome
+  var g = new THREE.Group();
+  addGround(g);
+  addTrunk(g, 0, 0, 0, 0.05, 0.04, 0.25, 0x5a3a1a);
+  var geo = jitter(new THREE.SphereGeometry(0.6, 10, 8), 0.04);
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    if (pos.getY(i) < -0.1) pos.setY(i, -0.1);
+  }
+  geo.computeVertexNormals();
+  var m = new THREE.Mesh(geo, mat(0x2a5a2a));
+  m.position.set(0, 0.55, 0);
+  g.add(m);
+  return { group: g, camY: 0.5, camDist: 2.8 };
+};
+
+builders['3.2'] = function() { // Elderberry — multi-stemmed, arching
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var stemMat = mat(0x7a6a5a);
+  for (var i = 0; i < 5; i++) {
+    var a = i * Math.PI * 2 / 5 + Math.random() * 0.3;
+    var lean = 0.25 + Math.random() * 0.2;
+    var h = 0.8 + Math.random() * 0.4;
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, h, 5), stemMat);
+    stem.position.set(Math.cos(a) * 0.08, h / 2, Math.sin(a) * 0.08);
+    stem.rotation.z = Math.cos(a) * lean;
+    stem.rotation.x = Math.sin(a) * lean;
+    g.add(stem);
+    addCanopy(g,
+      Math.cos(a) * (0.08 + lean * h * 0.45),
+      h * 0.75,
+      Math.sin(a) * (0.08 + lean * h * 0.45),
+      0.25, 0x4a7a3a);
+  }
+  return { group: g, camY: 0.6, camDist: 3.5 };
+};
+
+builders['3.3'] = function() { // Rosemary — upright bushy
+  var g = new THREE.Group();
+  addGround(g);
+  var stemMat = mat(0x6a5a4a);
+  var needleMat = mat(0x4a6a4a);
+  for (var i = 0; i < 8; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.1;
+    var h = 0.5 + Math.random() * 0.35;
+    var lean = 0.15 + Math.random() * 0.1;
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, h, 4), stemMat);
+    stem.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    stem.rotation.z = Math.cos(a) * lean;
+    stem.rotation.x = Math.sin(a) * lean;
+    g.add(stem);
+    // Elongated needle clusters along stem
+    for (var j = 1; j < 5; j++) {
+      var ny = h * j / 5;
+      var nc = new THREE.Mesh(
+        jitter(new THREE.SphereGeometry(0.06, 4, 3), 0.02),
+        needleMat
+      );
+      nc.scale.set(1, 1.5, 0.8);
+      var off = lean * ny * 0.5;
+      nc.position.set(
+        Math.cos(a) * (r + off),
+        ny,
+        Math.sin(a) * (r + off)
+      );
+      g.add(nc);
+    }
+  }
+  return { group: g, camY: 0.45, camDist: 2.6 };
+};
+
+builders['3.4'] = function() { // Gorse — dense spiny mound
+  var g = new THREE.Group();
+  addGround(g);
+  var geo = jitter(new THREE.SphereGeometry(0.55, 8, 6), 0.08);
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    if (pos.getY(i) < -0.08) pos.setY(i, -0.08);
+  }
+  geo.computeVertexNormals();
+  var m = new THREE.Mesh(geo, mat(0x3a5a2a));
+  m.position.set(0, 0.48, 0);
+  g.add(m);
+  // Spines + golden flower dots
+  var spineMat = mat(0x5a7a3a);
+  var flowerMat = mat(0xddbb22);
+  for (var i = 0; i < 35; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var elev = Math.random() * Math.PI * 0.45;
+    var r = 0.52 + Math.random() * 0.08;
+    var spine = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.12, 3), spineMat);
+    var sx = Math.cos(a) * Math.cos(elev) * r;
+    var sy = 0.48 + Math.sin(elev) * r * 0.8;
+    var sz = Math.sin(a) * Math.cos(elev) * r;
+    spine.position.set(sx, sy, sz);
+    spine.lookAt(sx * 2, sy * 1.5, sz * 2);
+    g.add(spine);
+    if (Math.random() < 0.35) {
+      var flower = new THREE.Mesh(new THREE.SphereGeometry(0.025, 4, 3), flowerMat);
+      flower.position.set(sx * 1.05, sy * 1.02, sz * 1.05);
+      g.add(flower);
+    }
+  }
+  return { group: g, camY: 0.5, camDist: 3 };
+};
+
+builders['3.5'] = function() { // Creosote — sparse open desert shrub
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var stemMat = mat(0x8a7a6a);
+  var leafMat = mat(0x5a6a3a);
+  for (var i = 0; i < 10; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.12;
+    var h = 0.4 + Math.random() * 0.55;
+    var lean = 0.3 + Math.random() * 0.35;
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.018, h, 4), stemMat);
+    stem.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    stem.rotation.z = Math.cos(a) * lean;
+    stem.rotation.x = Math.sin(a) * lean;
+    g.add(stem);
+    var tipX = Math.cos(a) * (r + lean * h * 0.3);
+    var tipZ = Math.sin(a) * (r + lean * h * 0.3);
+    var leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.055, 0), leafMat);
+    leaf.position.set(tipX, h * 0.7, tipZ);
+    g.add(leaf);
+  }
+  return { group: g, camY: 0.45, camDist: 3 };
+};
+
+builders['3.6'] = function() { // Mangrove — prop roots + dense canopy
+  var g = new THREE.Group();
+  // Water surface
+  var waterGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.04, 16);
+  var waterMesh = new THREE.Mesh(waterGeo, mat(0x4a7a8a, { roughness: 0.3, transparent: true, opacity: 0.7 }));
+  waterMesh.position.y = -0.02;
+  g.add(waterMesh);
+  addTrunk(g, 0, 0.2, 0, 0.08, 0.06, 0.8, 0x7a3a2a);
+  // Prop roots
+  var rootMat = mat(0x7a3a2a);
+  for (var i = 0; i < 6; i++) {
+    var a = i * Math.PI / 3 + Math.random() * 0.2;
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.55, 0),
+      new THREE.Vector3(Math.cos(a) * 0.3, 0.3, Math.sin(a) * 0.3),
+      new THREE.Vector3(Math.cos(a) * 0.55, -0.05, Math.sin(a) * 0.55),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.02, 4, false), rootMat));
+  }
+  addCanopy(g, 0, 1.2, 0, 0.55, 0x2a5a2a);
+  addCanopy(g, 0.25, 1.1, 0.2, 0.3, 0x2d5a25);
+  addCanopy(g, -0.2, 1.15, -0.15, 0.28, 0x2a5a2a);
+  return { group: g, camY: 0.7, camDist: 3.8 };
+};
+
+// ============================================================
+// PLANT BUILDERS — SUCCULENTS
+// ============================================================
+
+builders['4.1'] = function() { // Saguaro — column + arms
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var cm = mat(0x5a8a4a);
+  // Main column
+  var main = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 2.0, 10), cm);
+  main.position.set(0, 1.0, 0);
+  g.add(main);
+  // Rounded top cap
+  var cap = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), cm);
+  cap.position.set(0, 2.0, 0);
+  g.add(cap);
+  // Right arm
+  var arm1 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.18, 0.8, 0),
+    new THREE.Vector3(0.5, 0.7, 0),
+    new THREE.Vector3(0.55, 1.0, 0),
+    new THREE.Vector3(0.5, 1.3, 0),
+  ]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(arm1, 10, 0.08, 8, false), cm));
+  var arm1Cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cm);
+  arm1Cap.position.set(0.5, 1.3, 0);
+  g.add(arm1Cap);
+  // Left arm
+  var arm2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.18, 1.0, 0),
+    new THREE.Vector3(-0.45, 0.95, 0),
+    new THREE.Vector3(-0.48, 1.2, 0),
+    new THREE.Vector3(-0.42, 1.55, 0),
+  ]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(arm2, 10, 0.07, 8, false), cm));
+  var arm2Cap = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cm);
+  arm2Cap.position.set(-0.42, 1.55, 0);
+  g.add(arm2Cap);
+  return { group: g, camY: 1.1, camDist: 4.2 };
+};
+
+builders['4.2'] = function() { // Aloe — rosette of thick pointed leaves
+  var g = new THREE.Group();
+  addGround(g);
+  var lm = mat(0x5a7a4a);
+  // Two rings of leaves for fullness
+  for (var ring = 0; ring < 2; ring++) {
+    var count = ring === 0 ? 8 : 6;
+    var offset = ring === 0 ? 0 : Math.PI / 8;
+    var leanBase = ring === 0 ? 0.9 : 0.6;
+    var hh = ring === 0 ? 0.6 : 0.5;
+    for (var i = 0; i < count; i++) {
+      var a = i * Math.PI * 2 / count + offset;
+      var geo = new THREE.ConeGeometry(0.055, hh, 5);
+      var m = new THREE.Mesh(geo, lm);
+      m.scale.set(1.4, 1, 0.6);
+      m.position.set(Math.cos(a) * 0.08 * (ring + 1), 0.15, Math.sin(a) * 0.08 * (ring + 1));
+      m.rotation.z = -Math.cos(a) * leanBase;
+      m.rotation.x = -Math.sin(a) * leanBase;
+      g.add(m);
+    }
+  }
+  return { group: g, camY: 0.35, camDist: 2.5 };
+};
+
+builders['4.3'] = function() { // Desert rose — swollen caudex + thin branches
+  var g = new THREE.Group();
+  addGround(g);
+  // Bulbous caudex
+  var cGeo = jitter(new THREE.SphereGeometry(0.35, 8, 6), 0.03);
+  var pos = cGeo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    var y = pos.getY(i);
+    if (y < -0.2) pos.setY(i, -0.2);
+    var t = (y + 0.35) / 0.7;
+    var bulge = 1 + 0.25 * Math.sin(t * Math.PI);
+    pos.setX(i, pos.getX(i) * bulge);
+    pos.setZ(i, pos.getZ(i) * bulge);
+  }
+  cGeo.computeVertexNormals();
+  var caudex = new THREE.Mesh(cGeo, mat(0x8a7a6a));
+  caudex.position.y = 0.3;
+  g.add(caudex);
+  var brMat = mat(0x6a4a3a);
+  var lfMat = mat(0x4a7a3a);
+  for (var i = 0; i < 5; i++) {
+    var a = i * Math.PI * 2 / 5 + 0.3;
+    var h = 0.35 + Math.random() * 0.2;
+    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.025, h, 4), brMat);
+    var lean = 0.3 + Math.random() * 0.15;
+    branch.position.set(Math.cos(a) * 0.1, 0.6 + h / 3, Math.sin(a) * 0.1);
+    branch.rotation.z = Math.cos(a) * lean;
+    branch.rotation.x = Math.sin(a) * lean;
+    g.add(branch);
+    var leaf = new THREE.Mesh(jitter(new THREE.IcosahedronGeometry(0.08, 0), 0.01), lfMat);
+    leaf.position.set(Math.cos(a) * 0.25, 0.6 + h * 0.65, Math.sin(a) * 0.25);
+    g.add(leaf);
+  }
+  return { group: g, camY: 0.55, camDist: 2.8 };
+};
+
+builders['4.4'] = function() { // Euphorbia — candelabra branching
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var em = mat(0x3a6a3a);
+  addTrunk(g, 0, 0, 0, 0.1, 0.08, 0.8, 0x6a4a2a);
+  for (var i = 0; i < 5; i++) {
+    var a = i * Math.PI * 2 / 5;
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.8, 0),
+      new THREE.Vector3(Math.cos(a) * 0.35, 0.65, Math.sin(a) * 0.35),
+      new THREE.Vector3(Math.cos(a) * 0.38, 1.3 + Math.random() * 0.3, Math.sin(a) * 0.38),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.05, 6, false), em));
+    // Cap each arm
+    var armTop = curve.getPoint(1);
+    var armCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
+    armCap.position.copy(armTop);
+    g.add(armCap);
+  }
+  // Center column continues up
+  var top = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.9, 6), em);
+  top.position.y = 1.25;
+  g.add(top);
+  var centerCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
+  centerCap.position.set(0, 1.7, 0);
+  g.add(centerCap);
+  return { group: g, camY: 0.9, camDist: 4 };
+};
+
+builders['4.5'] = function() { // Lithops — tiny paired rounded bodies
+  var g = new THREE.Group();
+  addGround(g, 0.8);
+  // Add sandy gravel
+  var gravelMat = mat(0xb0a890);
+  for (var gi = 0; gi < 20; gi++) {
+    var ga = Math.random() * Math.PI * 2;
+    var gr = Math.random() * 0.7;
+    var pebble = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random()*0.015, 4, 3), gravelMat);
+    pebble.position.set(Math.cos(ga)*gr, 0.01, Math.sin(ga)*gr);
+    g.add(pebble);
+  }
+  var colors = [0x8a8a6a, 0x7a8a5a, 0x9a8a7a];
+  var positions = [[0, 0], [-0.18, 0.12], [0.15, -0.15]];
+  for (var pi = 0; pi < positions.length; pi++) {
+    var px = positions[pi][0], pz = positions[pi][1];
+    var col = colors[pi];
+    for (var half = 0; half < 2; half++) {
+      var geo = new THREE.SphereGeometry(0.08, 6, 5);
+      var pos = geo.attributes.position;
+      for (var i = 0; i < pos.count; i++) {
+        if (pos.getY(i) > 0.055) pos.setY(i, 0.055);
+        if (pos.getY(i) < -0.03) pos.setY(i, -0.03);
+      }
+      geo.computeVertexNormals();
+      var m = new THREE.Mesh(geo, mat(col));
+      m.position.set(px + (half === 0 ? -0.05 : 0.05), 0.03, pz);
+      g.add(m);
+    }
+  }
+  return { group: g, camY: 0.15, camDist: 1.5 };
+};
+
+builders['4.6'] = function() { // Christmas cactus — drooping segmented stems
+  var g = new THREE.Group();
+  addGround(g);
+  var segMat = mat(0x2a6a3a);
+  // Pot
+  var potMat = mat(0x9a6a4a);
+  var pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.4, 8), potMat);
+  pot.position.y = 0.2;
+  g.add(pot);
+  var potRim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.02, 4, 8), potMat);
+  potRim.position.y = 0.4;
+  potRim.rotation.x = Math.PI / 2;
+  g.add(potRim);
+  // Cascading segment chains
+  for (var i = 0; i < 8; i++) {
+    var a = i * Math.PI / 4 + (Math.random() - 0.5) * 0.2;
+    var x = 0, y = 0.45, z = 0;
+    var segCount = 4 + Math.floor(Math.random() * 3);
+    for (var s = 0; s < segCount; s++) {
+      var segLen = 0.1;
+      var dx = Math.cos(a) * segLen;
+      var dz = Math.sin(a) * segLen;
+      var dy = -0.03 - s * 0.025;
+      var geo = new THREE.BoxGeometry(0.07, 0.018, 0.045);
+      jitter(geo, 0.003);
+      var m = new THREE.Mesh(geo, segMat);
+      m.position.set(x + dx / 2, y + dy / 2, z + dz / 2);
+      m.rotation.y = a;
+      g.add(m);
+      x += dx; y += dy; z += dz;
+    }
+  }
+  // Central hub
+  var hub = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), segMat);
+  hub.position.y = 0.45;
+  g.add(hub);
+  return { group: g, camY: 0.4, camDist: 2.2 };
+};
+
+// ============================================================
+// RENDERER SETUP
+// ============================================================
+var canvas = document.getElementById('main');
+var overlay = document.getElementById('overlay');
+var dpr = window.devicePixelRatio || 1;
+
+canvas.width = W * dpr;
+canvas.height = H * dpr;
+canvas.style.width = W + 'px';
+canvas.style.height = H + 'px';
+overlay.width = W * dpr;
+overlay.height = H * dpr;
+overlay.style.width = W + 'px';
+overlay.style.height = H + 'px';
+
+var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(dpr);
+renderer.setSize(W, H);
+renderer.setScissorTest(true);
+renderer.setClearColor(0xf5f3ee);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+// Build cells
+var cells = [];
+var flatIdx = 0;
+for (var row = 0; row < ARCHETYPES.length; row++) {
+  var arch = ARCHETYPES[row];
+  for (var col = 0; col < arch.plants.length; col++) {
+    var plant = arch.plants[col];
+    var built = builders[plant.id]();
+
+    // Scene
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0ede8);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    var dir = new THREE.DirectionalLight(0xfff5e0, 1.0);
+    dir.position.set(3, 5, 2);
+    scene.add(dir);
+    var hemi = new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3);
+    scene.add(hemi);
+    scene.add(built.group);
+
+    // Camera
+    var cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 100);
+    var d = built.camDist;
+    var cy = built.camY;
+    cam.position.set(d * 0.7, cy + d * 0.35, d * 0.7);
+    cam.lookAt(0, cy * 0.7, 0);
+
+    // Viewport (note: WebGL y=0 is bottom)
+    var vx = PAD + col * CELL_W;
+    var vyHtml = TITLE_H + row * ROW_H + HEADER_H;
+    var vyGL = H - vyHtml - CELL_3D;
+
+    cells.push({
+      scene: scene,
+      camera: cam,
+      group: built.group,
+      vx: vx, vyGL: vyGL,
+      plant: plant,
+      row: row, col: col,
+    });
+    flatIdx++;
+  }
+}
+
+// ============================================================
+// 2D OVERLAY — LABELS
+// ============================================================
+var ctx = overlay.getContext('2d');
+ctx.scale(dpr, dpr);
+
+function drawLabels() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Title
+  ctx.font = 'bold 28px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#1e1e1e';
+  ctx.textAlign = 'center';
+  ctx.fillText('OVERGREEN \u2014 Plant Subtype Gallery (Three.js)', W / 2, TITLE_H / 2 + 10);
+
+  for (var row = 0; row < ARCHETYPES.length; row++) {
+    var arch = ARCHETYPES[row];
+    var hy = TITLE_H + row * ROW_H;
+
+    // Header bar
+    ctx.fillStyle = arch.color;
+    var rx = PAD, ry = hy, rw = W - PAD * 2, rh = HEADER_H - 6;
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, rw, rh, 8);
+    ctx.fill();
+
+    ctx.font = 'bold 22px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText((row + 1) + '. ' + arch.name, PAD + 18, hy + rh / 2 + 7);
+
+    for (var col = 0; col < arch.plants.length; col++) {
+      var p = arch.plants[col];
+      var cx = PAD + col * CELL_W + CELL_W / 2;
+      var labelY = hy + HEADER_H + CELL_3D;
+
+      // Index badge
+      var bx = PAD + col * CELL_W + 8;
+      var by = hy + HEADER_H + 6;
+      ctx.fillStyle = arch.color;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, 40, 24, 5);
+      ctx.fill();
+      ctx.font = 'bold 15px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.id, bx + 20, by + 17);
+
+      // Name + species
+      ctx.font = 'bold 13px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#1e1e1e';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name, cx, labelY + 18);
+      ctx.font = 'italic 11px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#5a5a5a';
+      ctx.fillText(p.species, cx, labelY + 34);
+    }
+  }
+}
+drawLabels();
+
+// ============================================================
+// ANIMATION LOOP
+// ============================================================
+function animate(time) {
+  requestAnimationFrame(animate);
+  var t = time * 0.001;
+
+  for (var i = 0; i < cells.length; i++) {
+    var c = cells[i];
+    c.group.rotation.y = t * 0.3;
+
+    renderer.setViewport(c.vx, c.vyGL, CELL_W, CELL_3D);
+    renderer.setScissor(c.vx, c.vyGL, CELL_W, CELL_3D);
+    renderer.render(c.scene, c.camera);
+  }
+}
+requestAnimationFrame(animate);
+
+// ============================================================
+// SAVE PNG
+// ============================================================
+document.getElementById('save-btn').addEventListener('click', function() {
+  // Composite both canvases
+  var out = document.createElement('canvas');
+  out.width = W * dpr;
+  out.height = H * dpr;
+  var oc = out.getContext('2d');
+  oc.drawImage(canvas, 0, 0);
+  oc.drawImage(overlay, 0, 0);
+  out.toBlob(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'plant_gallery_3d.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+});
+</script>
+</body>
+</html>
