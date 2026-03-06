@@ -535,39 +535,56 @@ builders['3.3'] = function() { // Rosemary — dense upright mounding bush
   return { group: g, camY: 0.4, camDist: 2.6 };
 };
 
-builders['3.4'] = function() { // Gorse — dense spiny mound
+builders['3.4'] = function() { // Gorse — jagged spiny mound with golden flowers
   var g = new THREE.Group();
   addGround(g);
-  var geo = jitter(new THREE.SphereGeometry(0.55, 8, 6), 0.08);
-  var pos = geo.attributes.position;
-  for (var i = 0; i < pos.count; i++) {
-    if (pos.getY(i) < -0.08) pos.setY(i, -0.08);
-  }
-  geo.computeVertexNormals();
-  var m = new THREE.Mesh(geo, mat(0x3a5a2a));
-  m.position.set(0, 0.48, 0);
-  g.add(m);
-  // Spines + golden flower dots
-  var spineMat = mat(0x5a7a3a);
+  var spineMat = mat(0x3a5a2a);
   var flowerMat = mat(0xddbb22);
-  for (var i = 0; i < 35; i++) {
-    var a = Math.random() * Math.PI * 2;
-    var elev = Math.random() * Math.PI * 0.45;
-    var r = 0.52 + Math.random() * 0.08;
-    var spine = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.12, 3), spineMat);
-    var sx = Math.cos(a) * Math.cos(elev) * r;
-    var sy = 0.48 + Math.sin(elev) * r * 0.8;
-    var sz = Math.sin(a) * Math.cos(elev) * r;
-    spine.position.set(sx, sy, sz);
-    spine.lookAt(sx * 2, sy * 1.5, sz * 2);
-    g.add(spine);
-    if (Math.random() < 0.35) {
-      var flower = new THREE.Mesh(new THREE.SphereGeometry(0.025, 4, 3), flowerMat);
-      flower.position.set(sx * 1.05, sy * 1.02, sz * 1.05);
-      g.add(flower);
-    }
+  var woodMat = mat(0x6a4a2a);
+  // Woody branches poking through foliage
+  for (var i = 0; i < 4; i++) {
+    var a = i * Math.PI / 2 + 0.4;
+    var h = 0.6 + Math.random() * 0.2;
+    var lean = 0.35 + Math.random() * 0.2;
+    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, h, 4), woodMat);
+    branch.position.set(Math.cos(a) * 0.06, h / 2, Math.sin(a) * 0.06);
+    branch.rotation.z = Math.cos(a) * lean;
+    branch.rotation.x = Math.sin(a) * lean;
+    g.add(branch);
   }
-  return { group: g, camY: 0.5, camDist: 3 };
+  // Build from many small rough clusters instead of one smooth dome
+  var clumps = [
+    [0, 0.5, 0, 0.25], [-0.2, 0.55, 0.15, 0.2], [0.2, 0.5, -0.1, 0.2],
+    [0, 0.7, 0.1, 0.18], [0.15, 0.65, 0.15, 0.17], [-0.15, 0.6, -0.15, 0.18],
+    [0.05, 0.4, -0.2, 0.2], [-0.1, 0.45, 0.2, 0.17],
+  ];
+  for (var ci = 0; ci < clumps.length; ci++) {
+    var cx = clumps[ci][0], cy = clumps[ci][1], cz = clumps[ci][2], cr = clumps[ci][3];
+    addCanopy(g, cx, cy, cz, cr, 0x3a5a2a);
+  }
+  // Dense spines poking out everywhere
+  for (var i = 0; i < 50; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var elev = Math.random() * 0.8;
+    var r = 0.3 + Math.random() * 0.15;
+    var sx = Math.cos(a) * r;
+    var sy = 0.35 + elev * 0.5;
+    var sz = Math.sin(a) * r;
+    var spine = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.1, 3), spineMat);
+    spine.position.set(sx, sy, sz);
+    spine.lookAt(sx * 2.5, sy * 1.2, sz * 2.5);
+    g.add(spine);
+  }
+  // Golden flower clusters
+  for (var i = 0; i < 15; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = 0.2 + Math.random() * 0.2;
+    var fy = 0.45 + Math.random() * 0.35;
+    var flower = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 0), flowerMat);
+    flower.position.set(Math.cos(a) * r, fy, Math.sin(a) * r);
+    g.add(flower);
+  }
+  return { group: g, camY: 0.4, camDist: 3 };
 };
 
 builders['3.5'] = function() { // Creosote — sparse open desert shrub
