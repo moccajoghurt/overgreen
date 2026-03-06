@@ -17,15 +17,14 @@ import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
+import { genesis } from './scenarios/genesis';
 
 const container = document.getElementById('canvas-container')!;
 const singleSeedToggle = document.getElementById('single-seed-toggle') as HTMLInputElement;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
-if (singleSeedToggle.checked) {
-  seedSinglePlant(world);
-} else {
-  seedInitialPlants(world, 40);
-}
+
+// Load Genesis as the default starting scenario
+loadScenario(world, genesis);
 
 const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
@@ -78,6 +77,7 @@ for (const s of SCENARIOS) {
   const opt = document.createElement('option');
   opt.value = s.id;
   opt.textContent = s.name;
+  if (s.id === 'genesis') opt.selected = true;
   scenarioSelect.appendChild(opt);
 }
 
