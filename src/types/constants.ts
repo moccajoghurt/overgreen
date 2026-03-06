@@ -50,6 +50,10 @@ export const SIM = {
   SEED_SIZE_VIGOR_RANGE: 1.8,
   SEED_SIZE_DISPERSAL_BONUS: 3,
   ESTABLISHMENT_TICKS: 5,
+  WETLAND_ESTABLISHMENT_TICKS: 3,   // easy — abundant water, nutrients
+  SOIL_ESTABLISHMENT_TICKS: 5,      // baseline
+  HILL_ESTABLISHMENT_TICKS: 8,      // wind + thin soil
+  ARID_ESTABLISHMENT_TICKS: 10,     // drought stress
 
   // Death / Decomposition
   STARVATION_THRESHOLD: 0,

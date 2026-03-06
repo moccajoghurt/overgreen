@@ -371,7 +371,12 @@ function phaseUpdatePlants(world: World): void {
     plant.isDiseased = isDiseased;
 
     // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
-    const establishing = plant.age < SIM.ESTABLISHMENT_TICKS;
+    // Harsh terrains take longer, rewarding large seeds with more energy reserves
+    let estTicks = SIM.SOIL_ESTABLISHMENT_TICKS;
+    if (cell.terrainType === TerrainType.Hill) estTicks = SIM.HILL_ESTABLISHMENT_TICKS;
+    else if (cell.terrainType === TerrainType.Wetland) estTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
+    else if (cell.terrainType === TerrainType.Arid) estTicks = SIM.ARID_ESTABLISHMENT_TICKS;
+    const establishing = plant.age < estTicks;
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
     const energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
     const maintenance = calculateMaintenance(plant, world, isDiseased);
@@ -457,16 +462,27 @@ function phaseGermination(world: World): void {
       // Germinate if cell is empty and has enough water
       if (cell.plantId !== null || cell.seeds.length === 0) continue;
 
-      // Find highest-energy seed that meets water threshold
-      let bestIdx = -1;
-      let bestEnergy = -1;
+      // Weighted lottery — each qualifying seed's chance proportional to energy
+      let totalEnergy = 0;
+      const qualifying: number[] = [];
       for (let i = 0; i < cell.seeds.length; i++) {
         const seed = cell.seeds[i];
         const waterThreshold = getPlantConstants(seed.genome.woodiness).seedGerminationWater;
-        if (cell.waterLevel >= waterThreshold && seed.energy > bestEnergy) {
-          bestEnergy = seed.energy;
-          bestIdx = i;
+        if (cell.waterLevel >= waterThreshold) {
+          qualifying.push(i);
+          totalEnergy += seed.energy;
         }
+      }
+      let bestIdx = -1;
+      if (qualifying.length === 1) {
+        bestIdx = qualifying[0];
+      } else if (qualifying.length > 1) {
+        let roll = Math.random() * totalEnergy;
+        for (const idx of qualifying) {
+          roll -= cell.seeds[idx].energy;
+          if (roll <= 0) { bestIdx = idx; break; }
+        }
+        if (bestIdx < 0) bestIdx = qualifying[qualifying.length - 1];
       }
 
       if (bestIdx < 0) continue;
