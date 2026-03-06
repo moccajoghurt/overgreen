@@ -8,13 +8,15 @@ import { ClimateEra } from '../types/environment';
  * reliably produces dramatic speciation, territorial competition, and
  * extinction events as descendants colonize diverse biomes.
  *
- * Terrain layout (80×80):
- *   - Central valley: fertile soil (low elevation) — fast initial boom
- *   - River: runs roughly east-west through rows 35-37, with a bend
- *   - Northern highlands: hills (rows 0-18) with rock outcrops
- *   - Southern badlands: arid (rows 58-79) — selects for succulence
- *   - Eastern wetland: pocket (cols 58-79, rows 20-50) — swamp niche
- *   - Rock barriers: scattered outcrops that fragment populations
+ * Terrain layout (80×80) — "The Convergence":
+ *   Three biomes converge near the spawn for maximum speciation contrast.
+ *   - River: east-west at row ~37, gentle curves
+ *   - Northern hills: descend to within ~8 cells of the river
+ *   - South of river: a diagonal boundary splits the land:
+ *     - Southwest: wetlands (river-fed marshlands)
+ *     - Southeast: arid desert
+ *   - Spawn at (40,40): soil at the triple point where hill, wetland, and arid meet
+ *   - Oasis: wetland pocket deep in the arid southeast
  */
 export const genesis: Scenario = (() => {
   const size = 80;
@@ -94,107 +96,84 @@ function fbm(x: number, y: number, scale: number): number {
 }
 
 function getTerrain(x: number, y: number): ScenarioCell | null {
-  // ── Elevation field: high north, low center, medium south ──
-  const baseElev = 0.3 + (1 - y / 80) * 0.5; // 0.80 at top, 0.30 at bottom
+  const baseElev = 0.3 + (1 - y / 80) * 0.5;
   const elev = baseElev + (fbm(x, y, 12) - 0.5) * 0.2;
 
-  // ── River: sinuous channel with noise-warped path ──
-  const riverWarp = noise2d(x, y, 20) * 6 - 3;
-  const riverCenter = 36 + Math.sin(x * 0.1) * 3 + riverWarp;
+  // ── River: gentle east-west channel at row ~37 ──
+  const riverWarp = noise2d(x, y, 20) * 2 - 1;
+  const riverCenter = 37 + Math.sin(x * 0.08) * 1.5 + riverWarp;
   const distToRiver = Math.abs(y - riverCenter);
   if (distToRiver <= 1.2) {
     return { x, y, terrain: TerrainType.River, elevation: 0.2 };
   }
 
-  // ── Northern highlands: noisy boundary, not a straight line ──
-  const hillEdge = 20 + (fbm(x, y, 15) - 0.5) * 10;
-  if (y < hillEdge) {
-    // Rock outcrops — irregular blobs using noise threshold
+  // ── North of river ──
+  if (y < riverCenter) {
+    // Soil buffer: ~5-6 cells between river and hills
+    const hillEdge = riverCenter - 6 - (fbm(x, y, 12) - 0.5) * 4;
+    if (y > hillEdge) {
+      return null; // soil
+    }
+    // Hills with rock outcrops
     if (isRockOutcrop(x, y)) {
       return { x, y, terrain: TerrainType.Rock, elevation: elev + 0.15 };
     }
     return { x, y, terrain: TerrainType.Hill, elevation: Math.max(0.55, elev) };
   }
 
-  // ── Hill-to-soil transition: scattered hill cells with noise falloff ──
-  const hillFade = hillEdge + 6 + (fbm(x + 50, y, 10) - 0.5) * 4;
-  if (y < hillFade) {
-    const prob = 1 - (y - hillEdge) / (hillFade - hillEdge);
-    if (fbm(x + 100, y + 100, 6) < prob * 0.7) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.52 + fbm(x, y, 8) * 0.08 };
-    }
-    return null;
+  // ── South of river ──
+  // Soil buffer: ~5-6 cells south of river before biomes start
+  const biomeEdge = riverCenter + 6 + (fbm(x + 50, y + 50, 10) - 0.5) * 3;
+  if (y < biomeEdge) {
+    return null; // soil — spawn lives here
   }
 
-  // ── Southern badlands: noisy boundary ──
-  const aridEdge = 58 + (fbm(x + 30, y + 30, 14) - 0.5) * 8;
-  if (y > aridEdge) {
-    // Transition zone: probability ramps up with distance past edge
-    const depth = (y - aridEdge) / (80 - aridEdge);
-    if (depth > 0.3 || fbm(x + 200, y + 200, 7) < depth * 1.5) {
-      return { x, y, terrain: TerrainType.Arid, elevation: 0.35 + fbm(x, y, 10) * 0.1 };
-    }
-    return null;
-  }
+  // ── Diagonal boundary: wetland in SW, arid in SE ──
+  // Line runs from roughly (60, river+6) to (15, 79)
+  // x < boundaryX → wetland, x > boundaryX → arid
+  const boundaryX = 58 - (y - biomeEdge) * 0.8 + (fbm(x + 200, y + 200, 12) - 0.5) * 10;
 
-  // ── Eastern wetland: organic basin shape following the river downstream ──
-  // Wetland center drifts with noise for an irregular pond/marsh shape
-  const wetCx = 66;
-  const wetCy = 42;
-  const dx = (x - wetCx) / 14; // wider east-west
-  const dy = (y - wetCy) / 16; // taller north-south
-  const wetDist = dx * dx + dy * dy;
-  const wetNoise = fbm(x + 77, y + 33, 8) * 0.5;
-  if (wetDist + wetNoise < 1.0) {
-    // Core wetland
+  if (x < boundaryX) {
+    // ── Southwest wetlands ──
     return { x, y, terrain: TerrainType.Wetland, elevation: 0.22 + fbm(x, y, 10) * 0.08 };
   }
-  if (wetDist + wetNoise < 1.4) {
-    // Fringe: spotty wetland cells
-    if (fbm(x + 150, y + 150, 5) > 0.45) {
-      return { x, y, terrain: TerrainType.Wetland, elevation: 0.28 + fbm(x, y, 8) * 0.06 };
+
+  // ── Southeast arid ──
+
+  // Oasis: wetland pocket deep in the arid zone
+  const oasisCx = 60;
+  const oasisCy = 65;
+  const odx = (x - oasisCx) / 8;
+  const ody = (y - oasisCy) / 7;
+  const oasisDist = odx * odx + ody * ody;
+  const oasisNoise = fbm(x + 55, y + 99, 6) * 0.4;
+  if (oasisDist + oasisNoise < 1.0) {
+    return { x, y, terrain: TerrainType.Wetland, elevation: 0.25 + fbm(x, y, 8) * 0.06 };
+  }
+  if (oasisDist + oasisNoise < 1.3) {
+    if (fbm(x + 180, y + 180, 5) > 0.5) {
+      return { x, y, terrain: TerrainType.Wetland, elevation: 0.30 + fbm(x, y, 8) * 0.05 };
     }
-    return null;
   }
 
-  // ── Central rock formations: irregular ridges using noise ──
-  if (isBarrierRock(x, y)) {
-    return { x, y, terrain: TerrainType.Rock, elevation: 0.65 + fbm(x, y, 6) * 0.1 };
-  }
-
-  // ── Everything else: fertile soil valley (default) ──
-  return null;
+  return { x, y, terrain: TerrainType.Arid, elevation: 0.35 + fbm(x, y, 10) * 0.1 };
 }
 
-/** Rock outcrops in northern highlands — noise-shaped blobs */
+/** Rock outcrops scattered across the northern highlands */
 function isRockOutcrop(x: number, y: number): boolean {
   const clusters = [
     { cx: 15, cy: 8, r: 5 },
     { cx: 48, cy: 6, r: 4 },
     { cx: 72, cy: 13, r: 4 },
+    { cx: 30, cy: 20, r: 4 },
+    { cx: 60, cy: 24, r: 5 },
   ];
   for (const c of clusters) {
     const dx = x - c.cx;
     const dy = y - c.cy;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    // Noise warps the radius for irregular shape
     const warp = fbm(x * 3 + c.cx, y * 3 + c.cy, 4) * 2.5;
     if (dist < c.r + warp - 1.5) return true;
-  }
-  return false;
-}
-
-/** Rock ridges in the central zone — curved, irregular */
-function isBarrierRock(x: number, y: number): boolean {
-  // West ridge: curves using noise
-  const westSpine = 25 + (fbm(x + 500, y, 10) - 0.5) * 4;
-  if (Math.abs(x - westSpine) < 1.3 && y >= 44 && y <= 53) {
-    return fbm(x + 300, y + 300, 5) > 0.35;
-  }
-  // East ridge: diagonal, noise-warped
-  const eastSpine = 49 + (y - 45) * 0.3 + (fbm(x + 600, y, 8) - 0.5) * 3;
-  if (Math.abs(x - eastSpine) < 1.3 && y >= 42 && y <= 49) {
-    return fbm(x + 400, y + 400, 5) > 0.35;
   }
   return false;
 }
