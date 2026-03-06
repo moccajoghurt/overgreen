@@ -55,6 +55,14 @@ export const SIM = {
   HILL_ESTABLISHMENT_TICKS: 8,      // wind + thin soil
   ARID_ESTABLISHMENT_TICKS: 10,     // drought stress
 
+  // Seedling vigor dampening — compress or amplify seed-size advantage per terrain
+  // >0 compresses toward 1.0 (productive: size doesn't matter)
+  // <0 amplifies away from 1.0 (harsh: size matters MORE)
+  WETLAND_VIGOR_DAMPEN: 0.85,  // abundant resources equalize seedlings
+  SOIL_VIGOR_DAMPEN: 0.0,      // baseline — full vigor range
+  HILL_VIGOR_DAMPEN: -0.3,     // harsh — small seeds produce weaker seedlings
+  ARID_VIGOR_DAMPEN: -0.5,     // harshest — seed size critical for survival
+
   // Death / Decomposition
   STARVATION_THRESHOLD: 0,
   DECOMP_WATER_BOOST: 2.0,

@@ -495,8 +495,14 @@ function phaseGermination(world: World): void {
       else world.seedPopulations.set(winner.speciesId, count - 1);
 
       // Create plant from seed — large seeds produce larger seedlings
+      // On productive terrain, dampen vigor toward 1.0 (resources equalize seedling size)
       const wpc = getPlantConstants(winner.genome.woodiness);
-      const seedSizeVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
+      const rawVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
+      let dampen = SIM.SOIL_VIGOR_DAMPEN;
+      if (cell.terrainType === TerrainType.Wetland) dampen = SIM.WETLAND_VIGOR_DAMPEN;
+      else if (cell.terrainType === TerrainType.Hill) dampen = SIM.HILL_VIGOR_DAMPEN;
+      else if (cell.terrainType === TerrainType.Arid) dampen = SIM.ARID_VIGOR_DAMPEN;
+      const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
       const childId = world.nextPlantId++;
       const child: Plant = {
