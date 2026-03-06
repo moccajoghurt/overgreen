@@ -57,6 +57,10 @@ export function createHookCamera(opts: HookCameraOpts) {
     camera.lookAt(mapControls.target);
   }
 
+  // Target distance computed from tick; actual distance lerps toward it each frame
+  let targetDist = CLOSE_DISTANCE;
+  let currentDist = CLOSE_DISTANCE;
+
   function update(tick: number): void {
     if (!active) return;
 
@@ -65,24 +69,26 @@ export function createHookCamera(opts: HookCameraOpts) {
       return;
     }
 
-    // Calculate current distance based on tick
-    let dist: number;
+    // Compute target distance from tick (discrete, jumpy)
     if (tick < DOLLY_START_TICK) {
-      dist = CLOSE_DISTANCE;
+      targetDist = CLOSE_DISTANCE;
     } else if (tick < DOLLY_END_TICK) {
       const t = (tick - DOLLY_START_TICK) / (DOLLY_END_TICK - DOLLY_START_TICK);
-      dist = CLOSE_DISTANCE + (MID_DISTANCE - CLOSE_DISTANCE) * easeOutCubic(t);
+      targetDist = CLOSE_DISTANCE + (MID_DISTANCE - CLOSE_DISTANCE) * easeOutCubic(t);
     } else {
-      dist = MID_DISTANCE;
+      targetDist = MID_DISTANCE;
     }
+
+    // Smooth lerp toward target every frame (~60fps)
+    currentDist += (targetDist - currentDist) * 0.04;
 
     // Slow orbit
     orbitAngle += ORBIT_SPEED;
 
     const pitch = 0.9;
-    const cx = worldCenter.x + Math.cos(orbitAngle) * dist * Math.cos(pitch);
-    const cy = dist * Math.sin(pitch);
-    const cz = worldCenter.z + Math.sin(orbitAngle) * dist * Math.cos(pitch);
+    const cx = worldCenter.x + Math.cos(orbitAngle) * currentDist * Math.cos(pitch);
+    const cy = currentDist * Math.sin(pitch);
+    const cz = worldCenter.z + Math.sin(orbitAngle) * currentDist * Math.cos(pitch);
 
     camera.position.set(cx, cy, cz);
     camera.lookAt(mapControls.target);
