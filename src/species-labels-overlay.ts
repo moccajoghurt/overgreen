@@ -295,26 +295,36 @@ export function createSpeciesLabelsOverlay(
     if (world.tick - lastUpdateTick < UPDATE_EVERY_N_TICKS) return;
     lastUpdateTick = world.tick;
 
-    // Gather alive species and their max generation
-    const aliveSpecies = new Set<number>();
+    // Gather alive species, their population counts, and max generation
+    const speciesPopulation = new Map<number, number>();
     const maxGen = new Map<number, number>();
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
-      aliveSpecies.add(plant.speciesId);
+      speciesPopulation.set(plant.speciesId, (speciesPopulation.get(plant.speciesId) ?? 0) + 1);
       const prev = maxGen.get(plant.speciesId) ?? 0;
       if (plant.generation > prev) maxGen.set(plant.speciesId, plant.generation);
     }
 
-    // Remove labels for extinct species
+    // Only show labels for established species (or the hovered one)
+    const MIN_LABEL_POP = 50;
+    const visibleSpecies = new Set<number>();
+    for (const [sid, pop] of speciesPopulation) {
+      if (pop >= MIN_LABEL_POP) visibleSpecies.add(sid);
+    }
+    if (hoveredSpecies !== null && speciesPopulation.has(hoveredSpecies)) {
+      visibleSpecies.add(hoveredSpecies);
+    }
+
+    // Remove labels for extinct or too-small species
     for (const [sid, entry] of labels) {
-      if (!aliveSpecies.has(sid)) {
+      if (!visibleSpecies.has(sid)) {
         entry.el.remove();
         labels.delete(sid);
       }
     }
 
-    // Add/update labels for alive species
-    for (const sid of aliveSpecies) {
+    // Add/update labels for visible species
+    for (const sid of visibleSpecies) {
       const pos = speciesCentroid(world, sid);
       if (!pos) continue;
 
