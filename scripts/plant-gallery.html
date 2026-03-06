@@ -730,165 +730,242 @@ builders['4.1'] = function() { // Saguaro — column + arms
   return { group: g, camY: 1.1, camDist: 4.2 };
 };
 
-builders['4.2'] = function() { // Aloe — rosette of thick pointed leaves
+builders['4.2'] = function() { // Aloe — rosette of thick fleshy leaves
   var g = new THREE.Group();
   addGround(g);
   var lm = mat(0x5a7a4a);
-  // Two rings of leaves for fullness
-  for (var ring = 0; ring < 2; ring++) {
-    var count = ring === 0 ? 8 : 6;
-    var offset = ring === 0 ? 0 : Math.PI / 8;
-    var leanBase = ring === 0 ? 0.9 : 0.6;
-    var hh = ring === 0 ? 0.6 : 0.5;
-    for (var i = 0; i < count; i++) {
-      var a = i * Math.PI * 2 / count + offset;
-      var geo = new THREE.ConeGeometry(0.055, hh, 5);
-      var m = new THREE.Mesh(geo, lm);
-      m.scale.set(1.4, 1, 0.6);
-      m.position.set(Math.cos(a) * 0.08 * (ring + 1), 0.15, Math.sin(a) * 0.08 * (ring + 1));
-      m.rotation.z = -Math.cos(a) * leanBase;
-      m.rotation.x = -Math.sin(a) * leanBase;
-      g.add(m);
+  // Two rings of thick curved leaves
+  var rings = [
+    { count: 7, offset: 0, lean: 0.7, len: 0.55, baseR: 0.06 },
+    { count: 5, offset: 0.45, lean: 0.4, len: 0.45, baseR: 0.04 },
+  ];
+  for (var ri = 0; ri < rings.length; ri++) {
+    var ring = rings[ri];
+    for (var i = 0; i < ring.count; i++) {
+      var a = i * Math.PI * 2 / ring.count + ring.offset;
+      // Each leaf: curved PlaneGeometry tapering to point
+      var lGeo = new THREE.PlaneGeometry(0.07, ring.len, 1, 6);
+      var lPos = lGeo.attributes.position;
+      for (var vi = 0; vi < lPos.count; vi++) {
+        var origY = lPos.getY(vi);
+        var t = (origY + ring.len / 2) / ring.len; // 0=base, 1=tip
+        // Taper width toward tip
+        lPos.setX(vi, lPos.getX(vi) * (1 - 0.7 * t));
+        // Curve upward then arch outward
+        lPos.setY(vi, t * ring.len * 0.6 + 0.05);
+        lPos.setZ(vi, t * t * ring.len * 0.5);
+        // Thicken the leaf (give it depth)
+      }
+      lGeo.computeVertexNormals();
+      var leaf = new THREE.Mesh(lGeo, mat(0x5a7a4a, { side: THREE.DoubleSide }));
+      leaf.position.set(Math.cos(a) * ring.baseR, 0, Math.sin(a) * ring.baseR);
+      leaf.rotation.y = -a + Math.PI / 2;
+      leaf.rotation.x = -ring.lean;
+      g.add(leaf);
+      // Add thickness with a mirrored plane slightly offset
+      var lGeo2 = lGeo.clone();
+      var leaf2 = new THREE.Mesh(lGeo2, mat(0x4a6a3a, { side: THREE.DoubleSide }));
+      leaf2.position.set(Math.cos(a) * ring.baseR, 0.015, Math.sin(a) * ring.baseR);
+      leaf2.rotation.y = -a + Math.PI / 2;
+      leaf2.rotation.x = -ring.lean;
+      g.add(leaf2);
     }
   }
-  return { group: g, camY: 0.35, camDist: 2.5 };
+  return { group: g, camY: 0.3, camDist: 2.5 };
 };
 
-builders['4.3'] = function() { // Desert rose — swollen caudex + thin branches
+builders['4.3'] = function() { // Desert rose — smooth swollen caudex + branches
   var g = new THREE.Group();
   addGround(g);
-  // Bulbous caudex
-  var cGeo = jitter(new THREE.SphereGeometry(0.35, 8, 6), 0.03);
-  var pos = cGeo.attributes.position;
-  for (var i = 0; i < pos.count; i++) {
-    var y = pos.getY(i);
-    if (y < -0.2) pos.setY(i, -0.2);
-    var t = (y + 0.35) / 0.7;
-    var bulge = 1 + 0.25 * Math.sin(t * Math.PI);
-    pos.setX(i, pos.getX(i) * bulge);
-    pos.setZ(i, pos.getZ(i) * bulge);
+  // Thick fleshy branches from ground (caudex-colored), no rock
+  var brMat = mat(0x9a9080, { roughness: 0.5 });
+  var branches = [
+    { a: 0.4, h: 0.4 },
+    { a: 1.8, h: 0.35 },
+    { a: 3.2, h: 0.45 },
+    { a: 4.8, h: 0.38 },
+  ];
+  for (var i = 0; i < branches.length; i++) {
+    var b = branches[i];
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(Math.cos(b.a) * 0.06, b.h * 0.4, Math.sin(b.a) * 0.06),
+      new THREE.Vector3(Math.cos(b.a) * 0.18, b.h, Math.sin(b.a) * 0.18),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.03, 5, false), brMat));
+    addCanopy(g, Math.cos(b.a) * 0.2, b.h + 0.02, Math.sin(b.a) * 0.2, 0.09, 0x4a7a3a);
   }
-  cGeo.computeVertexNormals();
-  var caudex = new THREE.Mesh(cGeo, mat(0x8a7a6a));
-  caudex.position.y = 0.3;
-  g.add(caudex);
-  var brMat = mat(0x6a4a3a);
-  var lfMat = mat(0x4a7a3a);
-  for (var i = 0; i < 5; i++) {
-    var a = i * Math.PI * 2 / 5 + 0.3;
-    var h = 0.35 + Math.random() * 0.2;
-    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.025, h, 4), brMat);
-    var lean = 0.3 + Math.random() * 0.15;
-    branch.position.set(Math.cos(a) * 0.1, 0.6 + h / 3, Math.sin(a) * 0.1);
-    branch.rotation.z = Math.cos(a) * lean;
-    branch.rotation.x = Math.sin(a) * lean;
-    g.add(branch);
-    var leaf = new THREE.Mesh(jitter(new THREE.IcosahedronGeometry(0.08, 0), 0.01), lfMat);
-    leaf.position.set(Math.cos(a) * 0.25, 0.6 + h * 0.65, Math.sin(a) * 0.25);
-    g.add(leaf);
+  // Pink flowers
+  for (var fi = 0; fi < 3; fi++) {
+    var fa = branches[fi].a + 0.2;
+    var fh = branches[fi].h;
+    var fl = new THREE.Mesh(new THREE.SphereGeometry(0.035, 4, 3), mat(0xcc4477));
+    fl.position.set(Math.cos(fa) * 0.22, fh + 0.06, Math.sin(fa) * 0.22);
+    g.add(fl);
   }
-  return { group: g, camY: 0.55, camDist: 2.8 };
+  return { group: g, camY: 0.3, camDist: 2.5 };
 };
 
-builders['4.4'] = function() { // Euphorbia — candelabra branching
+builders['4.4'] = function() { // Euphorbia — irregular candelabra branching
   var g = new THREE.Group();
   addGround(g, 1.5);
   var em = mat(0x3a6a3a);
-  addTrunk(g, 0, 0, 0, 0.1, 0.08, 0.8, 0x6a4a2a);
-  for (var i = 0; i < 5; i++) {
-    var a = i * Math.PI * 2 / 5;
+  // Main trunk — slightly off-center
+  addTrunk(g, 0.03, 0, -0.02, 0.1, 0.07, 0.7, 0x5a4a2a);
+  // Irregular branches at different heights and angles
+  var arms = [
+    { a: 0.3, startY: 0.65, spread: 0.32, topY: 1.4, thick: 0.05 },
+    { a: 1.5, startY: 0.55, spread: 0.28, topY: 1.15, thick: 0.045 },
+    { a: 2.4, startY: 0.7, spread: 0.35, topY: 1.55, thick: 0.05 },
+    { a: 3.8, startY: 0.6, spread: 0.25, topY: 1.25, thick: 0.04 },
+    { a: 5.0, startY: 0.5, spread: 0.3, topY: 1.0, thick: 0.042 },
+    { a: 5.8, startY: 0.68, spread: 0.22, topY: 1.35, thick: 0.038 },
+  ];
+  for (var i = 0; i < arms.length; i++) {
+    var arm = arms[i];
+    var cx = Math.cos(arm.a), cz = Math.sin(arm.a);
     var curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0.8, 0),
-      new THREE.Vector3(Math.cos(a) * 0.35, 0.65, Math.sin(a) * 0.35),
-      new THREE.Vector3(Math.cos(a) * 0.38, 1.3 + Math.random() * 0.3, Math.sin(a) * 0.38),
+      new THREE.Vector3(0.03, arm.startY, -0.02),
+      new THREE.Vector3(cx * arm.spread * 0.8, arm.startY - 0.1, cz * arm.spread * 0.8),
+      new THREE.Vector3(cx * arm.spread, arm.topY, cz * arm.spread),
     ]);
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.05, 6, false), em));
-    // Cap each arm
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, arm.thick, 6, false), em));
     var armTop = curve.getPoint(1);
-    var armCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
+    var armCap = new THREE.Mesh(new THREE.SphereGeometry(arm.thick, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
     armCap.position.copy(armTop);
     g.add(armCap);
-  }
-  // Center column continues up
-  var top = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.9, 6), em);
-  top.position.y = 1.25;
-  g.add(top);
-  var centerCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
-  centerCap.position.set(0, 1.7, 0);
-  g.add(centerCap);
-  return { group: g, camY: 0.9, camDist: 4 };
-};
-
-builders['4.5'] = function() { // Lithops — tiny paired rounded bodies
-  var g = new THREE.Group();
-  addGround(g, 0.8);
-  // Add sandy gravel
-  var gravelMat = mat(0xb0a890);
-  for (var gi = 0; gi < 20; gi++) {
-    var ga = Math.random() * Math.PI * 2;
-    var gr = Math.random() * 0.7;
-    var pebble = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random()*0.015, 4, 3), gravelMat);
-    pebble.position.set(Math.cos(ga)*gr, 0.01, Math.sin(ga)*gr);
-    g.add(pebble);
-  }
-  var colors = [0x8a8a6a, 0x7a8a5a, 0x9a8a7a];
-  var positions = [[0, 0], [-0.18, 0.12], [0.15, -0.15]];
-  for (var pi = 0; pi < positions.length; pi++) {
-    var px = positions[pi][0], pz = positions[pi][1];
-    var col = colors[pi];
-    for (var half = 0; half < 2; half++) {
-      var geo = new THREE.SphereGeometry(0.08, 6, 5);
-      var pos = geo.attributes.position;
-      for (var i = 0; i < pos.count; i++) {
-        if (pos.getY(i) > 0.055) pos.setY(i, 0.055);
-        if (pos.getY(i) < -0.03) pos.setY(i, -0.03);
-      }
-      geo.computeVertexNormals();
-      var m = new THREE.Mesh(geo, mat(col));
-      m.position.set(px + (half === 0 ? -0.05 : 0.05), 0.03, pz);
-      g.add(m);
+    // Some arms fork again
+    if (i % 2 === 0) {
+      var forkA = arm.a + (Math.random() - 0.5) * 0.8;
+      var forkCurve = new THREE.CatmullRomCurve3([
+        armTop,
+        new THREE.Vector3(Math.cos(forkA) * (arm.spread + 0.12), arm.topY + 0.25, Math.sin(forkA) * (arm.spread + 0.12)),
+      ]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(forkCurve, 5, arm.thick * 0.7, 5, false), em));
+      var fTip = forkCurve.getPoint(1);
+      var fCap = new THREE.Mesh(new THREE.SphereGeometry(arm.thick * 0.7, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
+      fCap.position.copy(fTip);
+      g.add(fCap);
     }
   }
-  return { group: g, camY: 0.15, camDist: 1.5 };
+  // Center column extends above
+  var top = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.8, 6), em);
+  top.position.set(0.03, 1.1, -0.02);
+  g.add(top);
+  var centerCap = new THREE.Mesh(new THREE.SphereGeometry(0.045, 5, 3, 0, Math.PI*2, 0, Math.PI/2), em);
+  centerCap.position.set(0.03, 1.5, -0.02);
+  g.add(centerCap);
+  return { group: g, camY: 0.8, camDist: 4 };
 };
 
-builders['4.6'] = function() { // Christmas cactus — drooping segmented stems
+builders['4.5'] = function() { // Ice plant — clusters of plump green fingers with yellow flowers
+  var g = new THREE.Group();
+  addGround(g, 0.8);
+  var leafMat = mat(0x6a9a4a);
+  var leafMat2 = mat(0x5a8a3a);
+  // Several rosette clusters of fat finger-like leaves
+  var clumps = [
+    { x: 0, z: 0, count: 12, r: 0.12, flower: true },
+    { x: -0.18, z: 0.1, count: 10, r: 0.1, flower: true },
+    { x: 0.16, z: -0.1, count: 9, r: 0.09, flower: false },
+    { x: 0.1, z: 0.16, count: 8, r: 0.08, flower: true },
+    { x: -0.12, z: -0.14, count: 7, r: 0.07, flower: false },
+  ];
+  for (var ci = 0; ci < clumps.length; ci++) {
+    var cl = clumps[ci];
+    for (var i = 0; i < cl.count; i++) {
+      var a = i * Math.PI * 2 / cl.count + ci * 0.5;
+      var lean = 0.4 + Math.random() * 0.3;
+      var fLen = 0.06 + Math.random() * 0.03;
+      // Fat finger leaf — capsule shape using cylinder + sphere cap
+      var finger = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.012, fLen, 3, 5),
+        i % 2 === 0 ? leafMat : leafMat2
+      );
+      finger.position.set(
+        cl.x + Math.cos(a) * cl.r * 0.3,
+        fLen * 0.4,
+        cl.z + Math.sin(a) * cl.r * 0.3
+      );
+      // Lean outward from center
+      finger.rotation.z = -Math.cos(a) * lean;
+      finger.rotation.x = -Math.sin(a) * lean;
+      g.add(finger);
+    }
+    // Bright yellow daisy flower on top of some clusters
+    if (cl.flower) {
+      // Orange center
+      var center = new THREE.Mesh(new THREE.SphereGeometry(0.015, 5, 3), mat(0xdd8822));
+      center.position.set(cl.x, 0.1, cl.z);
+      g.add(center);
+      // Yellow petals radiating out
+      var petalMat = mat(0xeedd33);
+      for (var pi = 0; pi < 10; pi++) {
+        var pa = pi * Math.PI * 2 / 10;
+        var petal = new THREE.Mesh(new THREE.PlaneGeometry(0.018, 0.035), petalMat);
+        petal.material.side = THREE.DoubleSide;
+        petal.position.set(
+          cl.x + Math.cos(pa) * 0.025,
+          0.1,
+          cl.z + Math.sin(pa) * 0.025
+        );
+        petal.rotation.y = -pa;
+        petal.rotation.x = -0.4;
+        g.add(petal);
+      }
+    }
+  }
+  return { group: g, camY: 0.1, camDist: 1.3 };
+};
+
+builders['4.6'] = function() { // Christmas cactus — epiphytic with arching segmented stems
   var g = new THREE.Group();
   addGround(g);
   var segMat = mat(0x2a6a3a);
-  // Pot
-  var potMat = mat(0x9a6a4a);
-  var pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.4, 8), potMat);
-  pot.position.y = 0.2;
-  g.add(pot);
-  var potRim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.02, 4, 8), potMat);
-  potRim.position.y = 0.4;
-  potRim.rotation.x = Math.PI / 2;
-  g.add(potRim);
-  // Cascading segment chains
-  for (var i = 0; i < 8; i++) {
-    var a = i * Math.PI / 4 + (Math.random() - 0.5) * 0.2;
-    var x = 0, y = 0.45, z = 0;
+  var segMat2 = mat(0x2a7a3a);
+  // Central mound base (the plant body it grows from)
+  var base = new THREE.Mesh(jitter(new THREE.SphereGeometry(0.08, 5, 4), 0.01), mat(0x3a5a2a));
+  base.position.y = 0.06;
+  base.scale.y = 0.6;
+  g.add(base);
+  // Arching segmented stems — each chain is a continuous curve with flat leaf segments along it
+  for (var i = 0; i < 7; i++) {
+    var a = i * Math.PI * 2 / 7 + (Math.random() - 0.5) * 0.3;
+    var spread = 0.25 + Math.random() * 0.15;
+    var droop = 0.1 + Math.random() * 0.1;
     var segCount = 4 + Math.floor(Math.random() * 3);
+    // Build the curve the chain follows
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.08, 0),
+      new THREE.Vector3(Math.cos(a) * spread * 0.4, 0.12, Math.sin(a) * spread * 0.4),
+      new THREE.Vector3(Math.cos(a) * spread * 0.7, 0.06, Math.sin(a) * spread * 0.7),
+      new THREE.Vector3(Math.cos(a) * spread, -droop, Math.sin(a) * spread),
+    ]);
+    // Thin connecting stem
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.008, 3, false), segMat));
+    // Flat leaf segments along the curve
     for (var s = 0; s < segCount; s++) {
-      var segLen = 0.1;
-      var dx = Math.cos(a) * segLen;
-      var dz = Math.sin(a) * segLen;
-      var dy = -0.03 - s * 0.025;
-      var geo = new THREE.BoxGeometry(0.07, 0.018, 0.045);
+      var t = (s + 0.5) / segCount;
+      var pt = curve.getPoint(t);
+      var tangent = curve.getTangent(t);
+      var geo = new THREE.PlaneGeometry(0.06, 0.035);
       jitter(geo, 0.003);
-      var m = new THREE.Mesh(geo, segMat);
-      m.position.set(x + dx / 2, y + dy / 2, z + dz / 2);
-      m.rotation.y = a;
-      g.add(m);
-      x += dx; y += dy; z += dz;
+      var seg = new THREE.Mesh(geo, mat(s % 2 === 0 ? 0x2a6a3a : 0x2a7a3a, { side: THREE.DoubleSide }));
+      seg.position.copy(pt);
+      // Orient segment along the curve
+      seg.rotation.y = Math.atan2(tangent.x, tangent.z);
+      seg.rotation.x = Math.PI / 2 + Math.asin(tangent.y);
+      g.add(seg);
+    }
+    // Pink flower at some tips
+    if (i % 3 === 0) {
+      var tip = curve.getPoint(1);
+      var flower = new THREE.Mesh(new THREE.SphereGeometry(0.025, 4, 3), mat(0xcc4466));
+      flower.position.copy(tip);
+      g.add(flower);
     }
   }
-  // Central hub
-  var hub = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), segMat);
-  hub.position.y = 0.45;
-  g.add(hub);
-  return { group: g, camY: 0.4, camDist: 2.2 };
+  return { group: g, camY: 0.12, camDist: 1.8 };
 };
 
 // ============================================================
