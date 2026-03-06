@@ -17,7 +17,7 @@ export const MAX_DYING = 200;
 export const MAX_INSTANCES = (GRID * GRID + MAX_DYING) * 4;
 export const GROWTH_ANIM_FRAMES = 60;
 export const SEED_FLIGHT_FRAMES = 36;
-export const MAX_SEEDS = 400;
+export const MAX_SEEDS = 800;
 export const BURN_ANIM_FRAMES = 40;
 export const MAX_BRANCHES_PER_PLANT = 12;
 export const MAX_BRANCH_INSTANCES = MAX_INSTANCES * MAX_BRANCHES_PER_PLANT;
@@ -63,6 +63,14 @@ export interface FlyingSeed {
   progress: number;
   startY: number;
   arcPeak: number;
+  // Per-seed randomization for wind-blown animation
+  spinSpeed: number;      // rotation speed (radians/frame)
+  spinAxis: number;       // tumble axis angle
+  driftAmp: number;       // lateral wobble amplitude
+  driftFreq: number;      // wobble frequency (cycles over flight)
+  driftPhase: number;     // random phase offset
+  scaleFactor: number;    // size variation (0.7-1.3)
+  flightFrames: number;   // per-seed flight duration
 }
 
 export interface WeatherParticle {

@@ -299,8 +299,9 @@ export function createPlantMeshes(): PlantMeshes {
   const branchGeo = new THREE.CylinderGeometry(0.04, 0.09, 1, 5);
   const branches = createInstancedMesh(branchGeo, MAX_BRANCH_INSTANCES);
 
-  const seedGeo = new THREE.SphereGeometry(0.08, 4, 4);
+  const seedGeo = new THREE.CircleGeometry(0.10, 5);
   const seeds = createInstancedMesh(seedGeo, MAX_SEEDS);
+  (seeds.material as THREE.MeshLambertMaterial).side = THREE.DoubleSide;
 
   return { trunks, canopies, branches, seeds };
 }

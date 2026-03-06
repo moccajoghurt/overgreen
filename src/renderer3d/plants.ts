@@ -1,7 +1,7 @@
 import { GRID_WIDTH, WeatherOverlay } from '../types';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
-  DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, SEED_FLIGHT_FRAMES, BURN_ANIM_FRAMES,
+  DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
   computeSilhouette, computeGrassSilhouette, computeSucculence, computeSucculentSilhouette,
   computeSeasonalFoliageFactor, easeOutCubic, lerp,
 } from './state';
@@ -64,18 +64,23 @@ export function updatePlants(state: RendererState): void {
         const parent = world.plants.get(cell.plantId);
         if (parent?.alive) parentHeight = parent.height;
       }
-      const startY = Math.max(0.1, parentHeight * 0.35);
-      const dx = Math.abs(evt.childX - evt.parentX);
-      const dy = Math.abs(evt.childY - evt.parentY);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const arcPeak = evt.woodiness < 0.4
-        ? Math.max(0.8, startY * 0.3 + dist * 0.3)
-        : Math.max(1.5, startY * 0.5 + dist * 0.5);
+      // Detach near the top of the parent plant
+      const startY = Math.max(0.3, parentHeight * 0.7);
+      const isGrass = evt.woodiness < 0.4;
+      // Low loft — seeds barely rise above detach height, they just float
+      const arcPeak = 0.15 + Math.random() * 0.15;
       flyingSeeds.push({
         parentX: evt.parentX, parentY: evt.parentY,
         childX: evt.childX, childY: evt.childY,
         childId: 0, speciesId: evt.speciesId,
         progress: 0, startY, arcPeak,
+        spinSpeed: 0.08 + Math.random() * 0.15,
+        spinAxis: Math.random() * Math.PI * 2,
+        driftAmp: 0.08 + Math.random() * 0.12,
+        driftFreq: 2 + Math.random() * 2,
+        driftPhase: Math.random() * Math.PI * 2,
+        scaleFactor: 0.7 + Math.random() * 0.6,
+        flightFrames: isGrass ? 55 + Math.random() * 15 : 40 + Math.random() * 15,
       });
     }
 
@@ -543,7 +548,7 @@ export function updatePlants(state: RendererState): void {
 }
 
 export function updateSeeds(state: RendererState): void {
-  const { world, dummy, seeds, flyingSeeds, getCellElevation } = state;
+  const { dummy, seeds, flyingSeeds, getCellElevation } = state;
 
   const seedMtx = seeds.instanceMatrix.array as Float32Array;
   const seedClr = seeds.instanceColor!.array as Float32Array;
@@ -551,17 +556,18 @@ export function updateSeeds(state: RendererState): void {
 
   for (let i = flyingSeeds.length - 1; i >= 0; i--) {
     const fs = flyingSeeds[i];
-    fs.progress += 1 / SEED_FLIGHT_FRAMES;
+    fs.progress += 1 / fs.flightFrames;
 
     if (fs.progress >= 1) {
-      // Seed lands as dormant — no plant to show; growth animation triggered by germinationEvents
       flyingSeeds.splice(i, 1);
       continue;
     }
 
-    if (seedIdx >= MAX_SEEDS) continue;
+    if (seedIdx >= MAX_SEEDS - 2) continue; // reserve room for 2 trail ghosts
 
     const t = fs.progress;
+
+    // World-space endpoints
     const wx0 = fs.parentX - HALF + 0.5;
     const wz0 = fs.parentY - HALF + 0.5;
     const wx1 = fs.childX - HALF + 0.5;
@@ -569,39 +575,71 @@ export function updateSeeds(state: RendererState): void {
     const parentElev = getCellElevation(fs.parentX, fs.parentY);
     const childElev = getCellElevation(fs.childX, fs.childY);
 
-    const x = lerp(wx0, wx1, t);
-    const z = lerp(wz0, wz1, t);
-    const arcHeight = 4 * fs.arcPeak * t * (1 - t);
-    const y = lerp(parentElev + fs.startY, childElev + 0.1, t) + arcHeight;
+    // Perpendicular to flight path (for lateral drift)
+    const fdx = wx1 - wx0;
+    const fdz = wz1 - wz0;
+    const fdist = Math.sqrt(fdx * fdx + fdz * fdz) || 1;
+    const perpX = -fdz / fdist;
+    const perpZ = fdx / fdist;
 
-    dummy.position.set(x, y, z);
-    dummy.scale.set(1, 1, 1);
-    dummy.rotation.set(0, 0, 0);
-    dummy.updateMatrix();
-    dummy.matrix.toArray(seedMtx, seedIdx * 16);
+    // Phase accumulates like weather particles (multi-frequency sine drift)
+    const phase = t * fs.flightFrames * 0.05 + fs.driftPhase;
 
-    const ci = seedIdx * 3;
-    // Detect grass seeds from arc peak heuristic (grass seeds have lower arcs)
-    const isGrassSeed = fs.arcPeak < 1.0;
-    if (state.colorMode !== 'species') {
-      if (isGrassSeed) {
-        // Grass seeds: lighter straw color
-        seedClr[ci]     = 0.60;
-        seedClr[ci + 1] = 0.52;
-        seedClr[ci + 2] = 0.25;
-      } else {
-        seedClr[ci]     = 0.45;
-        seedClr[ci + 1] = 0.32;
-        seedClr[ci + 2] = 0.15;
-      }
-    } else {
-      const sc = world.speciesColors.get(fs.speciesId);
-      seedClr[ci]     = sc ? sc.r * 0.4 + 0.3 : 0.5;
-      seedClr[ci + 1] = sc ? sc.g * 0.4 + 0.2 : 0.35;
-      seedClr[ci + 2] = sc ? sc.b * 0.4 + 0.1 : 0.2;
+    // Compute position at a given progress value — windy floating motion
+    const floatHeight = parentElev + fs.startY;
+    const landHeight = childElev + 0.1;
+    const posAt = (pt: number) => {
+      const ph = pt * fs.flightFrames * 0.05 + fs.driftPhase;
+      // Lateral drift: two sine waves at different frequencies for organic wobble
+      const drift = Math.sin(ph * fs.driftFreq) * fs.driftAmp
+                   + Math.sin(ph * fs.driftFreq * 0.7 + 1.3) * fs.driftAmp * 0.5;
+      const px = lerp(wx0, wx1, pt) + perpX * drift;
+      const pz = lerp(wz0, wz1, pt) + perpZ * drift;
+      // Stay at float height for most of the flight, then descend in the final stretch
+      // smoothstep: stays near 0 until ~0.6, then ramps to 1 by t=1
+      const descent = pt < 0.6 ? 0 : ((pt - 0.6) / 0.4) * ((pt - 0.6) / 0.4);
+      const py = lerp(floatHeight, landHeight, descent)
+               + Math.sin(ph * 3.0) * 0.03
+               + Math.sin(ph * 1.7) * 0.015
+               + fs.arcPeak * Math.sin(ph * 0.9) * 0.5; // gentle undulation
+      return { x: px, y: py, z: pz };
+    };
+
+    // Tiny uniform scale — floating particle, not a solid object
+    const s = fs.scaleFactor * 0.35;
+
+    // Render main particle + 2 trail ghosts
+    const trailOffsets = [0, 0.02, 0.04];
+    const trailScales = [1.0, 0.7, 0.4];
+
+    for (let g = 0; g < 3; g++) {
+      const gt = t - trailOffsets[g];
+      if (gt < 0.01) continue;
+      if (seedIdx >= MAX_SEEDS) break;
+
+      const pos = posAt(gt);
+      const gs = s * trailScales[g];
+
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.scale.set(gs, gs, gs);
+      // Gentle tumble like a mote
+      dummy.rotation.set(
+        Math.sin(phase * 1.2) * 0.5,
+        phase * fs.spinSpeed * 3,
+        Math.cos(phase * 0.8) * 0.4,
+      );
+      dummy.updateMatrix();
+      dummy.matrix.toArray(seedMtx, seedIdx * 16);
+
+      // Dark brown/tan — natural seed color
+      const ci = seedIdx * 3;
+      const dim = g === 0 ? 1.0 : g === 1 ? 0.85 : 0.7;
+      seedClr[ci]     = 0.45 * dim;
+      seedClr[ci + 1] = 0.32 * dim;
+      seedClr[ci + 2] = 0.15 * dim;
+
+      seedIdx++;
     }
-
-    seedIdx++;
   }
 
   seeds.count = seedIdx;
