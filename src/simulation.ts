@@ -2,7 +2,7 @@ import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants }
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
   mutateGenome, crossoverGenome, genomeDistance, getCentroidGenome,
-  renderArchetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
+  Archetype, renderArchetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
   generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
@@ -482,6 +482,9 @@ function phaseGermination(world: World): void {
       const qualifying: number[] = [];
       for (let i = 0; i < cell.seeds.length; i++) {
         const seed = cell.seeds[i];
+        // Succulent seeds rot in wet soil — only germinate on arid/hill
+        if (renderArchetype(seed.genome) === Archetype.Succulent
+          && cell.terrainType !== TerrainType.Arid && cell.terrainType !== TerrainType.Hill) continue;
         const waterThreshold = getPlantConstants(seed.genome.woodiness).seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
