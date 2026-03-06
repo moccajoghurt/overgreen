@@ -18,6 +18,7 @@ import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 import { genesis } from './scenarios/genesis';
+import { createHookPhase } from './hook-phase';
 
 const container = document.getElementById('canvas-container')!;
 const singleSeedToggle = document.getElementById('single-seed-toggle') as HTMLInputElement;
@@ -28,6 +29,30 @@ loadScenario(world, genesis);
 
 const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
+
+// ── Hook phase (curated first-load experience) ──
+const hookPhase = createHookPhase({
+  container,
+  camera: renderer.camera,
+  mapControls: renderer.mapControls,
+  worldWidth: world.width,
+  worldHeight: world.height,
+  onRevealComplete: () => {
+    // Enable species colors + labels now that the UI is visible
+    colorToggle.checked = true;
+    renderer.setColorMode('species');
+    labelsToggle.checked = true;
+    speciesLabels.setVisible(true);
+    // Force UI refresh
+    lastUITick = -1;
+    updateUI();
+  },
+});
+
+// Auto-start hook for Genesis (don't pause)
+hookPhase.start();
+// Enable species colors during hook for visual richness
+renderer.setColorMode('species');
 
 const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
 colorToggle.addEventListener('change', () => {
@@ -93,6 +118,7 @@ btnLoadScenario.addEventListener('click', () => {
 });
 
 function doLoadScenario(scenario: Scenario): void {
+  hookPhase.skip();
   controls.paused = true;
   const btn = document.getElementById('btn-play-pause')!;
   btn.textContent = 'Play';
@@ -105,6 +131,7 @@ function doLoadScenario(scenario: Scenario): void {
 }
 
 function doLoadRandom(): void {
+  hookPhase.skip();
   controls.paused = true;
   const btn = document.getElementById('btn-play-pause')!;
   btn.textContent = 'Play';
@@ -137,6 +164,7 @@ function resetAllState(): void {
     document.getElementById('btn-play-pause')!.classList.remove('ff-active');
   }
   resetHistory(history);
+  lastEventSeq = 0;
   diagLogger.reset();
   ticker.reset();
   commentary.reset();
@@ -197,10 +225,23 @@ let lastUITick = -1;
 let lastUISelectedCell: { x: number; y: number } | null = null;
 let frameCount = 0;
 
+let lastEventSeq = 0;
+
 function doTick(): void {
   tickWorld(world);
   recordTick(history, world);
   diagLogger.recordTick(world);
+
+  // Forward new events to hook commentary
+  if (hookPhase.active && history.events.length > lastEventSeq) {
+    for (let i = lastEventSeq; i < history.events.length; i++) {
+      const ev = history.events[i];
+      if (ev.type === 'population_record' || ev.type === 'dominance_shift' || ev.type === 'extinction') {
+        hookPhase.showCommentary(ev.message);
+      }
+    }
+    lastEventSeq = history.events.length;
+  }
 }
 
 const FF_BUDGET_MS = 15;  // max ms to spend ticking per frame in ff mode (no rendering)
@@ -243,12 +284,19 @@ function loop(now: number): void {
     }
   }
 
+  // Update hook phase
+  if (hookPhase.active) {
+    hookPhase.update(world, history);
+  }
+
   if (shouldRender) {
     renderer.setHoveredSpecies(controls.hoveredSpecies);
     renderer.render(controls.selectedCell);
-    speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
-    speciesLabels.updatePositions();
-    terrainLabels.updatePositions();
+    if (!hookPhase.active) {
+      speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
+      speciesLabels.updatePositions();
+      terrainLabels.updatePositions();
+    }
   }
 
   // Only update UI when rendering and simulation has ticked or selected cell changed
@@ -256,7 +304,9 @@ function loop(now: number): void {
   if (shouldRender && (world.tick !== lastUITick || selChanged)) {
     lastUITick = world.tick;
     lastUISelectedCell = controls.selectedCell;
-    updateUI();
+    if (!hookPhase.active) {
+      updateUI();
+    }
   }
 
   requestAnimationFrame(loop);

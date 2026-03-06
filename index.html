@@ -124,9 +124,74 @@
       from { background: rgba(136,255,136,0.12); }
       to { background: transparent; }
     }
+
+    /* ── Hook phase ── */
+    body.hook-active #sidebar {
+      width: 0; min-width: 0; padding: 0; overflow: hidden;
+      pointer-events: none; opacity: 0;
+    }
+    body.hook-active #bottom-panel {
+      height: 0; min-height: 0; overflow: hidden;
+      pointer-events: none; opacity: 0;
+    }
+    #sidebar {
+      transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1),
+                  min-width 500ms cubic-bezier(0.22, 1, 0.36, 1),
+                  padding 500ms cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 400ms ease;
+    }
+    #bottom-panel {
+      transition: height 500ms cubic-bezier(0.22, 1, 0.36, 1),
+                  min-height 500ms cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 400ms ease;
+    }
+
+    #hook-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      z-index: 50; display: flex; flex-direction: column;
+      justify-content: flex-end; padding: 24px;
+    }
+    #hook-overlay.hidden { display: none; }
+    #hook-title {
+      font-size: 28px; color: #8f8; opacity: 0.5;
+      font-family: monospace; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      transition: opacity 600ms ease;
+    }
+    #hook-subtitle {
+      font-size: 13px; color: #888; opacity: 0;
+      font-family: monospace; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      transition: opacity 800ms ease;
+      margin-top: 2px;
+    }
+    #hook-subtitle.visible { opacity: 0.7; }
+    #hook-stats {
+      position: absolute; bottom: 24px; right: 24px;
+      font-size: 12px; color: #555; font-family: monospace;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      opacity: 0; transition: opacity 600ms ease;
+    }
+    #hook-stats.visible { opacity: 1; }
+    #hook-skip {
+      position: absolute; top: 16px; right: 16px;
+      font-size: 11px; color: #444; font-family: monospace;
+      background: rgba(0,0,0,0.3); border: 1px solid #333;
+      padding: 4px 10px; cursor: pointer; pointer-events: auto;
+      transition: color 200ms, border-color 200ms;
+    }
+    #hook-skip:hover { color: #888; border-color: #555; }
+
+    /* Commentary during hook — centered top */
+    #hook-commentary {
+      position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+      font-size: 15px; color: #8f8; font-family: monospace;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      opacity: 0; transition: opacity 600ms ease;
+      white-space: nowrap;
+    }
+    #hook-commentary.visible { opacity: 1; }
   </style>
 </head>
-<body>
+<body class="hook-active">
   <div id="top-row">
   <div id="sidebar">
     <div class="section-group">
@@ -184,7 +249,15 @@
     </div>
 
   </div>
-  <div id="canvas-container"></div>
+  <div id="canvas-container">
+    <div id="hook-overlay" class="hidden">
+      <div id="hook-commentary"></div>
+      <button id="hook-skip">Skip intro</button>
+      <div id="hook-stats"></div>
+      <div id="hook-title">Overgreen</div>
+      <div id="hook-subtitle">One seed. One world.</div>
+    </div>
+  </div>
   <div id="sandbox-panel" class="hidden"></div>
   </div>
   <div id="bottom-panel">

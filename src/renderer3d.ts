@@ -349,5 +349,5 @@ export function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement };
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }
