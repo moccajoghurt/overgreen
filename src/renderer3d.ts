@@ -11,6 +11,7 @@ import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
 import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createSucculentMeshes, createFloralMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
+import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 
 export function createRenderer3D(
   container: HTMLElement,
@@ -73,6 +74,13 @@ export function createRenderer3D(
   // ── Herbivores ──
   const herbivoreMesh = createHerbivoreMesh();
   scene.add(herbivoreMesh);
+
+  // ── Terrain decorations (static) ──
+  const decor = createDecorMeshes();
+  scene.add(decor.stones);
+  scene.add(decor.reeds);
+  scene.add(decor.dryBrush);
+  placeTerrainDecor(world, getCellElevation, decor);
 
   // ── Event particles (fire, ember, dust, spore) ──
   const events = createEventMeshes();
@@ -178,6 +186,9 @@ export function createRenderer3D(
     waterSurface,
     distantEnvironment,
     rockFormations,
+    decorStones: decor.stones,
+    decorReeds: decor.reeds,
+    decorDryBrush: decor.dryBrush,
   };
 
   // ═══════════════════════════════════════════════════════
@@ -330,6 +341,9 @@ export function createRenderer3D(
     state.prevHerbivoreSnapshots.clear();
     state.dyingHerbivores.clear();
     state.movingHerbivores.clear();
+
+    // Re-place terrain decorations with new elevation
+    placeTerrainDecor(world, getCellElevation, decor);
 
     // Force full update on next frame
     state.lastProcessedTick = -1;

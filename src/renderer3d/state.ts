@@ -29,6 +29,9 @@ export const WEATHER_SPREAD = 50;
 export const FIRE_PARTICLE_COUNT = 400;
 export const DUST_PARTICLE_COUNT = 300;
 export const SPORE_PARTICLE_COUNT = 250;
+export const MAX_DECOR_STONES = 6000;
+export const MAX_DECOR_REEDS = 5000;
+export const MAX_DECOR_DRY_BRUSH = 2000;
 
 // ── Animation interfaces ──
 
@@ -188,6 +191,11 @@ export interface RendererState {
   dyingHerbivores: Map<number, DyingHerbivore>;
   movingHerbivores: Map<number, MovingHerbivore>;
   lastHerbivoreTick: number;
+
+  // Terrain decorations (static, placed once at terrain build)
+  decorStones: THREE.InstancedMesh;
+  decorReeds: THREE.InstancedMesh;
+  decorDryBrush: THREE.InstancedMesh;
 }
 
 // ── Pure helpers ──
