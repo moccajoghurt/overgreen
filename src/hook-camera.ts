@@ -124,10 +124,19 @@ export function createHookCamera(opts: HookCameraOpts) {
   }
 
   function beginReveal(): void {
+    active = true;
     revealing = true;
     revealStart = performance.now();
     revealStartPos = camera.position.clone();
     revealStartTarget = mapControls.target.clone();
+    mapControls.enabled = false; // take back control for reveal animation
+  }
+
+  function handOver(): void {
+    active = false;
+    revealing = false;
+    mapControls.enabled = true;
+    // Keep camera where it is — user takes over from current position
   }
 
   function skip(): void {
@@ -144,6 +153,7 @@ export function createHookCamera(opts: HookCameraOpts) {
     start,
     update,
     beginReveal,
+    handOver,
     skip,
     get active() { return active; },
   };

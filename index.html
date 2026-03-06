@@ -206,6 +206,22 @@
       white-space: nowrap; pointer-events: none;
     }
     #hook-speciation.visible { opacity: 1; }
+
+    /* Hook speed pill */
+    #hook-speed {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 2px;
+      opacity: 0; transition: opacity 600ms ease;
+      pointer-events: none;
+    }
+    #hook-speed.visible { opacity: 1; pointer-events: auto; }
+    .hook-speed-btn {
+      padding: 4px 12px; font-family: monospace; font-size: 12px;
+      background: rgba(0,0,0,0.4); color: #666; border: 1px solid #333;
+      cursor: pointer; transition: color 200ms, border-color 200ms;
+    }
+    .hook-speed-btn:hover { color: #aaa; border-color: #555; }
+    .hook-speed-btn.active { color: #8f8; border-color: #4a7a4a; }
   </style>
 </head>
 <body class="hook-active">
@@ -271,6 +287,11 @@
       <div id="hook-commentary"></div>
       <div id="hook-speciation"></div>
       <button id="hook-skip">Skip intro</button>
+      <div id="hook-speed">
+        <button class="hook-speed-btn" data-speed="1x">1&times;</button>
+        <button class="hook-speed-btn active" data-speed="2x">2&times;</button>
+        <button class="hook-speed-btn" data-speed="5x">5&times;</button>
+      </div>
       <div id="hook-stats"></div>
       <div id="hook-title">Overgreen</div>
       <div id="hook-subtitle">One seed. One world.</div>

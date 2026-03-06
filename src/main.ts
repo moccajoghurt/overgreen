@@ -35,6 +35,7 @@ const hookPhase = createHookPhase({
   container,
   camera: renderer.camera,
   mapControls: renderer.mapControls,
+  controls,
   worldWidth: world.width,
   worldHeight: world.height,
   onRevealComplete: () => {

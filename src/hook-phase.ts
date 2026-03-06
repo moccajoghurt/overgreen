@@ -1,5 +1,6 @@
 import type { World, SimEvent } from './types';
 import type { History } from './types/history';
+import type { Controls } from './controls';
 import { createHookCamera } from './hook-camera';
 import type * as THREE from 'three';
 import type { MapControls } from 'three/addons/controls/MapControls.js';
@@ -26,13 +27,14 @@ interface HookPhaseOpts {
   container: HTMLElement;
   camera: THREE.PerspectiveCamera;
   mapControls: MapControls;
+  controls: Controls;
   worldWidth: number;
   worldHeight: number;
   onRevealComplete: () => void;
 }
 
 export function createHookPhase(opts: HookPhaseOpts) {
-  const { container, camera, mapControls, worldWidth, worldHeight, onRevealComplete } = opts;
+  const { container, camera, mapControls, controls, worldWidth, worldHeight, onRevealComplete } = opts;
 
   let state: HookState = 'idle';
   let revealStartTime = 0;
@@ -42,9 +44,8 @@ export function createHookPhase(opts: HookPhaseOpts) {
   // Event tracking state
   let speciationCount = 0;
   let shownPopMilestone = false;
+  let cameraHandedOver = false;
 
-  // Grid center → world coords (renderer uses x - HALF, z = y - HALF)
-  const HALF = worldWidth / 2;
   const hookCam = createHookCamera({
     camera,
     mapControls,
@@ -59,8 +60,42 @@ export function createHookPhase(opts: HookPhaseOpts) {
   const commentaryEl = document.getElementById('hook-commentary')!;
   const speciationEl = document.getElementById('hook-speciation')!;
   const skipBtn = document.getElementById('hook-skip')!;
+  const speedEl = document.getElementById('hook-speed')!;
+  const speedBtns = speedEl.querySelectorAll<HTMLButtonElement>('.hook-speed-btn');
 
   skipBtn.addEventListener('click', () => skip());
+
+  // Speed pill click handlers
+  const HOOK_SPEEDS: Record<string, { tickInterval: number; ticksPerFrame: number }> = {
+    '1x': { tickInterval: 500, ticksPerFrame: 0 },
+    '2x': { tickInterval: 200, ticksPerFrame: 0 },
+    '5x': { tickInterval: 67,  ticksPerFrame: 0 },
+  };
+
+  speedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const speed = btn.dataset.speed!;
+      const cfg = HOOK_SPEEDS[speed];
+      if (cfg) {
+        controls.tickInterval = cfg.tickInterval;
+        controls.ticksPerFrame = cfg.ticksPerFrame;
+        speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === speed));
+      }
+    });
+  });
+
+  // Camera takeover: user drags on canvas → hand over camera control
+  function onCameraInteraction(e: Event): void {
+    if (state !== 'growing' && state !== 'waiting') return;
+    if (cameraHandedOver) return;
+    // Don't intercept clicks on hook UI elements
+    if ((e.target as HTMLElement).closest('#hook-overlay')) return;
+    cameraHandedOver = true;
+    hookCam.handOver();
+  }
+
+  container.addEventListener('mousedown', onCameraInteraction);
+  container.addEventListener('touchstart', onCameraInteraction);
 
   function start(): void {
     // ?hook in URL forces the hook to replay
@@ -77,6 +112,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
     state = 'waiting';
     speciationCount = 0;
     shownPopMilestone = false;
+    cameraHandedOver = false;
     document.body.classList.add('hook-active');
     overlay.classList.remove('hidden');
     titleEl.classList.remove('visible', 'corner');
@@ -84,6 +120,9 @@ export function createHookPhase(opts: HookPhaseOpts) {
     statsEl.classList.remove('visible');
     commentaryEl.classList.remove('visible');
     speciationEl.classList.remove('visible');
+    speedEl.classList.remove('visible');
+    // Reset speed pill active state
+    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '2x'));
 
     // Start camera choreography
     hookCam.start();
@@ -125,6 +164,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
       if (world.plants.size > 10) {
         state = 'growing';
         statsEl.classList.add('visible');
+        speedEl.classList.add('visible');
       }
     }
 
@@ -198,9 +238,10 @@ export function createHookPhase(opts: HookPhaseOpts) {
     state = 'revealing';
     revealStartTime = performance.now();
 
-    // Hide commentary and stats
+    // Hide commentary, stats, and speed pill
     commentaryEl.classList.remove('visible');
     statsEl.style.opacity = '0';
+    speedEl.classList.remove('visible');
 
     // Show large speciation announcement centered
     speciationEl.textContent = 'A new species has emerged.';
@@ -237,6 +278,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
     subtitleEl.classList.remove('visible', 'faded');
     speciationEl.classList.remove('visible');
     commentaryEl.classList.remove('visible');
+    speedEl.classList.remove('visible');
 
     localStorage.setItem(STORAGE_KEY, '1');
     onRevealComplete();
@@ -244,8 +286,10 @@ export function createHookPhase(opts: HookPhaseOpts) {
 
   function skip(): void {
     state = 'done';
+    cameraHandedOver = false;
     document.body.classList.remove('hook-active');
     overlay.classList.add('hidden');
+    speedEl.classList.remove('visible');
     hookCam.skip();
     onRevealComplete();
   }
