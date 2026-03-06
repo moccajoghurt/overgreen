@@ -91,6 +91,15 @@ export interface Snapshot {
     seedsGerminated: number;
   };
 
+  topSpecies: Array<{
+    speciesId: number;
+    name: string;
+    count: number;
+    avgGenome: { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number };
+    avgEnergy: number;
+    maxGeneration: number;
+    terrain: { soil: number; hill: number; wetland: number; arid: number };
+  }>;
 }
 
 // ── Helpers ──
@@ -314,6 +323,29 @@ export function computeSnapshot(
     }
   }
 
+  // Top 5 species
+  const topSpecies = [...speciesBuckets.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([speciesId, b]) => ({
+      speciesId,
+      name: world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`,
+      count: b.count,
+      avgGenome: {
+        root: b.sumRoot / b.count,
+        height: b.sumHeight / b.count,
+        leaf: b.sumLeaf / b.count,
+        seed: b.sumSeed / b.count,
+        sz: b.sumSz / b.count,
+        def: b.sumDef / b.count,
+        wood: b.sumWood / b.count,
+        wst: b.sumWst / b.count,
+      },
+      avgEnergy: b.sumEnergy / b.count,
+      maxGeneration: b.maxGeneration,
+      terrain: { soil: b.soil, hill: b.hill, wetland: b.wetland, arid: b.arid },
+    }));
+
   const totalDeaths = accum.deathsByStarvation + accum.deathsByAge + accum.deathsByFire + accum.deathsByDisease;
 
   return {
@@ -384,5 +416,6 @@ export function computeSnapshot(
       seedBank: [...world.seedPopulations.values()].reduce((a, b) => a + b, 0),
       seedsGerminated: accum.seedsGerminated,
     },
+    topSpecies,
   };
 }
