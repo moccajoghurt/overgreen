@@ -122,6 +122,7 @@ export const SIM = {
   WETLAND_MAINT_ROOT_MULT: 2.5,  // anoxic deep soil
   WETLAND_MAINT_HEIGHT_MULT: 1.0,
   WETLAND_MAINT_LEAF_MULT: 0.85, // humidity protects leaves
+  WETLAND_MAINT_WSTORAGE_MULT: 8.0, // succulent tissue rots in waterlogged soil
 
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
   ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress

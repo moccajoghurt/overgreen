@@ -215,7 +215,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
 
   // Terrain-specific per-trait multipliers (Soil = 1.0)
   const cell = world.grid[plant.y][plant.x];
-  let rootMult = 1.0, heightMult = 1.0, leafMult = 1.0;
+  let rootMult = 1.0, heightMult = 1.0, leafMult = 1.0, wStorageMult = 1.0;
   if (cell.terrainType === TerrainType.Hill) {
     rootMult = SIM.HILL_MAINT_ROOT_MULT;
     heightMult = SIM.HILL_MAINT_HEIGHT_MULT;
@@ -224,6 +224,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     rootMult = SIM.WETLAND_MAINT_ROOT_MULT;
     heightMult = SIM.WETLAND_MAINT_HEIGHT_MULT;
     leafMult = SIM.WETLAND_MAINT_LEAF_MULT;
+    wStorageMult = SIM.WETLAND_MAINT_WSTORAGE_MULT;
   } else if (cell.terrainType === TerrainType.Arid) {
     rootMult = SIM.ARID_MAINT_ROOT_MULT;
     heightMult = SIM.ARID_MAINT_HEIGHT_MULT;
@@ -242,7 +243,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
     + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
-    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE;
+    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult;
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
   return maintenance;
 }
