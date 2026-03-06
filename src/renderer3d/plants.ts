@@ -1,4 +1,5 @@
 import { GRID_WIDTH, WeatherOverlay } from '../types';
+import { Archetype, renderArchetype } from '../simulation/plants';
 import {
   RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
@@ -156,7 +157,9 @@ export function updatePlants(state: RendererState): void {
 
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    const isGrass = plant.genome.woodiness < 0.4;
+    const archetype = renderArchetype(plant.genome);
+    const isGrass = archetype === Archetype.Grass;
+    const isSucculent = archetype === Archetype.Succulent;
 
     // Reference genome directly (immutable per plant — no need to copy)
     newSnapshots.set(plant.id, {
@@ -185,9 +188,7 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
-    const cellTerrain = world.grid[plant.y][plant.x].terrainType;
-    const succulence = isGrass ? 0 : computeSucculence(plant.genome, cellTerrain);
-    const isSucculent = !isGrass && succulence >= 0.45;
+    const succulence = isSucculent ? computeSucculence(plant.genome) : 0;
 
     if (isGrass) {
       // ── Grass rendering ──
@@ -371,8 +372,9 @@ export function updatePlants(state: RendererState): void {
         wx, wz, baseY, gsil, cr, cg, cb, shrink,
         gtMtx, gtClr);
     } else {
-      const dySucculence = computeSucculence(dp.genome, world.grid[dp.y]?.[dp.x]?.terrainType);
-      const dyIsSucculent = dySucculence >= 0.45;
+      const dyArchetype = renderArchetype(dp.genome);
+      const dyIsSucculent = dyArchetype === Archetype.Succulent;
+      const dySucculence = dyIsSucculent ? computeSucculence(dp.genome) : 0;
 
       if (dyIsSucculent) {
         // Dying succulent: shrink + brown out
@@ -481,8 +483,9 @@ export function updatePlants(state: RendererState): void {
         wx, wz, baseY, gsil, cr, cg, cb, burnShrink,
         gtMtx, gtClr);
     } else {
-      const bnSucculence = computeSucculence(bp.genome, world.grid[bp.y]?.[bp.x]?.terrainType);
-      const bnIsSucculent = bnSucculence >= 0.45;
+      const bnArchetype = renderArchetype(bp.genome);
+      const bnIsSucculent = bnArchetype === Archetype.Succulent;
+      const bnSucculence = bnIsSucculent ? computeSucculence(bp.genome) : 0;
       const burnShrink = 1 - bp.progress * 0.3;
 
       const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);

@@ -1,5 +1,6 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '../types';
-import { RendererState, GRID, lerp, computeSucculence, computeShrubiness } from './state';
+import { Archetype, renderArchetype } from '../simulation/plants';
+import { RendererState, GRID, lerp, computeShrubiness } from './state';
 
 // ── Water adjacency cache ──
 let waterAdjCache: Float32Array | null = null;
@@ -213,10 +214,10 @@ export function updateTerrainColors(state: RendererState): void {
         tr = sc.r; tg = sc.g; tb = sc.b; tw = 0.55;
       } else {
         // Natural mode: tint by plant type
-        const succulence = computeSucculence(genome, cell.terrainType);
-        if (succulence >= 0.45) {
+        const arch = renderArchetype(genome);
+        if (arch === Archetype.Succulent) {
           continue; // Succulents: no ground tint (keep arid sand)
-        } else if (genome.woodiness < 0.4) {
+        } else if (arch === Archetype.Grass) {
           tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
         } else {
           const shrubiness = computeShrubiness(genome);

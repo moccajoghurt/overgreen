@@ -1,4 +1,5 @@
 import { Genome } from './types';
+import { Archetype, renderArchetype } from './simulation/plants';
 
 const ADJECTIVES: string[][] = [
   // rootPriority
@@ -90,7 +91,37 @@ const SHRUB_NOUNS: string[][] = [
   ['Brambles', 'Briars', 'Gorses', 'Roses', 'Barberries', 'Hawthorns'],
 ];
 
-export function generateSpeciesName(genome: Genome, speciesId: number, woodiness?: number): string {
+const SUCCULENT_ADJECTIVES: string[][] = [
+  // rootPriority
+  ['Anchored', 'Tuberous', 'Taprooted', 'Gripping', 'Buried', 'Tenacious'],
+  // heightPriority
+  ['Columnar', 'Towering', 'Pillar', 'Upright', 'Candelabra', 'Erect'],
+  // leafSize
+  ['Fleshy', 'Padded', 'Rosette', 'Swollen', 'Waxy', 'Plump'],
+  // seedInvestment
+  ['Budding', 'Prolific', 'Clustering', 'Offsetting', 'Spreading', 'Pupping'],
+  // seedSize
+  ['Heavy', 'Bulbous', 'Laden', 'Gorged', 'Round', 'Stout'],
+  // defense
+  ['Spiny', 'Thorny', 'Armored', 'Barbed', 'Bristling', 'Hooked'],
+];
+
+const SUCCULENT_NOUNS: string[][] = [
+  // rootPriority
+  ['Tubers', 'Taproots', 'Caudex', 'Anchors', 'Bulbs', 'Rhizomes'],
+  // heightPriority
+  ['Columns', 'Pillars', 'Saguaros', 'Cereus', 'Torches', 'Sentinels'],
+  // leafSize
+  ['Paddles', 'Rosettes', 'Aloes', 'Agaves', 'Stones', 'Jades'],
+  // seedInvestment
+  ['Pups', 'Offsets', 'Clusters', 'Blooms', 'Buds', 'Sprouts'],
+  // seedSize
+  ['Barrels', 'Globes', 'Melons', 'Gourds', 'Orbs', 'Drums'],
+  // defense
+  ['Spines', 'Needles', 'Hooks', 'Glochids', 'Bristles', 'Thorns'],
+];
+
+export function generateSpeciesName(genome: Genome, speciesId: number, _woodiness?: number): string {
   const traits = [
     genome.rootPriority,
     genome.heightPriority,
@@ -112,23 +143,22 @@ export function generateSpeciesName(genome: Genome, speciesId: number, woodiness
     }
   }
 
-  // Three-way vocabulary: grass / shrub / tree
+  // Four-way vocabulary: grass / shrub / succulent / tree
   let adjs: string[][];
   let nouns: string[][];
-  if (woodiness !== undefined && woodiness < 0.4) {
+  const arch = renderArchetype(genome);
+  if (arch === Archetype.Grass) {
     adjs = GRASS_ADJECTIVES;
     nouns = GRASS_NOUNS;
+  } else if (arch === Archetype.Succulent) {
+    adjs = SUCCULENT_ADJECTIVES;
+    nouns = SUCCULENT_NOUNS;
+  } else if (arch === Archetype.Shrub) {
+    adjs = SHRUB_ADJECTIVES;
+    nouns = SHRUB_NOUNS;
   } else {
-    // Inline shrubiness formula to avoid renderer import
-    const shrubiness = Math.max(0, Math.min(1,
-      (1 - genome.heightPriority) * genome.leafSize - genome.seedInvestment * 0.2));
-    if (shrubiness > 0.35) {
-      adjs = SHRUB_ADJECTIVES;
-      nouns = SHRUB_NOUNS;
-    } else {
-      adjs = ADJECTIVES;
-      nouns = NOUNS;
-    }
+    adjs = ADJECTIVES;
+    nouns = NOUNS;
   }
   const adjPool = adjs[first];
   const nounPool = nouns[second];

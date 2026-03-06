@@ -268,9 +268,10 @@ export function computeSilhouette(height: number, rootDepth: number, leafArea: n
     branchVisibility, stemCount, trunkLean, forkFrac, shrubiness };
 }
 
-export function computeSucculence(genome: Genome, terrain?: TerrainType): number {
+/** Succulence score for visual detail (body shape, color intensity).
+ *  Archetype dispatch (which mesh to use) is handled by renderArchetype(). */
+export function computeSucculence(genome: Genome): number {
   if (genome.waterStorage < 0.5) return 0;
-  if (terrain !== undefined && terrain !== TerrainType.Arid && terrain !== TerrainType.Hill) return 0;
   return Math.max(0, Math.min(1,
     genome.waterStorage * 0.7
     + (1 - genome.heightPriority) * 0.1

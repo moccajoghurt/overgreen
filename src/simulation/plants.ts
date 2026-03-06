@@ -37,11 +37,16 @@ export function genomeDistance(a: Genome, b: Genome): number {
   return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw + dwst * dwst);
 }
 
-/** Woodiness bracket: 0=grass (<0.4), 1=shrub (0.4-0.7), 2=tree (>0.7) */
-export function woodinessBracket(woodiness: number): number {
-  if (woodiness < 0.4) return 0;
-  if (woodiness <= 0.7) return 1;
-  return 2;
+/** Visual archetype — determines mesh/rendering path. Pure function of genome. */
+export const enum Archetype { Grass, Shrub, Succulent, Tree }
+
+/** Classify a genome into one of four visual archetypes (genome-only, no terrain). */
+export function renderArchetype(genome: Genome): Archetype {
+  if (genome.woodiness < 0.4) return Archetype.Grass;
+  // High water storage → succulent body plan (genome-determined, not terrain)
+  if (genome.waterStorage >= 0.55) return Archetype.Succulent;
+  if (genome.woodiness <= 0.7) return Archetype.Shrub;
+  return Archetype.Tree;
 }
 
 export function createSpeciesCentroid(genome: Genome): SpeciesCentroid {

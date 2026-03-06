@@ -2,7 +2,7 @@ import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants }
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
   mutateGenome, crossoverGenome, genomeDistance, getCentroidGenome,
-  woodinessBracket, createSpeciesCentroid, addToCentroid, removeFromCentroid,
+  renderArchetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
   generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
@@ -525,12 +525,10 @@ function phaseGermination(world: World): void {
       if (parentCentroid) {
         const centroidGenome = getCentroidGenome(parentCentroid);
         const dist = genomeDistance(winner.genome, centroidGenome);
-        let threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
-        if (woodinessBracket(centroidGenome.woodiness) !== woodinessBracket(winner.genome.woodiness)) {
-          threshold *= SIM.SPECIATION_ARCHETYPE_MULT;
-        }
-        // Only established populations can produce new species
-        if (dist > threshold && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {
+        const archetypeChanged = renderArchetype(centroidGenome) !== renderArchetype(winner.genome);
+        const threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
+        // Different body plan (archetype) → always speciate; otherwise use distance threshold
+        if ((archetypeChanged || dist > threshold) && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {
           // Try to join an existing nearby species before creating a new one
           let joined = false;
           const joinThreshold = SIM.SPECIATION_DISTANCE_THRESHOLD * SIM.SPECIATION_JOIN_RATIO;
