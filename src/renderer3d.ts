@@ -9,7 +9,7 @@ import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } f
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
-import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createSucculentMeshes, createFloralMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createSucculentMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 
@@ -58,11 +58,6 @@ export function createRenderer3D(
   // ── Succulents ──
   const succulents = createSucculentMeshes();
   scene.add(succulents.succulentBodies);
-
-  // ── Floral (flowers, fruit, grass seed heads) ──
-  const floral = createFloralMeshes();
-  scene.add(floral.flowerFruit);
-  scene.add(floral.grassSeedHeads);
 
   // ── Weather particles ──
   const weather = createWeatherMeshes();
@@ -156,8 +151,6 @@ export function createRenderer3D(
     grassTufts: grass.grassTufts,
     succulentBodies: succulents.succulentBodies,
     seeds: plants.seeds,
-    flowerFruit: floral.flowerFruit,
-    grassSeedHeads: floral.grassSeedHeads,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),
     burningPlants: new Map(),

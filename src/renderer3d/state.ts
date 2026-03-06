@@ -127,10 +127,6 @@ export interface RendererState {
   // Seed mesh
   seeds: THREE.InstancedMesh;
 
-  // Floral meshes (flowers, fruit, grass seed heads)
-  flowerFruit: THREE.InstancedMesh;
-  grassSeedHeads: THREE.InstancedMesh;
-
   // Plant animation state
   prevSnapshots: Map<number, PlantSnapshot>;
   dyingPlants: Map<number, DyingPlant>;

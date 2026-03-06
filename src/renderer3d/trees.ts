@@ -1,6 +1,5 @@
 import { Genome } from '../types';
 import { RendererState, StemInfo, MAX_BRANCHES_PER_PLANT, computeSilhouette, plantHash } from './state';
-import type { CanopyTip } from './floral';
 
 /** Writes trunk cylinder segments and returns stem attachment info for branches. */
 export function writeTrunkSegments(
@@ -180,7 +179,6 @@ export function writeBranchesAndCanopies(
   canopyMtx: Float32Array, canopyClr: Float32Array,
   branchLOD: number,
   stems: StemInfo[],
-  canopyTips?: CanopyTip[],
 ): { branchCount: number; canopyCount: number } {
   const { dummy } = state;
   const vis = sil.branchVisibility * branchScale;
@@ -307,7 +305,6 @@ export function writeBranchesAndCanopies(
     canopyClr[cci + 2] = cb;
     canopyCount++;
     segmentCount++;
-    if (canopyTips) canopyTips.push({ x: tipX, y: tipY, z: tipZ, ry: sil.canopyY * volumeShare * jitter * 0.5 });
 
     // ── Level 2: Secondary branches (fork from primary) ──
     for (let j = 0; j < secondaryPerPrimary; j++) {

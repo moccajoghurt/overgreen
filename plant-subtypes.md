@@ -45,10 +45,9 @@ The goal: every plant in the simulation grows into one of these 24 recognizable 
 
 ## TODO
 
-- [ ] **Phase 1: Nail the 3D silhouettes** — Review `plant-gallery.html`, iterate on each plant's geometry until all 24 are recognizable when compared to the photo reference sheet.
+- [x] **Phase 1: Nail the 3D silhouettes** — Review `plant-gallery.html`, iterate on each plant's geometry until all 24 are recognizable when compared to the photo reference sheet.
 
 - [ ] **Phase 2: Subtype rendering module** — Extract finalized geometry into `src/renderer3d/plant-subtypes.ts`. Each subtype gets a builder function that produces the right mesh, replacing the current 3-category renderer.
 
 - [ ] **Phase 3: Genome → subtype classification** — Add `classifySubtype(genome)` that maps genome traits to a subtype ID. Couple this with the speciation system so each species gets locked into a subtype at birth.
 
-- [ ] **Phase 4: Starting species** — Assign deliberate subtypes to founding species so early gameplay shows visual variety from the start.

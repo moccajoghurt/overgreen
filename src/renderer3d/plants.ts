@@ -6,7 +6,7 @@ import {
   computeSilhouette, computeGrassSilhouette, computeSucculence, computeSucculentSilhouette,
   computeSeasonalFoliageFactor, easeOutCubic, lerp,
 } from './state';
-import { MAX_GRASS_TUFTS, MAX_FLORAL, MAX_GRASS_SEED_HEADS } from './setup';
+import { MAX_GRASS_TUFTS } from './setup';
 import {
   _clr, _season,
   naturalCanopyColor, naturalTrunkColor, naturalGrassColor,
@@ -16,11 +16,9 @@ import {
 import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
 import { writeGrassTufts } from './grass';
 import { writeSucculentBody } from './succulents';
-import { computeFloralFactors, writeFruit, writeGrassFlowers, CanopyTip } from './floral';
 
 export function updatePlants(state: RendererState): void {
   const { world, trunks, canopies, branches, grassTufts, succulentBodies,
-    flowerFruit, grassSeedHeads,
     growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
 
   // Skip full rebuild if no tick occurred and no animations are active
@@ -49,11 +47,6 @@ export function updatePlants(state: RendererState): void {
   const gtClr = grassTufts.instanceColor!.array as Float32Array;
   const bodyMtx = succulentBodies.instanceMatrix.array as Float32Array;
   const bodyClr = succulentBodies.instanceColor!.array as Float32Array;
-  const ffMtx = flowerFruit.instanceMatrix.array as Float32Array;
-  const ffClr = flowerFruit.instanceColor!.array as Float32Array;
-  const gshMtx = grassSeedHeads.instanceMatrix.array as Float32Array;
-  const gshClr = grassSeedHeads.instanceColor!.array as Float32Array;
-
   // ── Ingest seed landing events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
     state.lastProcessedTick = world.tick;
@@ -129,20 +122,12 @@ export function updatePlants(state: RendererState): void {
   const foliageFactor = computeSeasonalFoliageFactor(env);
   const canopyScale = Math.max(0.05, foliageFactor);
 
-  // ── Seasonal floral factors (once per frame) ──
-  const floralFactors = computeFloralFactors(env);
-  const fruitActive = floralFactors.fruitAlpha > 0.01;
-  const grassFlowerActive = floralFactors.grassSeedAlpha > 0.01;
-
   // ── Camera-distance LOD for branches ──
   const camPos = state.camera.position;
   const ct = state.controls.target;
   const cdx = camPos.x - ct.x, cdy = camPos.y - ct.y, cdz = camPos.z - ct.z;
   const camDist = Math.sqrt(cdx * cdx + cdy * cdy + cdz * cdz);
   const branchLOD = camDist < 40 ? 1.0 : camDist < 70 ? (70 - camDist) / 30 : 0.3;
-
-  // Reusable buffer for canopy tip positions (cleared per plant)
-  const canopyTipBuf: CanopyTip[] = [];
 
   // ── Reuse snapshot map (swap instead of allocating new) ──
   const newSnapshots = state.nextSnapshots;
@@ -152,9 +137,6 @@ export function updatePlants(state: RendererState): void {
   let canopyIdx = 0;
   let grassTuftIdx = 0;
   let bodyIdx = 0;
-  let ffIdx = 0;
-  let gshIdx = 0;
-
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const archetype = renderArchetype(plant.genome);
@@ -219,14 +201,6 @@ export function updatePlants(state: RendererState): void {
       grassTuftIdx += writeGrassTufts(state, grassTuftIdx, plant.id,
         wx, wz, baseY, gsil, cr, cg, cb, growScale,
         gtMtx, gtClr);
-
-      // Grass flowers (low energy threshold — flowers appear even on recovering plants)
-      if (grassFlowerActive && plant.energy > 0.3 && gshIdx < MAX_GRASS_SEED_HEADS - 4) {
-        gshIdx += writeGrassFlowers(state, gshIdx, plant.id,
-          wx, wz, baseY, gsil, plant.genome,
-          floralFactors.grassSeedAlpha, floralFactors.grassSeedColorfulness,
-          growScale, gshMtx, gshClr);
-      }
     } else if (isSucculent) {
       // ── Succulent rendering — single body per plant ──
       const ssil = computeSucculentSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome, succulence);
@@ -310,24 +284,11 @@ export function updatePlants(state: RendererState): void {
         trf, tgf, tbf, 0, 0, trunkMtx, trunkClr, branchLOD);
       idx += trunkResult.trunkCount;
 
-      // Capture canopy tip positions for fruit rendering
-      const wantTips = fruitActive && plant.energy > 1.0;
-      canopyTipBuf.length = 0;
       const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
         wx, wz, baseY, sil, plant.genome, trf, tgf, tbf, cr, cg, cb, branchScale,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems,
-        wantTips ? canopyTipBuf : undefined);
+        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
       branchIdx += liveResult.branchCount;
       canopyIdx += liveResult.canopyCount;
-
-      // Write fruit on canopy tips
-      if (wantTips && canopyTipBuf.length > 0 && ffIdx < MAX_FLORAL - 8) {
-        const fertility = Math.min(1, (plant.energy - 1.0) * 0.5);
-        ffIdx += writeFruit(state, ffIdx, plant.id, canopyTipBuf,
-          plant.genome, fertility,
-          floralFactors.fruitAlpha, floralFactors.fruitRipeness,
-          ffMtx, ffClr);
-      }
     }
   }
 
@@ -551,16 +512,6 @@ export function updatePlants(state: RendererState): void {
   if (bodyIdx > 0) {
     succulentBodies.instanceMatrix.needsUpdate = true;
     succulentBodies.instanceColor!.needsUpdate = true;
-  }
-  flowerFruit.count = ffIdx;
-  grassSeedHeads.count = gshIdx;
-  if (ffIdx > 0) {
-    flowerFruit.instanceMatrix.needsUpdate = true;
-    flowerFruit.instanceColor!.needsUpdate = true;
-  }
-  if (gshIdx > 0) {
-    grassSeedHeads.instanceMatrix.needsUpdate = true;
-    grassSeedHeads.instanceColor!.needsUpdate = true;
   }
 }
 
