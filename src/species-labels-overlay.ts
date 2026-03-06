@@ -39,6 +39,7 @@ export function createSpeciesLabelsOverlay(
   let showAll = false;
   let hoveredSpecies: number | null = null;
   let lastUpdateTick = -UPDATE_EVERY_N_TICKS;
+  const establishedSpecies = new Set<number>(); // species that crossed 50 pop
 
   const overlay = document.createElement('div');
   overlay.style.cssText = `
@@ -305,17 +306,22 @@ export function createSpeciesLabelsOverlay(
       if (plant.generation > prev) maxGen.set(plant.speciesId, plant.generation);
     }
 
-    // Only show labels for established species (or the hovered one)
+    // Track species that cross the establishment threshold (permanent)
     const MIN_LABEL_POP = 50;
-    const visibleSpecies = new Set<number>();
     for (const [sid, pop] of speciesPopulation) {
-      if (pop >= MIN_LABEL_POP) visibleSpecies.add(sid);
+      if (pop >= MIN_LABEL_POP) establishedSpecies.add(sid);
+    }
+
+    // Show established species that are still alive (or the hovered one)
+    const visibleSpecies = new Set<number>();
+    for (const sid of establishedSpecies) {
+      if (speciesPopulation.has(sid)) visibleSpecies.add(sid);
     }
     if (hoveredSpecies !== null && speciesPopulation.has(hoveredSpecies)) {
       visibleSpecies.add(hoveredSpecies);
     }
 
-    // Remove labels for extinct or too-small species
+    // Remove labels for extinct species
     for (const [sid, entry] of labels) {
       if (!visibleSpecies.has(sid)) {
         entry.el.remove();
@@ -409,6 +415,7 @@ export function createSpeciesLabelsOverlay(
       entry.el.remove();
     }
     labels.clear();
+    establishedSpecies.clear();
   }
 
   return { update, updatePositions, setVisible, setHoveredSpecies, reset };
