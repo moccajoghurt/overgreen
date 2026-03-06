@@ -485,24 +485,27 @@ builders['3.1'] = function() { // Boxwood — dense multi-cluster bush
   return { group: g, camY: 0.35, camDist: 2.8 };
 };
 
-builders['3.2'] = function() { // Elderberry — multi-stemmed, arching
+builders['3.2'] = function() { // Elderberry — open vase shape, arching stems
   var g = new THREE.Group();
   addGround(g, 1.5);
   var stemMat = mat(0x7a6a5a);
   for (var i = 0; i < 5; i++) {
-    var a = i * Math.PI * 2 / 5 + Math.random() * 0.3;
-    var lean = 0.25 + Math.random() * 0.2;
+    var a = i * Math.PI * 2 / 5 + Math.random() * 0.2;
     var h = 0.8 + Math.random() * 0.4;
-    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, h, 5), stemMat);
-    stem.position.set(Math.cos(a) * 0.08, h / 2, Math.sin(a) * 0.08);
-    stem.rotation.z = Math.cos(a) * lean;
-    stem.rotation.x = Math.sin(a) * lean;
-    g.add(stem);
-    addCanopy(g,
-      Math.cos(a) * (0.08 + lean * h * 0.45),
-      h * 0.75,
-      Math.sin(a) * (0.08 + lean * h * 0.45),
-      0.25, 0x4a7a3a);
+    // Arching stems using curves — spread wide
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(Math.cos(a) * 0.2, h * 0.5, Math.sin(a) * 0.2),
+      new THREE.Vector3(Math.cos(a) * 0.5, h * 0.8, Math.sin(a) * 0.5),
+      new THREE.Vector3(Math.cos(a) * 0.6, h * 0.7, Math.sin(a) * 0.6),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.02, 4, false), stemMat));
+    // Foliage cluster at tip — well separated
+    var tip = curve.getPoint(0.85);
+    addCanopy(g, tip.x, tip.y, tip.z, 0.2, 0x4a7a3a);
+    // Smaller secondary cluster partway along
+    var mid = curve.getPoint(0.6);
+    addCanopy(g, mid.x, mid.y + 0.05, mid.z, 0.12, 0x4a7a3a);
   }
   return { group: g, camY: 0.6, camDist: 3.5 };
 };
