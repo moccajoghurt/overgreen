@@ -2,6 +2,26 @@ import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '..
 import { Archetype, renderArchetype } from '../simulation/plants';
 import { RendererState, GRID, lerp, computeShrubiness } from './state';
 
+// ── Per-cell terrain color noise ──
+// Deterministic hash: stable per cell position, no flickering
+function terrainCellHash(cx: number, cy: number, salt: number): number {
+  let h = (cx * 2654435761 + cy * 340573 + salt * 1013904223) | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
+  h = (h >> 16) ^ h;
+  return (h & 0x7FFFFFFF) / 0x7FFFFFFF;
+}
+
+// Per-terrain noise amplitude: [hue±, saturation±, lightness±]
+const TERRAIN_NOISE: Record<number, [number, number, number]> = {
+  [TerrainType.Soil]:    [0.015, 0.08, 0.07],
+  [TerrainType.Arid]:    [0.010, 0.06, 0.10],  // sand ripple — strong lightness
+  [TerrainType.Hill]:    [0.018, 0.10, 0.09],
+  [TerrainType.Rock]:    [0.012, 0.08, 0.12],  // craggy — strongest lightness
+  [TerrainType.Wetland]: [0.020, 0.10, 0.07],  // patchy wet/dry
+  [TerrainType.River]:   [0.000, 0.00, 0.00],
+};
+
 // ── Water adjacency cache ──
 let waterAdjCache: Float32Array | null = null;
 let waterAdjCacheTick = -1;
@@ -277,14 +297,24 @@ export function updateTerrainColors(state: RendererState): void {
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
+
+      // Deterministic per-cell noise for terrain color variation
+      const nh = terrainCellHash(col, row, 0) * 2 - 1; // -1..1
+      const ns = terrainCellHash(col, row, 1) * 2 - 1;
+      const nl = terrainCellHash(col, row, 2) * 2 - 1;
+      const noise = TERRAIN_NOISE[cell.terrainType];
+
+      let h: number, s: number, l: number;
       switch (cell.terrainType) {
-        case TerrainType.River:  tmpColor.setHSL(30 / 360, 0.40, 0.32); break;
-        case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
-        case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
-        case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
-        case TerrainType.Arid:   tmpColor.setHSL(40 / 360, 0.35, 0.48); break;
-        default:                 tmpColor.setHSL(30 / 360, 0.40, 0.32); break;
+        case TerrainType.River:  h = 30 / 360; s = 0.40; l = 0.32; break;
+        case TerrainType.Rock:   h = 30 / 360; s = 0.06; l = 0.38 + cell.elevation * 0.06; break;
+        case TerrainType.Hill:   h = 32 / 360; s = 0.35; l = 0.38; break;
+        case TerrainType.Wetland: h = 160 / 360; s = 0.30; l = 0.22; break;
+        case TerrainType.Arid:   h = 40 / 360; s = 0.35; l = 0.48; break;
+        default:                 h = 30 / 360; s = 0.40; l = 0.32; break;
       }
+
+      tmpColor.setHSL(h + nh * noise[0], s + ns * noise[1], l + nl * noise[2]);
       tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
       tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
       tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
