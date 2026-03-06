@@ -150,9 +150,9 @@ interface TerrainDecorConfig {
 
 const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
   [TerrainType.Soil]: {
-    stoneProbability: 0.35,
-    stoneMin: 1, stoneMax: 2,
-    stoneSizeMin: 0.06, stoneSizeMax: 0.12,
+    stoneProbability: 0.15,
+    stoneMin: 1, stoneMax: 1,
+    stoneSizeMin: 0.04, stoneSizeMax: 0.08,
     stoneColors: [
       [0.45, 0.40, 0.35],  // warm gray
       [0.50, 0.45, 0.38],  // tan-gray
@@ -162,20 +162,20 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
     brushProbability: 0, brushMin: 0, brushMax: 0,
   },
   [TerrainType.Arid]: {
-    stoneProbability: 0.65,
-    stoneMin: 2, stoneMax: 4,
-    stoneSizeMin: 0.08, stoneSizeMax: 0.20,
+    stoneProbability: 0.40,
+    stoneMin: 1, stoneMax: 2,
+    stoneSizeMin: 0.06, stoneSizeMax: 0.14,
     stoneColors: [
       [0.65, 0.55, 0.40],  // sandy tan
       [0.60, 0.50, 0.35],  // dusty brown
       [0.70, 0.60, 0.45],  // light sand
     ],
     reedProbability: 0, reedMin: 0, reedMax: 0,
-    brushProbability: 0.35, brushMin: 1, brushMax: 2,
+    brushProbability: 0.08, brushMin: 1, brushMax: 1,
   },
   [TerrainType.Hill]: {
-    stoneProbability: 0.55,
-    stoneMin: 1, stoneMax: 3,
+    stoneProbability: 0.20,
+    stoneMin: 1, stoneMax: 1,
     stoneSizeMin: 0.12, stoneSizeMax: 0.30,
     stoneColors: [
       [0.50, 0.48, 0.45],  // medium gray
@@ -217,12 +217,12 @@ const REED_COLORS: [number, number, number][] = [
   [0.45, 0.42, 0.25],  // dried green-brown
 ];
 
-// Dry brush color palette (dead brown tones)
+// Dry brush color palette (warm orange-sand tones)
 const BRUSH_COLORS: [number, number, number][] = [
-  [0.50, 0.40, 0.28],  // warm brown
-  [0.55, 0.45, 0.30],  // tan
-  [0.45, 0.35, 0.22],  // dark brown
-  [0.58, 0.48, 0.32],  // light tan
+  [0.72, 0.52, 0.30],  // warm orange-sand
+  [0.68, 0.48, 0.25],  // burnt orange
+  [0.75, 0.55, 0.32],  // golden orange
+  [0.70, 0.50, 0.28],  // dusty orange
 ];
 
 // ── Placement ──
