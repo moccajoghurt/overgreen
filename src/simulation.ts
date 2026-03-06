@@ -229,6 +229,9 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     rootMult = SIM.ARID_MAINT_ROOT_MULT;
     heightMult = SIM.ARID_MAINT_HEIGHT_MULT;
     leafMult = SIM.ARID_MAINT_LEAF_MULT;
+  } else {
+    // Soil (default terrain)
+    wStorageMult = SIM.SOIL_MAINT_WSTORAGE_MULT;
   }
 
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);

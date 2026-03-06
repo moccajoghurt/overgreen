@@ -131,6 +131,8 @@ export const SIM = {
   HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants
   HILL_MAINT_LEAF_MULT: 1.0,
 
+  SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
+
   WETLAND_MAINT_ROOT_MULT: 2.5,  // anoxic deep soil
   WETLAND_MAINT_HEIGHT_MULT: 1.0,
   WETLAND_MAINT_LEAF_MULT: 0.85, // humidity protects leaves
