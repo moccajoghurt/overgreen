@@ -138,10 +138,14 @@ interface TerrainDecorConfig {
   stoneSizeMin: number;      // min radius scale
   stoneSizeMax: number;      // max radius scale
   stoneColors: [number, number, number][];  // RGB palette options
-  // Reeds (wetland only)
+  // Reeds
   reedProbability: number;
   reedMin: number;
   reedMax: number;
+  reedHeightMin: number;   // min height
+  reedHeightMax: number;   // max height
+  reedThickness?: number;  // XZ scale multiplier (default 1)
+  reedColors?: [number, number, number][];  // optional override palette
   // Dry brush (arid only)
   brushProbability: number;
   brushMin: number;
@@ -158,7 +162,15 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
       [0.50, 0.45, 0.38],  // tan-gray
       [0.38, 0.35, 0.30],  // dark gray-brown
     ],
-    reedProbability: 0, reedMin: 0, reedMax: 0,
+    reedProbability: 0.12, reedMin: 1, reedMax: 2,
+    reedHeightMin: 0.10, reedHeightMax: 0.28,
+    reedThickness: 0.4,
+    reedColors: [
+      [0.25, 0.35, 0.12],  // dark green
+      [0.22, 0.30, 0.10],  // deep green
+      [0.28, 0.32, 0.14],  // forest green
+      [0.20, 0.28, 0.10],  // dark olive
+    ],
     brushProbability: 0, brushMin: 0, brushMax: 0,
   },
   [TerrainType.Arid]: {
@@ -171,6 +183,7 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
       [0.70, 0.60, 0.45],  // light sand
     ],
     reedProbability: 0, reedMin: 0, reedMax: 0,
+    reedHeightMin: 0, reedHeightMax: 0,
     brushProbability: 0.08, brushMin: 1, brushMax: 1,
   },
   [TerrainType.Hill]: {
@@ -183,6 +196,7 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
       [0.42, 0.40, 0.38],  // dark gray
     ],
     reedProbability: 0, reedMin: 0, reedMax: 0,
+    reedHeightMin: 0, reedHeightMax: 0,
     brushProbability: 0, brushMin: 0, brushMax: 0,
   },
   [TerrainType.Rock]: {
@@ -194,6 +208,7 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
       [0.48, 0.46, 0.43],  // medium gray
     ],
     reedProbability: 0, reedMin: 0, reedMax: 0,
+    reedHeightMin: 0, reedHeightMax: 0,
     brushProbability: 0, brushMin: 0, brushMax: 0,
   },
   [TerrainType.Wetland]: {
@@ -203,8 +218,9 @@ const DECOR_CONFIGS: Partial<Record<TerrainType, TerrainDecorConfig>> = {
     stoneColors: [
       [0.30, 0.28, 0.25],  // dark brown
     ],
-    reedProbability: 0.60,
-    reedMin: 2, reedMax: 5,
+    reedProbability: 0.20,
+    reedMin: 1, reedMax: 2,
+    reedHeightMin: 0.4, reedHeightMax: 1.2,
     brushProbability: 0, brushMin: 0, brushMax: 0,
   },
 };
@@ -287,25 +303,27 @@ export function placeTerrainDecor(
         }
       }
 
-      // ── Reeds (wetland) ──
+      // ── Reeds ──
       if (config.reedProbability > 0 && cellHash(col, row, 100) < config.reedProbability) {
         const count = config.reedMin + Math.floor(
           cellHash(col, row, 101) * (config.reedMax - config.reedMin + 1),
         );
+        const reedPalette = config.reedColors ?? REED_COLORS;
         for (let i = 0; i < count && reedIdx < MAX_DECOR_REEDS; i++) {
           const ox = (cellHash(col, row, 110 + i * 3) - 0.5) * 0.80;
           const oz = (cellHash(col, row, 111 + i * 3) - 0.5) * 0.80;
-          const h = 0.4 + cellHash(col, row, 112 + i * 3) * 0.8; // height 0.4–1.2
-          const colorIdx = Math.floor(cellHash(col, row, 120 + i) * REED_COLORS.length);
-          const [cr, cg, cb] = REED_COLORS[Math.min(colorIdx, REED_COLORS.length - 1)];
+          const h = config.reedHeightMin + cellHash(col, row, 112 + i * 3) * (config.reedHeightMax - config.reedHeightMin);
+          const colorIdx = Math.floor(cellHash(col, row, 120 + i) * reedPalette.length);
+          const [cr, cg, cb] = reedPalette[Math.min(colorIdx, reedPalette.length - 1)];
           const cVar = 0.85 + cellHash(col, row, 130 + i) * 0.30;
 
           // Slight lean
           const leanX = (cellHash(col, row, 140 + i) - 0.5) * 0.15;
           const leanZ = (cellHash(col, row, 141 + i) - 0.5) * 0.15;
 
+          const thick = config.reedThickness ?? 1;
           dummy.position.set(wx + ox, baseY + h * 0.5, wz + oz);
-          dummy.scale.set(1, h, 1);
+          dummy.scale.set(thick, h, thick);
           dummy.rotation.set(leanX, cellHash(col, row, 142 + i) * Math.PI * 2, leanZ);
           dummy.updateMatrix();
           dummy.matrix.toArray(reedMtx, reedIdx * 16);
