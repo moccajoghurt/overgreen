@@ -303,40 +303,78 @@ export function seasonalSucculentColor(
 // ── Flower & fruit colors ──
 
 export function flowerColor(genome: Genome, out: { cr: number; cg: number; cb: number }): void {
-  // Vivid saturated flowers that contrast strongly with green foliage.
-  // seedInvestment → warm (golden/orange), seedSize → cool (pink/magenta)
-  const si = genome.seedInvestment;
-  const ss = genome.seedSize;
+  // Real grass inflorescences: muted cream/straw/tan with minimal variation.
+  // Base: warm cream-straw
+  let r = 0.75, g = 0.70, b = 0.55;
 
-  // Base: saturated hot pink (low green = pops against foliage)
-  let r = 0.80, g = 0.10, b = 0.35;
+  // seedInvestment → slightly warmer golden
+  r += genome.seedInvestment * 0.04;
+  g -= genome.seedInvestment * 0.02;
+  b -= genome.seedInvestment * 0.06;
 
-  // seedInvestment pushes toward golden yellow/orange
-  r += si * 0.10;
-  g += si * 0.50;
-  b -= si * 0.30;
+  // heightPriority → slightly cooler/paler
+  r -= genome.heightPriority * 0.04;
+  g += genome.heightPriority * 0.02;
+  b += genome.heightPriority * 0.03;
 
-  // seedSize pushes toward deep magenta / purple
-  r -= ss * 0.15;
-  g -= ss * 0.05;
-  b += ss * 0.35;
+  // rootPriority → subtle tan/buff shift
+  r += genome.rootPriority * 0.03;
+  g -= genome.rootPriority * 0.03;
+  b -= genome.rootPriority * 0.04;
 
-  // heightPriority adds a blue/lavender tint
-  b += genome.heightPriority * 0.20;
-  g -= genome.heightPriority * 0.05;
-
-  out.cr = Math.max(0.45, Math.min(0.95, r));
-  out.cg = Math.max(0.05, Math.min(0.55, g));
-  out.cb = Math.max(0.10, Math.min(0.75, b));
+  out.cr = Math.max(0.60, Math.min(0.82, r));
+  out.cg = Math.max(0.58, Math.min(0.76, g));
+  out.cb = Math.max(0.40, Math.min(0.60, b));
 }
 
 export function fruitColor(genome: Genome, ripeness: number, out: { cr: number; cg: number; cb: number }): void {
-  // Bright red from the start → dark red/brown as ripeness goes 0→1
-  // Summer = bright cherry red, autumn = darkened/brownish red
-  const darkShift = genome.seedSize * 0.10;
-  out.cr = lerp(0.85, 0.50 - darkShift, ripeness);
-  out.cg = lerp(0.12, 0.10 - darkShift * 0.3, ripeness);
-  out.cb = lerp(0.10, 0.06, ripeness);
+  // Wild fruit: starts muted green, ripens to genome-driven natural color.
+  // Ripe color determined by dominant growth strategy:
+  //   root-heavy → dark purple/black (elderberry, blackberry)
+  //   tall       → blue-black (sloe, juniper)
+  //   seedy      → dull orange-brown (rowan, rosehip)
+  //   leafy      → yellow-green (stays near unripe)
+
+  // Unripe: muted green
+  const ur = 0.35, ug = 0.45, ub = 0.20;
+
+  // Ripe: blend genome influences
+  let rr = 0.40, rg = 0.30, rb = 0.15;
+
+  // rootPriority → dark purple-black
+  rr -= genome.rootPriority * 0.18;
+  rg -= genome.rootPriority * 0.22;
+  rb += genome.rootPriority * 0.08;
+
+  // heightPriority → blue-black
+  rr -= genome.heightPriority * 0.20;
+  rg -= genome.heightPriority * 0.14;
+  rb += genome.heightPriority * 0.14;
+
+  // seedInvestment → dull orange-brown
+  rr += genome.seedInvestment * 0.22;
+  rg += genome.seedInvestment * 0.06;
+  rb -= genome.seedInvestment * 0.06;
+
+  // leafSize → yellow-green (stays close to unripe)
+  rr += genome.leafSize * 0.10;
+  rg += genome.leafSize * 0.12;
+  rb -= genome.leafSize * 0.04;
+
+  // seedSize → darker overall
+  rr -= genome.seedSize * 0.06;
+  rg -= genome.seedSize * 0.06;
+  rb -= genome.seedSize * 0.03;
+
+  // Clamp ripe color to natural range
+  rr = Math.max(0.15, Math.min(0.62, rr));
+  rg = Math.max(0.08, Math.min(0.50, rg));
+  rb = Math.max(0.06, Math.min(0.30, rb));
+
+  // Lerp from unripe green → ripe species color
+  out.cr = lerp(ur, rr, ripeness);
+  out.cg = lerp(ug, rg, ripeness);
+  out.cb = lerp(ub, rb, ripeness);
 }
 
 /**
