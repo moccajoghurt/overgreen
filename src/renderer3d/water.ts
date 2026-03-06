@@ -8,7 +8,7 @@ export interface WaterSurface {
   update: (env: Environment, sunDirection: THREE.Vector3, fogColor: THREE.Color) => void;
 }
 
-const WATER_OFFSET = 0.08;
+const WATER_OFFSET = 0.45;
 
 // Seasonal water body color + sky reflection color (HSL)
 const SEASON_WATER: { bodyH: number; bodyS: number; bodyL: number; skyH: number; skyS: number; skyL: number }[] = [
@@ -100,40 +100,61 @@ const waterFragmentShader = /* glsl */`
 
     vec3 finalColor = baseColor * diffuse + specColor;
 
+    float alpha = 0.75;
+
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
     float fogFactor = smoothstep(fogNear, fogFar, fogDepth);
     finalColor = mix(finalColor, fogColor, fogFactor);
 
-    gl_FragColor = vec4(finalColor, 0.75);
+    gl_FragColor = vec4(finalColor, alpha);
   }
 `;
 
 export function createWaterSurface(world: World): WaterSurface {
-  // Count river cells
-  let riverCellCount = 0;
+  // ── Step 1: Collect river cells and find connected components via BFS ──
+  const riverCells: [number, number][] = [];
+  const visited = new Uint8Array(GRID * GRID);
+
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       if (world.grid[row][col].terrainType === TerrainType.River) {
-        riverCellCount++;
+        riverCells.push([row, col]);
       }
     }
   }
 
-  if (riverCellCount === 0) {
+  if (riverCells.length === 0) {
     const emptyGeo = new THREE.BufferGeometry();
     const emptyMesh = new THREE.Mesh(emptyGeo);
     emptyMesh.visible = false;
     return { mesh: emptyMesh, update: () => {} };
   }
 
-  // Build geometry: 6 vertices (2 triangles) per river cell
-  const vertCount = riverCellCount * 6;
-  const positions = new Float32Array(vertCount * 3);
-  const normals = new Float32Array(vertCount * 3);
-  const uvs = new Float32Array(vertCount * 2);
+  // BFS to find connected river components
+  const components: [number, number][][] = [];
+  for (const [r, c] of riverCells) {
+    if (visited[r * GRID + c]) continue;
+    const comp: [number, number][] = [];
+    const queue: [number, number][] = [[r, c]];
+    visited[r * GRID + c] = 1;
+    while (queue.length > 0) {
+      const [cr, cc] = queue.pop()!;
+      comp.push([cr, cc]);
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nr = cr + dr, nc = cc + dc;
+        if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID
+          && !visited[nr * GRID + nc]
+          && world.grid[nr][nc].terrainType === TerrainType.River) {
+          visited[nr * GRID + nc] = 1;
+          queue.push([nr, nc]);
+        }
+      }
+    }
+    components.push(comp);
+  }
 
-  // Corner elevation helper
+  // ── Corner elevation helper (shared across components) ──
   const cornerSize = GRID + 1;
   const corners = new Float32Array(cornerSize * cornerSize);
   for (let cy = 0; cy <= GRID; cy++) {
@@ -151,43 +172,174 @@ export function createWaterSurface(world: World): WaterSurface {
     }
   }
 
-  let vi = 0;
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      if (world.grid[row][col].terrainType !== TerrainType.River) continue;
+  // Bilinear elevation interpolation at arbitrary (row, col) — fractional coords in grid space
+  function getElevAt(row: number, col: number): number {
+    const cx = Math.max(0, Math.min(GRID, col));
+    const cy = Math.max(0, Math.min(GRID, row));
+    const ix = Math.min(Math.floor(cx), GRID - 1);
+    const iy = Math.min(Math.floor(cy), GRID - 1);
+    const fx = cx - ix;
+    const fy = cy - iy;
+    const e00 = corners[iy * cornerSize + ix];
+    const e10 = corners[iy * cornerSize + ix + 1];
+    const e01 = corners[(iy + 1) * cornerSize + ix];
+    const e11 = corners[(iy + 1) * cornerSize + ix + 1];
+    return e00 * (1 - fx) * (1 - fy) + e10 * fx * (1 - fy)
+      + e01 * (1 - fx) * fy + e11 * fx * fy;
+  }
 
-      const x0 = col - HALF;
-      const x1 = col - HALF + 1;
-      const z0 = row - HALF;
-      const z1 = row - HALF + 1;
+  // ── Step 2–4: Build ribbon geometry for each component ──
+  const allPositions: number[] = [];
+  const allNormals: number[] = [];
+  const allUvs: number[] = [];
 
-      const eTL = corners[row * cornerSize + col] + WATER_OFFSET;
-      const eTR = corners[row * cornerSize + col + 1] + WATER_OFFSET;
-      const eBL = corners[(row + 1) * cornerSize + col] + WATER_OFFSET;
-      const eBR = corners[(row + 1) * cornerSize + col + 1] + WATER_OFFSET;
+  function pushVert(x: number, y: number, z: number, u: number, v: number): void {
+    allPositions.push(x, y, z);
+    allNormals.push(0, 1, 0);
+    allUvs.push(u, v);
+  }
 
-      // Triangle 1: TL, BL, TR
-      setVertex(vi++, x0, eTL, z0, col / GRID, row / GRID);
-      setVertex(vi++, x0, eBL, z1, col / GRID, (row + 1) / GRID);
-      setVertex(vi++, x1, eTR, z0, (col + 1) / GRID, row / GRID);
+  for (const comp of components) {
+    // ── Step 2: Determine primary axis and extract centerline ──
+    let minRow = GRID, maxRow = 0, minCol = GRID, maxCol = 0;
+    for (const [r, c] of comp) {
+      if (r < minRow) minRow = r;
+      if (r > maxRow) maxRow = r;
+      if (c < minCol) minCol = c;
+      if (c > maxCol) maxCol = c;
+    }
 
-      // Triangle 2: BL, BR, TR
-      setVertex(vi++, x0, eBL, z1, col / GRID, (row + 1) / GRID);
-      setVertex(vi++, x1, eBR, z1, (col + 1) / GRID, (row + 1) / GRID);
-      setVertex(vi++, x1, eTR, z0, (col + 1) / GRID, row / GRID);
+    const colExtent = maxCol - minCol;
+    const rowExtent = maxRow - minRow;
+    const horizontal = colExtent >= rowExtent;
+
+    // Group cells by primary axis coordinate
+    const groups = new Map<number, number[]>();
+    for (const [r, c] of comp) {
+      const key = horizontal ? c : r;
+      const perp = horizontal ? r : c;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(perp);
+    }
+
+    // Sort by primary axis and compute centroid + halfWidth per group
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => a - b);
+    const centerPoints: THREE.Vector3[] = [];
+    const halfWidths: number[] = [];
+
+    for (const key of sortedKeys) {
+      const perps = groups.get(key)!;
+      const minP = Math.min(...perps);
+      const maxP = Math.max(...perps);
+      const centroid = (minP + maxP) / 2 + 0.5; // center of cell range
+      const hw = (maxP - minP + 1) / 2;
+
+      if (horizontal) {
+        centerPoints.push(new THREE.Vector3(key + 0.5, 0, centroid));
+      } else {
+        centerPoints.push(new THREE.Vector3(centroid, 0, key + 0.5));
+      }
+      halfWidths.push(hw);
+    }
+
+    if (centerPoints.length < 2) continue;
+
+    // ── Step 3: Smooth halfWidths and extrapolate ends ──
+    const smoothed = halfWidths.slice();
+    for (let pass = 0; pass < 5; pass++) {
+      const tmp = smoothed.slice();
+      for (let i = 1; i < tmp.length - 1; i++) {
+        smoothed[i] = (tmp[i - 1] + tmp[i] + tmp[i + 1]) / 3;
+      }
+    }
+
+    // Extrapolate 2 points at each end along first/last tangent
+    const firstPt = centerPoints[0];
+    const secondPt = centerPoints[1];
+    const lastPt = centerPoints[centerPoints.length - 1];
+    const prevLastPt = centerPoints[centerPoints.length - 2];
+
+    const startTan = new THREE.Vector3().subVectors(secondPt, firstPt).normalize();
+    const endTan = new THREE.Vector3().subVectors(lastPt, prevLastPt).normalize();
+
+    for (let i = 2; i >= 1; i--) {
+      centerPoints.unshift(new THREE.Vector3(
+        firstPt.x - startTan.x * i, 0, firstPt.z - startTan.z * i,
+      ));
+      smoothed.unshift(smoothed[0]);
+    }
+    for (let i = 1; i <= 2; i++) {
+      centerPoints.push(new THREE.Vector3(
+        lastPt.x + endTan.x * i, 0, lastPt.z + endTan.z * i,
+      ));
+      smoothed.push(smoothed[smoothed.length - 1]);
+    }
+
+    // Build spline through all points
+    const spline = new THREE.CatmullRomCurve3(centerPoints, false, 'catmullrom', 0.5);
+
+    // ── Step 4: Sample spline → ribbon geometry ──
+    const N = Math.max(centerPoints.length * 4, 80);
+
+    type CrossSection = { x: number; z: number; perpX: number; perpZ: number; hw: number; elev: number };
+    const sections: CrossSection[] = [];
+    const tmpPos = new THREE.Vector3();
+    const tmpTan = new THREE.Vector3();
+
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      spline.getPoint(t, tmpPos);
+      spline.getTangent(t, tmpTan);
+
+      const perpX = -tmpTan.z;
+      const perpZ = tmpTan.x;
+      const pLen = Math.sqrt(perpX * perpX + perpZ * perpZ) || 1;
+
+      const fIdx = t * (smoothed.length - 1);
+      const iIdx = Math.min(Math.floor(fIdx), smoothed.length - 2);
+      const frac = fIdx - iIdx;
+      const hw = smoothed[iIdx] * (1 - frac) + smoothed[iIdx + 1] * frac;
+
+      const elev = getElevAt(tmpPos.z, tmpPos.x) + WATER_OFFSET;
+
+      sections.push({
+        x: tmpPos.x, z: tmpPos.z,
+        perpX: perpX / pLen, perpZ: perpZ / pLen,
+        hw, elev,
+      });
+    }
+
+    // Generate ribbon: 1 quad per segment (left bank → right bank)
+    for (let i = 0; i < sections.length - 1; i++) {
+      const s0 = sections[i];
+      const s1 = sections[i + 1];
+
+      const l0x = s0.x + s0.perpX * s0.hw - HALF;
+      const l0z = s0.z + s0.perpZ * s0.hw - HALF;
+      const r0x = s0.x - s0.perpX * s0.hw - HALF;
+      const r0z = s0.z - s0.perpZ * s0.hw - HALF;
+
+      const l1x = s1.x + s1.perpX * s1.hw - HALF;
+      const l1z = s1.z + s1.perpZ * s1.hw - HALF;
+      const r1x = s1.x - s1.perpX * s1.hw - HALF;
+      const r1z = s1.z - s1.perpZ * s1.hw - HALF;
+
+      const e0 = s0.elev;
+      const e1 = s1.elev;
+
+      // Quad: 2 triangles
+      pushVert(l0x, e0, l0z, 0, 0);
+      pushVert(r0x, e0, r0z, 0, 0);
+      pushVert(l1x, e1, l1z, 0, 0);
+      pushVert(r0x, e0, r0z, 0, 0);
+      pushVert(r1x, e1, r1z, 0, 0);
+      pushVert(l1x, e1, l1z, 0, 0);
     }
   }
 
-  function setVertex(idx: number, x: number, y: number, z: number, u: number, v: number): void {
-    positions[idx * 3] = x;
-    positions[idx * 3 + 1] = y;
-    positions[idx * 3 + 2] = z;
-    normals[idx * 3] = 0;
-    normals[idx * 3 + 1] = 1;
-    normals[idx * 3 + 2] = 0;
-    uvs[idx * 2] = u;
-    uvs[idx * 2 + 1] = v;
-  }
+  const positions = new Float32Array(allPositions);
+  const normals = new Float32Array(allNormals);
+  const uvs = new Float32Array(allUvs);
 
   const geo = new THREE.BufferGeometry();
   const posAttr = new THREE.BufferAttribute(positions, 3);
@@ -217,7 +369,7 @@ export function createWaterSurface(world: World): WaterSurface {
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    fog: false, // We handle fog manually in the shader
+    fog: false,
   });
 
   const mesh = new THREE.Mesh(geo, mat);
@@ -228,19 +380,13 @@ export function createWaterSurface(world: World): WaterSurface {
   function update(env: Environment, sunDirection: THREE.Vector3, fogColor: THREE.Color): void {
     const time = performance.now() * 0.001;
     waterUniforms.time.value = time;
-
-    // Update sun direction
     waterUniforms.sunDirection.value.copy(sunDirection);
-
-    // Update fog color
     waterUniforms.fogColor.value.copy(fogColor);
 
-    // Seasonal water color interpolation
     const s0 = SEASON_WATER[env.season];
     const s1 = SEASON_WATER[(env.season + 1) % 4];
     const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
 
-    // Body color
     tmpColor.setHSL(
       s0.bodyH + (s1.bodyH - s0.bodyH) * t,
       s0.bodyS + (s1.bodyS - s0.bodyS) * t,
@@ -248,7 +394,6 @@ export function createWaterSurface(world: World): WaterSurface {
     );
     waterUniforms.waterColor.value.copy(tmpColor);
 
-    // Sky reflection color
     tmpColor.setHSL(
       s0.skyH + (s1.skyH - s0.skyH) * t,
       s0.skyS + (s1.skyS - s0.skyS) * t,

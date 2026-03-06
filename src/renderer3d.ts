@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season, ColorMode } from './types';
 import { RendererState, GRID, HALF } from './renderer3d/state';
-import { updateTerrainColors } from './renderer3d/terrain-colors';
+import { updateTerrainColors, invalidateWaterAdjacency } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
 import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } from './renderer3d/fire-particles';
@@ -312,6 +312,7 @@ export function createRenderer3D(
   function markPlantsDirty(): void { state.plantsDirty = true; }
 
   function rebuildTerrain(): void {
+    invalidateWaterAdjacency();
     const result = rebuildTerrainGeometry(world, terrain);
     getCellElevation = result.getCellElevation;
     rockFormations = result.rockFormations;

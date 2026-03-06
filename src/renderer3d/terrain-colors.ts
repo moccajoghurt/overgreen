@@ -1,5 +1,84 @@
-import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
+import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '../types';
 import { RendererState, GRID, lerp, computeSucculence, computeShrubiness } from './state';
+
+// ── Water adjacency cache ──
+let waterAdjCache: Float32Array | null = null;
+let waterAdjCacheTick = -1;
+
+/**
+ * Compute per-cell water adjacency weight (0→1) using smooth distance falloff.
+ * Uses Euclidean distance to nearest river cell with a smooth ramp,
+ * so the wet-earth band follows the river organically rather than per-cell.
+ */
+const WATER_ADJ_RADIUS = 2.5; // cells — falloff distance from river edge
+
+function computeWaterAdjacency(world: World): Float32Array {
+  if (waterAdjCache && waterAdjCacheTick === 0 && world.tick !== 0) {
+    return waterAdjCache;
+  }
+  if (waterAdjCache && waterAdjCacheTick >= 0 && world.tick > 0) {
+    return waterAdjCache;
+  }
+
+  // Collect river cell centers
+  const riverCenters: [number, number][] = [];
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      if (world.grid[row][col].terrainType === TerrainType.River) {
+        riverCenters.push([row + 0.5, col + 0.5]);
+      }
+    }
+  }
+
+  const adj = new Float32Array(GRID * GRID);
+  if (riverCenters.length === 0) {
+    waterAdjCache = adj;
+    waterAdjCacheTick = world.tick;
+    return adj;
+  }
+
+  const searchR = Math.ceil(WATER_ADJ_RADIUS) + 1;
+
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      if (world.grid[row][col].terrainType === TerrainType.River) continue;
+
+      // Find minimum distance to any river cell (local search)
+      const cy = row + 0.5, cx = col + 0.5;
+      let minDist2 = WATER_ADJ_RADIUS * WATER_ADJ_RADIUS + 1;
+
+      for (let dr = -searchR; dr <= searchR; dr++) {
+        for (let dc = -searchR; dc <= searchR; dc++) {
+          const nr = row + dr, nc = col + dc;
+          if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID
+            && world.grid[nr][nc].terrainType === TerrainType.River) {
+            const dy = cy - (nr + 0.5);
+            const dx = cx - (nc + 0.5);
+            const d2 = dy * dy + dx * dx;
+            if (d2 < minDist2) minDist2 = d2;
+          }
+        }
+      }
+
+      const dist = Math.sqrt(minDist2);
+      if (dist < WATER_ADJ_RADIUS) {
+        // Smooth hermite falloff: 1 at river edge → 0 at radius
+        const t = dist / WATER_ADJ_RADIUS;
+        adj[row * GRID + col] = 1 - t * t * (3 - 2 * t); // smoothstep inverse
+      }
+    }
+  }
+
+  waterAdjCache = adj;
+  waterAdjCacheTick = world.tick;
+  return adj;
+}
+
+/** Invalidate water adjacency cache (call on scenario reload). */
+export function invalidateWaterAdjacency(): void {
+  waterAdjCache = null;
+  waterAdjCacheTick = -1;
+}
 
 /**
  * Snow coverage factor (0→1) based on season + progress.
@@ -84,6 +163,31 @@ export function updateTerrainColors(state: RendererState): void {
   const shrubTR = shrubTintColors[ti0] + (shrubTintColors[ti1] - shrubTintColors[ti0]) * st;
   const shrubTG = shrubTintColors[ti0 + 1] + (shrubTintColors[ti1 + 1] - shrubTintColors[ti0 + 1]) * st;
   const shrubTB = shrubTintColors[ti0 + 2] + (shrubTintColors[ti1 + 2] - shrubTintColors[ti0 + 2]) * st;
+
+  // ── Water adjacency (wet-earth shoreline blend) ──
+  const waterAdj = computeWaterAdjacency(world);
+
+  // Corner-average the water adjacency weights for smooth blending
+  const cornerWaterAdj = new Float32Array(cornerSize * cornerSize);
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let sum = 0, count = 0;
+      for (let dy = -1; dy <= 0; dy++) {
+        for (let dx = -1; dx <= 0; dx++) {
+          const gx = cx + dx, gy = cy + dy;
+          if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+            sum += waterAdj[gy * GRID + gx];
+            count++;
+          }
+        }
+      }
+      cornerWaterAdj[cy * cornerSize + cx] = count > 0 ? sum / count : 0;
+    }
+  }
+
+  // Wet-earth target color (HSL ~200°, 0.25, 0.18 → dark cool brown)
+  const wetR = 0.135, wetG = 0.162, wetB = 0.225;
+  const WET_BLEND = 0.35;
 
   // Per-cell: pre-multiplied tint color (r×w, g×w, b×w) and blend weight
   const cellCount = GRID * GRID;
@@ -170,7 +274,7 @@ export function updateTerrainColors(state: RendererState): void {
 
       // Fixed natural terrain colors (no per-tick water/nutrient dynamics)
       switch (cell.terrainType) {
-        case TerrainType.River:  tmpColor.setHSL(210 / 360, 0.30, 0.20); break;
+        case TerrainType.River:  tmpColor.setHSL(30 / 360, 0.40, 0.32); break; // Soil-like — smooth water mesh handles the visual
         case TerrainType.Rock:   tmpColor.setHSL(30 / 360, 0.06, 0.38 + cell.elevation * 0.06); break;
         case TerrainType.Hill:   tmpColor.setHSL(32 / 360, 0.35, 0.38); break;
         case TerrainType.Wetland: tmpColor.setHSL(160 / 360, 0.30, 0.22); break;
@@ -254,27 +358,33 @@ export function updateTerrainColors(state: RendererState): void {
       const base = (row * GRID + col) * 18;
       const br = tmpColor.r, bg = tmpColor.g, bb = tmpColor.b;
 
-      // Per-vertex: lerp(base, lerp(tintColor, snowWhite, cellSnow), weight)
+      // Water adjacency blend factors per corner
+      const waTL = cornerWaterAdj[cTL] * WET_BLEND;
+      const waTR = cornerWaterAdj[cTR] * WET_BLEND;
+      const waBL = cornerWaterAdj[cBL] * WET_BLEND;
+      const waBR = cornerWaterAdj[cBR] * WET_BLEND;
+
+      // Per-vertex: apply wet-earth blend, then plant tint + snow
       // vertex 0 — TL
-      arr[base]      = lerp(br, lerp(cornerR[cTL], 0.82, cellSnow), cornerW[cTL]);
-      arr[base + 1]  = lerp(bg, lerp(cornerG[cTL], 0.85, cellSnow), cornerW[cTL]);
-      arr[base + 2]  = lerp(bb, lerp(cornerB[cTL], 0.92, cellSnow), cornerW[cTL]);
+      arr[base]      = lerp(lerp(br, wetR, waTL), lerp(cornerR[cTL], 0.82, cellSnow), cornerW[cTL]);
+      arr[base + 1]  = lerp(lerp(bg, wetG, waTL), lerp(cornerG[cTL], 0.85, cellSnow), cornerW[cTL]);
+      arr[base + 2]  = lerp(lerp(bb, wetB, waTL), lerp(cornerB[cTL], 0.92, cellSnow), cornerW[cTL]);
       // vertex 1 — BL
-      arr[base + 3]  = lerp(br, lerp(cornerR[cBL], 0.82, cellSnow), cornerW[cBL]);
-      arr[base + 4]  = lerp(bg, lerp(cornerG[cBL], 0.85, cellSnow), cornerW[cBL]);
-      arr[base + 5]  = lerp(bb, lerp(cornerB[cBL], 0.92, cellSnow), cornerW[cBL]);
+      arr[base + 3]  = lerp(lerp(br, wetR, waBL), lerp(cornerR[cBL], 0.82, cellSnow), cornerW[cBL]);
+      arr[base + 4]  = lerp(lerp(bg, wetG, waBL), lerp(cornerG[cBL], 0.85, cellSnow), cornerW[cBL]);
+      arr[base + 5]  = lerp(lerp(bb, wetB, waBL), lerp(cornerB[cBL], 0.92, cellSnow), cornerW[cBL]);
       // vertex 2 — TR
-      arr[base + 6]  = lerp(br, lerp(cornerR[cTR], 0.82, cellSnow), cornerW[cTR]);
-      arr[base + 7]  = lerp(bg, lerp(cornerG[cTR], 0.85, cellSnow), cornerW[cTR]);
-      arr[base + 8]  = lerp(bb, lerp(cornerB[cTR], 0.92, cellSnow), cornerW[cTR]);
+      arr[base + 6]  = lerp(lerp(br, wetR, waTR), lerp(cornerR[cTR], 0.82, cellSnow), cornerW[cTR]);
+      arr[base + 7]  = lerp(lerp(bg, wetG, waTR), lerp(cornerG[cTR], 0.85, cellSnow), cornerW[cTR]);
+      arr[base + 8]  = lerp(lerp(bb, wetB, waTR), lerp(cornerB[cTR], 0.92, cellSnow), cornerW[cTR]);
       // vertex 3 — BL (duplicate)
       arr[base + 9]  = arr[base + 3];
       arr[base + 10] = arr[base + 4];
       arr[base + 11] = arr[base + 5];
       // vertex 4 — BR
-      arr[base + 12] = lerp(br, lerp(cornerR[cBR], 0.82, cellSnow), cornerW[cBR]);
-      arr[base + 13] = lerp(bg, lerp(cornerG[cBR], 0.85, cellSnow), cornerW[cBR]);
-      arr[base + 14] = lerp(bb, lerp(cornerB[cBR], 0.92, cellSnow), cornerW[cBR]);
+      arr[base + 12] = lerp(lerp(br, wetR, waBR), lerp(cornerR[cBR], 0.82, cellSnow), cornerW[cBR]);
+      arr[base + 13] = lerp(lerp(bg, wetG, waBR), lerp(cornerG[cBR], 0.85, cellSnow), cornerW[cBR]);
+      arr[base + 14] = lerp(lerp(bb, wetB, waBR), lerp(cornerB[cBR], 0.92, cellSnow), cornerW[cBR]);
       // vertex 5 — TR (duplicate)
       arr[base + 15] = arr[base + 6];
       arr[base + 16] = arr[base + 7];

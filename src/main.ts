@@ -30,6 +30,12 @@ loadScenario(world, genesis);
 const renderer = createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
+let lastTickTime = 0;
+let lastUITick = -1;
+let lastUISelectedCell: { x: number; y: number } | null = null;
+let frameCount = 0;
+let lastEventSeq = 0;
+
 // ── Hook phase (curated first-load experience) ──
 const hookPhase = createHookPhase({
   container,
@@ -45,8 +51,6 @@ const hookPhase = createHookPhase({
   },
 });
 
-// Auto-start hook for Genesis (don't pause)
-hookPhase.start();
 // Natural colors during hook — species colors activate on reveal
 renderer.setColorMode('natural');
 
@@ -216,12 +220,6 @@ function updateUI(): void {
   speciesLabels.update(world, history);
 }
 
-let lastTickTime = 0;
-let lastUITick = -1;
-let lastUISelectedCell: { x: number; y: number } | null = null;
-let frameCount = 0;
-
-let lastEventSeq = 0;
 
 function doTick(): void {
   tickWorld(world);
@@ -326,3 +324,6 @@ window.addEventListener('keydown', (e) => {
     spawnDisease(world, { x: cx, y: cy });
   }
 });
+
+// Auto-start hook for Genesis (after all declarations are initialized)
+hookPhase.start();
