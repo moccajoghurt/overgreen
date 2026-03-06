@@ -11,7 +11,6 @@ import { createGenomePanel } from './genome-panel';
 import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
-import { createShowcase } from './species-showcase';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
@@ -57,8 +56,6 @@ const chart = createPopulationChart(document.getElementById('population-containe
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
 const commentary = createCommentary(container);
-const showcase = createShowcase(document.getElementById('showcase')!, world, renderer, container, history);
-
 const sandboxPanel = createSandboxPanel(
   document.getElementById('sandbox-panel')!,
   world, controls, renderer.canvas,
@@ -134,7 +131,6 @@ function resetAllState(): void {
   diagLogger.reset();
   ticker.reset();
   commentary.reset();
-  showcase.reset();
   speciesLabels.reset();
   genomePanel.reset();
   chart.reset();
@@ -183,7 +179,6 @@ function updateUI(): void {
   traitChart.update(history);
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
-  showcase.update(world);
   sandboxPanel.update(world);
   speciesLabels.update(world, history);
 }
