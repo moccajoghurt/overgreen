@@ -402,10 +402,18 @@ function phaseUpdatePlants(world: World): void {
 
     // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
     // Harsh terrains take longer, rewarding large seeds with more energy reserves
-    let estTicks: number = SIM.SOIL_ESTABLISHMENT_TICKS;
-    if (cell.terrainType === TerrainType.Hill) estTicks = SIM.HILL_ESTABLISHMENT_TICKS;
-    else if (cell.terrainType === TerrainType.Wetland) estTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
-    else if (cell.terrainType === TerrainType.Arid) estTicks = SIM.ARID_ESTABLISHMENT_TICKS;
+    // Small seedlings take longer to establish (vigor-scaled)
+    let baseEstTicks: number = SIM.SOIL_ESTABLISHMENT_TICKS;
+    if (cell.terrainType === TerrainType.Hill) baseEstTicks = SIM.HILL_ESTABLISHMENT_TICKS;
+    else if (cell.terrainType === TerrainType.Wetland) baseEstTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
+    else if (cell.terrainType === TerrainType.Arid) baseEstTicks = SIM.ARID_ESTABLISHMENT_TICKS;
+    const rawVigorEst = SIM.SEED_SIZE_VIGOR_MIN + plant.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
+    let dampenEst: number = SIM.SOIL_VIGOR_DAMPEN;
+    if (cell.terrainType === TerrainType.Wetland) dampenEst = SIM.WETLAND_VIGOR_DAMPEN;
+    else if (cell.terrainType === TerrainType.Hill) dampenEst = SIM.HILL_VIGOR_DAMPEN;
+    else if (cell.terrainType === TerrainType.Arid) dampenEst = SIM.ARID_VIGOR_DAMPEN;
+    const vigorEst = Math.max(0.1, rawVigorEst + (1.0 - rawVigorEst) * dampenEst);
+    const estTicks = Math.ceil(baseEstTicks / vigorEst);
     const establishing = plant.age < estTicks;
 
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
