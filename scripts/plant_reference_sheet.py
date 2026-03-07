@@ -45,6 +45,14 @@ ARCHETYPES = {
         ("4.5", "Ice plant/Mesemb",        "Lithops"),             # Living stones
         ("4.6", "Epiphytic succulent",     "Schlumbergera"),       # Christmas cactus
     ],
+    "FORBS": [
+        ("5.1", "Broadleaf wildflower",  "Taraxacum officinale"),   # Dandelion
+        ("5.2", "Tall herb",             "Solidago canadensis"),    # Goldenrod
+        ("5.3", "Fern",                  "Dryopteris filix-mas"),   # Male fern
+        ("5.4", "Vine/Climber",          "Hedera helix"),           # English ivy
+        ("5.5", "Ground cover",          "Trifolium repens"),       # White clover
+        ("5.6", "Aquatic herb",          "Nymphaea alba"),          # White water lily
+    ],
 }
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), ".plant_img_cache")
@@ -80,6 +88,10 @@ SEARCH_OVERRIDES: dict[str, list[str]] = {
     "2.3": ["Pinus sylvestris tree forest standing", "Scots pine tree"],
     "3.3": ["Arctostaphylos manzanita shrub", "manzanita bush whole plant"],
     "3.4": ["Ulex europaeus bush gorse", "gorse shrub thorny"],
+    "5.1": ["Taraxacum officinale plant flower", "dandelion whole plant"],
+    "5.4": ["Hedera helix climbing wall", "english ivy plant"],
+    "5.5": ["Trifolium repens clover field", "white clover ground cover"],
+    "5.6": ["Nymphaea alba water lily pond", "white water lily flower"],
 }
 
 # Words in filenames that indicate fruit/seed/closeup — skip these
@@ -239,7 +251,7 @@ PADDING = 16
 LABEL_H = 60    # Space for text below each image
 HEADER_H = 70   # Space for archetype header row
 COLS = 6        # Subtypes per archetype
-ROWS = 4        # Archetypes
+ROWS = 5        # Archetypes
 
 # Colors
 BG_COLOR = (245, 243, 238)
@@ -248,6 +260,7 @@ HEADER_COLORS = {
     "TREES":      (101, 67, 33),
     "SHRUBS":     (140, 120, 60),
     "SUCCULENTS": (85, 140, 100),
+    "FORBS":      (180, 90, 140),
 }
 TEXT_COLOR = (30, 30, 30)
 SUBTEXT_COLOR = (90, 90, 90)
