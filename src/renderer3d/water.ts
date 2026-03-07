@@ -8,7 +8,8 @@ export interface WaterSurface {
   update: (env: Environment, sunDirection: THREE.Vector3, fogColor: THREE.Color) => void;
 }
 
-const WATER_OFFSET = 0.45;
+const WATER_OFFSET = 0.45;     // sea: visible depth above seabed
+const RIVER_OFFSET = 0.05;     // rivers: just above terrain to avoid z-fighting
 const SEA_ELEV_THRESHOLD = 0.15;
 
 // Seasonal water body color + sky reflection color (HSL)
@@ -312,7 +313,7 @@ export function createWaterSurface(world: World): WaterSurface {
           for (let j = 0; j < 3; j++) {
             const px = vx[tris[i + j]];
             const pz = vz[tris[i + j]];
-            const y = getElevAt(pz, px) + WATER_OFFSET;
+            const y = getElevAt(pz, px) + RIVER_OFFSET;
             pushVert(px - HALF, y, pz - HALF);
           }
         }
