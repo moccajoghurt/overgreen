@@ -123,8 +123,9 @@ export function createHookPhase(opts: HookPhaseOpts) {
     speedEl.classList.remove('visible');
     // Default hook speed: 10x for fast time-lapse to moneyshot
     controls.tickInterval = 0;
-    controls.tickBudgetMs = 8;
-    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '10x'));
+    controls.tickInterval = 67;
+    controls.tickBudgetMs = 0;
+    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '5x'));
 
     // Start camera choreography
     hookCam.start();
