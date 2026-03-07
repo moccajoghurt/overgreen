@@ -563,33 +563,18 @@ function phaseGermination(world: World): void {
         const threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
         // Different body plan (archetype) → always speciate; otherwise use distance threshold
         if ((archetypeChanged || dist > threshold) && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {
-          // Try to join an existing nearby species before creating a new one
-          let joined = false;
-          const joinThreshold = SIM.SPECIATION_DISTANCE_THRESHOLD * SIM.SPECIATION_JOIN_RATIO;
-          for (const [sid, centroid] of world.speciesCentroids) {
-            if (sid === winner.speciesId) continue;
-            const cdist = genomeDistance(winner.genome, getCentroidGenome(centroid));
-            if (cdist < joinThreshold) {
-              finalSpeciesId = sid;
-              addToCentroid(centroid, winner.genome);
-              joined = true;
-              break;
-            }
-          }
-          if (!joined) {
-            finalSpeciesId = world.nextSpeciesId++;
-            const newSubtype = classifySubtype(winner.genome);
-            world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
-            const newName = generateSpeciesName(winner.genome, finalSpeciesId, newSubtype);
-            world.speciesNames.set(finalSpeciesId, newName);
-            world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
-            world.speciesSubtypes.set(finalSpeciesId, newSubtype);
-            world.speciationEvents.push({
-              newSpeciesId: finalSpeciesId,
-              parentSpeciesId: winner.speciesId,
-              newSpeciesName: newName,
-            });
-          }
+          finalSpeciesId = world.nextSpeciesId++;
+          const newSubtype = classifySubtype(winner.genome);
+          world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
+          const newName = generateSpeciesName(winner.genome, finalSpeciesId, newSubtype);
+          world.speciesNames.set(finalSpeciesId, newName);
+          world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+          world.speciesSubtypes.set(finalSpeciesId, newSubtype);
+          world.speciationEvents.push({
+            newSpeciesId: finalSpeciesId,
+            parentSpeciesId: winner.speciesId,
+            newSpeciesName: newName,
+          });
         } else {
           addToCentroid(parentCentroid, winner.genome);
         }
