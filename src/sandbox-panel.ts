@@ -4,6 +4,7 @@ import {
   createSpeciesCentroid, addToCentroid,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
+import { classifySubtype } from './renderer3d/subtypes';
 import { speciesColorToRgb } from './ui-utils';
 import { World, Genome, TerrainType } from './types';
 import { Controls } from './controls';
@@ -230,7 +231,7 @@ export function createSandboxPanel(
     } else {
       const color = generateSpeciesColor(world.nextSpeciesId);
       previewDot.style.background = speciesColorToRgb(color);
-      previewName.textContent = generateSpeciesName(currentGenome, world.nextSpeciesId, currentGenome.woodiness);
+      previewName.textContent = generateSpeciesName(currentGenome, world.nextSpeciesId, classifySubtype(currentGenome));
     }
   }
 
@@ -379,9 +380,11 @@ export function createSandboxPanel(
     if (speciesId === null) {
       speciesId = world.nextSpeciesId++;
       const color = generateSpeciesColor(speciesId);
-      const name = generateSpeciesName(genome, speciesId, genome.woodiness);
+      const subtype = classifySubtype(genome);
+      const name = generateSpeciesName(genome, speciesId, subtype);
       world.speciesColors.set(speciesId, color);
       world.speciesNames.set(speciesId, name);
+      world.speciesSubtypes.set(speciesId, subtype);
       customSpecies.set(speciesId, { name, genome, placedCount: 1 });
     }
 

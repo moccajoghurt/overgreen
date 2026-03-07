@@ -181,9 +181,10 @@ export function seedSinglePlant(world: World): void {
     waterStorage: 0.5,
   };
   const speciesId = world.nextSpeciesId++;
+  const subtype = classifySubtype(genome);
   world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-  world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
-  world.speciesSubtypes.set(speciesId, classifySubtype(genome));
+  world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
+  world.speciesSubtypes.set(speciesId, subtype);
 
   const id = world.nextPlantId++;
   const plant = createPlant(id, cx, cy, genome, speciesId);
@@ -229,9 +230,10 @@ export function seedInitialPlants(world: World, _count: number): void {
     for (let s = 0; s < SPECIES_PER_CLUSTER; s++) {
       const genome = randomGenome();
       const speciesId = world.nextSpeciesId++;
+      const subtype = classifySubtype(genome);
       world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
-      world.speciesSubtypes.set(speciesId, classifySubtype(genome));
+      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
+      world.speciesSubtypes.set(speciesId, subtype);
 
       // Place 2 copies of this species within cluster radius
       for (let copy = 0; copy < COPIES_PER_SPECIES; copy++) {

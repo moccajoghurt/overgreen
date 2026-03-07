@@ -548,11 +548,12 @@ function phaseGermination(world: World): void {
           }
           if (!joined) {
             finalSpeciesId = world.nextSpeciesId++;
+            const newSubtype = classifySubtype(winner.genome);
             world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
-            const newName = generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness);
+            const newName = generateSpeciesName(winner.genome, finalSpeciesId, newSubtype);
             world.speciesNames.set(finalSpeciesId, newName);
             world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
-            world.speciesSubtypes.set(finalSpeciesId, classifySubtype(winner.genome));
+            world.speciesSubtypes.set(finalSpeciesId, newSubtype);
             world.speciationEvents.push({
               newSpeciesId: finalSpeciesId,
               parentSpeciesId: winner.speciesId,
