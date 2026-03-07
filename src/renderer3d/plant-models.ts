@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // ── Helpers (ported from plant-gallery.html) ──
 
-function jitter(geo: THREE.BufferGeometry, amount: number): THREE.BufferGeometry {
+export function jitter(geo: THREE.BufferGeometry, amount: number): THREE.BufferGeometry {
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     pos.setX(i, pos.getX(i) + (Math.random() - 0.5) * amount);
@@ -13,7 +13,7 @@ function jitter(geo: THREE.BufferGeometry, amount: number): THREE.BufferGeometry
   return geo;
 }
 
-function grassBlade(h: number, w: number, bend: number, twist = 0): THREE.BufferGeometry {
+export function grassBlade(h: number, w: number, bend: number, twist = 0): THREE.BufferGeometry {
   const geo = new THREE.PlaneGeometry(w, h, 1, 6);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
@@ -26,16 +26,19 @@ function grassBlade(h: number, w: number, bend: number, twist = 0): THREE.Buffer
   return geo;
 }
 
-/** Shared material stand-in: we only need color for vertex-color baking */
-function mat(color: number): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, flatShading: true });
+/** Material helper — roughness is cosmetic for gallery; sim only reads color channel. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mat(color: number, extra?: Record<string, any>): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial(Object.assign(
+    { color, roughness: 0.85, flatShading: true }, extra,
+  ));
 }
 
-function matDS(color: number): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, flatShading: true, side: THREE.DoubleSide });
+export function matDS(color: number): THREE.MeshStandardMaterial {
+  return mat(color, { side: THREE.DoubleSide });
 }
 
-function addCanopy(group: THREE.Group, x: number, y: number, z: number, radius: number, color = 0x2d5a1e): THREE.Mesh {
+export function addCanopy(group: THREE.Group, x: number, y: number, z: number, radius: number, color = 0x2d5a1e): THREE.Mesh {
   const geo = jitter(new THREE.IcosahedronGeometry(radius, 1), radius * 0.15);
   const m = new THREE.Mesh(geo, mat(color));
   m.position.set(x, y, z);
@@ -43,7 +46,7 @@ function addCanopy(group: THREE.Group, x: number, y: number, z: number, radius: 
   return m;
 }
 
-function addTrunk(group: THREE.Group, x: number, y: number, z: number, rBot: number, rTop: number, h: number, color = 0x6a4a2a): THREE.Mesh {
+export function addTrunk(group: THREE.Group, x: number, y: number, z: number, rBot: number, rTop: number, h: number, color = 0x6a4a2a): THREE.Mesh {
   const geo = new THREE.CylinderGeometry(rTop, rBot, h, 7);
   const m = new THREE.Mesh(geo, mat(color));
   m.position.set(x, y + h / 2, z);
@@ -817,7 +820,7 @@ export interface SubtypeModel {
   referenceHeight: number;
 }
 
-const BUILDERS: (() => THREE.Group)[] = [
+export const BUILDERS: (() => THREE.Group)[] = [
   // Grasses (0-5)
   buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedge,
   // Trees (6-11)
