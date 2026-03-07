@@ -75,7 +75,14 @@ EXACT_FILES: dict[str, str] = {
     "3.3": "File:Rosmarinus officinalis in Vieussan.jpg",  # Rosemary bush in Mediterranean
     "3.5": "File:Larrea tridentata, Red Hills Desert Garden, St. George, UT, USA.jpg",
     "4.3": "File:Starr 070906-8774 Adenium obesum.jpg",  # Desert rose whole plant
+    "1.6": "File:Cyperus papyrus.jpg",
+    "4.4": "File:Euphorbia ingens, parque nacional de Tarangire, Tanzania, 2024-05-25, DD 85.jpg",
     "4.5": "File:Lithops, living stones, at Nuthurst, West Sussex, England 1.jpg",
+    "4.6": "File:Christmas Cactus October 2022.jpg",
+    "5.1": "File:Paardenbloem Taraxacum officinale.JPG",             # Dandelion whole rosette with flowers
+    "5.3": "File:Dryopteris filix-mas 0001.JPG",                     # Male fern whole plant photo
+    "5.5": "File:White clover (Trifolium repens) 001.jpg",             # White clover ground cover patch
+    "5.6": "File:Nymphaea alba 1.JPG",                               # Water lily with pads in pond
 }
 
 # Override search queries to get whole-plant silhouettes instead of fruit/seed closeups.
