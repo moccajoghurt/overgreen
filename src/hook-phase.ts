@@ -65,10 +65,10 @@ export function createHookPhase(opts: HookPhaseOpts) {
   skipBtn.addEventListener('click', () => skip());
 
   // Speed pill click handlers
-  const HOOK_SPEEDS: Record<string, { tickInterval: number; ticksPerFrame: number }> = {
-    '2x':  { tickInterval: 200, ticksPerFrame: 0 },
-    '5x':  { tickInterval: 67,  ticksPerFrame: 0 },
-    '10x': { tickInterval: 0,   ticksPerFrame: 4 },
+  const HOOK_SPEEDS: Record<string, { tickInterval: number; tickBudgetMs: number }> = {
+    '2x':  { tickInterval: 200, tickBudgetMs: 0 },
+    '5x':  { tickInterval: 67,  tickBudgetMs: 0 },
+    '10x': { tickInterval: 0,   tickBudgetMs: 8 },
   };
 
   speedBtns.forEach(btn => {
@@ -77,7 +77,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
       const cfg = HOOK_SPEEDS[speed];
       if (cfg) {
         controls.tickInterval = cfg.tickInterval;
-        controls.ticksPerFrame = cfg.ticksPerFrame;
+        controls.tickBudgetMs = cfg.tickBudgetMs;
         speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === speed));
       }
     });
@@ -123,7 +123,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
     speedEl.classList.remove('visible');
     // Default hook speed: 10x for fast time-lapse to moneyshot
     controls.tickInterval = 0;
-    controls.ticksPerFrame = 4;
+    controls.tickBudgetMs = 8;
     speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '10x'));
 
     // Start camera choreography

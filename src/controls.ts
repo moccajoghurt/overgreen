@@ -3,8 +3,8 @@ import { updateInspector } from './inspector';
 
 export interface Controls {
   paused: boolean;
-  tickInterval: number;   // ms between ticks (timer mode, when ticksPerFrame === 0)
-  ticksPerFrame: number;  // >0 = batch mode: run N ticks per rAF frame
+  tickInterval: number;   // ms between ticks (timer mode, when tickBudgetMs === 0)
+  tickBudgetMs: number;   // >0 = time-budgeted: run ticks until budget exhausted, then render
   renderSkip: number;     // >0 = render only every Nth frame (0 = every frame)
   stepRequested: boolean;
   selectedCell: { x: number; y: number } | null;
@@ -16,12 +16,12 @@ export interface Controls {
 
 type SpeedPreset = '1x' | '2x' | '5x' | '10x' | 'ff';
 
-const PRESETS: Record<SpeedPreset, { tickInterval: number; ticksPerFrame: number; renderSkip: number }> = {
-  '1x':  { tickInterval: 500, ticksPerFrame: 0, renderSkip: 0 },
-  '2x':  { tickInterval: 200, ticksPerFrame: 0, renderSkip: 0 },
-  '5x':  { tickInterval: 67,  ticksPerFrame: 0, renderSkip: 0 },
-  '10x': { tickInterval: 0,   ticksPerFrame: 4, renderSkip: 0 },
-  'ff':  { tickInterval: 0,   ticksPerFrame: 0, renderSkip: 10 },  // time-budgeted
+const PRESETS: Record<SpeedPreset, { tickInterval: number; tickBudgetMs: number; renderSkip: number }> = {
+  '1x':  { tickInterval: 500, tickBudgetMs: 0, renderSkip: 0 },
+  '2x':  { tickInterval: 200, tickBudgetMs: 0, renderSkip: 0 },
+  '5x':  { tickInterval: 67,  tickBudgetMs: 0, renderSkip: 0 },
+  '10x': { tickInterval: 0,   tickBudgetMs: 8, renderSkip: 0 },  // adaptive: ticks within 8ms, then render
+  'ff':  { tickInterval: 0,   tickBudgetMs: 0, renderSkip: 10 },  // time-budgeted, no rendering
 };
 
 export function initControls(
@@ -32,7 +32,7 @@ export function initControls(
   const controls: Controls = {
     paused: false,
     tickInterval: 200,
-    ticksPerFrame: 0,
+    tickBudgetMs: 0,
     renderSkip: 0,
     stepRequested: false,
     selectedCell: null,
@@ -52,7 +52,7 @@ export function initControls(
     if (controls.paused && controls.renderSkip > 0) {
       controls.renderSkip = 0;
       controls.tickInterval = 200;
-      controls.ticksPerFrame = 0;
+      controls.tickBudgetMs = 0;
       speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
       btnPlayPause.classList.remove('ff-active');
     }
@@ -65,7 +65,7 @@ export function initControls(
       const preset = btn.dataset.preset as SpeedPreset;
       const cfg = PRESETS[preset];
       controls.tickInterval = cfg.tickInterval;
-      controls.ticksPerFrame = cfg.ticksPerFrame;
+      controls.tickBudgetMs = cfg.tickBudgetMs;
       controls.renderSkip = cfg.renderSkip;
       speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
       btnPlayPause.classList.toggle('ff-active', preset === 'ff');
@@ -77,7 +77,7 @@ export function initControls(
     if (controls.renderSkip > 0) {
       controls.renderSkip = 0;
       controls.tickInterval = 200;
-      controls.ticksPerFrame = 0;
+      controls.tickBudgetMs = 0;
       speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
       btnPlayPause.classList.remove('ff-active');
       return;

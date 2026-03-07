@@ -156,7 +156,7 @@ function resetAllState(): void {
   if (controls.renderSkip > 0) {
     controls.renderSkip = 0;
     controls.tickInterval = 200;
-    controls.ticksPerFrame = 0;
+    controls.tickBudgetMs = 0;
     document.querySelectorAll<HTMLButtonElement>('.speed-btn')
       .forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
     document.getElementById('btn-play-pause')!.classList.remove('ff-active');
@@ -271,8 +271,10 @@ function loop(now: number): void {
       }
       lastTickTime = now;
       ffOverlay.update(world);
-    } else if (controls.ticksPerFrame > 0) {
-      for (let i = 0; i < controls.ticksPerFrame; i++) doTick();
+    } else if (controls.tickBudgetMs > 0) {
+      // Adaptive: run ticks within time budget, then render
+      const deadline = performance.now() + controls.tickBudgetMs;
+      do { doTick(); } while (performance.now() < deadline);
       lastTickTime = now;
     } else if (now - lastTickTime >= controls.tickInterval) {
       doTick();
