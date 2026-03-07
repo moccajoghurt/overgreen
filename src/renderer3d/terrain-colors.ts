@@ -1,6 +1,6 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '../types';
 import { Archetype, renderArchetype } from '../simulation/plants';
-import { RendererState, GRID, lerp, computeShrubiness } from './state';
+import { RendererState, GRID, lerp } from './state';
 
 // ── Per-cell terrain color noise ──
 // Deterministic hash: stable per cell position, no flickering
@@ -240,7 +240,8 @@ export function updateTerrainColors(state: RendererState): void {
         } else if (arch === Archetype.Grass) {
           tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
         } else {
-          const shrubiness = computeShrubiness(genome);
+          const shrubiness = Math.max(0, Math.min(1,
+            (1 - genome.heightPriority) * genome.leafSize - genome.seedInvestment * 0.2));
           if (shrubiness > 0.15) {
             tr = shrubTR; tg = shrubTG; tb = shrubTB; tw = 0.65;
           } else {

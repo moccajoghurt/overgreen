@@ -102,6 +102,7 @@ export interface World {
   herbivoreBirthEvents: HerbivoreBirthEvent[];
   speciesCentroids: Map<number, SpeciesCentroid>;
   speciationEvents: SpeciationEvent[];
+  speciesSubtypes: Map<number, number>;
 }
 
 export interface DeathEvent {

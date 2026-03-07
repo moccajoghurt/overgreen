@@ -1,25 +1,44 @@
 import { GRID_WIDTH, WeatherOverlay } from '../types';
-import { Archetype, renderArchetype } from '../simulation/plants';
 import {
-  RendererState, HALF, MAX_INSTANCES, MAX_SEEDS,
+  RendererState, HALF, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
-  computeSilhouette, computeGrassSilhouette, computeSucculence, computeSucculentSilhouette,
-  computeSeasonalFoliageFactor, easeOutCubic, lerp,
+  easeOutCubic, lerp, plantHash,
 } from './state';
-import { MAX_GRASS_TUFTS } from './setup';
-import {
-  _clr, _season,
-  naturalCanopyColor, naturalTrunkColor, naturalGrassColor,
-  naturalSucculentBodyColor,
-  seasonalGrassColor, seasonalCanopyColor, seasonalSucculentColor, getPlantColors,
-} from './plant-colors';
-import { writeTrunkSegments, writeBranchesAndCanopies } from './trees';
-import { writeGrassTufts } from './grass';
-import { writeSucculentBody } from './succulents';
+import { computePlantTint } from './plant-colors';
+import { classifySubtype, subtypeArchetype } from './subtypes';
+
+const SUBTYPE_COUNT = 24;
+
+/** Write one plant instance into the subtype's instance buffers. */
+function writePlantInstance(
+  state: RendererState,
+  subtype: number, idx: number,
+  mtxArrays: Float32Array[], clrArrays: Float32Array[],
+  wx: number, wz: number, baseY: number,
+  height: number, scale: number,
+  plantId: number,
+  tr: number, tg: number, tb: number,
+): void {
+  const { dummy, referenceHeights } = state;
+  const refH = referenceHeights[subtype];
+  const s = (height / refH) * scale;
+
+  const ry = plantHash(plantId, 0) * Math.PI * 2;
+  dummy.position.set(wx, baseY, wz);
+  dummy.scale.setScalar(s);
+  dummy.rotation.set(0, ry, 0);
+  dummy.updateMatrix();
+  dummy.matrix.toArray(mtxArrays[subtype], idx * 16);
+
+  const ci = idx * 3;
+  clrArrays[subtype][ci] = tr;
+  clrArrays[subtype][ci + 1] = tg;
+  clrArrays[subtype][ci + 2] = tb;
+}
 
 export function updatePlants(state: RendererState): void {
-  const { world, trunks, canopies, branches, grassTufts, succulentBodies,
-    growingPlants, flyingSeeds, dyingPlants, burningPlants, getCellElevation } = state;
+  const { world, subtypeMeshes, growingPlants, flyingSeeds,
+    dyingPlants, burningPlants, getCellElevation } = state;
 
   // Skip full rebuild if no tick occurred and no animations are active
   const hasTicked = world.tick !== state.lastPlantTick;
@@ -37,31 +56,23 @@ export function updatePlants(state: RendererState): void {
     state.lastPlantColorMode = state.colorMode;
   }
 
-  const trunkMtx = trunks.instanceMatrix.array as Float32Array;
-  const trunkClr = trunks.instanceColor!.array as Float32Array;
-  const canopyMtx = canopies.instanceMatrix.array as Float32Array;
-  const canopyClr = canopies.instanceColor!.array as Float32Array;
-  const brMtx = branches.instanceMatrix.array as Float32Array;
-  const brClr = branches.instanceColor!.array as Float32Array;
-  const gtMtx = grassTufts.instanceMatrix.array as Float32Array;
-  const gtClr = grassTufts.instanceColor!.array as Float32Array;
-  const bodyMtx = succulentBodies.instanceMatrix.array as Float32Array;
-  const bodyClr = succulentBodies.instanceColor!.array as Float32Array;
+  // Pre-extract instance buffer arrays for each subtype
+  const mtxArrays = subtypeMeshes.map(m => m.instanceMatrix.array as Float32Array);
+  const clrArrays = subtypeMeshes.map(m => m.instanceColor!.array as Float32Array);
+  const subtypeCounts = new Uint32Array(SUBTYPE_COUNT);
+
   // ── Ingest seed landing events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
     state.lastProcessedTick = world.tick;
     for (const evt of world.seedLandingEvents) {
-      // O(1) parent lookup via grid cell instead of scanning all plants
       let parentHeight = 1.0;
       const cell = world.grid[evt.parentY]?.[evt.parentX];
       if (cell?.plantId != null) {
         const parent = world.plants.get(cell.plantId);
         if (parent?.alive) parentHeight = parent.height;
       }
-      // Detach near the top of the parent plant
       const startY = Math.max(0.3, parentHeight * 0.7);
       const isGrass = evt.woodiness < 0.4;
-      // Low loft — seeds barely rise above detach height, they just float
       const arcPeak = 0.15 + Math.random() * 0.15;
       flyingSeeds.push({
         parentX: evt.parentX, parentY: evt.parentY,
@@ -78,9 +89,7 @@ export function updatePlants(state: RendererState): void {
       });
     }
 
-    // Ingest germination events — delay growth until the flying seed lands
     for (const evt of world.germinationEvents) {
-      // Find the matching flying seed to determine delay
       let delayFrames = 0;
       for (const fs of flyingSeeds) {
         if (fs.childX === evt.x && fs.childY === evt.y && fs.progress < 1) {
@@ -88,7 +97,6 @@ export function updatePlants(state: RendererState): void {
           break;
         }
       }
-      // Negative progress = delay countdown; growth starts when progress reaches 0
       growingPlants.set(evt.plantId, {
         plantId: evt.plantId,
         progress: -delayFrames / GROWTH_ANIM_FRAMES,
@@ -96,67 +104,55 @@ export function updatePlants(state: RendererState): void {
     }
   }
 
-  // ── Ingest fire death events (accumulated across ticks) ──
+  // ── Ingest fire death events ──
   const fireDeathIds = new Set<number>();
   for (const evt of world.fireDeathEvents) {
     fireDeathIds.add(evt.id);
+    const subtype = world.speciesSubtypes?.get(evt.speciesId) ?? classifySubtype(evt.genome);
     burningPlants.set(evt.id, {
       x: evt.x, y: evt.y,
       height: evt.height, rootDepth: evt.rootDepth,
       leafArea: evt.leafArea, speciesId: evt.speciesId,
       genome: evt.genome,
       woodiness: evt.genome.woodiness,
+      subtype,
       progress: 0,
     });
   }
 
-  // ── Detect deaths: plants in prev snapshot but no longer in world ──
+  // ── Detect deaths ──
   for (const [id, snap] of state.prevSnapshots) {
     if (!world.plants.has(id) && !fireDeathIds.has(id)) {
       dyingPlants.set(id, { ...snap, progress: 0 });
     }
   }
 
-  // ── Seasonal foliage factor (once per frame) ──
   const env = world.environment;
-  const foliageFactor = computeSeasonalFoliageFactor(env);
-  const canopyScale = Math.max(0.05, foliageFactor);
 
-  // ── Camera-distance LOD for branches ──
-  const camPos = state.camera.position;
-  const ct = state.controls.target;
-  const cdx = camPos.x - ct.x, cdy = camPos.y - ct.y, cdz = camPos.z - ct.z;
-  const camDist = Math.sqrt(cdx * cdx + cdy * cdy + cdz * cdz);
-  const branchLOD = camDist < 40 ? 1.0 : camDist < 70 ? (70 - camDist) / 30 : 0.3;
-
-  // ── Reuse snapshot map (swap instead of allocating new) ──
+  // ── Reuse snapshot map ──
   const newSnapshots = state.nextSnapshots;
   newSnapshots.clear();
-  let idx = 0;
-  let branchIdx = 0;
-  let canopyIdx = 0;
-  let grassTuftIdx = 0;
-  let bodyIdx = 0;
+
+  // ── Render live plants ──
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    const archetype = renderArchetype(plant.genome);
-    const isGrass = archetype === Archetype.Grass;
-    const isSucculent = archetype === Archetype.Succulent;
 
-    // Reference genome directly (immutable per plant — no need to copy)
+    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+
     newSnapshots.set(plant.id, {
       x: plant.x, y: plant.y,
       height: plant.height, rootDepth: plant.rootDepth,
       leafArea: plant.leafArea, speciesId: plant.speciesId,
       genome: plant.genome,
       woodiness: plant.genome.woodiness,
+      subtype,
     });
 
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
     const baseY = getCellElevation(plant.x, plant.y);
 
-    // Growth animation scale
+    // Growth animation
     let growScale = 1.0;
     const growing = growingPlants.get(plant.id);
     if (growing) {
@@ -164,132 +160,39 @@ export function updatePlants(state: RendererState): void {
       if (growing.progress >= 1) {
         growingPlants.delete(plant.id);
       } else if (growing.progress < 0) {
-        growScale = 0; // still waiting for seed to land
+        growScale = 0;
       } else {
         growScale = Math.max(0.05, easeOutCubic(growing.progress));
       }
     }
 
-    const succulence = isSucculent ? computeSucculence(plant.genome) : 0;
+    // Compute tint
+    const tint = computePlantTint(state, plant.id, plant.speciesId, plant.genome,
+      subtypeArchetype(subtype), env);
 
-    if (isGrass) {
-      // ── Grass rendering ──
-      const gsil = computeGrassSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome);
-
-      const colors = getPlantColors(state, plant.id, plant.speciesId, plant.genome, true);
-      let { cr, cg, cb } = colors;
-      seasonalGrassColor(cr, cg, cb, env, _season);
-      cr = _season.cr; cg = _season.cg; cb = _season.cb;
-
-      if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
-        cr = lerp(cr, 0.50, 0.45);
-        cg = lerp(cg, 0.45, 0.45);
-        cb = lerp(cb, 0.10, 0.45);
-      }
-
-      // Hovered species glow / dim
-      if (state.hoveredSpecies !== null) {
-        if (plant.speciesId === state.hoveredSpecies) {
-          cr = Math.min(cr * 1.5, 1.0);
-          cg = Math.min(cg * 1.5, 1.0);
-          cb = Math.min(cb * 1.5, 1.0);
-        } else {
-          cr *= 0.5; cg *= 0.5; cb *= 0.5;
-        }
-      }
-
-      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, plant.id,
-        wx, wz, baseY, gsil, cr, cg, cb, growScale,
-        gtMtx, gtClr);
-    } else if (isSucculent) {
-      // ── Succulent rendering — single body per plant ──
-      const ssil = computeSucculentSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome, succulence);
-
-      const colors = getPlantColors(state, plant.id, plant.speciesId, plant.genome, false, true);
-      let { cr, cg, cb } = colors;
-
-      // Seasonal color — minimal for succulents (evergreen)
-      seasonalSucculentColor(cr, cg, cb, env, _season);
-      cr = _season.cr; cg = _season.cg; cb = _season.cb;
-
-      if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
-        cr = lerp(cr, 0.50, 0.45);
-        cg = lerp(cg, 0.45, 0.45);
-        cb = lerp(cb, 0.10, 0.45);
-      }
-
-      // Hovered species glow / dim
-      if (state.hoveredSpecies !== null) {
-        if (plant.speciesId === state.hoveredSpecies) {
-          cr = Math.min(cr * 1.5, 1.0);
-          cg = Math.min(cg * 1.5, 1.0);
-          cb = Math.min(cb * 1.5, 1.0);
-        } else {
-          cr *= 0.5; cg *= 0.5; cb *= 0.5;
-        }
-      }
-
-      bodyIdx += writeSucculentBody(state, bodyIdx, plant.id,
-        wx, wz, baseY, ssil, cr, cg, cb, growScale,
-        bodyMtx, bodyClr);
-    } else {
-      // ── Tree rendering ──
-      const sil = computeSilhouette(plant.height, plant.rootDepth, plant.leafArea, plant.genome);
-
-      let branchScale = 1.0;
-      if (growScale < 1.0) {
-        sil.trunkH *= growScale;
-        sil.trunkThickness *= growScale;
-        sil.canopyX *= growScale;
-        sil.canopyY *= growScale;
-        sil.canopyZ *= growScale;
-        branchScale = Math.max(0, easeOutCubic(Math.max(0, (growing?.progress ?? 1) - 0.3) / 0.7));
-      }
-
-      sil.canopyX *= canopyScale;
-      sil.canopyY *= canopyScale;
-      sil.canopyZ *= canopyScale;
-
-      const colors = getPlantColors(state, plant.id, plant.speciesId, plant.genome);
-      let { cr, cg, cb } = colors;
-      const { tr, tg, tb } = colors;
-
-      seasonalCanopyColor(cr, cg, cb, env, _season);
-      cr = _season.cr; cg = _season.cg; cb = _season.cb;
-
-      if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
-        cr = lerp(cr, 0.50, 0.45);
-        cg = lerp(cg, 0.45, 0.45);
-        cb = lerp(cb, 0.10, 0.45);
-      }
-
-      // Hovered species glow / dim
-      let trf = tr, tgf = tg, tbf = tb;
-      if (state.hoveredSpecies !== null) {
-        if (plant.speciesId === state.hoveredSpecies) {
-          cr = Math.min(cr * 1.5, 1.0);
-          cg = Math.min(cg * 1.5, 1.0);
-          cb = Math.min(cb * 1.5, 1.0);
-          trf = Math.min(tr * 1.5, 1.0);
-          tgf = Math.min(tg * 1.5, 1.0);
-          tbf = Math.min(tb * 1.5, 1.0);
-        } else {
-          cr *= 0.5; cg *= 0.5; cb *= 0.5;
-          trf = tr * 0.5; tgf = tg * 0.5; tbf = tb * 0.5;
-        }
-      }
-
-      if (idx + 6 >= MAX_INSTANCES) continue;
-      const trunkResult = writeTrunkSegments(state, idx, plant.id, wx, wz, baseY, sil,
-        trf, tgf, tbf, 0, 0, trunkMtx, trunkClr, branchLOD);
-      idx += trunkResult.trunkCount;
-
-      const liveResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, plant.id,
-        wx, wz, baseY, sil, plant.genome, trf, tgf, tbf, cr, cg, cb, branchScale,
-        brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
-      branchIdx += liveResult.branchCount;
-      canopyIdx += liveResult.canopyCount;
+    // Disease overlay
+    let { r: tr, g: tg, b: tb } = tint;
+    if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
+      // Muddy yellow tint (shift multiplier toward brownish)
+      tr = lerp(tr, 0.55, 0.4);
+      tg = lerp(tg, 0.50, 0.4);
+      tb = lerp(tb, 0.15, 0.4);
     }
+
+    // Hovered species glow / dim
+    if (state.hoveredSpecies !== null) {
+      if (plant.speciesId === state.hoveredSpecies) {
+        tr = Math.min(tr * 1.4, 1.5);
+        tg = Math.min(tg * 1.4, 1.5);
+        tb = Math.min(tb * 1.4, 1.5);
+      } else {
+        tr *= 0.55; tg *= 0.55; tb *= 0.55;
+      }
+    }
+
+    const idx = subtypeCounts[subtype]++;
+    writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
   }
 
   // Swap snapshot buffers
@@ -308,113 +211,28 @@ export function updatePlants(state: RendererState): void {
     const baseY = getCellElevation(dp.x, dp.y);
     const p = dp.progress;
 
-    if (dp.woodiness < 0.4) {
-      // Dying grass: shrink + brown out (no tilt)
-      if (grassTuftIdx >= MAX_GRASS_TUFTS) continue;
-      const gsil = computeGrassSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
+    // Dying tint: fade toward brown
+    let tr = lerp(1.0, 0.45, p);
+    let tg = lerp(1.0, 0.30, p);
+    let tb = lerp(1.0, 0.12, p);
 
-      naturalGrassColor(dp.genome, _clr);
-      if (state.colorMode === 'species') {
-        const sc = world.speciesColors.get(dp.speciesId);
-        const gr = 0.2 + dp.genome.rootPriority * 0.6;
-        const gg = 0.3 + dp.genome.leafSize * 0.5;
-        const gb = 0.2 + dp.genome.heightPriority * 0.6;
-        _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-        _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-        _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-      }
-      seasonalGrassColor(_clr.cr, _clr.cg, _clr.cb, env, _season);
-      // Fade to brown
-      const cr = _season.cr * (1 - p) + 0.40 * p;
-      const cg = _season.cg * (1 - p) + 0.30 * p;
-      const cb = _season.cb * (1 - p) + 0.10 * p;
-
-      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, id,
-        wx, wz, baseY, gsil, cr, cg, cb, shrink,
-        gtMtx, gtClr);
-    } else {
-      const dyArchetype = renderArchetype(dp.genome);
-      const dyIsSucculent = dyArchetype === Archetype.Succulent;
-      const dySucculence = dyIsSucculent ? computeSucculence(dp.genome) : 0;
-
-      if (dyIsSucculent) {
-        // Dying succulent: shrink + brown out
-        const ssil = computeSucculentSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome, dySucculence);
-        naturalSucculentBodyColor(dp.genome, dySucculence, _clr);
-        if (state.colorMode === 'species') {
-          const sc = world.speciesColors.get(dp.speciesId);
-          const gr = 0.2 + dp.genome.rootPriority * 0.6;
-          const gg = 0.3 + dp.genome.leafSize * 0.5;
-          const gb = 0.2 + dp.genome.heightPriority * 0.6;
-          _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-          _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-          _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-        }
-        const cr = _clr.cr * (1 - p) + 0.35 * p;
-        const cg = _clr.cg * (1 - p) + 0.20 * p;
-        const cb = _clr.cb * (1 - p) + 0.08 * p;
-
-        bodyIdx += writeSucculentBody(state, bodyIdx, id,
-          wx, wz, baseY, ssil, cr, cg, cb, shrink,
-          bodyMtx, bodyClr);
-      } else {
-        // Dying tree: force single stem, no lean
-        if (idx + 4 >= MAX_INSTANCES) continue;
-
-        const raw = computeSilhouette(dp.height, dp.rootDepth, dp.leafArea, dp.genome);
-        const sil = {
-          trunkH: raw.trunkH * shrink,
-          trunkThickness: raw.trunkThickness * shrink,
-          canopyX: raw.canopyX * shrink * canopyScale,
-          canopyY: raw.canopyY * shrink * canopyScale,
-          canopyZ: raw.canopyZ * shrink * canopyScale,
-          branchVisibility: raw.branchVisibility,
-          stemCount: 1,
-          trunkLean: 0,
-          forkFrac: raw.forkFrac,
-          shrubiness: 0,
-        };
-
-        const tiltProgress = Math.max(0, (dp.progress - 0.3) / 0.7);
-        const tiltAngle = tiltProgress * (Math.PI / 3);
-        const tiltDir = ((id * 7) % 13) / 13 * Math.PI * 2;
-
-        naturalCanopyColor(dp.genome, _clr);
-        naturalTrunkColor(dp.genome, _clr as any);
-        if (state.colorMode === 'species') {
-          const sc = world.speciesColors.get(dp.speciesId);
-          const gr = 0.2 + dp.genome.rootPriority * 0.6;
-          const gg = 0.3 + dp.genome.leafSize * 0.5;
-          const gb = 0.2 + dp.genome.heightPriority * 0.6;
-          _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-          _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-          _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-          _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
-          _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
-          _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
-        }
-        seasonalCanopyColor(_clr.cr, _clr.cg, _clr.cb, env, _season);
-        const cr = _season.cr * (1 - p) + 0.35 * p;
-        const cg = _season.cg * (1 - p) + 0.20 * p;
-        const cb = _season.cb * (1 - p) + 0.08 * p;
-        const tr = _clr.tr * (1 - p) + 0.20 * p;
-        const tg = _clr.tg * (1 - p) + 0.12 * p;
-        const tb = _clr.tb * (1 - p) + 0.06 * p;
-
-        const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
-          tr, tg, tb, tiltAngle, tiltDir, trunkMtx, trunkClr, branchLOD);
-        idx += trunkResult.trunkCount;
-        const dyingResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
-          wx, wz, baseY, sil, dp.genome, tr, tg, tb, cr, cg, cb, shrink,
-          brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
-        branchIdx += dyingResult.branchCount;
-        canopyIdx += dyingResult.canopyCount;
+    // Species mode: tint the dying plant too
+    if (state.colorMode === 'species') {
+      const sc = world.speciesColors.get(dp.speciesId);
+      if (sc) {
+        tr *= lerp(0.4 + sc.r * 0.8, 0.45, p);
+        tg *= lerp(0.4 + sc.g * 0.8, 0.30, p);
+        tb *= lerp(0.4 + sc.b * 0.8, 0.12, p);
       }
     }
+
+    const idx = subtypeCounts[dp.subtype]++;
+    writePlantInstance(state, dp.subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, dp.height, shrink, id, tr, tg, tb);
   }
   for (const id of toRemove) dyingPlants.delete(id);
 
-  // ── Render burning plants (fire deaths) ──
+  // ── Render burning plants ──
   const burnToRemove: number[] = [];
   for (const [id, bp] of burningPlants) {
     const burnFrames = bp.woodiness < 0.4 ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
@@ -430,88 +248,30 @@ export function updatePlants(state: RendererState): void {
     const baseY = getCellElevation(bp.x, bp.y);
     const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
     const t = bp.progress;
+    const burnShrink = bp.woodiness < 0.4 ? 1 - t * 0.5 : 1 - t * 0.3;
 
-    if (bp.woodiness < 0.4) {
-      // Burning grass: quick flash-burn with orange-yellow
-      if (grassTuftIdx >= MAX_GRASS_TUFTS) continue;
-      const gsil = computeGrassSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
-      const burnShrink = 1 - t * 0.5;
-      const cr = lerp(1.0, 0.3, t) * (0.8 + flicker * 0.2);
-      const cg = lerp(0.7, 0.08, t) * (0.7 + flicker * 0.3);
-      const cb = lerp(0.15, 0.02, t);
+    // Fire tint: orange-red → dark
+    const tr = (bp.woodiness < 0.4
+      ? lerp(2.5, 0.4, t) * (0.8 + flicker * 0.2)
+      : lerp(2.2, 0.3, t * 0.5) * (0.8 + flicker * 0.2));
+    const tg = (bp.woodiness < 0.4
+      ? lerp(1.5, 0.1, t) * (0.7 + flicker * 0.3)
+      : lerp(1.2, 0.08, t) * (0.7 + flicker * 0.3));
+    const tb = bp.woodiness < 0.4 ? lerp(0.3, 0.03, t) : lerp(0.2, 0.03, t);
 
-      grassTuftIdx += writeGrassTufts(state, grassTuftIdx, id,
-        wx, wz, baseY, gsil, cr, cg, cb, burnShrink,
-        gtMtx, gtClr);
-    } else {
-      const bnArchetype = renderArchetype(bp.genome);
-      const bnIsSucculent = bnArchetype === Archetype.Succulent;
-      const bnSucculence = bnIsSucculent ? computeSucculence(bp.genome) : 0;
-      const burnShrink = 1 - bp.progress * 0.3;
-
-      const cr = lerp(1.0, 0.2, t * 0.5) * (0.8 + flicker * 0.2);
-      const cg = lerp(0.6, 0.05, t) * (0.7 + flicker * 0.3);
-      const cb = lerp(0.1, 0.02, t);
-
-      if (bnIsSucculent) {
-        // Burning succulent: orange flicker + shrink
-        const ssil = computeSucculentSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome, bnSucculence);
-        bodyIdx += writeSucculentBody(state, bodyIdx, id,
-          wx, wz, baseY, ssil, cr, cg, cb, burnShrink,
-          bodyMtx, bodyClr);
-      } else {
-        // Burning tree: use full trunk variation (no tilt during fire)
-        if (idx + 6 >= MAX_INSTANCES) continue;
-        const raw = computeSilhouette(bp.height, bp.rootDepth, bp.leafArea, bp.genome);
-
-        const sil = {
-          trunkH: raw.trunkH * burnShrink,
-          trunkThickness: raw.trunkThickness * burnShrink,
-          canopyX: raw.canopyX * burnShrink * canopyScale,
-          canopyY: raw.canopyY * burnShrink * canopyScale,
-          canopyZ: raw.canopyZ * burnShrink * canopyScale,
-          branchVisibility: raw.branchVisibility,
-          stemCount: raw.stemCount,
-          trunkLean: raw.trunkLean,
-          forkFrac: raw.forkFrac,
-          shrubiness: raw.shrubiness,
-        };
-
-        const trunkResult = writeTrunkSegments(state, idx, id, wx, wz, baseY, sil,
-          cr, cg, cb, 0, 0, trunkMtx, trunkClr, branchLOD);
-        idx += trunkResult.trunkCount;
-        const burnResult = writeBranchesAndCanopies(state, branchIdx, canopyIdx, id,
-          wx, wz, baseY, sil, bp.genome, cr, cg, cb, cr, cg, cb, burnShrink,
-          brMtx, brClr, canopyMtx, canopyClr, branchLOD, trunkResult.stems);
-        branchIdx += burnResult.branchCount;
-        canopyIdx += burnResult.canopyCount;
-      }
-    }
+    const idx = subtypeCounts[bp.subtype]++;
+    writePlantInstance(state, bp.subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, bp.height, burnShrink, id, tr, tg, tb);
   }
   for (const id of burnToRemove) burningPlants.delete(id);
 
-  trunks.count = idx;
-  canopies.count = canopyIdx;
-  branches.count = branchIdx;
-  grassTufts.count = grassTuftIdx;
-  succulentBodies.count = bodyIdx;
-  trunks.instanceMatrix.needsUpdate = true;
-  trunks.instanceColor!.needsUpdate = true;
-  if (canopyIdx > 0) {
-    canopies.instanceMatrix.needsUpdate = true;
-    canopies.instanceColor!.needsUpdate = true;
-  }
-  if (branchIdx > 0) {
-    branches.instanceMatrix.needsUpdate = true;
-    branches.instanceColor!.needsUpdate = true;
-  }
-  if (grassTuftIdx > 0) {
-    grassTufts.instanceMatrix.needsUpdate = true;
-    grassTufts.instanceColor!.needsUpdate = true;
-  }
-  if (bodyIdx > 0) {
-    succulentBodies.instanceMatrix.needsUpdate = true;
-    succulentBodies.instanceColor!.needsUpdate = true;
+  // ── Update counts and mark dirty ──
+  for (let i = 0; i < SUBTYPE_COUNT; i++) {
+    subtypeMeshes[i].count = subtypeCounts[i];
+    if (subtypeCounts[i] > 0) {
+      subtypeMeshes[i].instanceMatrix.needsUpdate = true;
+      subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
   }
 }
 
@@ -531,11 +291,10 @@ export function updateSeeds(state: RendererState): void {
       continue;
     }
 
-    if (seedIdx >= MAX_SEEDS - 2) continue; // reserve room for 2 trail ghosts
+    if (seedIdx >= MAX_SEEDS - 2) continue;
 
     const t = fs.progress;
 
-    // World-space endpoints
     const wx0 = fs.parentX - HALF + 0.5;
     const wz0 = fs.parentY - HALF + 0.5;
     const wx1 = fs.childX - HALF + 0.5;
@@ -543,40 +302,32 @@ export function updateSeeds(state: RendererState): void {
     const parentElev = getCellElevation(fs.parentX, fs.parentY);
     const childElev = getCellElevation(fs.childX, fs.childY);
 
-    // Perpendicular to flight path (for lateral drift)
     const fdx = wx1 - wx0;
     const fdz = wz1 - wz0;
     const fdist = Math.sqrt(fdx * fdx + fdz * fdz) || 1;
     const perpX = -fdz / fdist;
     const perpZ = fdx / fdist;
 
-    // Phase accumulates like weather particles (multi-frequency sine drift)
     const phase = t * fs.flightFrames * 0.05 + fs.driftPhase;
 
-    // Compute position at a given progress value — windy floating motion
     const floatHeight = parentElev + fs.startY;
     const landHeight = childElev + 0.1;
     const posAt = (pt: number) => {
       const ph = pt * fs.flightFrames * 0.05 + fs.driftPhase;
-      // Lateral drift: two sine waves at different frequencies for organic wobble
       const drift = Math.sin(ph * fs.driftFreq) * fs.driftAmp
                    + Math.sin(ph * fs.driftFreq * 0.7 + 1.3) * fs.driftAmp * 0.5;
       const px = lerp(wx0, wx1, pt) + perpX * drift;
       const pz = lerp(wz0, wz1, pt) + perpZ * drift;
-      // Stay at float height for most of the flight, then descend in the final stretch
-      // smoothstep: stays near 0 until ~0.6, then ramps to 1 by t=1
       const descent = pt < 0.6 ? 0 : ((pt - 0.6) / 0.4) * ((pt - 0.6) / 0.4);
       const py = lerp(floatHeight, landHeight, descent)
                + Math.sin(ph * 3.0) * 0.03
                + Math.sin(ph * 1.7) * 0.015
-               + fs.arcPeak * Math.sin(ph * 0.9) * 0.5; // gentle undulation
+               + fs.arcPeak * Math.sin(ph * 0.9) * 0.5;
       return { x: px, y: py, z: pz };
     };
 
-    // Tiny uniform scale — floating particle, not a solid object
     const s = fs.scaleFactor * 0.35;
 
-    // Render main particle + 2 trail ghosts
     const trailOffsets = [0, 0.02, 0.04];
     const trailScales = [1.0, 0.7, 0.4];
 
@@ -590,7 +341,6 @@ export function updateSeeds(state: RendererState): void {
 
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.scale.set(gs, gs, gs);
-      // Gentle tumble like a mote
       dummy.rotation.set(
         Math.sin(phase * 1.2) * 0.5,
         phase * fs.spinSpeed * 3,
@@ -599,7 +349,6 @@ export function updateSeeds(state: RendererState): void {
       dummy.updateMatrix();
       dummy.matrix.toArray(seedMtx, seedIdx * 16);
 
-      // Dark brown/tan — natural seed color
       const ci = seedIdx * 3;
       const dim = g === 0 ? 1.0 : g === 1 ? 0.85 : 0.7;
       seedClr[ci]     = 0.45 * dim;

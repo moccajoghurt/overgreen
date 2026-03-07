@@ -9,7 +9,7 @@ import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } f
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
-import { createTerrain, rebuildTerrainGeometry, createPlantMeshes, createGrassMeshes, createSucculentMeshes, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createTerrain, rebuildTerrainGeometry, createSubtypeMeshes, createSeedMesh, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 
@@ -44,20 +44,11 @@ export function createRenderer3D(
   let waterSurface = createWaterSurface(world);
   scene.add(waterSurface.mesh);
 
-  // ── Plants ──
-  const plants = createPlantMeshes();
-  scene.add(plants.trunks);
-  scene.add(plants.canopies);
-  scene.add(plants.branches);
-  scene.add(plants.seeds);
-
-  // ── Grass ──
-  const grass = createGrassMeshes();
-  scene.add(grass.grassTufts);
-
-  // ── Succulents ──
-  const succulents = createSucculentMeshes();
-  scene.add(succulents.succulentBodies);
+  // ── Plants (24 subtype meshes + seeds) ──
+  const { meshes: subtypeMeshes, referenceHeights } = createSubtypeMeshes();
+  for (const mesh of subtypeMeshes) scene.add(mesh);
+  const seeds = createSeedMesh();
+  scene.add(seeds);
 
   // ── Weather particles ──
   const weather = createWeatherMeshes();
@@ -145,12 +136,9 @@ export function createRenderer3D(
     colorArray,
     colorAttr,
     getCellElevation,
-    trunks: plants.trunks,
-    canopies: plants.canopies,
-    branches: plants.branches,
-    grassTufts: grass.grassTufts,
-    succulentBodies: succulents.succulentBodies,
-    seeds: plants.seeds,
+    subtypeMeshes,
+    referenceHeights,
+    seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),
     burningPlants: new Map(),

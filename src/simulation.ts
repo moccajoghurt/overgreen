@@ -9,6 +9,7 @@ import { generateSpeciesName } from './species-names';
 import { phaseEnvironment } from './simulation/environment';
 import { getEffectiveEraMultipliers } from './simulation/eras';
 import { phaseHerbivores } from './simulation/herbivores';
+import { classifySubtype } from './renderer3d/subtypes';
 
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants, seedSinglePlant } from './simulation/plants';
@@ -551,6 +552,7 @@ function phaseGermination(world: World): void {
             const newName = generateSpeciesName(winner.genome, finalSpeciesId, winner.genome.woodiness);
             world.speciesNames.set(finalSpeciesId, newName);
             world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
+            world.speciesSubtypes.set(finalSpeciesId, classifySubtype(winner.genome));
             world.speciationEvents.push({
               newSpeciesId: finalSpeciesId,
               parentSpeciesId: winner.speciesId,

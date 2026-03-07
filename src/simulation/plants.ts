@@ -3,6 +3,7 @@ import {
   SpeciesColor, TerrainType, World, getPlantConstants,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
+import { classifySubtype } from '../renderer3d/subtypes';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -182,6 +183,7 @@ export function seedSinglePlant(world: World): void {
   const speciesId = world.nextSpeciesId++;
   world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
   world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
+  world.speciesSubtypes.set(speciesId, classifySubtype(genome));
 
   const id = world.nextPlantId++;
   const plant = createPlant(id, cx, cy, genome, speciesId);
@@ -229,6 +231,7 @@ export function seedInitialPlants(world: World, _count: number): void {
       const speciesId = world.nextSpeciesId++;
       world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
       world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, genome.woodiness));
+      world.speciesSubtypes.set(speciesId, classifySubtype(genome));
 
       // Place 2 copies of this species within cluster radius
       for (let copy = 0; copy < COPIES_PER_SPECIES; copy++) {

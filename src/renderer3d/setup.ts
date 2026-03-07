@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { World } from '../types';
 import {
-  GRID, ELEV_SCALE, MAX_INSTANCES, MAX_SEEDS, MAX_BRANCH_INSTANCES,
+  GRID, ELEV_SCALE, MAX_SEEDS,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
-  makeRoughSphere,
 } from './state';
+import { buildSubtypeModels } from './plant-models';
 import { createRockFormations, RockFormations } from './rocks';
 
 // ── Terrain ──
@@ -160,150 +160,49 @@ export function rebuildTerrainGeometry(
   return { getCellElevation, rockFormations };
 }
 
-// ── Plant meshes ──
+// ── Per-subtype instanced meshes (24 subtypes, one InstancedMesh each) ──
 
-export interface PlantMeshes {
-  trunks: THREE.InstancedMesh;
-  canopies: THREE.InstancedMesh;
-  branches: THREE.InstancedMesh;
-  seeds: THREE.InstancedMesh;
+const MAX_PER_SUBTYPE = 7000; // 80×80=6400 grid + dying/burning headroom
+
+export function createSubtypeMeshes(): {
+  meshes: THREE.InstancedMesh[];
+  referenceHeights: Float32Array;
+} {
+  const models = buildSubtypeModels();
+  const meshes = models.map(m => {
+    const meshMat = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      side: THREE.DoubleSide,
+      flatShading: true,
+    });
+    const mesh = new THREE.InstancedMesh(m.geometry, meshMat, MAX_PER_SUBTYPE);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(MAX_PER_SUBTYPE * 3), 3,
+    );
+    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    return mesh;
+  });
+  const referenceHeights = new Float32Array(models.map(m => m.referenceHeight));
+  return { meshes, referenceHeights };
 }
 
-function createInstancedMesh(
-  geo: THREE.BufferGeometry, maxCount: number,
-): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial(), maxCount);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(maxCount * 3), 3,
-  );
-  mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  mesh.count = 0;
-  mesh.frustumCulled = false;
-  return mesh;
-}
+// ── Seed mesh (flying seeds — separate from plant subtypes) ──
 
-// ── Grass meshes ──
-
-export const MAX_GRASS_TUFTS = MAX_INSTANCES;
-
-export interface GrassMeshes {
-  grassTufts: THREE.InstancedMesh;
-}
-
-function createGrassTuftGeometry(): THREE.BufferGeometry {
-  // Two cross-planes at 90° with an asymmetric blade silhouette.
-  // Multiple instances per plant (randomly positioned/rotated) create
-  // natural-looking coverage without the "pizza" pattern of 3-plane stars.
-  const vertices: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-
-  const PLANES = 2;
-  const HALF_W = 0.55;
-
-  // Asymmetric silhouette: peak right of center, gentle left ramp, steeper right drop.
-  // Shallow valleys (0.35-0.55) so it reads as a dense clump, not spikes.
-  const topHeights = [0.0, 0.35, 0.58, 0.48, 0.72, 0.60, 0.88, 1.0, 0.65, 0.78, 0.50, 0.38, 0.0];
-  const topN = topHeights.length;
-
-  for (let p = 0; p < PLANES; p++) {
-    const angle = (p / PLANES) * Math.PI; // 0° and 90°
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const nx = -sin, nz = cos;
-
-    const vBase = vertices.length / 3;
-
-    for (let i = 0; i < topN; i++) {
-      const t = i / (topN - 1);
-      const localX = (t - 0.5) * 2 * HALF_W;
-      const wx = localX * cos;
-      const wz = localX * sin;
-
-      vertices.push(wx, 0, wz);
-      normals.push(nx, 0, nz);
-      vertices.push(wx, topHeights[i], wz);
-      normals.push(nx, 0, nz);
-    }
-
-    for (let i = 0; i < topN - 1; i++) {
-      const bl = vBase + i * 2;
-      const tl = bl + 1;
-      const br = vBase + (i + 1) * 2;
-      const tr = br + 1;
-      indices.push(bl, br, tl);
-      indices.push(tl, br, tr);
-    }
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geo.setIndex(indices);
-  return geo;
-}
-
-export function createGrassMeshes(): GrassMeshes {
-  const tuftGeo = createGrassTuftGeometry();
-  const mat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
-  const grassTufts = new THREE.InstancedMesh(tuftGeo, mat, MAX_GRASS_TUFTS);
-  grassTufts.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  grassTufts.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_GRASS_TUFTS * 3), 3,
-  );
-  grassTufts.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  grassTufts.count = 0;
-  grassTufts.frustumCulled = false;
-
-  return { grassTufts };
-}
-
-// ── Succulent meshes ──
-
-export const MAX_SUCCULENT_BODIES = MAX_INSTANCES; // one body per succulent plant
-
-export interface SucculentMeshes {
-  succulentBodies: THREE.InstancedMesh;
-}
-
-export function createSucculentMeshes(): SucculentMeshes {
-  // Capsule with few radial segments → visible vertical ribs (cactus-like)
-  // length=0 makes it sphere-shaped; per-instance Y-scaling elongates for columnar vs barrel
-  // 8 radial segments = 8 vertical ribs visible via flat shading
-  const capsule = new THREE.CapsuleGeometry(0.5, 0, 2, 8);
-  const bodyGeo = capsule.toNonIndexed(); // required for proper flat shading
-  capsule.dispose();
-  bodyGeo.computeVertexNormals();
-
-  // Flat shading → each facet is a distinct panel (reads as cactus ribs)
-  const mat = new THREE.MeshLambertMaterial({ flatShading: true });
-  const succulentBodies = new THREE.InstancedMesh(bodyGeo, mat, MAX_SUCCULENT_BODIES);
-  succulentBodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  succulentBodies.instanceColor = new THREE.InstancedBufferAttribute(
-    new Float32Array(MAX_SUCCULENT_BODIES * 3), 3,
-  );
-  succulentBodies.instanceColor.setUsage(THREE.DynamicDrawUsage);
-  succulentBodies.count = 0;
-  succulentBodies.frustumCulled = false;
-  return { succulentBodies };
-}
-
-export function createPlantMeshes(): PlantMeshes {
-  const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, 1, 6);
-  const trunks = createInstancedMesh(trunkGeo, MAX_INSTANCES);
-
-  const canopyGeo = makeRoughSphere(0.5, 1, 0.25);
-  const canopies = createInstancedMesh(canopyGeo, MAX_BRANCH_INSTANCES);
-
-  const branchGeo = new THREE.CylinderGeometry(0.04, 0.09, 1, 5);
-  const branches = createInstancedMesh(branchGeo, MAX_BRANCH_INSTANCES);
-
+export function createSeedMesh(): THREE.InstancedMesh {
   const seedGeo = new THREE.CircleGeometry(0.10, 5);
-  const seeds = createInstancedMesh(seedGeo, MAX_SEEDS);
-  (seeds.material as THREE.MeshLambertMaterial).side = THREE.DoubleSide;
-
-  return { trunks, canopies, branches, seeds };
+  const seedMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+  const seeds = new THREE.InstancedMesh(seedGeo, seedMat, MAX_SEEDS);
+  seeds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  seeds.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_SEEDS * 3), 3,
+  );
+  seeds.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  seeds.count = 0;
+  seeds.frustumCulled = false;
+  return seeds;
 }
 
 // ── Weather meshes ──

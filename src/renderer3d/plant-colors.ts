@@ -1,348 +1,138 @@
 import { Genome, Season } from '../types';
 import { RendererState, lerp } from './state';
 
-// ── Reusable output objects (avoid per-plant allocations in hot path) ──
-export const _clr = { cr: 0, cg: 0, cb: 0, tr: 0, tg: 0, tb: 0 };
-export const _season = { cr: 0, cg: 0, cb: 0 };
-
-export function naturalCanopyColor(genome: Genome, out: { cr: number; cg: number; cb: number }) {
-  const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
-
-  // Compute normalized dominance for nonlinear strategy accents
-  const sum = rootPriority + heightPriority + leafSize + seedInvestment + 0.01;
-  const rDom = rootPriority / sum;
-  const hDom = heightPriority / sum;
-  const sDom = seedInvestment / sum;
-
-  // Base: mid-forest green
-  let r = 0.18;
-  let g = 0.40;
-  let b = 0.14;
-
-  // leafSize high → bright, lush, saturated emerald green
-  r += leafSize * 0.02;
-  g += leafSize * 0.25;
-  b += leafSize * 0.04;
-
-  // heightPriority high → dark blue-green (conifer needles)
-  r -= heightPriority * 0.08;
-  g -= heightPriority * 0.12;
-  b += heightPriority * 0.08;
-
-  // rootPriority high → warm olive / khaki
-  r += rootPriority * 0.14;
-  g += rootPriority * 0.02;
-  b -= rootPriority * 0.06;
-
-  // seedInvestment high → light yellow-green / silver-green
-  r += seedInvestment * 0.10;
-  g += seedInvestment * 0.08;
-  b -= seedInvestment * 0.04;
-
-  // seedSize high → warm amber shift (heavy fruit-bearing)
-  r += genome.seedSize * 0.04;
-  g += genome.seedSize * 0.02;
-  b -= genome.seedSize * 0.02;
-
-  // Nonlinear strategy accents (kick in when a gene is clearly dominant)
-  if (hDom > 0.30) {
-    const strength = (hDom - 0.30) * 2.0;
-    r -= strength * 0.06;
-    g -= strength * 0.05;
-    b += strength * 0.10;
-  }
-  if (rDom > 0.30) {
-    const strength = (rDom - 0.30) * 2.0;
-    r += strength * 0.08;
-    g += strength * 0.04;
-    b -= strength * 0.04;
-  }
-  if (sDom > 0.30) {
-    const strength = (sDom - 0.30) * 2.0;
-    r += strength * 0.06;
-    g += strength * 0.10;
-    b += strength * 0.06;
-  }
-
-  // Shrubby warmth: low canopy + broad leaves → lusher green
-  if ((1 - heightPriority) * leafSize > 0.3) {
-    r += 0.03;
-    g += 0.06;
-    b -= 0.02;
-  }
-
-  out.cr = Math.max(0.06, Math.min(0.45, r));
-  out.cg = Math.max(0.18, Math.min(0.72, g));
-  out.cb = Math.max(0.04, Math.min(0.30, b));
-}
-
-export function naturalTrunkColor(genome: Genome, out: { tr: number; tg: number; tb: number }) {
-  const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
-  // Base: bark brown
-  let r = 0.28;
-  let g = 0.18;
-  let b = 0.10;
-
-  // rootPriority high → very dark, rich brown (massive ancient wood)
-  r -= rootPriority * 0.10;
-  g -= rootPriority * 0.08;
-  b -= rootPriority * 0.04;
-
-  // heightPriority high → pale, silvery-gray bark (birch/aspen)
-  r += heightPriority * 0.14;
-  g += heightPriority * 0.14;
-  b += heightPriority * 0.12;
-
-  // leafSize high → warm, mossy bark
-  g += leafSize * 0.06;
-  r += leafSize * 0.03;
-
-  // seedInvestment high → reddish-brown papery bark (cherry/madrone)
-  r += seedInvestment * 0.10;
-  g -= seedInvestment * 0.02;
-  b -= seedInvestment * 0.02;
-
-  // defense high → dark charcoal-grey bark (thick, armored)
-  r -= genome.defense * 0.12;
-  g -= genome.defense * 0.08;
-  b -= genome.defense * 0.02;
-
-  // Shrubby warmth: smooth manzanita-like bark
-  if ((1 - heightPriority) * leafSize > 0.3) {
-    r += 0.06;
-    g += 0.04;
-    b += 0.02;
-  }
-
-  out.tr = Math.max(0.12, Math.min(0.50, r));
-  out.tg = Math.max(0.08, Math.min(0.38, g));
-  out.tb = Math.max(0.04, Math.min(0.28, b));
-}
-
-export function naturalGrassColor(genome: Genome, out: { cr: number; cg: number; cb: number }) {
-  const { rootPriority, heightPriority, leafSize, seedInvestment } = genome;
-
-  // Base: bright grass green
-  let r = 0.22;
-  let g = 0.55;
-  let b = 0.12;
-
-  // leafSize high → vivid emerald
-  r -= leafSize * 0.04;
-  g += leafSize * 0.15;
-  b += leafSize * 0.03;
-
-  // rootPriority high → golden/dry
-  r += rootPriority * 0.18;
-  g -= rootPriority * 0.08;
-  b -= rootPriority * 0.06;
-
-  // seedInvestment high → pale yellow-green (meadow with seed heads)
-  r += seedInvestment * 0.12;
-  g += seedInvestment * 0.06;
-  b -= seedInvestment * 0.04;
-
-  // seedSize high → warm golden shift (heavy seed heads)
-  r += genome.seedSize * 0.06;
-  g -= genome.seedSize * 0.02;
-
-  // heightPriority high → darker blue-green (tall fescue)
-  r -= heightPriority * 0.06;
-  g -= heightPriority * 0.04;
-  b += heightPriority * 0.06;
-
-  out.cr = Math.max(0.10, Math.min(0.55, r));
-  out.cg = Math.max(0.30, Math.min(0.80, g));
-  out.cb = Math.max(0.04, Math.min(0.25, b));
-}
-
-const GRASS_SEASON_TARGETS = [
-  [0.28, 0.62, 0.14], // Spring: vivid green
-  [0, 0, 0],          // Summer: identity (filled per call)
-  [0.65, 0.45, 0.12], // Autumn: golden
-  [0.50, 0.42, 0.25], // Winter: straw
-] as const;
-
-export function seasonalGrassColor(
-  cr: number, cg: number, cb: number,
-  env: { season: Season; seasonProgress: number },
-  out: { cr: number; cg: number; cb: number },
-): void {
-  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
-  const s0 = env.season;
-  const s1 = (env.season + 1) % 4;
-  const c0r = s0 === 1 ? cr : GRASS_SEASON_TARGETS[s0][0];
-  const c0g = s0 === 1 ? cg : GRASS_SEASON_TARGETS[s0][1];
-  const c0b = s0 === 1 ? cb : GRASS_SEASON_TARGETS[s0][2];
-  const c1r = s1 === 1 ? cr : GRASS_SEASON_TARGETS[s1][0];
-  const c1g = s1 === 1 ? cg : GRASS_SEASON_TARGETS[s1][1];
-  const c1b = s1 === 1 ? cb : GRASS_SEASON_TARGETS[s1][2];
-  const tr = c0r + (c1r - c0r) * t;
-  const tg = c0g + (c1g - c0g) * t;
-  const tb = c0b + (c1b - c0b) * t;
-
-  // Grass has stronger seasonal shifts than trees
-  let blendStrength: number;
-  if (env.season === Season.Summer) {
-    blendStrength = 0.05 + t * 0.20;
-  } else if (env.season === Season.Autumn) {
-    blendStrength = 0.8 * t + 0.3;
-  } else if (env.season === Season.Winter) {
-    blendStrength = 0.75;
-  } else {
-    blendStrength = 0.6 * (1 - t);
-  }
-
-  out.cr = lerp(cr, tr, blendStrength);
-  out.cg = lerp(cg, tg, blendStrength);
-  out.cb = lerp(cb, tb, blendStrength);
-}
-
-/** Seasonal color targets (constant, no need to allocate per call) */
-const SEASON_TARGETS = [
-  [0.30, 0.55, 0.15], // Spring: fresh green
-  [0, 0, 0],          // Summer: placeholder (identity — filled per call)
-  [0.70, 0.18, 0.04], // Autumn: vivid orange-red
-  [0.35, 0.28, 0.20], // Winter: gray-brown bark
-] as const;
-
-export function seasonalCanopyColor(
-  cr: number, cg: number, cb: number,
-  env: { season: Season; seasonProgress: number },
-  out: { cr: number; cg: number; cb: number },
-): void {
-  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
-
-  const s0 = env.season;
-  const s1 = (env.season + 1) % 4;
-  const c0r = s0 === 1 ? cr : SEASON_TARGETS[s0][0];
-  const c0g = s0 === 1 ? cg : SEASON_TARGETS[s0][1];
-  const c0b = s0 === 1 ? cb : SEASON_TARGETS[s0][2];
-  const c1r = s1 === 1 ? cr : SEASON_TARGETS[s1][0];
-  const c1g = s1 === 1 ? cg : SEASON_TARGETS[s1][1];
-  const c1b = s1 === 1 ? cb : SEASON_TARGETS[s1][2];
-  const tr = c0r + (c1r - c0r) * t;
-  const tg = c0g + (c1g - c0g) * t;
-  const tb = c0b + (c1b - c0b) * t;
-
-  let blendStrength: number;
-  if (env.season === Season.Summer) {
-    blendStrength = 0.05 + t * 0.15;
-  } else if (env.season === Season.Autumn) {
-    blendStrength = 0.7 * t + 0.25;
-  } else if (env.season === Season.Winter) {
-    blendStrength = 0.6;
-  } else {
-    blendStrength = 0.5 * (1 - t);
-  }
-
-  out.cr = lerp(cr, tr, blendStrength);
-  out.cg = lerp(cg, tg, blendStrength);
-  out.cb = lerp(cb, tb, blendStrength);
-}
-
-// ── Succulent colors ──
-
-export function naturalSucculentBodyColor(genome: Genome, _succulence: number, out: { cr: number; cg: number; cb: number }) {
-  // Base: sage green (green-dominant, slight blue tint)
-  let r = 0.30;
-  let g = 0.54;
-  let b = 0.30;
-
-  // waterStorage high → slight blue-green tint (waxy coating)
-  r -= genome.waterStorage * 0.06;
-  g -= genome.waterStorage * 0.03;
-  b += genome.waterStorage * 0.08;
-
-  // rootPriority high → warmer olive-green (barrel cacti)
-  r += genome.rootPriority * 0.12;
-  g += genome.rootPriority * 0.04;
-  b -= genome.rootPriority * 0.08;
-
-  // heightPriority high → cooler green (columnar cacti)
-  r -= genome.heightPriority * 0.06;
-  g += genome.heightPriority * 0.02;
-  b += genome.heightPriority * 0.04;
-
-  // defense high → darker, gray-green
-  r -= genome.defense * 0.06;
-  g -= genome.defense * 0.04;
-  b -= genome.defense * 0.02;
-
-  out.cr = Math.max(0.18, Math.min(0.45, r));
-  out.cg = Math.max(0.38, Math.min(0.65, g));
-  out.cb = Math.max(0.20, Math.min(0.55, b));
-}
-
-
-/** Succulents are evergreen — minimal seasonal shift (blend capped at 0.15) */
-export function seasonalSucculentColor(
-  cr: number, cg: number, cb: number,
-  env: { season: Season; seasonProgress: number },
-  out: { cr: number; cg: number; cb: number },
-): void {
-  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
-  const s0 = env.season;
-  const s1 = (env.season + 1) % 4;
-  const c0r = s0 === 1 ? cr : SEASON_TARGETS[s0][0];
-  const c0g = s0 === 1 ? cg : SEASON_TARGETS[s0][1];
-  const c0b = s0 === 1 ? cb : SEASON_TARGETS[s0][2];
-  const c1r = s1 === 1 ? cr : SEASON_TARGETS[s1][0];
-  const c1g = s1 === 1 ? cg : SEASON_TARGETS[s1][1];
-  const c1b = s1 === 1 ? cb : SEASON_TARGETS[s1][2];
-  const tr = c0r + (c1r - c0r) * t;
-  const tg = c0g + (c1g - c0g) * t;
-  const tb = c0b + (c1b - c0b) * t;
-
-  // Cap blend strength at 0.15 — succulents stay green year-round
-  out.cr = lerp(cr, tr, 0.15);
-  out.cg = lerp(cg, tg, 0.15);
-  out.cb = lerp(cb, tb, 0.15);
-}
-
 /**
- * Get base plant colors, using per-plant cache to avoid recomputation.
- * Cache is invalidated when colorMode changes.
+ * Compute a single RGB tint multiplier for a plant instance.
+ *
+ * The vertex colors are baked into the merged geometry from gallery materials.
+ * THREE.js multiplies vertexColor × instanceColor, so:
+ * - (1,1,1) = gallery colors unchanged
+ * - values < 1 darken, > 1 brighten
+ *
+ * Tint encodes: natural genome variation, species color mode, seasonal shift.
  */
-export function getPlantColors(state: RendererState, plantId: number, speciesId: number, genome: Genome, isGrass = false, isSucculent = false) {
+export function computePlantTint(
+  state: RendererState,
+  plantId: number,
+  speciesId: number,
+  genome: Genome,
+  archetype: number,
+  env: { season: Season; seasonProgress: number },
+): { r: number; g: number; b: number } {
+  // Check cache first
   const cached = state.plantColorCache.get(plantId);
-  if (cached) return cached;
-
-  if (state.colorMode !== 'species') {
-    if (isGrass) {
-      naturalGrassColor(genome, _clr);
-      // waterStorage high → silvery blue-green (succulent grass)
-      _clr.cr -= genome.waterStorage * 0.08;
-      _clr.cg -= genome.waterStorage * 0.06;
-      _clr.cb += genome.waterStorage * 0.10;
-      // Grass base color: darker version of blade color
-      _clr.tr = _clr.cr * 0.6;
-      _clr.tg = _clr.cg * 0.5;
-      _clr.tb = _clr.cb * 0.4;
-    } else if (isSucculent) {
-      naturalSucculentBodyColor(genome, 0, _clr);
-      // Succulent "trunk" is green photosynthetic stem — use body color
-      _clr.tr = _clr.cr * 0.85;
-      _clr.tg = _clr.cg * 0.80;
-      _clr.tb = _clr.cb * 0.75;
-    } else {
-      naturalCanopyColor(genome, _clr);
-      naturalTrunkColor(genome, _clr as any);
-    }
-  } else {
-    const sc = state.world.speciesColors.get(speciesId);
-    const gr = 0.2 + genome.rootPriority * 0.6;
-    const gg = 0.3 + genome.leafSize * 0.5;
-    const gb = 0.2 + genome.heightPriority * 0.6;
-    _clr.cr = sc ? sc.r * 0.7 + gr * 0.3 : gr;
-    _clr.cg = sc ? sc.g * 0.7 + gg * 0.3 : gg;
-    _clr.cb = sc ? sc.b * 0.7 + gb * 0.3 : gb;
-    _clr.tr = 0.28 * 0.85 + _clr.cr * 0.15;
-    _clr.tg = 0.18 * 0.85 + _clr.cg * 0.15;
-    _clr.tb = 0.10 * 0.85 + _clr.cb * 0.15;
+  if (cached) {
+    // Apply seasonal shift on top of cached base tint
+    return applySeasonal(cached.cr, cached.cg, cached.cb, archetype, env);
   }
 
-  const entry = { cr: _clr.cr, cg: _clr.cg, cb: _clr.cb, tr: _clr.tr, tg: _clr.tg, tb: _clr.tb };
-  state.plantColorCache.set(plantId, entry);
-  return entry;
+  let r = 1.0, g = 1.0, b = 1.0;
+
+  if (state.colorMode === 'natural') {
+    // Subtle genome-based variation (±15% per channel)
+    r += (genome.rootPriority - 0.5) * 0.2;
+    g += (genome.leafSize - 0.5) * 0.15;
+    b += (genome.heightPriority - 0.5) * 0.15;
+
+    // Seed investment → slight warmth
+    r += genome.seedInvestment * 0.06;
+    g -= genome.seedInvestment * 0.02;
+
+    // Defense → slightly darker
+    r -= genome.defense * 0.05;
+    g -= genome.defense * 0.03;
+  } else {
+    // Species mode: tint toward species color
+    const sc = state.world.speciesColors.get(speciesId);
+    if (sc) {
+      r = 0.4 + sc.r * 0.8;
+      g = 0.4 + sc.g * 0.8;
+      b = 0.4 + sc.b * 0.8;
+    } else {
+      // Fallback genome-based species color
+      r = 0.4 + (0.2 + genome.rootPriority * 0.6) * 0.8;
+      g = 0.4 + (0.3 + genome.leafSize * 0.5) * 0.8;
+      b = 0.4 + (0.2 + genome.heightPriority * 0.6) * 0.8;
+    }
+  }
+
+  // Cache the base tint (before seasonal)
+  state.plantColorCache.set(plantId, { cr: r, cg: g, cb: b, tr: r, tg: g, tb: b });
+
+  return applySeasonal(r, g, b, archetype, env);
+}
+
+/** Apply seasonal color shift to a base tint. */
+function applySeasonal(
+  r: number, g: number, b: number,
+  archetype: number,
+  env: { season: Season; seasonProgress: number },
+): { r: number; g: number; b: number } {
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  const s0 = env.season;
+
+  // Succulents are evergreen — minimal seasonal shift
+  if (archetype === 3) {
+    // Just a very subtle shift
+    if (s0 === Season.Winter) {
+      r = lerp(r, r * 0.9, 0.1);
+      g = lerp(g, g * 0.95, 0.1);
+      b = lerp(b, b * 1.05, 0.1);
+    }
+    return { r, g, b };
+  }
+
+  // Seasonal tint multipliers (applied on top of base tint)
+  // Spring: slightly fresher green
+  // Summer: identity (no change)
+  // Autumn: warm shift (increase R, decrease G/B)
+  // Winter: cool, desaturated
+  let sr = 1, sg = 1, sb = 1;
+
+  if (archetype === 0) {
+    // Grasses: stronger seasonal response
+    const seasonMult: [number, number, number][] = [
+      [0.95, 1.08, 0.95], // Spring: vivid green boost
+      [1, 1, 1],           // Summer: identity
+      [1.35, 0.82, 0.50],  // Autumn: golden
+      [1.20, 0.85, 0.70],  // Winter: straw
+    ];
+    const m0 = seasonMult[s0];
+    const m1 = seasonMult[(s0 + 1) % 4];
+    sr = m0[0] + (m1[0] - m0[0]) * t;
+    sg = m0[1] + (m1[1] - m0[1]) * t;
+    sb = m0[2] + (m1[2] - m0[2]) * t;
+
+    // Stronger blend for grasses
+    const strength = s0 === Season.Summer ? 0.1 + t * 0.15
+      : s0 === Season.Autumn ? 0.5 + t * 0.3
+      : s0 === Season.Winter ? 0.65
+      : 0.4 * (1 - t);
+    sr = lerp(1, sr, strength);
+    sg = lerp(1, sg, strength);
+    sb = lerp(1, sb, strength);
+  } else {
+    // Trees and shrubs
+    const seasonMult: [number, number, number][] = [
+      [0.95, 1.05, 0.95], // Spring
+      [1, 1, 1],           // Summer
+      [1.5, 0.55, 0.25],   // Autumn: orange-red
+      [0.90, 0.75, 0.65],  // Winter: bare/brown
+    ];
+    const m0 = seasonMult[s0];
+    const m1 = seasonMult[(s0 + 1) % 4];
+    sr = m0[0] + (m1[0] - m0[0]) * t;
+    sg = m0[1] + (m1[1] - m0[1]) * t;
+    sb = m0[2] + (m1[2] - m0[2]) * t;
+
+    const strength = s0 === Season.Summer ? 0.05 + t * 0.12
+      : s0 === Season.Autumn ? 0.35 + t * 0.4
+      : s0 === Season.Winter ? 0.5
+      : 0.35 * (1 - t);
+    sr = lerp(1, sr, strength);
+    sg = lerp(1, sg, strength);
+    sb = lerp(1, sb, strength);
+  }
+
+  return { r: r * sr, g: g * sg, b: b * sb };
 }
