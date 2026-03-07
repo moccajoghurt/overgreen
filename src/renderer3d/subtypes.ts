@@ -1,5 +1,4 @@
-import { Genome } from '../types';
-import { Archetype, renderArchetype } from '../simulation/plants';
+import { Genome, Archetype, archetype } from '../types';
 
 // ── SubtypeId enum (24 subtypes, 6 per archetype) ──
 
@@ -42,10 +41,10 @@ function classifyGrass(g: Genome): SubtypeId {
   const scores = new Float64Array(6);
 
   // Turfgrass: low height, low woodiness — default short lawn grass
-  scores[0] = (1 - g.heightPriority) * 0.6 + (1 - g.woodiness) * 0.3 + (1 - g.leafSize) * 0.1;
+  scores[0] = (1 - g.heightPriority) * 0.55 + (1 - g.woodiness) * 0.25 + (1 - g.leafSize) * 0.1 + (1 - g.longevity) * 0.1;
 
-  // Tallgrass: high heightPriority
-  scores[1] = g.heightPriority * 0.7 + g.leafSize * 0.2 + g.seedInvestment * 0.1;
+  // Tallgrass: high heightPriority, perennial
+  scores[1] = g.heightPriority * 0.6 + g.leafSize * 0.2 + g.seedInvestment * 0.1 + g.longevity * 0.1;
 
   // Bunchgrass: high leafSize × rootPriority, tight cluster
   scores[2] = g.leafSize * 0.4 + g.rootPriority * 0.4 + (1 - g.seedInvestment) * 0.2;
@@ -53,11 +52,11 @@ function classifyGrass(g: Genome): SubtypeId {
   // Bamboo: high woodiness (within grass range)
   scores[3] = g.woodiness * 0.6 + g.heightPriority * 0.3 + (1 - g.leafSize) * 0.1;
 
-  // Spreading: high seedInvestment (stolons)
-  scores[4] = g.seedInvestment * 0.5 + g.leafSize * 0.2 + (1 - g.heightPriority) * 0.3;
+  // Spreading: high seedInvestment (stolons), short-lived colonizer
+  scores[4] = g.seedInvestment * 0.45 + g.leafSize * 0.15 + (1 - g.heightPriority) * 0.3 + (1 - g.longevity) * 0.1;
 
-  // Sedge: high waterStorage
-  scores[5] = g.waterStorage * 0.5 + g.heightPriority * 0.2 + g.rootPriority * 0.3;
+  // Sedge: high waterStorage, perennial
+  scores[5] = g.waterStorage * 0.45 + g.heightPriority * 0.15 + g.rootPriority * 0.3 + g.longevity * 0.1;
 
   let best = 0;
   for (let i = 1; i < 6; i++) if (scores[i] > scores[best]) best = i;
@@ -67,14 +66,14 @@ function classifyGrass(g: Genome): SubtypeId {
 function classifyTree(g: Genome): SubtypeId {
   const scores = new Float64Array(6);
 
-  // Oak: wide leafSize, balanced
-  scores[0] = g.leafSize * 0.5 + g.rootPriority * 0.2 + (1 - g.seedInvestment) * 0.15 + g.defense * 0.15;
+  // Oak: wide leafSize, balanced, long-lived
+  scores[0] = g.leafSize * 0.45 + g.rootPriority * 0.15 + (1 - g.seedInvestment) * 0.15 + g.defense * 0.15 + g.longevity * 0.1;
 
   // Magnolia: high defense (evergreen), moderate height
   scores[1] = g.defense * 0.4 + (1 - g.seedInvestment) * 0.2 + g.leafSize * 0.2 + (1 - g.heightPriority) * 0.2;
 
-  // Conifer: tall + narrow (high heightPriority, low leafSize)
-  scores[2] = g.heightPriority * 0.5 + (1 - g.leafSize) * 0.3 + (1 - g.rootPriority) * 0.2;
+  // Conifer: tall + narrow (high heightPriority, low leafSize), long-lived
+  scores[2] = g.heightPriority * 0.45 + (1 - g.leafSize) * 0.25 + (1 - g.rootPriority) * 0.2 + g.longevity * 0.1;
 
   // Tropical: high rootPriority (buttress roots)
   scores[3] = g.rootPriority * 0.5 + g.leafSize * 0.2 + g.heightPriority * 0.15 + g.waterStorage * 0.15;
@@ -82,8 +81,8 @@ function classifyTree(g: Genome): SubtypeId {
   // Palm: tall, unbranched feel (high height, low root, low defense)
   scores[4] = g.heightPriority * 0.35 + (1 - g.rootPriority) * 0.25 + (1 - g.defense) * 0.2 + (1 - g.leafSize) * 0.2;
 
-  // Birch: pioneer (high seedInvestment, thin)
-  scores[5] = g.seedInvestment * 0.5 + (1 - g.rootPriority) * 0.2 + g.heightPriority * 0.15 + (1 - g.defense) * 0.15;
+  // Birch: pioneer (high seedInvestment, thin), short-lived
+  scores[5] = g.seedInvestment * 0.45 + (1 - g.rootPriority) * 0.15 + g.heightPriority * 0.15 + (1 - g.defense) * 0.15 + (1 - g.longevity) * 0.1;
 
   let best = 0;
   for (let i = 1; i < 6; i++) if (scores[i] > scores[best]) best = i;
@@ -93,12 +92,12 @@ function classifyTree(g: Genome): SubtypeId {
 function classifyShrub(g: Genome): SubtypeId {
   const scores = new Float64Array(6);
 
-  // Evergreen: moderate defense, dense
-  scores[0] = g.defense * 0.35 + g.leafSize * 0.3 + (1 - g.seedInvestment) * 0.2 + (1 - g.heightPriority) * 0.15;
+  // Evergreen: moderate defense, dense, long-lived
+  scores[0] = g.defense * 0.3 + g.leafSize * 0.25 + (1 - g.seedInvestment) * 0.2 + (1 - g.heightPriority) * 0.15 + g.longevity * 0.1;
 
-  // Deciduous: balanced, moderate everything
-  scores[1] = (1 - Math.abs(g.leafSize - 0.5)) * 0.3 + (1 - Math.abs(g.heightPriority - 0.5)) * 0.3
-    + g.seedInvestment * 0.2 + (1 - g.defense) * 0.2;
+  // Deciduous: balanced, moderate everything, shorter-lived
+  scores[1] = (1 - Math.abs(g.leafSize - 0.5)) * 0.25 + (1 - Math.abs(g.heightPriority - 0.5)) * 0.25
+    + g.seedInvestment * 0.2 + (1 - g.defense) * 0.2 + (1 - g.longevity) * 0.1;
 
   // Mediterranean: moderate height, dense foliage
   scores[2] = g.leafSize * 0.4 + (1 - g.heightPriority) * 0.2 + g.heightPriority * 0.2 + (1 - g.waterStorage) * 0.2;
@@ -120,8 +119,8 @@ function classifyShrub(g: Genome): SubtypeId {
 function classifySucculent(g: Genome): SubtypeId {
   const scores = new Float64Array(6);
 
-  // Saguaro: tall columnar (high heightPriority)
-  scores[0] = g.heightPriority * 0.6 + (1 - g.leafSize) * 0.2 + g.waterStorage * 0.2;
+  // Saguaro: tall columnar (high heightPriority), long-lived
+  scores[0] = g.heightPriority * 0.5 + (1 - g.leafSize) * 0.2 + g.waterStorage * 0.2 + g.longevity * 0.1;
 
   // Aloe: rosette (high leafSize, low height)
   scores[1] = g.leafSize * 0.5 + (1 - g.heightPriority) * 0.3 + g.waterStorage * 0.2;
@@ -132,8 +131,8 @@ function classifySucculent(g: Genome): SubtypeId {
   // Euphorbia: candelabra (moderate height, branching)
   scores[3] = g.heightPriority * 0.3 + g.seedInvestment * 0.25 + g.defense * 0.25 + (1 - g.rootPriority) * 0.2;
 
-  // Ice plant: ground cover (low height, spreading)
-  scores[4] = (1 - g.heightPriority) * 0.4 + g.seedInvestment * 0.3 + (1 - g.rootPriority) * 0.3;
+  // Ice plant: ground cover (low height, spreading), short-lived
+  scores[4] = (1 - g.heightPriority) * 0.35 + g.seedInvestment * 0.25 + (1 - g.rootPriority) * 0.3 + (1 - g.longevity) * 0.1;
 
   // Epiphytic: low root, low height, aerial
   scores[5] = (1 - g.rootPriority) * 0.4 + (1 - g.heightPriority) * 0.3 + g.leafSize * 0.3;
@@ -145,7 +144,7 @@ function classifySucculent(g: Genome): SubtypeId {
 
 /** Classify a genome into one of 24 subtypes. Deterministic — same genome always maps to same subtype. */
 export function classifySubtype(genome: Genome): SubtypeId {
-  const arch = renderArchetype(genome);
+  const arch = archetype(genome);
   switch (arch) {
     case Archetype.Grass: return classifyGrass(genome);
     case Archetype.Tree: return classifyTree(genome);

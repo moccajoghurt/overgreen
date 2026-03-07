@@ -1,5 +1,4 @@
-import { Genome } from './types';
-import { Archetype, renderArchetype } from './simulation/plants';
+import { Genome, Archetype, archetype } from './types';
 import { SUBTYPE_NAMES } from './renderer3d/subtypes';
 
 const ADJECTIVES: string[][] = [
@@ -84,7 +83,7 @@ export function generateSpeciesName(genome: Genome, speciesId: number, subtypeId
 
   // Four-way vocabulary for adjectives
   let adjs: string[][];
-  const arch = renderArchetype(genome);
+  const arch = archetype(genome);
   if (arch === Archetype.Grass) {
     adjs = GRASS_ADJECTIVES;
   } else if (arch === Archetype.Succulent) {

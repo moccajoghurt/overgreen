@@ -2,7 +2,7 @@ import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants }
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
   mutateGenome, crossoverGenome, genomeDistance, getCentroidGenome,
-  Archetype, renderArchetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
+  Archetype, archetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
   generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
@@ -484,7 +484,7 @@ function phaseGermination(world: World): void {
       for (let i = 0; i < cell.seeds.length; i++) {
         const seed = cell.seeds[i];
         // Succulent seeds rot in wet soil — only germinate on arid/hill
-        if (renderArchetype(seed.genome) === Archetype.Succulent
+        if (archetype(seed.genome) === Archetype.Succulent
           && cell.terrainType !== TerrainType.Arid && cell.terrainType !== TerrainType.Hill) continue;
         const waterThreshold = getPlantConstants(seed.genome).seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
@@ -529,7 +529,7 @@ function phaseGermination(world: World): void {
       if (parentCentroid) {
         const centroidGenome = getCentroidGenome(parentCentroid);
         const dist = genomeDistance(winner.genome, centroidGenome);
-        const archetypeChanged = renderArchetype(centroidGenome) !== renderArchetype(winner.genome);
+        const archetypeChanged = archetype(centroidGenome) !== archetype(winner.genome);
         const threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
         // Different body plan (archetype) → always speciate; otherwise use distance threshold
         if ((archetypeChanged || dist > threshold) && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {

@@ -1,5 +1,5 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '../types';
-import { Archetype, renderArchetype } from '../simulation/plants';
+import { Archetype, archetype } from '../types';
 import { RendererState, GRID, lerp } from './state';
 
 // ── Per-cell terrain color noise ──
@@ -234,7 +234,7 @@ export function updateTerrainColors(state: RendererState): void {
         tr = sc.r; tg = sc.g; tb = sc.b; tw = 0.55;
       } else {
         // Natural mode: tint by plant type
-        const arch = renderArchetype(genome);
+        const arch = archetype(genome);
         if (arch === Archetype.Succulent) {
           continue; // Succulents: no ground tint (keep arid sand)
         } else if (arch === Archetype.Grass) {

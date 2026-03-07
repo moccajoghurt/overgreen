@@ -236,6 +236,7 @@ function lerpVal(a: number, b: number, t: number): number {
 export function getPlantConstants(genome: import('./core').Genome): PlantConstants {
   const w = Math.max(0, Math.min(1, genome.woodiness));
   const lon = Math.max(0, Math.min(1, genome.longevity));
+  const maxAge = lerpVal(lerpVal(50, 200, w), lerpVal(400, 2500, w), lon);
   return {
     maxHeight: lerpVal(GRASS.MAX_HEIGHT, SIM.MAX_HEIGHT, w),
     maxRootDepth: lerpVal(GRASS.MAX_ROOT_DEPTH, SIM.MAX_ROOT_DEPTH, w),
@@ -249,7 +250,7 @@ export function getPlantConstants(genome: import('./core').Genome): PlantConstan
     seedRangeHeightDivisor: lerpVal(GRASS.SEED_RANGE_HEIGHT_DIVISOR, SIM.SEED_RANGE_HEIGHT_DIVISOR, w),
     seedInitialEnergy: lerpVal(GRASS.SEED_INITIAL_ENERGY, SIM.SEED_INITIAL_ENERGY, w),
     growthEfficiency: lerpVal(GRASS.GROWTH_EFFICIENCY, SIM.GROWTH_EFFICIENCY, w) * (1.3 - lon * 0.6),
-    maxAge: lerpVal(120, 2500, lon),
+    maxAge,
     shadowReduction: lerpVal(GRASS.SHADOW_REDUCTION, SIM.SHADOW_REDUCTION, w),
     shadowHeightScale: lerpVal(GRASS.SHADOW_HEIGHT_SCALE, SIM.SHADOW_HEIGHT_SCALE, w),
     heightLightBonus: lerpVal(GRASS.HEIGHT_LIGHT_BONUS, SIM.HEIGHT_LIGHT_BONUS, w),
