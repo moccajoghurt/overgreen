@@ -32,7 +32,7 @@ function easeOutCubic(t: number): number {
 
 export function createHookCamera(opts: HookCameraOpts) {
   const { camera, mapControls, worldCenter } = opts;
-  let orbitAngle = Math.PI * 0.25; // start from a nice 45° angle
+  let orbitAngle = Math.PI * 1.75; // start from NE, looking SW toward sea for delta reveal
   let active = false;
   let revealing = false;
   let startTime = 0;

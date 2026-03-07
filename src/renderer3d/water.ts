@@ -9,6 +9,7 @@ export interface WaterSurface {
 }
 
 const WATER_OFFSET = 0.45;
+const SEA_ELEV_THRESHOLD = 0.15;
 
 // Seasonal water body color + sky reflection color (HSL)
 const SEASON_WATER: { bodyH: number; bodyS: number; bodyL: number; skyH: number; skyS: number; skyL: number }[] = [
@@ -112,51 +113,32 @@ const waterFragmentShader = /* glsl */`
 `;
 
 export function createWaterSurface(world: World): WaterSurface {
-  // ── Step 1: Collect river cells and find connected components via BFS ──
+  // ── Step 1: Classify water cells by elevation (sea vs river) ──
+  const seaCells: [number, number][] = [];
   const riverCells: [number, number][] = [];
-  const visited = new Uint8Array(GRID * GRID);
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       if (world.grid[row][col].terrainType === TerrainType.River) {
-        riverCells.push([row, col]);
+        if (world.grid[row][col].elevation <= SEA_ELEV_THRESHOLD) {
+          seaCells.push([row, col]);
+        } else {
+          riverCells.push([row, col]);
+        }
       }
     }
   }
 
-  if (riverCells.length === 0) {
+  if (seaCells.length === 0 && riverCells.length === 0) {
     const emptyGeo = new THREE.BufferGeometry();
     const emptyMesh = new THREE.Mesh(emptyGeo);
     emptyMesh.visible = false;
     return { mesh: emptyMesh, update: () => {} };
   }
 
-  // BFS to find connected river components
-  const components: [number, number][][] = [];
-  for (const [r, c] of riverCells) {
-    if (visited[r * GRID + c]) continue;
-    const comp: [number, number][] = [];
-    const queue: [number, number][] = [[r, c]];
-    visited[r * GRID + c] = 1;
-    while (queue.length > 0) {
-      const [cr, cc] = queue.pop()!;
-      comp.push([cr, cc]);
-      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        const nr = cr + dr, nc = cc + dc;
-        if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID
-          && !visited[nr * GRID + nc]
-          && world.grid[nr][nc].terrainType === TerrainType.River) {
-          visited[nr * GRID + nc] = 1;
-          queue.push([nr, nc]);
-        }
-      }
-    }
-    components.push(comp);
-  }
-
-  // ── Corner elevation helper (shared across components) ──
+  // ── Corner elevation helper ──
   const cornerSize = GRID + 1;
-  const corners = new Float32Array(cornerSize * cornerSize);
+  const elevCorners = new Float32Array(cornerSize * cornerSize);
   for (let cy = 0; cy <= GRID; cy++) {
     for (let cx = 0; cx <= GRID; cx++) {
       let sum = 0, count = 0;
@@ -168,11 +150,10 @@ export function createWaterSurface(world: World): WaterSurface {
           count++;
         }
       }
-      corners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE;
+      elevCorners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE;
     }
   }
 
-  // Bilinear elevation interpolation at arbitrary (row, col) — fractional coords in grid space
   function getElevAt(row: number, col: number): number {
     const cx = Math.max(0, Math.min(GRID, col));
     const cy = Math.max(0, Math.min(GRID, row));
@@ -180,160 +161,162 @@ export function createWaterSurface(world: World): WaterSurface {
     const iy = Math.min(Math.floor(cy), GRID - 1);
     const fx = cx - ix;
     const fy = cy - iy;
-    const e00 = corners[iy * cornerSize + ix];
-    const e10 = corners[iy * cornerSize + ix + 1];
-    const e01 = corners[(iy + 1) * cornerSize + ix];
-    const e11 = corners[(iy + 1) * cornerSize + ix + 1];
+    const e00 = elevCorners[iy * cornerSize + ix];
+    const e10 = elevCorners[iy * cornerSize + ix + 1];
+    const e01 = elevCorners[(iy + 1) * cornerSize + ix];
+    const e11 = elevCorners[(iy + 1) * cornerSize + ix + 1];
     return e00 * (1 - fx) * (1 - fy) + e10 * fx * (1 - fy)
       + e01 * (1 - fx) * fy + e11 * fx * fy;
   }
 
-  // ── Step 2–4: Build ribbon geometry for each component ──
+  // ── Build geometry ──
   const allPositions: number[] = [];
   const allNormals: number[] = [];
   const allUvs: number[] = [];
 
-  function pushVert(x: number, y: number, z: number, u: number, v: number): void {
+  function pushVert(x: number, y: number, z: number): void {
     allPositions.push(x, y, z);
     allNormals.push(0, 1, 0);
-    allUvs.push(u, v);
+    allUvs.push(0, 0);
   }
 
-  for (const comp of components) {
-    // ── Step 2: Determine primary axis and extract centerline ──
-    let minRow = GRID, maxRow = 0, minCol = GRID, maxCol = 0;
-    for (const [r, c] of comp) {
-      if (r < minRow) minRow = r;
-      if (r > maxRow) maxRow = r;
-      if (c < minCol) minCol = c;
-      if (c > maxCol) maxCol = c;
-    }
+  // ── Shared marching squares table + interpolation ──
+  // Vertices: 0=TL 1=TR 2=BR 3=BL 4=T(edge) 5=R(edge) 6=B(edge) 7=L(edge)
+  const MS_TRI: number[][] = [
+    /* 0:  0000 */ [],
+    /* 1:  0001 BL          */ [7, 3, 6],
+    /* 2:  0010 BR          */ [6, 2, 5],
+    /* 3:  0011 BL+BR       */ [7, 3, 2, 7, 2, 5],
+    /* 4:  0100 TR          */ [4, 1, 5],
+    /* 5:  0101 TR+BL       */ [4, 1, 5, 4, 5, 6, 4, 6, 3, 4, 3, 7],
+    /* 6:  0110 TR+BR       */ [4, 1, 2, 4, 2, 6],
+    /* 7:  0111 TR+BR+BL    */ [4, 1, 2, 4, 2, 3, 4, 3, 7],
+    /* 8:  1000 TL          */ [0, 4, 7],
+    /* 9:  1001 TL+BL       */ [0, 4, 6, 0, 6, 3],
+    /* 10: 1010 TL+BR       */ [0, 4, 5, 0, 5, 2, 0, 2, 6, 0, 6, 7],
+    /* 11: 1011 TL+BL+BR    */ [0, 4, 5, 0, 5, 2, 0, 2, 3],
+    /* 12: 1100 TL+TR       */ [0, 1, 5, 0, 5, 7],
+    /* 13: 1101 TL+TR+BL    */ [0, 1, 5, 0, 5, 6, 0, 6, 3],
+    /* 14: 1110 TL+TR+BR    */ [0, 1, 2, 0, 2, 6, 0, 6, 7],
+    /* 15: 1111             */ [0, 1, 2, 0, 2, 3],
+  ];
 
-    const colExtent = maxCol - minCol;
-    const rowExtent = maxRow - minRow;
-    const horizontal = colExtent >= rowExtent;
+  const TH = 0.5;
+  function msLerp(a: number, b: number, va: number, vb: number): number {
+    const d = vb - va;
+    if (Math.abs(d) < 1e-6) return (a + b) / 2;
+    return a + (TH - va) / d * (b - a);
+  }
 
-    // Group cells by primary axis coordinate
-    const groups = new Map<number, number[]>();
-    for (const [r, c] of comp) {
-      const key = horizontal ? c : r;
-      const perp = horizontal ? r : c;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(perp);
-    }
+  const CELL_OFFSETS: [number, number][] = [[0, 0], [-1, 0], [0, -1], [-1, -1]];
 
-    // Sort by primary axis and compute centroid + halfWidth per group
-    const sortedKeys = Array.from(groups.keys()).sort((a, b) => a - b);
-    const centerPoints: THREE.Vector3[] = [];
-    const halfWidths: number[] = [];
+  // ── Sea mesh: marching squares for smooth coastline ──
+  if (seaCells.length > 0) {
+    let elevSum = 0;
+    for (const [r, c] of seaCells) elevSum += world.grid[r][c].elevation;
+    const seaY = (elevSum / seaCells.length) * ELEV_SCALE + WATER_OFFSET;
 
-    for (const key of sortedKeys) {
-      const perps = groups.get(key)!;
-      const minP = Math.min(...perps);
-      const maxP = Math.max(...perps);
-      const centroid = (minP + maxP) / 2 + 0.5; // center of cell range
-      const hw = (maxP - minP + 1) / 2;
+    // Sea cell lookup
+    const isSea = new Uint8Array(GRID * GRID);
+    for (const [r, c] of seaCells) isSea[r * GRID + c] = 1;
 
-      if (horizontal) {
-        centerPoints.push(new THREE.Vector3(key + 0.5, 0, centroid));
-      } else {
-        centerPoints.push(new THREE.Vector3(centroid, 0, key + 0.5));
+    // Corner scalar field: fraction of adjacent cells that are sea
+    const csz = GRID + 1;
+    const seaCorner = new Float32Array(csz * csz);
+    for (let cy = 0; cy <= GRID; cy++) {
+      for (let cx = 0; cx <= GRID; cx++) {
+        let s = 0, t = 0;
+        for (const [dr, dc] of CELL_OFFSETS) {
+          const gr = cy + dr, gc = cx + dc;
+          if (gr >= 0 && gr < GRID && gc >= 0 && gc < GRID) {
+            t++;
+            if (isSea[gr * GRID + gc]) s++;
+          }
+        }
+        seaCorner[cy * csz + cx] = t > 0 ? s / t : 0;
       }
-      halfWidths.push(hw);
     }
 
-    if (centerPoints.length < 2) continue;
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const vTL = seaCorner[r * csz + c];
+        const vTR = seaCorner[r * csz + c + 1];
+        const vBR = seaCorner[(r + 1) * csz + c + 1];
+        const vBL = seaCorner[(r + 1) * csz + c];
 
-    // ── Step 3: Smooth halfWidths and extrapolate ends ──
-    const smoothed = halfWidths.slice();
-    for (let pass = 0; pass < 5; pass++) {
-      const tmp = smoothed.slice();
-      for (let i = 1; i < tmp.length - 1; i++) {
-        smoothed[i] = (tmp[i - 1] + tmp[i] + tmp[i + 1]) / 3;
+        const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
+                      | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
+        const tris = MS_TRI[caseIdx];
+        if (tris.length === 0) continue;
+
+        // 8 vertex positions in grid space [col, row]
+        const tX = msLerp(c, c + 1, vTL, vTR);
+        const rZ = msLerp(r, r + 1, vTR, vBR);
+        const bX = msLerp(c, c + 1, vBL, vBR);
+        const lZ = msLerp(r, r + 1, vTL, vBL);
+
+        const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
+        const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
+
+        for (let i = 0; i < tris.length; i += 3) {
+          pushVert(vx[tris[i]] - HALF, seaY, vz[tris[i]] - HALF);
+          pushVert(vx[tris[i + 1]] - HALF, seaY, vz[tris[i + 1]] - HALF);
+          pushVert(vx[tris[i + 2]] - HALF, seaY, vz[tris[i + 2]] - HALF);
+        }
+      }
+    }
+  }
+
+  // ── River mesh: marching squares for smooth edges ──
+  if (riverCells.length > 0) {
+    const isRiver = new Uint8Array(GRID * GRID);
+    for (const [r, c] of riverCells) isRiver[r * GRID + c] = 1;
+
+    const csz = GRID + 1;
+    const riverCorner = new Float32Array(csz * csz);
+    for (let cy = 0; cy <= GRID; cy++) {
+      for (let cx = 0; cx <= GRID; cx++) {
+        let s = 0, t = 0;
+        for (const [dr, dc] of CELL_OFFSETS) {
+          const gr = cy + dr, gc = cx + dc;
+          if (gr >= 0 && gr < GRID && gc >= 0 && gc < GRID) {
+            t++;
+            if (isRiver[gr * GRID + gc]) s++;
+          }
+        }
+        riverCorner[cy * csz + cx] = t > 0 ? s / t : 0;
       }
     }
 
-    // Extrapolate 2 points at each end along first/last tangent
-    const firstPt = centerPoints[0];
-    const secondPt = centerPoints[1];
-    const lastPt = centerPoints[centerPoints.length - 1];
-    const prevLastPt = centerPoints[centerPoints.length - 2];
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const vTL = riverCorner[r * csz + c];
+        const vTR = riverCorner[r * csz + c + 1];
+        const vBR = riverCorner[(r + 1) * csz + c + 1];
+        const vBL = riverCorner[(r + 1) * csz + c];
 
-    const startTan = new THREE.Vector3().subVectors(secondPt, firstPt).normalize();
-    const endTan = new THREE.Vector3().subVectors(lastPt, prevLastPt).normalize();
+        const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
+                      | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
+        const tris = MS_TRI[caseIdx];
+        if (tris.length === 0) continue;
 
-    for (let i = 2; i >= 1; i--) {
-      centerPoints.unshift(new THREE.Vector3(
-        firstPt.x - startTan.x * i, 0, firstPt.z - startTan.z * i,
-      ));
-      smoothed.unshift(smoothed[0]);
-    }
-    for (let i = 1; i <= 2; i++) {
-      centerPoints.push(new THREE.Vector3(
-        lastPt.x + endTan.x * i, 0, lastPt.z + endTan.z * i,
-      ));
-      smoothed.push(smoothed[smoothed.length - 1]);
-    }
+        const tX = msLerp(c, c + 1, vTL, vTR);
+        const rZ = msLerp(r, r + 1, vTR, vBR);
+        const bX = msLerp(c, c + 1, vBL, vBR);
+        const lZ = msLerp(r, r + 1, vTL, vBL);
 
-    // Build spline through all points
-    const spline = new THREE.CatmullRomCurve3(centerPoints, false, 'catmullrom', 0.5);
+        const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
+        const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
 
-    // ── Step 4: Sample spline → ribbon geometry ──
-    const N = Math.max(centerPoints.length * 4, 80);
-
-    type CrossSection = { x: number; z: number; perpX: number; perpZ: number; hw: number; elev: number };
-    const sections: CrossSection[] = [];
-    const tmpPos = new THREE.Vector3();
-    const tmpTan = new THREE.Vector3();
-
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      spline.getPoint(t, tmpPos);
-      spline.getTangent(t, tmpTan);
-
-      const perpX = -tmpTan.z;
-      const perpZ = tmpTan.x;
-      const pLen = Math.sqrt(perpX * perpX + perpZ * perpZ) || 1;
-
-      const fIdx = t * (smoothed.length - 1);
-      const iIdx = Math.min(Math.floor(fIdx), smoothed.length - 2);
-      const frac = fIdx - iIdx;
-      const hw = smoothed[iIdx] * (1 - frac) + smoothed[iIdx + 1] * frac;
-
-      const elev = getElevAt(tmpPos.z, tmpPos.x) + WATER_OFFSET;
-
-      sections.push({
-        x: tmpPos.x, z: tmpPos.z,
-        perpX: perpX / pLen, perpZ: perpZ / pLen,
-        hw, elev,
-      });
-    }
-
-    // Generate ribbon: 1 quad per segment (left bank → right bank)
-    for (let i = 0; i < sections.length - 1; i++) {
-      const s0 = sections[i];
-      const s1 = sections[i + 1];
-
-      const l0x = s0.x + s0.perpX * s0.hw - HALF;
-      const l0z = s0.z + s0.perpZ * s0.hw - HALF;
-      const r0x = s0.x - s0.perpX * s0.hw - HALF;
-      const r0z = s0.z - s0.perpZ * s0.hw - HALF;
-
-      const l1x = s1.x + s1.perpX * s1.hw - HALF;
-      const l1z = s1.z + s1.perpZ * s1.hw - HALF;
-      const r1x = s1.x - s1.perpX * s1.hw - HALF;
-      const r1z = s1.z - s1.perpZ * s1.hw - HALF;
-
-      const e0 = s0.elev;
-      const e1 = s1.elev;
-
-      // Quad: 2 triangles
-      pushVert(l0x, e0, l0z, 0, 0);
-      pushVert(r0x, e0, r0z, 0, 0);
-      pushVert(l1x, e1, l1z, 0, 0);
-      pushVert(r0x, e0, r0z, 0, 0);
-      pushVert(r1x, e1, r1z, 0, 0);
-      pushVert(l1x, e1, l1z, 0, 0);
+        for (let i = 0; i < tris.length; i += 3) {
+          for (let j = 0; j < 3; j++) {
+            const px = vx[tris[i + j]];
+            const pz = vz[tris[i + j]];
+            const y = getElevAt(pz, px) + WATER_OFFSET;
+            pushVert(px - HALF, y, pz - HALF);
+          }
+        }
+      }
     }
   }
 
