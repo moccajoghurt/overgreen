@@ -40,13 +40,45 @@
     .section-group + .section-group { border-top: 1px solid #2a2a2a; padding-top: 8px; }
     .group-label { font-size: 10px; color: #555; letter-spacing: 0.08em; text-transform: uppercase; }
 
-    /* Scenario row */
-    .scenario-row { display: flex; gap: 4px; align-items: center; }
-    #scenario-select {
-      flex: 1; font-family: monospace; font-size: 12px;
-      background: #333; color: #ccc; border: 1px solid #555; padding: 3px 4px;
+    /* Map buttons */
+    .map-buttons { display: flex; flex-direction: column; gap: 3px; }
+    .map-btn {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; cursor: pointer;
+      background: #2a2a2a; color: #aaa; border: 1px solid #444;
+      font-family: monospace; font-size: 12px; text-align: left;
+      transition: background 150ms, border-color 150ms, color 150ms;
     }
-    #btn-load-scenario { font-size: 11px; padding: 3px 8px; }
+    .map-btn:hover { background: #333; color: #ccc; border-color: #666; }
+    .map-btn.active { background: #2a3a2a; color: #8f8; border-color: #4a7a4a; }
+    .map-btn-thumb {
+      width: 32px; height: 32px; border-radius: 3px;
+      background: #1a1a1a; border: 1px solid #333;
+      flex-shrink: 0; object-fit: cover;
+    }
+    .map-btn-label { flex: 1; line-height: 1.3; }
+
+    /* Dev scenarios toggle */
+    #btn-dev-scenarios {
+      padding: 0 6px; font-size: 14px; line-height: 1;
+      background: transparent; color: #444; border: 1px solid transparent;
+      cursor: pointer; letter-spacing: 1px;
+    }
+    #btn-dev-scenarios:hover { color: #888; border-color: #444; }
+
+    /* Dev dropdown */
+    .dev-dropdown {
+      display: flex; flex-direction: column; gap: 2px;
+      max-height: 200px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: #444 transparent;
+    }
+    .dev-dropdown.hidden { display: none; }
+    .dev-dropdown button {
+      width: 100%; text-align: left; padding: 4px 8px;
+      font-size: 11px; background: #222; color: #777;
+      border: 1px solid #333; cursor: pointer;
+    }
+    .dev-dropdown button:hover { background: #2a2a2a; color: #aaa; border-color: #555; }
 
     /* Play/Pause */
     #btn-play-pause {
@@ -234,17 +266,6 @@
     </div>
 
     <div class="section-group">
-      <div class="group-label">Scenario</div>
-      <div class="scenario-row">
-        <select id="scenario-select">
-          <option value="">Random (default)</option>
-        </select>
-        <button id="btn-load-scenario">Load</button>
-      </div>
-      <label><input type="checkbox" id="single-seed-toggle" checked /> Single seed start</label>
-    </div>
-
-    <div class="section-group">
       <div class="group-label">Playback</div>
       <button id="btn-play-pause">&#9654; Running</button>
       <div class="speed-group">
@@ -252,6 +273,15 @@
         <button class="speed-btn" data-preset="fast">Fast</button>
         <button class="speed-btn" data-preset="warp">Warp</button>
       </div>
+    </div>
+
+    <div class="section-group">
+      <div class="group-label" style="display:flex; align-items:center; justify-content:space-between;">
+        Maps
+        <button id="btn-dev-scenarios" title="All scenarios (dev)">···</button>
+      </div>
+      <div class="map-buttons" id="map-buttons"></div>
+      <div id="dev-scenario-dropdown" class="dev-dropdown hidden"></div>
     </div>
 
     <div class="section-group">

@@ -1,6 +1,6 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
 import { ERA_NAMES } from './simulation/eras';
-import { createWorld, seedInitialPlants, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
+import { createWorld, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { updateInspector } from './inspector';
@@ -21,7 +21,6 @@ import { genesis } from './scenarios/genesis';
 import { createHookPhase } from './hook-phase';
 
 const container = document.getElementById('canvas-container')!;
-const singleSeedToggle = document.getElementById('single-seed-toggle') as HTMLInputElement;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
 
 // Load Genesis as the default starting scenario
@@ -94,33 +93,86 @@ btnSandbox.addEventListener('click', () => {
   sandboxPanel.setVisible(next);
 });
 
-// Scenario selector
-const scenarioSelect = document.getElementById('scenario-select') as HTMLSelectElement;
-for (const s of SCENARIOS) {
-  const opt = document.createElement('option');
-  opt.value = s.id;
-  opt.textContent = s.name;
-  if (s.id === 'genesis') opt.selected = true;
-  scenarioSelect.appendChild(opt);
+// Map buttons — featured maps shown as full buttons, experiments in dev dropdown
+const mapButtonsContainer = document.getElementById('map-buttons')!;
+const mapButtons: HTMLButtonElement[] = [];
+const FEATURED_IDS = new Set(['genesis']); // add more map IDs here as they're created
+
+function setActiveMapButton(activeId: string | null): void {
+  for (const btn of mapButtons) {
+    btn.classList.toggle('active', btn.dataset.scenarioId === activeId);
+  }
 }
 
-const btnLoadScenario = document.getElementById('btn-load-scenario') as HTMLButtonElement;
-btnLoadScenario.addEventListener('click', () => {
-  const id = scenarioSelect.value;
-  if (id === '') {
-    doLoadRandom();
-  } else {
-    const scenario = SCENARIOS.find(s => s.id === id);
-    if (scenario) doLoadScenario(scenario);
-  }
+function createMapButton(id: string, name: string, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.className = 'map-btn';
+  btn.dataset.scenarioId = id;
+  const thumb = document.createElement('img');
+  thumb.className = 'map-btn-thumb';
+  thumb.alt = name;
+  thumb.src = `maps/${id}.png`;
+  thumb.onerror = () => {
+    const fallback = document.createElement('div');
+    fallback.className = 'map-btn-thumb';
+    fallback.style.display = 'flex';
+    fallback.style.alignItems = 'center';
+    fallback.style.justifyContent = 'center';
+    fallback.style.fontSize = '14px';
+    fallback.style.color = '#555';
+    fallback.textContent = name.charAt(0).toUpperCase();
+    thumb.replaceWith(fallback);
+  };
+  const label = document.createElement('span');
+  label.className = 'map-btn-label';
+  label.textContent = name;
+  btn.appendChild(thumb);
+  btn.appendChild(label);
+  btn.addEventListener('click', () => { onClick(); setActiveMapButton(id); });
+  return btn;
+}
+
+// Featured map buttons
+for (const s of SCENARIOS) {
+  if (!FEATURED_IDS.has(s.id)) continue;
+  const btn = createMapButton(s.id, s.name, () => doLoadScenario(s));
+  if (s.id === 'genesis') btn.classList.add('active');
+  mapButtonsContainer.appendChild(btn);
+  mapButtons.push(btn);
+}
+
+// Random button (always last in featured)
+{
+  const btn = createMapButton('__random__', 'Random', () => doLoadRandom());
+  mapButtonsContainer.appendChild(btn);
+  mapButtons.push(btn);
+}
+
+// Dev scenarios dropdown (···)
+const devDropdown = document.getElementById('dev-scenario-dropdown')!;
+const btnDevScenarios = document.getElementById('btn-dev-scenarios')!;
+btnDevScenarios.addEventListener('click', () => {
+  devDropdown.classList.toggle('hidden');
 });
+
+for (const s of SCENARIOS) {
+  if (FEATURED_IDS.has(s.id)) continue;
+  const btn = document.createElement('button');
+  btn.textContent = s.name;
+  btn.addEventListener('click', () => {
+    doLoadScenario(s);
+    setActiveMapButton(null);
+    devDropdown.classList.add('hidden');
+  });
+  devDropdown.appendChild(btn);
+}
 
 function doLoadScenario(scenario: Scenario): void {
   hookPhase.skip();
-  controls.paused = true;
+  controls.paused = false;
   const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = '\u258C\u258C PAUSED';
-  btn.classList.add('paused');
+  btn.textContent = '\u25B6 Running';
+  btn.classList.remove('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
   controls.hoveredSpecies = null;
@@ -130,20 +182,16 @@ function doLoadScenario(scenario: Scenario): void {
 
 function doLoadRandom(): void {
   hookPhase.skip();
-  controls.paused = true;
+  controls.paused = false;
   const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = '\u258C\u258C PAUSED';
-  btn.classList.add('paused');
+  btn.textContent = '\u25B6 Running';
+  btn.classList.remove('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
   controls.hoveredSpecies = null;
 
   const fresh = createWorld(GRID_WIDTH, GRID_HEIGHT);
-  if (singleSeedToggle.checked) {
-    seedSinglePlant(fresh);
-  } else {
-    seedInitialPlants(fresh, 40);
-  }
+  seedSinglePlant(fresh);
 
   // Copy all fields into existing world object
   Object.assign(world, fresh);
