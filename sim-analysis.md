@@ -1,6 +1,9 @@
 # Overgreen Simulation — Analysis & Test Reference
 
-> This file documents the **current state** of the simulation mechanics and their health. It is not a changelog — when mechanics change, update the analysis and re-run experiments. Only keep the latest results.
+> **This file documents the current state of the simulation mechanics and their health. Nothing else.**
+> - It is NOT a changelog. Never write "X changed to Y", "X is now Y", "previously X", or any historical comparison.
+> - When mechanics change: update the description to reflect the current behavior, clear stale experiment results, and re-run experiments.
+> - Only keep the latest results. If results haven't been gathered yet, say "Pending" — don't describe what used to be true.
 
 ## Tick Pipeline
 
@@ -155,7 +158,7 @@ Specialists get big in their niche — genome priorities directly determine morp
 
 ## 7. WOODINESS SPECTRUM
 
-Woodiness is a continuous genome trait (0.01-0.99) that replaces the old binary tree/grass archetype. All plant constants are linearly interpolated between herbaceous (w=0) and woody (w=1) endpoints via `getPlantConstants(woodiness)`.
+Woodiness is a continuous genome trait (0.01-0.99). Most plant constants are linearly interpolated between herbaceous (w=0) and woody (w=1) endpoints via `getPlantConstants(genome)`. Two properties — maxAge and growthEfficiency — are driven by the `longevity` trait (see Section 15), not woodiness.
 
 ### Key endpoints:
 ```
@@ -172,8 +175,8 @@ Woodiness is a continuous genome trait (0.01-0.99) that replaces the old binary 
   │ Seed cost           │ 0.4          │ 0.8          │
   │ Seed energy         │ 1.5          │ 2.0          │
   │ Seed range          │ 4+h/4        │ 3+h/2        │
-  │ Growth efficiency   │ 0.5          │ 0.3          │
-  │ Max age             │ 750          │ 2500         │
+  │ Growth efficiency   │ 0.5 × lonMod │ 0.3 × lonMod │  lonMod = (1.3 - lon×0.6)
+  │ Max age             │ lerpVal(120, 2500, lon)      │  driven by longevity (Section 15)
   │ Shadow cast         │ 0.05         │ 0.25         │
   │ Shadow height scale │ 1.0          │ 3.0          │
   │ Height light bonus  │ 0.1          │ 0.7          │
@@ -186,18 +189,14 @@ Woodiness is a continuous genome trait (0.01-0.99) that replaces the old binary 
 ```
 
 ### Strategic tradeoffs along the spectrum:
-- **Low woodiness (herbaceous):** Cheap maintenance, fast growth (0.5 eff), cheap seeds (0.4), wider base seed range, but low caps (h=2, r=3), negligible shading, short lifespan (750)
-- **High woodiness (woody):** Tall (h=10), deep roots (r=10), strong shading (+0.25), long-lived (2500), but expensive maintenance, expensive seeds (0.8), slow growth (0.3 eff)
+- **Low woodiness (herbaceous):** Cheap maintenance, higher base growth efficiency (0.5), cheap seeds (0.4), wider base seed range, but low caps (h=2, r=3), negligible shading
+- **High woodiness (woody):** Tall (h=10), deep roots (r=10), strong shading (+0.25), but expensive maintenance, expensive seeds (0.8), lower base growth efficiency (0.3)
 - **Mid woodiness (shrub):** Intermediate everything — moderate caps, costs, and advantages
 
-### Observed woodiness evolution by terrain:
+Lifespan and growth speed are controlled by `longevity` (Section 15), not woodiness.
 
-| Terrain | Woodiness direction | Reason |
-|---------|-------------------|--------|
-| Flat soil | ↑ 0.28-0.37 | Resources cover costs; height/shadow pay off, moderated by waterStorage budget share |
-| Hill | ↓ 0.04 | Resource-scarce; cheap costs matter more than high ceilings |
-| Arid | ↓ 0.04-0.25 | Water-scarce; herbaceous reproduction speed dominates |
-| Wetland | ↑ 0.86-0.91 | Abundant water + 1.5× height bonus strongly rewards woodiness |
+### Observed woodiness evolution by terrain:
+Pending — re-run experiments.
 
 ---
 
@@ -285,12 +284,7 @@ Seed mass (seedSize: 0.01-0.99) controls the tradeoff between many small seeds v
 ```
 
 ### Observed seed mass evolution by terrain:
-| Terrain | sz direction | Reason |
-|---------|-------------|--------|
-| Soil | ↓ 0.33-0.46 | Many cheap seeds + waterStorage buffer replaces vigor advantage |
-| Wetland | ↑ 0.77-0.83 | Cheap establishment + vigor wins; large-seeded tree strategy |
-| Hill | ↓ 0.21-0.24 | Expensive establishment; many cheap seeds hedge bets |
-| Arid | ↓ 0.21-0.29 | r-strategy dominates; waterStorage is the drought adaptation, not seed mass |
+Pending — re-run experiments.
 
 ---
 
@@ -312,14 +306,7 @@ Internal water tank for drought tolerance + succulent transpiration reduction. G
 The transpiration reduction is the key mechanic that makes waterStorage an active adaptation rather than just a passive buffer. Plants with full tanks need less water, creating a positive feedback loop: stored water → less demand → higher waterFraction → more photosynthesis. On non-arid terrains where tanks rarely fill (roots solve water needs cheaper), the reduction is negligible.
 
 ### Observed waterStorage evolution by terrain:
-| Terrain | wst direction | Reason |
-|---------|--------------|--------|
-| Soil | stable ~0.36 | Tanks rarely full; transpiration reduction negligible |
-| Hill | stable ~0.35 | Same — expensive roots mean less surplus to fill tank |
-| Arid | ↑↑ 0.53-0.63 | Dry spells create fill/drain cycles; transpiration reduction is decisive |
-| Wetland | stable ~0.35 | Water abundant, tank benefit near zero |
-
-Water storage is strongly selected on arid terrain where periodic dry spells create boom/bust water availability. On other terrains it drifts neutrally — the transpiration reduction only helps when the tank is full, which requires surplus water that non-arid plants spend on growth instead.
+Pending — re-run experiments.
 
 ---
 
@@ -330,29 +317,71 @@ Water storage is strongly selected on arid terrain where periodic dry spells cre
     1. Energy budget (photosynthesis vs maintenance)
     2. Growth allocation / genome priorities
     3. Water absorption & limitation
-    4. Woodiness spectrum (determines ALL plant constants)
+    4. Woodiness spectrum (determines most plant constants)
+    5. Longevity (controls lifespan + growth efficiency modifier)
 
   SIGNIFICANT:
-    5. Terrain maintenance multipliers
-    6. Light & shadow competition
-    7. Seasons (winter lethality)
-    8. Reproduction / seedInvestment tradeoff
-    9. Water storage (drought tolerance, seedling provisioning)
+    6. Terrain maintenance multipliers
+    7. Light & shadow competition
+    8. Seasons (winter lethality)
+    9. Reproduction / seedInvestment tradeoff
+   10. Water storage (drought tolerance, seedling provisioning)
 
   MODERATE:
-   10. Seed mass / establishment delay (terrain-dependent seedling survival)
-   11. Nutrient cycling
-   12. Climate eras & disasters
-   13. Seed bank dynamics
+   11. Seed mass / establishment delay (terrain-dependent seedling survival)
+   12. Nutrient cycling
+   13. Climate eras & disasters
+   14. Seed bank dynamics
 
   WEAK:
-   14. Defense — undefended wins 65/35%, net negative on flat soil
-   15. Root competition — 6% drain is noise
+   15. Defense — undefended wins 65/35%, net negative on flat soil
+   16. Root competition — 6% drain is noise
 ```
 
 ---
 
+## 15. LONGEVITY (longevity genome)
+
+Longevity (0.01-0.99) creates the r/K selection tradeoff: live fast and grow fast, or live long and grow slow. Lifespan is independent of woodiness — an herbaceous perennial or a woody annual are both viable strategies.
+
+### Mechanics:
+```
+  maxAge = lerpVal(120, 2500, lon)
+    lon=0.01: ~120 ticks (annual — lives ~1 season)
+    lon=0.50: ~1310 ticks (mid-lived)
+    lon=0.99: ~2500 ticks (perennial — lives 5 years)
+
+  growthEfficiency modifier = (1.3 - lon × 0.6)
+    lon=0.01: 1.3× base efficiency (fast grower)
+    lon=0.50: 1.0× base efficiency (neutral)
+    lon=0.99: 0.7× base efficiency (slow grower)
+
+  Base efficiency still comes from woodiness (herb=0.5, woody=0.3).
+  Final growthEfficiency = lerpVal(0.5, 0.3, w) × (1.3 - lon × 0.6)
+
+  Examples:
+    Herbaceous annual  (w=0.1, lon=0.1): 0.48 × 1.24 = 0.60 eff, maxAge ~358
+    Herbaceous perennial (w=0.1, lon=0.8): 0.48 × 0.82 = 0.39 eff, maxAge ~2024
+    Woody annual (w=0.9, lon=0.1): 0.32 × 1.24 = 0.40 eff, maxAge ~358
+    Woody perennial (w=0.9, lon=0.8): 0.32 × 0.82 = 0.26 eff, maxAge ~2024
+```
+
+### Strategic tradeoffs:
+- **Low longevity (annual/ephemeral):** Die young but grow fast (1.3× efficiency). Must reproduce quickly before death. Pairs naturally with high seedInvestment.
+- **High longevity (perennial):** Live long but grow slowly (0.7× efficiency). Can accumulate height/roots over time. Pairs naturally with competitive traits (height, shading).
+- **Interaction with woodiness:** Woodiness controls morphological potential (caps, costs, shadow); longevity controls tempo. A low-woodiness, low-longevity plant is an annual wildflower. A high-woodiness, high-longevity plant is an oak tree.
+
+### Observed longevity evolution by terrain:
+Pending — run experiments to populate.
+
+---
+
 ## TEST SCENARIOS
+
+Pending — re-run all experiments with longevity trait active.
+
+<!--
+Previous results (pre-longevity, for reference only):
 
 | # | Scenario | Result | Key trait evolution |
 |---|----------|--------|-------------------|
@@ -386,16 +415,16 @@ Deep Root Mesquite dominates (71%) with succulent strategy: deep roots (r: 0.48)
 Water storage now differentiates by terrain: neutral drift on hill/soil/wetland (~0.35), mild upward on arid (0.37-0.40). The small arid zone (640 cells, 8 rows) limits selective pressure — pure arid experiments show much stronger wst evolution (0.53-0.63). Seed mass diverges: up on wetland (large-seeded tree strategy), down on hill/arid (many cheap seeds).
 
 #### 11: Seed Bank
-On all-arid terrain, Seedbank Grass dominates with ultra-herbaceous strategy (w→0.04). Water storage holds steady at 0.37 (no longer collapses like pre-tuning). High seed investment (0.75) + small seeds (0.29) = maximum reproductive throughput. Broad leaves (0.58) maximize photosynthesis during brief wet windows.
+On all-arid terrain, Seedbank Grass dominates with ultra-herbaceous strategy (w→0.04). Water storage holds steady at 0.37. High seed investment (0.75) + small seeds (0.29) = maximum reproductive throughput. Broad leaves (0.58) maximize photosynthesis during brief wet windows.
+-->
 
 ---
 
 ## KNOWN ISSUES & PENDING WORK
 
 ### Observations (not necessarily bugs)
-- **Seed mass evolves down on soil** (#1, #4): Pre-waterStorage, establishment delay created K-selection pressure that pushed sz upward on soil. With waterStorage providing an alternative seedling survival buffer, that pressure is weakened. Seed mass now only evolves upward on wetland. This may be acceptable — the tradeoff still functions, it just resolves differently.
-- **Woodiness on soil is lower than pre-waterStorage era** (#1): w reaches 0.28 vs previous 0.70. Plants split their maintenance budget between woodiness and waterStorage. Longer runs or light-competition scenarios may push woodiness higher.
 - **Arid dry spells cause dramatic population crashes**: Pop can swing from 5000+ to 350 in a single dry spell. This is ecologically realistic (desert boom/bust) but may look alarming in the UI.
+- **Speciation distance is 9-dimensional**: Genome has 9 traits (rootPriority, heightPriority, leafSize, seedInvestment, seedSize, defense, woodiness, waterStorage, longevity). Threshold is 1.2 — may need adjustment if speciation is too aggressive.
 
 ### Experiments to re-run after any major mechanic change
 - #1 Monoculture Baseline (sanity check)
@@ -403,3 +432,9 @@ On all-arid terrain, Seedbank Grass dominates with ultra-herbaceous strategy (w�
 - #7 Arid Specialist (drought adaptation health)
 - #10 Terrain Isolated (terrain differentiation health)
 - #11 Seed Bank (arid seed dynamics health)
+- #12 Woodiness Evolution (woodiness/longevity interaction)
+
+### New experiments needed
+- **Longevity Tradeoff** — Low-longevity (0.2) vs high-longevity (0.8) on flat soil, identical genomes otherwise. Core r/K test.
+- **Longevity × Terrain** — Same species (lon=0.5) on isolated terrains. Track longevity evolution per biome. Does arid select annuals? Does wetland select perennials?
+- **Longevity × Woodiness** — Herbaceous perennial (low w, high lon) vs woody annual (high w, low lon) vs natural combos. Verify traits are genuinely independent.
