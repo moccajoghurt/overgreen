@@ -137,39 +137,6 @@ export function createWaterSurface(world: World): WaterSurface {
     return { mesh: emptyMesh, update: () => {} };
   }
 
-  // ── Corner elevation helper ──
-  const cornerSize = GRID + 1;
-  const elevCorners = new Float32Array(cornerSize * cornerSize);
-  for (let cy = 0; cy <= GRID; cy++) {
-    for (let cx = 0; cx <= GRID; cx++) {
-      let sum = 0, count = 0;
-      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
-        const gx = cx + dx;
-        const gy = cy + dy;
-        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-          sum += world.grid[gy][gx].elevation;
-          count++;
-        }
-      }
-      elevCorners[cy * cornerSize + cx] = (sum / count) * ELEV_SCALE;
-    }
-  }
-
-  function getElevAt(row: number, col: number): number {
-    const cx = Math.max(0, Math.min(GRID, col));
-    const cy = Math.max(0, Math.min(GRID, row));
-    const ix = Math.min(Math.floor(cx), GRID - 1);
-    const iy = Math.min(Math.floor(cy), GRID - 1);
-    const fx = cx - ix;
-    const fy = cy - iy;
-    const e00 = elevCorners[iy * cornerSize + ix];
-    const e10 = elevCorners[iy * cornerSize + ix + 1];
-    const e01 = elevCorners[(iy + 1) * cornerSize + ix];
-    const e11 = elevCorners[(iy + 1) * cornerSize + ix + 1];
-    return e00 * (1 - fx) * (1 - fy) + e10 * fx * (1 - fy)
-      + e01 * (1 - fx) * fy + e11 * fx * fy;
-  }
-
   // ── Build geometry ──
   const allPositions: number[] = [];
   const allNormals: number[] = [];
@@ -268,53 +235,84 @@ export function createWaterSurface(world: World): WaterSurface {
     }
   }
 
-  // ── River mesh: marching squares for smooth edges ──
+  // ── River mesh: marching squares for smooth edges, flat Y per component ──
   if (riverCells.length > 0) {
     const isRiver = new Uint8Array(GRID * GRID);
     for (const [r, c] of riverCells) isRiver[r * GRID + c] = 1;
 
-    const csz = GRID + 1;
-    const riverCorner = new Float32Array(csz * csz);
-    for (let cy = 0; cy <= GRID; cy++) {
-      for (let cx = 0; cx <= GRID; cx++) {
-        let s = 0, t = 0;
-        for (const [dr, dc] of CELL_OFFSETS) {
-          const gr = cy + dr, gc = cx + dc;
-          if (gr >= 0 && gr < GRID && gc >= 0 && gc < GRID) {
-            t++;
-            if (isRiver[gr * GRID + gc]) s++;
+    // BFS to find connected river components (each gets its own flat Y)
+    const visited = new Uint8Array(GRID * GRID);
+    const components: [number, number][][] = [];
+    for (const [r, c] of riverCells) {
+      if (visited[r * GRID + c]) continue;
+      const comp: [number, number][] = [];
+      const queue: [number, number][] = [[r, c]];
+      visited[r * GRID + c] = 1;
+      while (queue.length > 0) {
+        const [cr, cc] = queue.pop()!;
+        comp.push([cr, cc]);
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          const nr = cr + dr, nc = cc + dc;
+          if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID
+            && !visited[nr * GRID + nc] && isRiver[nr * GRID + nc]) {
+            visited[nr * GRID + nc] = 1;
+            queue.push([nr, nc]);
           }
         }
-        riverCorner[cy * csz + cx] = t > 0 ? s / t : 0;
       }
+      components.push(comp);
     }
 
-    for (let r = 0; r < GRID; r++) {
-      for (let c = 0; c < GRID; c++) {
-        const vTL = riverCorner[r * csz + c];
-        const vTR = riverCorner[r * csz + c + 1];
-        const vBR = riverCorner[(r + 1) * csz + c + 1];
-        const vBL = riverCorner[(r + 1) * csz + c];
+    for (const comp of components) {
+      // Flat Y: average elevation of component cells + offset
+      let elevSum = 0;
+      for (const [r, c] of comp) elevSum += world.grid[r][c].elevation;
+      const riverY = (elevSum / comp.length) * ELEV_SCALE + RIVER_OFFSET;
 
-        const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
-                      | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
-        const tris = MS_TRI[caseIdx];
-        if (tris.length === 0) continue;
+      // Corner scalar field for this component
+      const compSet = new Set<number>();
+      for (const [r, c] of comp) compSet.add(r * GRID + c);
 
-        const tX = msLerp(c, c + 1, vTL, vTR);
-        const rZ = msLerp(r, r + 1, vTR, vBR);
-        const bX = msLerp(c, c + 1, vBL, vBR);
-        const lZ = msLerp(r, r + 1, vTL, vBL);
+      const csz = GRID + 1;
+      const riverCorner = new Float32Array(csz * csz);
+      for (let cy = 0; cy <= GRID; cy++) {
+        for (let cx = 0; cx <= GRID; cx++) {
+          let s = 0, t = 0;
+          for (const [dr, dc] of CELL_OFFSETS) {
+            const gr = cy + dr, gc = cx + dc;
+            if (gr >= 0 && gr < GRID && gc >= 0 && gc < GRID) {
+              t++;
+              if (compSet.has(gr * GRID + gc)) s++;
+            }
+          }
+          riverCorner[cy * csz + cx] = t > 0 ? s / t : 0;
+        }
+      }
 
-        const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
-        const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          const vTL = riverCorner[r * csz + c];
+          const vTR = riverCorner[r * csz + c + 1];
+          const vBR = riverCorner[(r + 1) * csz + c + 1];
+          const vBL = riverCorner[(r + 1) * csz + c];
 
-        for (let i = 0; i < tris.length; i += 3) {
-          for (let j = 0; j < 3; j++) {
-            const px = vx[tris[i + j]];
-            const pz = vz[tris[i + j]];
-            const y = getElevAt(pz, px) + RIVER_OFFSET;
-            pushVert(px - HALF, y, pz - HALF);
+          const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
+                        | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
+          const tris = MS_TRI[caseIdx];
+          if (tris.length === 0) continue;
+
+          const tX = msLerp(c, c + 1, vTL, vTR);
+          const rZ = msLerp(r, r + 1, vTR, vBR);
+          const bX = msLerp(c, c + 1, vBL, vBR);
+          const lZ = msLerp(r, r + 1, vTL, vBL);
+
+          const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
+          const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
+
+          for (let i = 0; i < tris.length; i += 3) {
+            pushVert(vx[tris[i]] - HALF, riverY, vz[tris[i]] - HALF);
+            pushVert(vx[tris[i + 1]] - HALF, riverY, vz[tris[i + 1]] - HALF);
+            pushVert(vx[tris[i + 2]] - HALF, riverY, vz[tris[i + 2]] - HALF);
           }
         }
       }
