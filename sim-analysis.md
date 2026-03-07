@@ -82,11 +82,11 @@ All base/per-trait maintenance constants are interpolated by woodiness (see Sect
   │ Rock     │ 0.08     │ no plants         │
   │ Hill     │ ~0.16    │ 0.4× penalty      │
   │ Wetland  │ 0.7      │ starts at 80%     │
-  │ Arid     │ 0.2      │ deep water table  │
+  │ Arid     │ 0.25     │ deep water table  │
   └──────────┴──────────┴───────────────────┘
 
   Groundwater: roots below water table depth access saturated zone.
-  Water tables: Soil 4.0, Hill 5.0, Wetland 0.5, Arid 5.0
+  Water tables: Soil 4.0, Hill 5.0, Wetland 0.5, Arid 3.0
   River seepage: +0.4 water, +0.1 nutrients to all 8 neighbors/tick
 ```
 
@@ -136,7 +136,7 @@ Nutrients amplify energy but don't hard-gate like water. Decomposition creates l
   ├──────────┼───────┼────────┼──────┤
   │ Hill     │ 3.0   │ 1.5    │ 1.0  │
   │ Wetland  │ 2.5   │ 1.0    │ 0.85 │
-  │ Arid     │ 0.8   │ 1.2    │ 3.0  │
+  │ Arid     │ 0.8   │ 1.2    │ 2.0  │
   └──────────┴───────┴────────┴──────┘
 ```
 
@@ -199,9 +199,9 @@ Lifespan and growth speed are controlled by `longevity` (Section 15), not woodin
 
 | Terrain | Woodiness direction | Reason |
 |---------|-------------------|--------|
-| Soil | → 0.21-0.54 | Varies widely; mid-woodiness often dominates |
+| Soil | ↑ 0.90-0.93 | Trees dominate via shading; grass suppressed |
 | Hill | ↓ 0.17-0.51 | Cheap maintenance favored; some woody holdouts |
-| Arid | ↓↓ 0.17 | Herbaceous strategy dominates |
+| Arid | → 0.46 | Mid-woodiness; water storage matters more than height |
 | Wetland | ↑ 0.48 | Resources reward height advantage |
 | Mixed | varies 0.23-0.85 | Terrain-dependent; high speciation and niche differentiation |
 
@@ -324,11 +324,11 @@ The transpiration reduction is the key mechanic that makes waterStorage an activ
 |---------|--------------|--------|
 | Soil | ↓↓ 0.03-0.26 | Maintenance cost outweighs benefit; tanks rarely fill |
 | Hill | ↓ 0.29-0.41 | Some retention; roots alone insufficient for hill water |
-| Arid | ↑ 0.38 | Retained on arid terrain; tank actually useful |
+| Arid | ↑↑ 0.79 | Strongly selected; tank critical for desert survival |
 | Wetland | ↓↓ 0.05 | Water abundant; tank completely unnecessary |
 | Mixed | ↓↓ 0.05-0.15 | Collapses on most terrain types |
 
-Water storage is heavily selected against on all non-arid terrains. On arid terrain it provides genuine value (0.38 in woodiness×seedbank). The 0.015/tick maintenance cost makes it expensive to maintain unused capacity on water-rich terrain.
+Water storage is heavily selected against on all non-arid terrains. On arid terrain it provides critical value (0.79 in arid specialist). The 0.015/tick maintenance cost makes it expensive to maintain unused capacity on water-rich terrain.
 
 ---
 
@@ -343,18 +343,18 @@ Water storage is heavily selected against on all non-arid terrains. On arid terr
     5. Terrain maintenance multipliers
 
   SIGNIFICANT:
-    6. Light & shadow competition
-    7. Seasons (winter lethality)
-    8. Reproduction / seedInvestment (always selected upward — tradeoff broken)
-    9. Longevity — growth efficiency modifier has clear selective pressure (upward drift in 14/15 experiments).
-       maxAge component is irrelevant (starvation kills before age does).
+    6. Light & shadow competition (trees shade out grass on soil)
+    7. Seasons (winter lethality — can crash tree populations)
+    8. Reproduction / seedInvestment
+    9. Longevity — growth efficiency modifier has clear selective pressure.
+       Senescence provides downward pressure at extreme ages.
 
   MODERATE:
    10. Climate eras & disasters
    11. Seed bank dynamics
+   12. Water storage — critical on arid (0.79), dead trait on non-arid (~70% of map)
 
   WEAK / BROKEN:
-   12. Water storage — selected against on non-arid terrain. Dead trait for ~70% of map.
    13. Seed mass — always drifts down. No upward selection pressure exists.
    14. Defense — context-dependent; converges to low values.
    15. Root competition — 6% drain is noise.
@@ -381,6 +381,16 @@ Longevity (0.01-0.99) creates the r/K selection tradeoff: live fast and grow fas
   Base efficiency still comes from woodiness (herb=0.5, woody=0.3).
   Final growthEfficiency = lerpVal(0.5, 0.3, w) × (1.3 - lon × 0.6)
 
+  Senescence: maintenance multiplier that scales with age.
+    onset = SENESCENCE_ONSET (0.3) × maxAge
+    After onset: mult = 1 + (age - onset)/(maxAge - onset) × (SENESCENCE_MAX_MULT - 1)
+    At maxAge: maintenance × 4.0
+    Long-lived plants hit senescence later in absolute ticks but still pay eventually.
+    Short-lived plants die young before senescence becomes expensive.
+
+  Longevity maintenance: ongoing cost = longevity × 0.08/tick
+    Adds per-tick maintenance proportional to longevity gene value.
+
   Examples:
     Herbaceous annual  (w=0.1, lon=0.1): 0.48 × 1.24 = 0.60 eff, maxAge ~358
     Herbaceous perennial (w=0.1, lon=0.8): 0.48 × 0.82 = 0.39 eff, maxAge ~2024
@@ -402,7 +412,7 @@ Longevity (0.01-0.99) creates the r/K selection tradeoff: live fast and grow fas
 | Arid | → 0.51 | Neutral; boom/bust dynamics make longevity irrelevant |
 | Mixed | ↑↑ 0.52-0.70 | Strong upward in long runs; dominant species converge to 0.6-0.7 |
 
-Longevity drifts upward in most environments, especially in long (5000-tick) runs. The growth efficiency penalty (0.7× at lon=0.99) is too weak to counterbalance the reproductive advantage of living longer. Plants die of starvation before reaching maxAge in all experiments, so the maxAge component has near-zero selective effect — the growth efficiency modifier is the only part of longevity with real impact.
+Longevity drifts upward in most environments but is now partially checked by senescence (maintenance multiplier that scales with age/maxAge). Short-lived plants avoid senescence costs entirely. The growth efficiency modifier remains the primary selective component; maxAge matters more now via senescence onset timing.
 
 ---
 
@@ -418,24 +428,24 @@ Experiments run at 1000 ticks (short) or 5000 ticks (long-term dynamics), snapsh
 | 4 | Seed Tradeoff | 1k | 1665 | 13 | Birch 61%, Elm 37%. Low Seed extinct. | lon: 0.63-0.67 ↑↑, SI: 0.67-0.69 ↑, w: 0.60-0.77, wst: 0.27-0.28 ↓ |
 | 5 | Defense | 1k | 2679 | 10 | Soft Willow 48%, Thorny Holly 35%. | def converges: Holly 0.48 ↑, Willow 0.16 ↑. lon: 0.40-0.50, wst: 0.18-0.34 |
 | 6 | Hill | 1k | 2008 | 18 | Tall Spruce 27%, Broad Leaf Holly 25%, Deep Root Pine 24%. | w: 0.17-0.73, lon: 0.42-0.50, wst: 0.29-0.41, high speciation |
-| 7 | Arid | 1k | 0 | 0 | **Total extinction** by tick 250. | N/A — all plants starve before reproducing |
+| 7 | Arid | 1k | 1025 | 4 | Saguaro 78%, Turfgrass 22%. | wst: 0.50→0.79 ↑↑, w: 0.50→0.46, root: 0.50→0.44, height: ↓↓ 0.09, boom/bust cycles |
 | 8 | Shrub Gallery | 1k | 4263 | 21 | Berry Bush 65%, Heavy Turfgrass 13%. | lon: 0.52-0.58, SI: 0.56 ↑, def: 0.14-0.76, high speciation |
 | 9 | Succulent Gallery | 1k | 3390 | 18 | Normal Tree 31%, Desert Rose 21%, Jade Tree 17%. | lon: 0.50-0.57, wst: 0.26-0.55, def: 0.14-0.40, diverse |
-| 10 | Grass vs Trees | 5k | 6373 | 11 | Prairie Grass 56%, Oak 35%. Grass wins. | lon: 0.62-0.68 ↑↑, SI: 0.65-0.69 ↑, w: 0.28-0.50 (oak collapses), wst: 0.04-0.05 ↓↓ |
+| 10 | Grass vs Trees | 3k | 350-1174 | 2-4 | Oak dominates 90-96%. Grass extinct. | w: 0.90-0.93 (stable), SI: 0.56-0.61, wst: 0.19-0.26, volatile pop (winter crashes) |
 | 11 | Nutrient Cycle | 1k | 149 | 4 | Deep Root Oak 74%, Shallow Fern 21%. Low pop. | lon: 0.47-0.50, SI: 0.50-0.62 ↑, niche differentiation preserved |
 | 12 | Terrain Isolated | 5k | 3588 | 20 | Beta Spruce 34%, Gamma Willow 32%, Alpha Fern 23%. | lon: 0.58-0.63 ↑↑, wst: 0.05-0.17 ↓↓, sz: 0.30-0.39 ↓, SI: 0.63-0.69 ↑ |
 | 13 | Terrain Mosaic | 5k | 5783 | 20 | Feathery Turfgrass 40%, Gamma Willow 22%, Alpha Fern 21%. | lon: 0.46-0.70 ↑↑, def: 0.03-0.21 ↑, wst: 0.05-0.15 ↓↓, SI: 0.59-0.70 ↑ |
 | 14 | Seed Bank | 1k | 4953 | 6 | Seedbank Grass 97%. | lon: 0.52-0.61 ↑, SI: 0.67-0.73 ↑, wst: 0.42-0.54, w: 0.15-0.23 |
-| 15 | Woodiness Evo | 5k | 4283 | 5 | Herb 70%, Shrub 30%. Tree extinct. | lon: 0.57-0.62 ↑↑, wst: 0.03 ↓↓↓, sz: 0.26 ↓↓, w: 0.28-0.45 (converge mid) |
+| 15 | Woodiness Evo | 5k | 0-2891 | 0-6 | Tree 93%, Shrub 5%. Herb extinct. Stochastic extinction risk (~50%). | w: 0.91-0.94 (stable), SI: 0.59-0.67, wst: 0.15-0.32, def: 0.15-0.22 ↑ |
 | 16 | Woodiness×Seed | 1k | 2862 | 4 | Arid Herb 97%. Tree extinct. | lon: 0.46-0.51, SI: 0.63-0.69 ↑, wst: 0.38 ↑ (arid), w: 0.17-0.46 |
 
 ### Experiment details
 
 #### 7: Arid Specialist
-Total extinction. All 87 plants die of starvation within 250 ticks. The arid-only terrain (0.2 recharge, -0.5 vigor dampening) is too harsh for any strategy to establish. No seeds germinate after the initial wave dies. This is a broken scenario — arid terrain is uninhabitable without adjacent water sources or much higher initial seed energy.
+Healthy desert ecosystem with dramatic boom/bust cycles. Water storage strongly selected FOR (0.50→0.79), confirming it's the key arid adaptation. Height collapses to near-zero — plants stay low. Population oscillates 103-1271 with seasons. Tall Saguaro species (#2) dominates despite name — evolved into short, high-water-storage phenotype (w=0.46, wst=0.79). Desert Grass provides a fast-reproducing secondary strategy.
 
-#### 10: Grass vs Trees (5k ticks)
-Prairie Grass (w=0.1, lon=0.3) dominates Oak (w=0.9, lon=0.8) at 56/35% but Oak survives as a minority. Both species' longevity converges upward (Grass 0.31→0.68, Oak 0.82→0.62). Oak woodiness collapses from 0.87→0.50. Water storage collapses to 0.04-0.05 in both. Grass's cheap maintenance and fast reproduction outpace tree shading advantage.
+#### 10: Grass vs Trees (3k ticks, 3 trials)
+Oak Tree (w=0.9, lon=0.8) dominates 90-96% across all trials. Prairie Grass goes extinct within the first 500-750 ticks. Oak woodiness stays stable at 0.90-0.93. Deciduous Shrub species (w=0.60-0.67) persist as minorities. Population is volatile — winter crashes can drop to single digits before recovering. Trial populations at tick 3000: 350, 115, 1174. Tree shading effectively suppresses herbaceous competitors.
 
 #### 11: Nutrient Cycle (1k ticks)
 Low population (149 plants) with clear niche differentiation: Deep Root Oak (high root, low leaf) vs Shallow Leaf Fern (low root, high leaf). Both strategies coexist stably. Population is resource-limited, not competition-limited.
@@ -449,8 +459,8 @@ Low population (149 plants) with clear niche differentiation: Deep Root Oak (hig
 
 All 3 originals survive with distinct adaptations. Shannon diversity remains high. Longevity drifts up on all terrains. Water storage collapses on soil/wetland but partially retained on hill. Delta Cactus (arid) extinct.
 
-#### 15: Woodiness Evolution (5k ticks)
-Tree species (w=0.80) goes fully extinct. Herb (70%) and Shrub (30%) coexist. Both converge toward mid-woodiness (Herb 0.22→0.28, Shrub 0.50→0.45). Water storage collapses to 0.03. Seed size drops to 0.26. Longevity drifts upward (Herb 0.43→0.62, Shrub 0.50→0.57). Rare outlier species reach extreme longevity (0.85-0.95).
+#### 15: Woodiness Evolution (5k ticks, 2 trials)
+Tree species (w=0.80) now dominates when ecosystem survives: 93% at tick 5000 with w=0.91. Herb goes extinct early; Shrub persists as 5% minority (w=0.61). Defense drifts upward (0.03→0.20). However, ~50% stochastic extinction risk: trial 1 crashed to 0 at tick 4000 (tree monoculture fragility — no fast-reproducing safety net after bad winter), trial 2 thrived at 2891 plants.
 
 ---
 
@@ -458,25 +468,23 @@ Tree species (w=0.80) goes fully extinct. Herb (70%) and Shrub (30%) coexist. Bo
 
 ### URGENT — Broken / needs immediate fix
 
-1. **Arid terrain is uninhabitable** — Total extinction in arid-specialist experiment. All plants starve within 250 ticks. The 0.2 recharge + -0.5 vigor dampening + 3.0× leaf maintenance is too harsh for any strategy to establish. Arid cells only support plants when adjacent to water sources (river seepage) or in mixed-terrain scenarios where non-arid neighbors provide a population reservoir.
+1. **Seed mass always drifts downward** — sz decreases on all terrains (0.26-0.48). No experiment produces upward seed mass evolution. The establishment delay (5 ticks) doesn't create enough K-selection pressure to make large seeds viable.
 
-2. **Seed mass always drifts downward** — sz decreases on all terrains (0.26-0.48). No experiment produces upward seed mass evolution. The establishment delay (5 ticks) doesn't create enough K-selection pressure to make large seeds viable.
-
-3. **Longevity only drifts upward** — lon increases in 14/15 surviving experiments (0.43→0.57-0.68). The growth efficiency penalty (0.7× at lon=0.99) is too weak to counterbalance the advantage of living longer. maxAge has near-zero selective effect since starvation kills before age does.
+2. **Monoculture baseline extinction** — Monoculture experiment (exp 1) now goes extinct by tick 1000. Single-species start on flat soil with a balanced genome can't sustain population through winter. Needs investigation — may be related to senescence or maintenance changes.
 
 ### MODERATE — Concerning patterns
 
-4. **Water storage is selected against on non-arid terrain** — wst collapses to 0.03-0.26 on soil, 0.05 on wetland. The 0.015/tick maintenance cost makes it a net negative when water is available via roots. Only retains value on arid terrain (0.38). This is a dead trait for ~70% of the map.
+3. **Water storage is selected against on non-arid terrain** — wst collapses to 0.03-0.26 on soil, 0.05 on wetland. The 0.015/tick maintenance cost makes it a net negative when water is available via roots. Only retains value on arid terrain (0.79). This is a dead trait for ~70% of the map.
 
-5. **Trees lose to grass on flat soil (exp 10)** — Prairie Grass dominates Oak 56/35% with woodiness collapsing (0.87→0.50). Trees should shade out grass via height, but expensive woody maintenance prevents establishment advantage.
+4. **Tree-dominated ecosystems are fragile** — In woodiness evolution (exp 15), tree monocultures have ~50% stochastic extinction risk. Once trees suppress herbs/shrubs, a bad winter can crash the population with no fast-reproducing safety net to recover. Grass-vs-trees (exp 10) also shows volatile winter crashes to single digits.
 
-6. **Tree extinction in woodiness evolution (exp 15)** — Tree species (w=0.80) goes fully extinct by 5000 ticks. Herb and Shrub coexist. High woodiness is not viable long-term on flat soil without terrain features that reward height.
-
-7. **Nutrient cycle low population (exp 11)** — Only 149 plants at tick 1000 on soil terrain. Nutrient-poor early conditions severely limit carrying capacity.
+5. **Nutrient cycle low population (exp 11)** — Only 149 plants at tick 1000 on soil terrain. Nutrient-poor early conditions severely limit carrying capacity.
 
 ### Observations (not necessarily bugs)
 
-- **Longevity has real selective pressure** — Clear upward drift, especially in long runs. Growth efficiency modifier is the active component; maxAge is irrelevant since starvation kills first.
+- **Longevity has real selective pressure** — Clear upward drift, especially in long runs. Growth efficiency modifier is the active component; maxAge is irrelevant since starvation kills first. Senescence provides downward pressure at extreme ages.
+- **Trees now dominate on flat soil** — Shading advantage is decisive. Oak maintains w=0.90+ and suppresses grass entirely within 500-750 ticks. Deciduous shrubs (w=0.60-0.67) persist as minor secondary strategy.
+- **Arid terrain produces correct adaptations** — Water storage strongly selected FOR (0.50→0.79), height collapses, roots maintained. Boom/bust population cycles (100-1270) are ecologically realistic for desert.
 - **Defense converges to low values** — In exp 5, both defended and undefended species converge to def=0.16-0.48. Defense is context-dependent, not universally bad.
 - **Terrain isolation drives diversity** — Exp 12 (20 species) and exp 13 (20 species) have the highest speciation counts. Physical separation promotes niche differentiation.
 - **Hill speciation is highest per-terrain** — Exp 6 produces 18 species in 1k ticks on hill terrain alone.
@@ -502,7 +510,7 @@ Tree species (w=0.80) goes fully extinct. Herb (70%) and Shrub (30%) coexist. Bo
 
 Several genome traits drift in one direction regardless of environment, preventing evolutionary diversity. Each needs a specific counter-pressure.
 
-**longevity (always up)** — Add senescence. Maintenance cost scales up quadratically with age as a fraction of maxAge: `senescence = 1 + (age/maxAge)² × 0.5`. Young long-lived plants are efficient; old ones become increasingly expensive. Short-lived plants never hit the expensive years. Creates a real r/K tradeoff: short-lived = cheap but brief, long-lived = slow start but extended reproduction IF you can afford escalating maintenance.
+**longevity (always up)** — Senescence implemented (onset at 30% maxAge, 4× maintenance at maxAge, plus 0.08/tick longevity maintenance). Drift is partially checked but still trends upward in long runs. May need stronger senescence or earlier onset.
 
 **seedSize (always down)** — Add competitive establishment mortality. During establishment, seedlings in cells with tall neighbors face survival pressure: `survivalChance = seedSizeVigor / (seedSizeVigor + neighborShade)`. In open ground (post-fire, gaps): shade ≈ 0, all seeds survive, small seeds win via quantity. In established vegetation: shade is high, only large vigorous seedlings survive. This is exactly how r/K selection works — r-strategists dominate disturbed ground, K-strategists dominate stable communities.
 
