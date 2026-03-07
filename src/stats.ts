@@ -95,7 +95,7 @@ export interface Snapshot {
     speciesId: number;
     name: string;
     count: number;
-    avgGenome: { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number };
+    avgGenome: { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number };
     avgEnergy: number;
     maxGeneration: number;
     terrain: { soil: number; hill: number; wetland: number; arid: number };
@@ -200,7 +200,7 @@ export function computeSnapshot(
   const speciesBuckets = new Map<number, {
     count: number; sumEnergy: number;
     sumRoot: number; sumHeight: number; sumLeaf: number; sumSeed: number;
-    sumSz: number; sumDef: number; sumWood: number; sumWst: number;
+    sumSz: number; sumDef: number; sumWood: number; sumWst: number; sumLon: number;
     maxGeneration: number;
     soil: number; hill: number; wetland: number; arid: number;
   }>();
@@ -274,13 +274,13 @@ export function computeSnapshot(
 
     let bucket = speciesBuckets.get(plant.speciesId);
     if (!bucket) {
-      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumSz: 0, sumDef: 0, sumWood: 0, sumWst: 0, maxGeneration: 0, soil: 0, hill: 0, wetland: 0, arid: 0 };
+      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumSz: 0, sumDef: 0, sumWood: 0, sumWst: 0, sumLon: 0, maxGeneration: 0, soil: 0, hill: 0, wetland: 0, arid: 0 };
       speciesBuckets.set(plant.speciesId, bucket);
     }
     bucket.count++;
     bucket.sumEnergy += plant.energy;
     bucket.sumRoot += r; bucket.sumHeight += h; bucket.sumLeaf += l; bucket.sumSeed += s;
-    bucket.sumSz += plant.genome.seedSize; bucket.sumDef += d; bucket.sumWood += w; bucket.sumWst += plant.genome.waterStorage;
+    bucket.sumSz += plant.genome.seedSize; bucket.sumDef += d; bucket.sumWood += w; bucket.sumWst += plant.genome.waterStorage; bucket.sumLon += plant.genome.longevity;
     if (plant.generation > bucket.maxGeneration) bucket.maxGeneration = plant.generation;
     if (cell.terrainType === TerrainType.Soil) bucket.soil++;
     else if (cell.terrainType === TerrainType.Hill) bucket.hill++;
@@ -340,6 +340,7 @@ export function computeSnapshot(
         def: b.sumDef / b.count,
         wood: b.sumWood / b.count,
         wst: b.sumWst / b.count,
+        lon: b.sumLon / b.count,
       },
       avgEnergy: b.sumEnergy / b.count,
       maxGeneration: b.maxGeneration,
