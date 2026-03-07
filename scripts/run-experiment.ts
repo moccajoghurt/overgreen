@@ -69,7 +69,21 @@ for (let t = 1; t <= totalTicks; t++) {
   accumulateTick(accumulator, world);
 
   if (t % interval === 0) {
-    snapshots.push(computeSnapshot(world, accumulator, terrainSummary, nearRiver));
+    const snap = computeSnapshot(world, accumulator, terrainSummary, nearRiver) as Snapshot & { speciesLineage?: Record<number, number> };
+    // Attach lineage map snapshot for lineage analysis
+    snap.speciesLineage = Object.fromEntries(world.speciesLineage);
+    // Attach all species detail (topSpecies only has top 5)
+    const allSpecies: Array<{ id: number; name: string; count: number }> = [];
+    const spCounts = new Map<number, number>();
+    for (const p of world.plants.values()) {
+      if (!p.alive) continue;
+      spCounts.set(p.speciesId, (spCounts.get(p.speciesId) ?? 0) + 1);
+    }
+    for (const [id, count] of spCounts) {
+      allSpecies.push({ id, name: world.speciesNames.get(id) ?? `Sp ${id}`, count });
+    }
+    (snap as any).speciesDetail = allSpecies;
+    snapshots.push(snap);
     accumulator = createAccumulator();
 
     // Progress to stderr

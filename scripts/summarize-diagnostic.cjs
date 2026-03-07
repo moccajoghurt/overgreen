@@ -119,6 +119,116 @@ for (const tick of keyTicks) {
   p();
 }
 
+// ── Lineage Stats ──
+
+const lastSnapForLineage = snaps[snaps.length - 1];
+if (lastSnapForLineage.speciesLineage && lastSnapForLineage.speciesDetail) {
+  const lineageMap = new Map(Object.entries(lastSnapForLineage.speciesLineage).map(([k,v]) => [Number(k), Number(v)]));
+  function getLineageRoot(id) { let c = id; while (lineageMap.has(c)) c = lineageMap.get(c); return c; }
+
+  // Group species by root
+  const groups = new Map();
+  for (const sp of lastSnapForLineage.speciesDetail) {
+    const root = getLineageRoot(sp.id);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(sp);
+  }
+
+  const sorted = [...groups.entries()].map(([rootId, members]) => {
+    const totalPop = members.reduce((s, m) => s + m.count, 0);
+    const rootMember = members.find(m => m.id === rootId);
+    return { rootId, members, totalPop, name: rootMember ? rootMember.name : members[0].name };
+  }).sort((a, b) => b.totalPop - a.totalPop);
+
+  p(`## Lineage Stats (tick ${lastSnapForLineage.tick})`);
+  p(`Total: ${lastSnapForLineage.speciesDetail.length} species in ${groups.size} lineages (${lineageMap.size} speciation events)`);
+  p();
+  for (const g of sorted) {
+    const top3 = g.members.sort((a,b) => b.count - a.count).slice(0, 3);
+    p(`  ${g.name} (#${g.rootId}): ${g.totalPop} plants, ${g.members.length} species`);
+    for (const m of top3) {
+      p(`    ${m.name} (#${m.id}): ${m.count}`);
+    }
+    if (g.members.length > 3) p(`    ...and ${g.members.length - 3} more`);
+  }
+  p();
+
+  // Lineage depth distribution
+  const depths = new Map();
+  for (const sp of lastSnapForLineage.speciesDetail) {
+    let d = 0, cur = sp.id;
+    while (lineageMap.has(cur)) { cur = lineageMap.get(cur); d++; }
+    depths.set(sp.id, d);
+  }
+  const maxDepth = Math.max(...depths.values(), 0);
+  if (maxDepth > 0) {
+    const depthCounts = new Array(maxDepth + 1).fill(0);
+    for (const dd of depths.values()) depthCounts[dd]++;
+    p(`Lineage depth: ${depthCounts.map((c, i) => `d${i}:${c}`).join(' ')}`);
+    p();
+  }
+
+  // Lineage count over time
+  p(`Lineages over time:`);
+  for (const snap of snaps) {
+    if (!snap.speciesLineage || !snap.speciesDetail) continue;
+    const lin = new Map(Object.entries(snap.speciesLineage).map(([k,v]) => [Number(k), Number(v)]));
+    function gr(id) { let c = id; while (lin.has(c)) c = lin.get(c); return c; }
+    const roots = new Set();
+    for (const sp of snap.speciesDetail) roots.add(gr(sp.id));
+    p(`  tick ${String(snap.tick).padStart(4)}: ${String(snap.speciesDetail.length).padStart(3)} species, ${roots.size} lineages`);
+  }
+  p();
+
+  // Per-terrain genome evolution (using topSpecies which has genome data)
+  p(`## Genome by Terrain`);
+  const terrainNames = ['soil', 'hill', 'wetland', 'arid'];
+  for (const terrain of terrainNames) {
+    const rows = [];
+    for (const snap of snaps) {
+      // Find topSpecies entries whose terrain is predominantly this one
+      const matches = snap.topSpecies.filter(sp => {
+        const t = sp.terrain;
+        const total = (t.soil || 0) + (t.hill || 0) + (t.wetland || 0) + (t.arid || 0);
+        return total > 0 && (t[terrain] || 0) / total > 0.7;
+      });
+      if (matches.length === 0) { rows.push(null); continue; }
+      let wTotal = 0;
+      const sums = { root:0, height:0, leaf:0, seed:0, sz:0, def:0, wood:0, wst:0, lon:0 };
+      for (const sp of matches) {
+        for (const k of Object.keys(sums)) sums[k] += (sp.avgGenome[k] || 0) * sp.count;
+        wTotal += sp.count;
+      }
+      for (const k of Object.keys(sums)) sums[k] /= wTotal;
+      rows.push({ tick: snap.tick, pop: matches.reduce((s,m) => s+m.count, 0), genome: sums });
+    }
+
+    const valid = rows.filter(r => r !== null);
+    if (valid.length < 2) continue;
+
+    p(`### ${terrain.charAt(0).toUpperCase() + terrain.slice(1)}`);
+    p(`tick  | pop  |  root |  hgt  |  leaf |  seed |  sz   |  def  |  wood |  wst  |  lon`);
+    p(`------|------|-------|-------|-------|-------|-------|-------|-------|-------|------`);
+    for (const r of rows) {
+      if (!r) continue;
+      const g = r.genome;
+      const f = v => v.toFixed(3).padStart(5);
+      p(`${String(r.tick).padStart(4)}  | ${String(r.pop).padStart(4)} | ${f(g.root)} | ${f(g.height)} | ${f(g.leaf)} | ${f(g.seed)} | ${f(g.sz)} | ${f(g.def)} | ${f(g.wood)} | ${f(g.wst)} | ${f(g.lon)}`);
+    }
+
+    // Drift summary
+    const first = valid[0].genome;
+    const last = valid[valid.length - 1].genome;
+    const traitLabels = { root:'Root', height:'Hgt', leaf:'Leaf', seed:'Seed', sz:'SdSz', def:'Def', wood:'Wood', wst:'WStr', lon:'Lon' };
+    const drifts = Object.keys(traitLabels).map(k => {
+      const delta = last[k] - first[k];
+      return `${traitLabels[k]}:${delta >= 0 ? '+' : ''}${delta.toFixed(3)}`;
+    });
+    p(`Drift: ${drifts.join('  ')}`);
+    p();
+  }
+}
+
 // ── Key insights (auto-detected) ──
 
 p(`## Auto-detected Patterns`);
