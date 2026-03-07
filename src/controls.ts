@@ -10,6 +10,7 @@ export interface Controls {
   selectedCell: { x: number; y: number } | null;
   hoveredSpecies: number | null;
   hoverEnabled: boolean;
+  hoverLineageEnabled: boolean;
   mode: 'inspect' | 'place';
   onPlaceClick: ((x: number, y: number) => void) | null;
 }
@@ -36,6 +37,7 @@ export function initControls(
     selectedCell: null,
     hoveredSpecies: null,
     hoverEnabled: true,
+    hoverLineageEnabled: false,
     mode: 'inspect',
     onPlaceClick: null,
   };
@@ -94,7 +96,7 @@ export function initControls(
   });
 
   canvas.addEventListener('mousemove', (e) => {
-    if (!controls.hoverEnabled) { controls.hoveredSpecies = null; return; }
+    if (!controls.hoverEnabled && !controls.hoverLineageEnabled) { controls.hoveredSpecies = null; return; }
     const rect = canvas.getBoundingClientRect();
     const pos = renderer.cellAt(e.clientX - rect.left, e.clientY - rect.top);
     if (pos) {
@@ -147,6 +149,11 @@ export function initControls(
   hoverToggle.addEventListener('change', () => {
     controls.hoverEnabled = hoverToggle.checked;
     if (!controls.hoverEnabled) controls.hoveredSpecies = null;
+  });
+
+  const hoverLineageToggle = document.getElementById('hover-lineage-toggle') as HTMLInputElement;
+  hoverLineageToggle.addEventListener('change', () => {
+    controls.hoverLineageEnabled = hoverLineageToggle.checked;
   });
 
   return controls;

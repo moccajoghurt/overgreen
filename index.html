@@ -137,10 +137,10 @@
     }
     .chart-tab:hover { color: #aaa; }
     .chart-tab.active { color: #8f8; border-bottom-color: #8f8; }
-    #genomes-container, #population-container, #traits-container {
+    #genomes-container, #lineage-container, #population-container, #traits-container {
       flex: 1; position: relative; overflow: hidden;
     }
-    #genomes-container { overflow: hidden; }
+    #genomes-container, #lineage-container { overflow: hidden; }
     #population-container canvas, #traits-container canvas { width: 100%; height: 100%; display: block; }
     #ticker-container {
       flex: 3; overflow-y: auto;
@@ -293,6 +293,8 @@
       <label><input type="checkbox" id="labels-toggle" /> Species labels</label>
       <label><input type="checkbox" id="terrain-view-toggle" /> Terrain labels</label>
       <label><input type="checkbox" id="hover-toggle" checked /> Hover highlight</label>
+      <label><input type="checkbox" id="lineage-labels-toggle" /> Lineage labels</label>
+      <label><input type="checkbox" id="hover-lineage-toggle" /> Hover lineage</label>
     </div>
 
     <div class="section-group">
@@ -335,11 +337,13 @@
   <div id="bottom-panel">
     <div id="charts-wrapper">
       <div id="chart-tabs">
-        <button class="chart-tab active" data-chart="genomes">Genomes</button>
+        <button class="chart-tab active" data-chart="genomes">Species</button>
+        <button class="chart-tab" data-chart="lineage">Lineage</button>
         <button class="chart-tab" data-chart="population">Population</button>
         <button class="chart-tab" data-chart="traits">Traits</button>
       </div>
       <div id="genomes-container"></div>
+      <div id="lineage-container" style="display:none"></div>
       <div id="population-container" style="display:none"></div>
       <div id="traits-container" style="display:none"></div>
     </div>

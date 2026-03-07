@@ -8,11 +8,13 @@ import { createHistory, recordTick, resetHistory } from './history';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
 import { createGenomePanel } from './genome-panel';
+import { createLineagePanel } from './lineage-panel';
 import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
+import { getLineageGroup, getLineageRoot } from './lineage';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
@@ -62,6 +64,12 @@ labelsToggle.addEventListener('change', () => {
   speciesLabels.setVisible(labelsToggle.checked);
 });
 
+const lineageLabelsToggle = document.getElementById('lineage-labels-toggle') as HTMLInputElement;
+lineageLabelsToggle.addEventListener('change', () => {
+  speciesLabels.setLineageVisible(lineageLabelsToggle.checked);
+  speciesLabels.setLineageMap(world.speciesLineage);
+});
+
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInputElement;
 terrainToggle.addEventListener('change', () => {
@@ -78,6 +86,7 @@ const diagLogger = createDiagnosticLogger();
 (window as any).__doTick = () => { clearFrameEvents(world); tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
 (window as any).__updateUI = () => { lastUITick = -1; updateUI(); };
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
+const lineagePanel = createLineagePanel(document.getElementById('lineage-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);
 const traitChart = createTraitChart(document.getElementById('traits-container')!);
 const ticker = createEventTicker(document.getElementById('ticker-list')!);
@@ -211,6 +220,7 @@ function resetAllState(): void {
   commentary.reset();
   speciesLabels.reset();
   genomePanel.reset();
+  lineagePanel.reset();
   chart.reset();
   traitChart.reset();
   renderer.rebuildTerrain();
@@ -223,7 +233,7 @@ function resetAllState(): void {
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
-const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #population-container, #traits-container');
+const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #lineage-container, #population-container, #traits-container');
 chartTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     chartTabs.forEach(t => t.classList.remove('active'));
@@ -253,11 +263,14 @@ function updateUI(): void {
     updateInspector(world, controls);
   }
   genomePanel.update(world);
+  lineagePanel.setLineageMap(world.speciesLineage);
+  lineagePanel.update(world);
   chart.update(history, world.speciesColors);
   traitChart.update(history);
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   sandboxPanel.update(world);
+  speciesLabels.setLineageMap(world.speciesLineage);
   speciesLabels.update(world, history);
 }
 
@@ -336,10 +349,21 @@ function loop(now: number): void {
 
   if (shouldRender) {
     const renderStart = performance.now();
-    renderer.setHoveredSpecies(controls.hoveredSpecies);
+    let highlightSet: Set<number> | null = null;
+    if (controls.hoverLineageEnabled && controls.hoveredSpecies !== null) {
+      highlightSet = getLineageGroup(world.speciesLineage, controls.hoveredSpecies);
+    } else if (controls.hoverEnabled && controls.hoveredSpecies !== null) {
+      highlightSet = new Set([controls.hoveredSpecies]);
+    }
+    renderer.setHighlightedSpecies(highlightSet);
     renderer.render(controls.selectedCell);
     if (!hookPhase.active) {
-      speciesLabels.setHoveredSpecies(controls.hoveredSpecies);
+      speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies);
+      speciesLabels.setHoveredLineageRoot(
+        controls.hoverLineageEnabled && controls.hoveredSpecies !== null
+          ? getLineageRoot(world.speciesLineage, controls.hoveredSpecies)
+          : null,
+      );
       speciesLabels.updatePositions();
       terrainLabels.updatePositions();
     }

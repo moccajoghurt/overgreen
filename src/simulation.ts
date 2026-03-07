@@ -570,6 +570,7 @@ function phaseGermination(world: World): void {
           world.speciesNames.set(finalSpeciesId, newName);
           world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
           world.speciesSubtypes.set(finalSpeciesId, newSubtype);
+          world.speciesLineage.set(finalSpeciesId, winner.speciesId);
           world.speciationEvents.push({
             newSpeciesId: finalSpeciesId,
             parentSpeciesId: winner.speciesId,

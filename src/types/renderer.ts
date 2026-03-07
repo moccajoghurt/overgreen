@@ -6,7 +6,7 @@ export interface Renderer {
   projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null;
   moveTo(gridX: number, gridY: number): void;
   setColorMode(mode: ColorMode): void;
-  setHoveredSpecies(speciesId: number | null): void;
+  setHighlightedSpecies(ids: Set<number> | null): void;
   markPlantsDirty(): void;
   rebuildTerrain(): void;
   rebuildWater(): void;

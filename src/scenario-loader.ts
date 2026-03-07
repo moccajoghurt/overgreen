@@ -20,6 +20,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
   world.herbivores.clear();
   world.speciesColors.clear();
   world.speciesNames.clear();
+  world.speciesLineage.clear();
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
   world.fireDeathEvents.length = 0;

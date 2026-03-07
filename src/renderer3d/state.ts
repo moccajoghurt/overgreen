@@ -124,8 +124,8 @@ export interface RendererState {
   lastPlantTick: number;
   lastPlantColorMode: ColorMode;
   plantsDirty: boolean;
-  hoveredSpecies: number | null;
-  lastHoveredSpecies: number | null;
+  highlightedSpecies: Set<number> | null;
+  lastHighlightedSpecies: Set<number> | null;
 
   // Performance: cached plant base colors (keyed by plant id, invalidated on colorMode change)
   plantColorCache: Map<number, { cr: number; cg: number; cb: number; tr: number; tg: number; tb: number }>;

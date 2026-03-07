@@ -44,10 +44,10 @@ export function updatePlants(state: RendererState): void {
   const hasTicked = world.tick !== state.lastPlantTick;
   const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
     || burningPlants.size > 0 || flyingSeeds.length > 0;
-  const hoverChanged = state.hoveredSpecies !== state.lastHoveredSpecies;
+  const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies;
   if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty) return;
   state.plantsDirty = false;
-  state.lastHoveredSpecies = state.hoveredSpecies;
+  state.lastHighlightedSpecies = state.highlightedSpecies;
   state.lastPlantTick = world.tick;
 
   // Invalidate color cache when colorMode changes
@@ -179,9 +179,9 @@ export function updatePlants(state: RendererState): void {
       tb = lerp(tb, 0.15, 0.4);
     }
 
-    // Hovered species glow / dim
-    if (state.hoveredSpecies !== null) {
-      if (plant.speciesId === state.hoveredSpecies) {
+    // Highlighted species glow / dim
+    if (state.highlightedSpecies !== null) {
+      if (state.highlightedSpecies.has(plant.speciesId)) {
         tr = Math.min(tr * 1.4, 1.5);
         tg = Math.min(tg * 1.4, 1.5);
         tb = Math.min(tb * 1.4, 1.5);

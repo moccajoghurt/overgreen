@@ -150,8 +150,8 @@ export function createRenderer3D(
     lastPlantTick: -1,
     lastPlantColorMode: 'natural',
     plantsDirty: false,
-    hoveredSpecies: null,
-    lastHoveredSpecies: null,
+    highlightedSpecies: null,
+    lastHighlightedSpecies: null,
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
     ...weather,
@@ -297,8 +297,8 @@ export function createRenderer3D(
     state.colorMode = mode;
   }
 
-  function setHoveredSpecies(speciesId: number | null): void {
-    state.hoveredSpecies = speciesId;
+  function setHighlightedSpecies(ids: Set<number> | null): void {
+    state.highlightedSpecies = ids;
   }
 
   function markPlantsDirty(): void { state.plantsDirty = true; }
@@ -345,5 +345,5 @@ export function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHoveredSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
+  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }

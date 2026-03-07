@@ -115,6 +115,7 @@ export interface World {
   speciesCentroids: Map<number, SpeciesCentroid>;
   speciationEvents: SpeciationEvent[];
   speciesSubtypes: Map<number, number>;
+  speciesLineage: Map<number, number>;  // childSpeciesId → parentSpeciesId
 }
 
 export interface DeathEvent {

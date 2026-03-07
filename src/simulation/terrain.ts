@@ -308,5 +308,6 @@ export function createWorld(width: number, height: number): World {
     speciesCentroids: new Map(),
     speciationEvents: [],
     speciesSubtypes: new Map(),
+    speciesLineage: new Map(),
   };
 }
