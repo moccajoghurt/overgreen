@@ -9,7 +9,6 @@ export interface WaterSurface {
 }
 
 const WATER_OFFSET = 0.45;     // sea: visible depth above seabed
-const RIVER_OFFSET = 0.05;     // rivers: just above terrain to avoid z-fighting
 const SEA_ELEV_THRESHOLD = 0.15;
 
 // Seasonal water body color + sky reflection color (HSL)
@@ -264,14 +263,14 @@ export function createWaterSurface(world: World): WaterSurface {
     }
 
     for (const comp of components) {
-      // Flat Y: average elevation of component cells + offset
-      let elevSum = 0;
-      for (const [r, c] of comp) elevSum += world.grid[r][c].elevation;
-      const riverY = (elevSum / comp.length) * ELEV_SCALE + RIVER_OFFSET;
-
-      // Corner scalar field for this component
+      // Compute flat Y: set water level between riverbed and bank tops
       const compSet = new Set<number>();
-      for (const [r, c] of comp) compSet.add(r * GRID + c);
+      let riverElevSum = 0;
+      for (const [r, c] of comp) {
+        compSet.add(r * GRID + c);
+        riverElevSum += world.grid[r][c].elevation;
+      }
+      const riverY = (riverElevSum / comp.length) * ELEV_SCALE + WATER_OFFSET;
 
       const csz = GRID + 1;
       const riverCorner = new Float32Array(csz * csz);
