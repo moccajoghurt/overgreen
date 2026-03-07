@@ -59,16 +59,18 @@
 
     /* Speed presets */
     .speed-group { display: flex; gap: 3px; }
-    .speed-btn { flex: 1; padding: 4px 0; font-size: 11px; text-align: center; }
+    .speed-btn { flex: 1; padding: 4px 0; font-size: 12px; text-align: center; }
     .speed-btn.active { background: #2a3a2a; color: #8f8; border-color: #4a7a4a; }
+    .speed-btn.active.warp { background: #3a2a1a; color: #d4a030; border-color: #7a5a2a; }
 
-    /* Fast-forward pulse */
-    @keyframes ff-pulse {
-      0%, 100% { border-color: #4a7a4a; }
-      50% { border-color: #8f8; }
+    /* Warp pulse on play/pause button */
+    @keyframes warp-pulse {
+      0%, 100% { border-color: #7a5a2a; }
+      50% { border-color: #d4a030; }
     }
-    #btn-play-pause.ff-active:not(.paused) {
-      animation: ff-pulse 1s ease-in-out infinite;
+    #btn-play-pause.warp-active:not(.paused) {
+      background: #3a2a1a; color: #d4a030; border-color: #7a5a2a;
+      animation: warp-pulse 1s ease-in-out infinite;
     }
 
     /* Sandbox */
@@ -244,13 +246,11 @@
 
     <div class="section-group">
       <div class="group-label">Playback</div>
-      <button id="btn-play-pause">Pause</button>
+      <button id="btn-play-pause">&#9654; Running</button>
       <div class="speed-group">
-        <button class="speed-btn" data-preset="1x">1&times;</button>
-        <button class="speed-btn active" data-preset="2x">2&times;</button>
-        <button class="speed-btn" data-preset="5x">5&times;</button>
-        <button class="speed-btn" data-preset="10x">10&times;</button>
-        <button class="speed-btn" data-preset="ff">&gt;&gt;</button>
+        <button class="speed-btn active" data-preset="play">1x</button>
+        <button class="speed-btn" data-preset="fast">Fast</button>
+        <button class="speed-btn" data-preset="warp">Warp</button>
       </div>
     </div>
 

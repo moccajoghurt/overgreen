@@ -14,14 +14,12 @@ export interface Controls {
   onPlaceClick: ((x: number, y: number) => void) | null;
 }
 
-type SpeedPreset = '1x' | '2x' | '5x' | '10x' | 'ff';
+type SpeedPreset = 'play' | 'fast' | 'warp';
 
 const PRESETS: Record<SpeedPreset, { tickInterval: number; tickBudgetMs: number; renderSkip: number }> = {
-  '1x':  { tickInterval: 500, tickBudgetMs: 0, renderSkip: 0 },
-  '2x':  { tickInterval: 200, tickBudgetMs: 0, renderSkip: 0 },
-  '5x':  { tickInterval: 67,  tickBudgetMs: 0, renderSkip: 0 },
-  '10x': { tickInterval: 0,   tickBudgetMs: 8, renderSkip: 0 },  // adaptive: ticks within 8ms, then render
-  'ff':  { tickInterval: 0,   tickBudgetMs: 0, renderSkip: 10 },  // time-budgeted, no rendering
+  'play': { tickInterval: 500, tickBudgetMs: 0, renderSkip: 0 },
+  'fast': { tickInterval: 0,   tickBudgetMs: 1, renderSkip: 0 },  // adaptive: budget computed from frame timing
+  'warp': { tickInterval: 0,   tickBudgetMs: 0, renderSkip: 10 }, // max ticks, no rendering
 };
 
 export function initControls(
@@ -31,7 +29,7 @@ export function initControls(
 ): Controls {
   const controls: Controls = {
     paused: false,
-    tickInterval: 200,
+    tickInterval: 500,
     tickBudgetMs: 0,
     renderSkip: 0,
     stepRequested: false,
@@ -46,16 +44,8 @@ export function initControls(
 
   btnPlayPause.addEventListener('click', () => {
     controls.paused = !controls.paused;
-    btnPlayPause.textContent = controls.paused ? 'Play' : 'Pause';
+    btnPlayPause.textContent = controls.paused ? '\u258C\u258C PAUSED' : '\u25BA Running';
     btnPlayPause.classList.toggle('paused', controls.paused);
-    // Exit FF mode when pausing
-    if (controls.paused && controls.renderSkip > 0) {
-      controls.renderSkip = 0;
-      controls.tickInterval = 200;
-      controls.tickBudgetMs = 0;
-      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
-      btnPlayPause.classList.remove('ff-active');
-    }
   });
 
   // Speed presets
@@ -67,19 +57,30 @@ export function initControls(
       controls.tickInterval = cfg.tickInterval;
       controls.tickBudgetMs = cfg.tickBudgetMs;
       controls.renderSkip = cfg.renderSkip;
-      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
-      btnPlayPause.classList.toggle('ff-active', preset === 'ff');
+      speedBtns.forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+        if (b.dataset.preset === preset) {
+          b.classList.toggle('warp', preset === 'warp');
+        } else {
+          b.classList.remove('warp');
+        }
+      });
+      btnPlayPause.classList.toggle('warp-active', preset === 'warp');
     });
   });
 
   canvas.addEventListener('click', (e) => {
-    // Exit FF mode on canvas click
+    // Exit warp mode on canvas click — switch to Fast
     if (controls.renderSkip > 0) {
-      controls.renderSkip = 0;
-      controls.tickInterval = 200;
-      controls.tickBudgetMs = 0;
-      speedBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
-      btnPlayPause.classList.remove('ff-active');
+      const fastCfg = PRESETS['fast'];
+      controls.tickInterval = fastCfg.tickInterval;
+      controls.tickBudgetMs = fastCfg.tickBudgetMs;
+      controls.renderSkip = fastCfg.renderSkip;
+      speedBtns.forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === 'fast');
+        b.classList.remove('warp');
+      });
+      btnPlayPause.classList.remove('warp-active');
       return;
     }
     const rect = canvas.getBoundingClientRect();

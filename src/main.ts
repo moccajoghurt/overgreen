@@ -119,7 +119,7 @@ function doLoadScenario(scenario: Scenario): void {
   hookPhase.skip();
   controls.paused = true;
   const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = 'Play';
+  btn.textContent = '\u258C\u258C PAUSED';
   btn.classList.add('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
@@ -132,7 +132,7 @@ function doLoadRandom(): void {
   hookPhase.skip();
   controls.paused = true;
   const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = 'Play';
+  btn.textContent = '\u258C\u258C PAUSED';
   btn.classList.add('paused');
   sandboxPanel.reset();
   controls.selectedCell = null;
@@ -152,14 +152,17 @@ function doLoadRandom(): void {
 }
 
 function resetAllState(): void {
-  // Exit FF mode if active
+  // Exit warp mode if active — reset to 1x
   if (controls.renderSkip > 0) {
     controls.renderSkip = 0;
-    controls.tickInterval = 200;
+    controls.tickInterval = 500;
     controls.tickBudgetMs = 0;
     document.querySelectorAll<HTMLButtonElement>('.speed-btn')
-      .forEach(b => b.classList.toggle('active', b.dataset.preset === '2x'));
-    document.getElementById('btn-play-pause')!.classList.remove('ff-active');
+      .forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === 'play');
+        b.classList.remove('warp');
+      });
+    document.getElementById('btn-play-pause')!.classList.remove('warp-active');
   }
   resetHistory(history);
   lastEventSeq = 0;
@@ -238,42 +241,46 @@ function doTick(): void {
   }
 }
 
-const FF_BUDGET_MS = 15;  // max ms to spend ticking per frame in ff mode (no rendering)
-let wasFFActive = false;
+const WARP_BUDGET_MS = 15;  // max ms to spend ticking per frame in warp mode (no rendering)
+const TARGET_FRAME_MS = 15; // target frame time (leaves ~1.6ms margin for 60fps)
+const SAFETY_MARGIN_MS = 3; // headroom for GC, compositor, etc.
+let wasWarpActive = false;
+let lastRenderMs = 4;       // rolling estimate of render cost
 
 function loop(now: number): void {
   frameCount++;
-  const ffActive = controls.renderSkip > 0 && !controls.paused;
+  const warpActive = controls.renderSkip > 0 && !controls.paused;
 
-  // FF mode transitions
-  if (ffActive && !wasFFActive) {
+  // Warp mode transitions
+  if (warpActive && !wasWarpActive) {
     ffOverlay.show();
     speciesLabels.setVisible(false);
     terrainLabels.setVisible(false);
-  } else if (!ffActive && wasFFActive) {
+  } else if (!warpActive && wasWarpActive) {
     ffOverlay.hide();
     speciesLabels.setVisible(labelsToggle.checked);
     terrainLabels.setVisible(terrainToggle.checked);
     lastUITick = -1; // force full UI refresh
   }
-  wasFFActive = ffActive;
+  wasWarpActive = warpActive;
 
-  const shouldRender = !ffActive;
+  const shouldRender = !warpActive;
 
   if (!controls.paused) {
     // Clear event arrays once per frame so all ticks in a batch accumulate events
     clearFrameEvents(world);
     if (controls.renderSkip > 0) {
-      // FF: time-budgeted, no rendering
-      const deadline = performance.now() + FF_BUDGET_MS;
+      // Warp: time-budgeted, no rendering
+      const deadline = performance.now() + WARP_BUDGET_MS;
       while (performance.now() < deadline) {
         doTick();
       }
       lastTickTime = now;
       ffOverlay.update(world);
     } else if (controls.tickBudgetMs > 0) {
-      // Adaptive: run ticks within time budget, then render
-      const deadline = performance.now() + controls.tickBudgetMs;
+      // Fast: adaptive budget based on how long rendering takes
+      const tickBudget = Math.max(2, TARGET_FRAME_MS - lastRenderMs - SAFETY_MARGIN_MS);
+      const deadline = performance.now() + tickBudget;
       do { doTick(); } while (performance.now() < deadline);
       lastTickTime = now;
     } else if (now - lastTickTime >= controls.tickInterval) {
@@ -288,6 +295,7 @@ function loop(now: number): void {
   }
 
   if (shouldRender) {
+    const renderStart = performance.now();
     renderer.setHoveredSpecies(controls.hoveredSpecies);
     renderer.render(controls.selectedCell);
     if (!hookPhase.active) {
@@ -295,6 +303,8 @@ function loop(now: number): void {
       speciesLabels.updatePositions();
       terrainLabels.updatePositions();
     }
+    // Smooth render time estimate for adaptive tick budgeting
+    lastRenderMs = lastRenderMs * 0.8 + (performance.now() - renderStart) * 0.2;
   }
 
   // Only update UI when rendering and simulation has ticked or selected cell changed
