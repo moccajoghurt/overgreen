@@ -108,26 +108,18 @@ function createMapButton(id: string, name: string, onClick: () => void): HTMLBut
   const btn = document.createElement('button');
   btn.className = 'map-btn';
   btn.dataset.scenarioId = id;
-  const thumb = document.createElement('img');
-  thumb.className = 'map-btn-thumb';
-  thumb.alt = name;
-  thumb.src = `maps/${id}.png`;
-  thumb.onerror = () => {
+  btn.title = name;
+  const img = document.createElement('img');
+  img.className = 'map-btn-img';
+  img.alt = name;
+  img.src = `maps/${id}.png`;
+  img.onerror = () => {
     const fallback = document.createElement('div');
-    fallback.className = 'map-btn-thumb';
-    fallback.style.display = 'flex';
-    fallback.style.alignItems = 'center';
-    fallback.style.justifyContent = 'center';
-    fallback.style.fontSize = '14px';
-    fallback.style.color = '#555';
-    fallback.textContent = name.charAt(0).toUpperCase();
-    thumb.replaceWith(fallback);
+    fallback.className = 'map-btn-fallback';
+    fallback.textContent = name;
+    img.replaceWith(fallback);
   };
-  const label = document.createElement('span');
-  label.className = 'map-btn-label';
-  label.textContent = name;
-  btn.appendChild(thumb);
-  btn.appendChild(label);
+  btn.appendChild(img);
   btn.addEventListener('click', () => { onClick(); setActiveMapButton(id); });
   return btn;
 }
