@@ -98,48 +98,18 @@ function addGround(group: THREE.Group, radius = 1.5): void {
 }
 
 function addWaterDisc(group: THREE.Group): void {
-  const geo = new THREE.CylinderGeometry(1.5, 1.5, 0.04, 16);
+  const geo = new THREE.CylinderGeometry(GROUND_R, GROUND_R, 0.04, 16);
   const m = new THREE.Mesh(geo, mat(0x4a7a8a, { roughness: 0.3, transparent: true, opacity: 0.7 }));
   m.position.y = -0.02;
   group.add(m);
 }
 
 // ============================================================
-// CAMERA & GROUND PARAMS PER SUBTYPE
+// CAMERA — uniform for all cells so relative sizes are visible
 // ============================================================
-interface CellParams { camY: number; camDist: number; groundR: number }
-
-// Indexed 0-23 matching BUILDERS order
-const CELL_PARAMS: CellParams[] = [
-  // Grasses
-  { camY: 0.1,  camDist: 1.0, groundR: 0.5 },  // 0: Turfgrass
-  { camY: 0.9,  camDist: 3.5, groundR: 1.5 },  // 1: Tallgrass
-  { camY: 0.35, camDist: 2.2, groundR: 1.5 },  // 2: Bunchgrass
-  { camY: 1.2,  camDist: 4.2, groundR: 1.5 },  // 3: Bamboo
-  { camY: 0.1,  camDist: 1.0, groundR: 0.5 },  // 4: Spreading
-  { camY: 1.0,  camDist: 3.8, groundR: 1.5 },  // 5: Sedge
-  // Trees
-  { camY: 1.2,  camDist: 4.8, groundR: 2.0 },  // 6: Oak
-  { camY: 1.3,  camDist: 4.5, groundR: 1.5 },  // 7: Magnolia
-  { camY: 1.2,  camDist: 4.2, groundR: 1.5 },  // 8: Conifer
-  { camY: 1.4,  camDist: 5.2, groundR: 1.5 },  // 9: Tropical
-  { camY: 1.2,  camDist: 6.2, groundR: 1.5 },  // 10: Palm
-  { camY: 1.2,  camDist: 4.2, groundR: 1.5 },  // 11: Birch
-  // Shrubs
-  { camY: 0.35, camDist: 2.8, groundR: 1.5 },  // 12: Evergreen shrub
-  { camY: 0.6,  camDist: 3.5, groundR: 1.5 },  // 13: Deciduous shrub
-  { camY: 0.4,  camDist: 2.6, groundR: 1.5 },  // 14: Mediterranean
-  { camY: 0.4,  camDist: 3.0, groundR: 1.5 },  // 15: Thorny
-  { camY: 0.4,  camDist: 3.2, groundR: 1.5 },  // 16: Desert shrub
-  { camY: 0.5,  camDist: 3.5, groundR: 0   },  // 17: Mangrove (water, not ground)
-  // Succulents
-  { camY: 1.1,  camDist: 4.2, groundR: 1.5 },  // 18: Saguaro
-  { camY: 0.3,  camDist: 2.5, groundR: 1.5 },  // 19: Aloe
-  { camY: 0.3,  camDist: 2.5, groundR: 1.5 },  // 20: Caudiciform
-  { camY: 0.8,  camDist: 4.0, groundR: 1.5 },  // 21: Euphorbia
-  { camY: 0.1,  camDist: 1.3, groundR: 0.8 },  // 22: Ice Plant
-  { camY: 0.12, camDist: 1.8, groundR: 1.5 },  // 23: Epiphytic
-];
+const CAM_Y = 1.0;
+const CAM_DIST = 5.0;
+const GROUND_R = 0.5; // matches 1×1 sim cell (radius = half cell width)
 
 // Map string IDs to BUILDERS indices
 const ID_TO_INDEX: Record<string, number> = {
@@ -562,14 +532,13 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     const plant = arch.plants[col];
     const group = builders[plant.id]();
 
-    // Add ground platform or water disc
+    // Add ground platform or water disc (ground radius = sim cell size)
     const baseId = plant.id.replace('w', '');
     const idx = ID_TO_INDEX[baseId];
-    const params = CELL_PARAMS[idx];
     if (idx === 17) {
       addWaterDisc(group); // Mangrove
     } else {
-      addGround(group, params.groundR);
+      addGround(group, GROUND_R);
     }
 
     // Scene
@@ -582,12 +551,10 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3));
     scene.add(group);
 
-    // Camera
+    // Camera (uniform for all cells)
     const cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 500);
-    const d = params.camDist;
-    const cy = params.camY;
-    cam.position.set(d * 0.7, cy + d * 0.35, d * 0.7);
-    cam.lookAt(0, cy * 0.7, 0);
+    cam.position.set(CAM_DIST * 0.7, CAM_Y + CAM_DIST * 0.35, CAM_DIST * 0.7);
+    cam.lookAt(0, CAM_Y * 0.7, 0);
 
     // Viewport (WebGL y=0 is bottom)
     const vx = PAD + col * CELL_W;
