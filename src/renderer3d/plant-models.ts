@@ -56,7 +56,7 @@ function addTrunk(group: THREE.Group, x: number, y: number, z: number, rBot: num
 function buildTurfgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm = matDS(0x4a8a3a);
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 30; i++) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * 0.3;
     const h = 0.12 + Math.random() * 0.08;
@@ -150,17 +150,17 @@ function buildSpreading(): THREE.Group {
   const sm = mat(0x6a7a3a);
   for (let i = 0; i < 6; i++) {
     const a = i * Math.PI / 3 + Math.random() * 0.3;
-    const len = 0.2 + Math.random() * 0.15;
+    const len = 0.15 + Math.random() * 0.12;
     const stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 4), sm);
     stolon.position.set(Math.cos(a) * len / 2, 0.015, Math.sin(a) * len / 2);
     stolon.rotation.z = Math.PI / 2;
     stolon.rotation.y = -a;
     g.add(stolon);
-    for (let j = 0; j < 3; j++) {
-      const t = (j + 1) / 4;
+    for (let j = 0; j < 2; j++) {
+      const t = (j + 1) / 3;
       const sx = Math.cos(a) * len * t;
       const sz = Math.sin(a) * len * t;
-      for (let k = 0; k < 5; k++) {
+      for (let k = 0; k < 4; k++) {
         const h = 0.1 + Math.random() * 0.07;
         const geo = grassBlade(h, 0.02, 0.01);
         const m = new THREE.Mesh(geo, bm);
@@ -170,11 +170,11 @@ function buildSpreading(): THREE.Group {
       }
     }
   }
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 12; i++) {
     const h = 0.1 + Math.random() * 0.06;
     const geo = grassBlade(h, 0.025, 0.01);
     const m = new THREE.Mesh(geo, bm);
-    m.position.set((Math.random() - 0.5) * 0.15, h / 2, (Math.random() - 0.5) * 0.15);
+    m.position.set((Math.random() - 0.5) * 0.1, h / 2, (Math.random() - 0.5) * 0.1);
     m.rotation.y = Math.random() * Math.PI;
     g.add(m);
   }
@@ -829,20 +829,35 @@ const BUILDERS: (() => THREE.Group)[] = [
 ];
 
 /**
- * Target plant.height at which each model renders at its natural (scale=1) size.
- * Calibrated per subtype so that visual size matches the simulation's height range.
- * Grasses max ~2.0, trees max ~10.0, shrubs/succulents interpolated by woodiness.
- */
-/**
  * Single tunable constant: how many world units per 1 simulation height unit.
  * At 0.15, a mature tree (plant.height ~8) renders ~1.2 world units tall,
  * and short grass (plant.height ~0.5) renders ~0.075 world units tall.
  */
 const WORLD_SCALE = 0.15;
 
+/** Real-world heights in meters. Scale factors are computed dynamically
+ *  by measuring each model's actual bounding box height. */
+const TARGET_HEIGHTS_M: number[] = [
+  // Grasses (0-5)
+  0.10, 2.0, 0.50, 8.0, 0.08, 2.5,
+  // Trees (6-11)
+  15.0, 12.0, 20.0, 20.0, 18.0, 15.0,
+  // Shrubs (12-17)
+  1.5, 3.0, 1.0, 2.0, 2.0, 5.0,
+  // Succulents (18-23)
+  12.0, 0.5, 2.0, 6.0, 0.15, 0.3,
+];
+
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
     const group = build();
+
+    // Measure actual model height, compute exact scale factor
+    group.updateMatrixWorld(true);
+    const measureBox = new THREE.Box3().setFromObject(group);
+    const rawModelH = Math.max(0.01, measureBox.max.y);
+    group.scale.setScalar(TARGET_HEIGHTS_M[i] / rawModelH);
+
     const merged = mergeGroupGeometry(group);
     merged.computeBoundingBox();
     const bb = merged.boundingBox!;
