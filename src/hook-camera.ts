@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import type { MapControls } from 'three/addons/controls/MapControls.js';
 
 /**
- * Hook-phase camera choreography.
+ * Hook-phase camera choreography (time-based, independent of sim speed).
  *
- * Ticks 0-50:      Hold close-up near ground level, very slow orbit
- * Ticks 50-180:    easeOutCubic dolly out + pitch up to mid view
- * Ticks 180+:      Hold steady
- * On reveal:       Smooth animate to default view, re-enable controls
+ * 0-2s:        Hold close-up near ground level, very slow orbit
+ * 2-6s:        easeOutCubic dolly out + pitch up to mid view
+ * 6s+:         Hold steady at mid view
+ * On reveal:   Smooth animate to default view, re-enable controls
  */
 
 interface HookCameraOpts {
@@ -22,9 +22,8 @@ const DEFAULT_DISTANCE = 70; // where controls end up after reveal
 const CLOSE_PITCH = 0.4;    // ~23° elevation, near ground level
 const MID_PITCH = 0.9;      // ~52° elevation angle
 const ORBIT_SPEED = 0.002;  // radians per frame (slower for intimacy)
-const HOLD_TICKS = 50;      // hold close-up before dolly begins
-const DOLLY_START_TICK = HOLD_TICKS;
-const DOLLY_END_TICK = HOLD_TICKS + 130; // reach mid-view by tick 180
+const HOLD_MS = 2000;        // hold close-up before dolly begins
+const DOLLY_MS = 4000;       // dolly duration (reach mid-view at 6s)
 const REVEAL_DURATION_MS = 1200;
 
 function easeOutCubic(t: number): number {
@@ -36,6 +35,7 @@ export function createHookCamera(opts: HookCameraOpts) {
   let orbitAngle = Math.PI * 0.25; // start from a nice 45° angle
   let active = false;
   let revealing = false;
+  let startTime = 0;
   let revealStart = 0;
   let revealStartPos: THREE.Vector3 | null = null;
   let revealStartTarget: THREE.Vector3 | null = null;
@@ -47,6 +47,7 @@ export function createHookCamera(opts: HookCameraOpts) {
   function start(): void {
     active = true;
     revealing = false;
+    startTime = performance.now();
     mapControls.enabled = false;
 
     // Position camera close and low, looking at world center
@@ -59,13 +60,13 @@ export function createHookCamera(opts: HookCameraOpts) {
     camera.lookAt(mapControls.target);
   }
 
-  // Target distance/pitch computed from tick; actual values lerp toward them each frame
+  // Target distance/pitch computed from elapsed time; actual values lerp toward them each frame
   let targetDist = CLOSE_DISTANCE;
   let currentDist = CLOSE_DISTANCE;
   let targetPitch = CLOSE_PITCH;
   let currentPitch = CLOSE_PITCH;
 
-  function update(tick: number): void {
+  function update(): void {
     if (!active) return;
 
     if (revealing) {
@@ -73,12 +74,14 @@ export function createHookCamera(opts: HookCameraOpts) {
       return;
     }
 
-    // Compute target distance and pitch from tick
-    if (tick < DOLLY_START_TICK) {
+    const elapsed = performance.now() - startTime;
+
+    // Compute target distance and pitch from elapsed time
+    if (elapsed < HOLD_MS) {
       targetDist = CLOSE_DISTANCE;
       targetPitch = CLOSE_PITCH;
-    } else if (tick < DOLLY_END_TICK) {
-      const t = (tick - DOLLY_START_TICK) / (DOLLY_END_TICK - DOLLY_START_TICK);
+    } else if (elapsed < HOLD_MS + DOLLY_MS) {
+      const t = (elapsed - HOLD_MS) / DOLLY_MS;
       const ease = easeOutCubic(t);
       targetDist = CLOSE_DISTANCE + (MID_DISTANCE - CLOSE_DISTANCE) * ease;
       targetPitch = CLOSE_PITCH + (MID_PITCH - CLOSE_PITCH) * ease;

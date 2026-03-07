@@ -53,7 +53,7 @@ export const SIM = {
   WETLAND_ESTABLISHMENT_TICKS: 3,   // easy — abundant water, nutrients
   SOIL_ESTABLISHMENT_TICKS: 5,      // baseline
   HILL_ESTABLISHMENT_TICKS: 8,      // wind + thin soil
-  ARID_ESTABLISHMENT_TICKS: 10,     // drought stress
+  ARID_ESTABLISHMENT_TICKS: 7,      // drought stress
 
   // Seedling vigor dampening — compress or amplify seed-size advantage per terrain
   // >0 compresses toward 1.0 (productive: size doesn't matter)
@@ -119,14 +119,14 @@ export const SIM = {
   WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
-  ARID_WATER_RECHARGE: 0.2,
+  ARID_WATER_RECHARGE: 0.25,
   ARID_NUTRIENT_MAX: 1.5,
   ARID_LIGHT_BONUS: 0.2,
   // Water table depth per terrain (depth to saturated zone — roots below this access groundwater)
   SOIL_WATER_TABLE: 4.0,
   HILL_WATER_TABLE: 5.0,
   WETLAND_WATER_TABLE: 0.5,
-  ARID_WATER_TABLE: 5.0,
+  ARID_WATER_TABLE: 3.0,
   GROUNDWATER_ABSORPTION_RATE: 0.3,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
@@ -143,7 +143,7 @@ export const SIM = {
 
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
   ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress
-  ARID_MAINT_LEAF_MULT: 3.0,     // transpiration water loss
+  ARID_MAINT_LEAF_MULT: 2.0,     // transpiration water loss
 
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,

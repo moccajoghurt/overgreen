@@ -13,8 +13,8 @@ import { ClimateEra } from '../types/environment';
  *   - River: east-west at row ~37, gentle curves
  *   - Northern hills: descend to within ~8 cells of the river
  *   - South of river: a diagonal boundary splits the land:
- *     - Southwest: wetlands (river-fed marshlands)
- *     - Southeast: large arid desert (visually dominant empty zone)
+ *     - Far southwest: small wetland pocket
+ *     - Majority: arid desert (maximizes river-vs-desert visual contrast)
  *   - Spawn at (40,40): soil at the triple point where hill, wetland, and arid meet
  *   - Oasis: compact wetland pocket in the arid southeast
  */
@@ -130,10 +130,9 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
   }
 
   // ── Diagonal boundary: wetland in SW, arid in SE ──
-  // Line runs from roughly (50, river+6) to (25, 79)
-  // x < boundaryX → wetland, x > boundaryX → arid
-  // Shifted west to enlarge arid zone — makes the barren desert more visually prominent
-  const boundaryX = 50 - (y - biomeEdge) * 0.7 + (fbm(x + 200, y + 200, 12) - 0.5) * 10;
+  // Small wetland pocket in far SW; most of south is arid desert.
+  // This maximizes the "river = life, desert = barren" visual contrast.
+  const boundaryX = 25 - (y - biomeEdge) * 0.25 + (fbm(x + 200, y + 200, 12) - 0.5) * 8;
 
   if (x < boundaryX) {
     // ── Southwest wetlands ──

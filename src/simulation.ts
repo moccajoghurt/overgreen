@@ -397,6 +397,7 @@ function phaseUpdatePlants(world: World): void {
     else if (cell.terrainType === TerrainType.Wetland) estTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
     else if (cell.terrainType === TerrainType.Arid) estTicks = SIM.ARID_ESTABLISHMENT_TICKS;
     const establishing = plant.age < estTicks;
+
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
     const energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
     const maintenance = calculateMaintenance(plant, world, isDiseased);

@@ -20,7 +20,7 @@ type HookState = 'idle' | 'waiting' | 'growing' | 'revealing' | 'done';
 
 const STORAGE_KEY = 'overgreen-hook-seen';
 const REVEAL_SPECIES_THRESHOLD = 3;
-const REVEAL_TICK_MIN = 250;
+const REVEAL_ELAPSED_MIN_MS = 8000; // don't reveal until camera has pulled back enough
 const REVEAL_SEQUENCE_MS = 6000; // total reveal animation time
 
 interface HookPhaseOpts {
@@ -35,6 +35,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   const { container, camera, mapControls, controls, onRevealComplete } = opts;
 
   let state: HookState = 'idle';
+  let hookStartTime = 0;
   let revealStartTime = 0;
   let commentaryTimer = 0;
   let lastCommentaryText = '';
@@ -65,9 +66,9 @@ export function createHookPhase(opts: HookPhaseOpts) {
 
   // Speed pill click handlers
   const HOOK_SPEEDS: Record<string, { tickInterval: number; ticksPerFrame: number }> = {
-    '1x': { tickInterval: 500, ticksPerFrame: 0 },
-    '2x': { tickInterval: 200, ticksPerFrame: 0 },
-    '5x': { tickInterval: 67,  ticksPerFrame: 0 },
+    '2x':  { tickInterval: 200, ticksPerFrame: 0 },
+    '5x':  { tickInterval: 67,  ticksPerFrame: 0 },
+    '10x': { tickInterval: 0,   ticksPerFrame: 4 },
   };
 
   speedBtns.forEach(btn => {
@@ -108,6 +109,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
     }
 
     state = 'waiting';
+    hookStartTime = performance.now();
     speciationCount = 0;
     shownPopMilestone = false;
     cameraHandedOver = false;
@@ -119,10 +121,10 @@ export function createHookPhase(opts: HookPhaseOpts) {
     commentaryEl.classList.remove('visible');
     speciationEl.classList.remove('visible');
     speedEl.classList.remove('visible');
-    // Default hook speed: 5x for fast time-lapse to moneyshot
-    controls.tickInterval = 67;
-    controls.ticksPerFrame = 0;
-    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '5x'));
+    // Default hook speed: 10x for fast time-lapse to moneyshot
+    controls.tickInterval = 0;
+    controls.ticksPerFrame = 4;
+    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '10x'));
 
     // Start camera choreography
     hookCam.start();
@@ -156,8 +158,8 @@ export function createHookPhase(opts: HookPhaseOpts) {
   function update(world: World, _history: History): void {
     if (state === 'idle' || state === 'done') return;
 
-    // Update camera
-    hookCam.update(world.tick);
+    // Update camera (time-based, independent of sim speed)
+    hookCam.update();
 
     if (state === 'waiting') {
       // Transition to growing once plants > 10
@@ -173,8 +175,9 @@ export function createHookPhase(opts: HookPhaseOpts) {
       const speciesCount = world.speciesNames.size;
       statsEl.textContent = `${world.plants.size} plants · ${speciesCount} species`;
 
-      // Check reveal trigger: 3+ species and tick > 200
-      if (speciesCount >= REVEAL_SPECIES_THRESHOLD && world.tick > REVEAL_TICK_MIN) {
+      // Check reveal trigger: 3+ species and enough real time elapsed for camera pullback
+      const hookElapsed = performance.now() - hookStartTime;
+      if (speciesCount >= REVEAL_SPECIES_THRESHOLD && hookElapsed > REVEAL_ELAPSED_MIN_MS) {
         beginReveal();
       }
     }
