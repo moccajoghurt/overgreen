@@ -4,7 +4,7 @@ import {
   createSpeciesCentroid, addToCentroid,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
-import { classifySubtype } from './renderer3d/subtypes';
+import { classifySubtype } from './types/subtypes';
 import { speciesColorToRgb } from './ui-utils';
 import { World, Genome, TerrainType } from './types';
 import { Controls } from './controls';

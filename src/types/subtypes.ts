@@ -1,4 +1,4 @@
-import { Genome, Archetype, archetype } from '../types';
+import { Genome, Archetype, archetype } from './core';
 
 // ── SubtypeId enum (24 subtypes, 6 per archetype) ──
 
@@ -153,4 +153,3 @@ export function classifySubtype(genome: Genome): SubtypeId {
     default: return classifyTree(genome);
   }
 }
-

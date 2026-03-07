@@ -9,7 +9,7 @@ import { generateSpeciesName } from './species-names';
 import { phaseEnvironment } from './simulation/environment';
 import { getEffectiveEraMultipliers } from './simulation/eras';
 import { phaseHerbivores } from './simulation/herbivores';
-import { classifySubtype } from './renderer3d/subtypes';
+import { classifySubtype } from './types/subtypes';
 
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants, seedSinglePlant } from './simulation/plants';
@@ -360,7 +360,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     });
   }
 
-  plant.energy -= (seedBudget + growthBudget);
+  plant.energy -= Math.min(seedBudget + growthBudget, surplus);
 }
 
 function phaseUpdatePlants(world: World): void {

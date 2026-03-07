@@ -5,7 +5,7 @@ import {
   easeOutCubic, lerp, plantHash,
 } from './state';
 import { computePlantTint } from './plant-colors';
-import { classifySubtype, subtypeArchetype } from './subtypes';
+import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 
 const SUBTYPE_COUNT = 24;
 

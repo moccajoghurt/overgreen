@@ -4,7 +4,7 @@ import {
   Environment, DiseaseEvent, WeatherOverlay,
 } from '../types';
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
-import { genomeDistance } from './plants';
+import { genomeDistance, removeFromCentroid } from './plants';
 import { advanceEra, getEffectiveEraMultipliers } from './eras';
 
 // Season target values: [water, light, leafMaint, growth, seed]
@@ -111,6 +111,13 @@ function killPlantByFire(world: World, x: number, y: number): void {
       offspringCount: plant.offspringCount,
       generation: plant.generation,
     });
+    // Remove from species centroid (same as phaseDeath)
+    const centroid = world.speciesCentroids.get(plant.speciesId);
+    if (centroid) {
+      removeFromCentroid(centroid, plant.genome);
+      if (centroid.count <= 0) world.speciesCentroids.delete(plant.speciesId);
+    }
+
     plant.energy = 0;
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
@@ -133,6 +140,7 @@ function advanceFires(world: World): void {
 
     // Decay existing burning cells and spread to neighbors
     const toScorch: string[] = [];
+    const newFireCells: Array<[string, number]> = [];
     for (const [key, remaining] of fire.cells) {
       if (remaining <= 1) {
         toScorch.push(key);
@@ -161,11 +169,15 @@ function advanceFires(world: World): void {
           const leafFuel = plant.leafArea / SIM.MAX_LEAF_AREA;
           const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
           if (Math.random() < spreadChance) {
-            fire.cells.set(nKey, randomIntRange(3, 6)); // burn 3-5 ticks
+            newFireCells.push([nKey, randomIntRange(3, 6)]);
             killPlantByFire(world, nx, ny);
           }
         }
       }
+    }
+    // Apply buffered fire spread (prevents multi-hop cascade in single tick)
+    for (const [nk, dur] of newFireCells) {
+      if (!fire.cells.has(nk)) fire.cells.set(nk, dur);
     }
 
     // Mark burned-out cells as scorched

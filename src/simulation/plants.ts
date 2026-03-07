@@ -4,7 +4,7 @@ import {
   Archetype, archetype,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
-import { classifySubtype } from '../renderer3d/subtypes';
+import { classifySubtype } from '../types/subtypes';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;

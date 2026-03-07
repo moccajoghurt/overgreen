@@ -1,5 +1,5 @@
 import { Genome, Archetype, archetype } from './types';
-import { SUBTYPE_NAMES } from './renderer3d/subtypes';
+import { SUBTYPE_NAMES } from './types/subtypes';
 
 const ADJECTIVES: string[][] = [
   // rootPriority
