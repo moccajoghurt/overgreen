@@ -829,43 +829,50 @@ const BUILDERS: (() => THREE.Group)[] = [
 ];
 
 /**
- * Single tunable constant: how many world units per 1 simulation height unit.
- * At 0.15, a mature tree (plant.height ~8) renders ~1.2 world units tall,
- * and short grass (plant.height ~0.5) renders ~0.075 world units tall.
+ * The simulation height at which each subtype renders at 1× authored model scale.
+ * This is a design tuning knob, not derived from geometry.
+ *
+ * Instance scale: s = plant.height / REF_SIM_HEIGHT[subtype]
+ * Rendered height = authored_model_height × s
+ *
+ * Example: Oak (model ~2.75 units) at sim h=8 → 2.75 × (8/10) = 2.2 world units
+ *          Turfgrass (model ~0.2 units) at sim h=1 → 0.2 × (1/1.5) = 0.13 world units
  */
-const WORLD_SCALE = 0.15;
-
-/** Real-world heights in meters. Scale factors are computed dynamically
- *  by measuring each model's actual bounding box height. */
-const TARGET_HEIGHTS_M: number[] = [
+const REF_SIM_HEIGHT: number[] = [
   // Grasses (0-5)
-  0.10, 2.0, 0.50, 8.0, 0.08, 2.5,
+  1.5,   // 0: Turfgrass — short lawn grass, full size at low sim height
+  8.0,   // 1: Tallgrass — prairie grass
+  4.0,   // 2: Bunchgrass — tussock
+  8.0,   // 3: Bamboo — tall culm
+  1.0,   // 4: Spreading — ground cover
+  7.0,   // 5: Sedge — papyrus
   // Trees (6-11)
-  15.0, 12.0, 20.0, 20.0, 18.0, 15.0,
+  10.0,  // 6: Oak — large broadleaf
+  10.0,  // 7: Magnolia — medium tree
+  10.0,  // 8: Conifer — tall conifer
+  12.0,  // 9: Tropical — tall tropical
+  9.0,   // 10: Palm — tall palm
+  9.0,   // 11: Birch — medium tree
   // Shrubs (12-17)
-  1.5, 3.0, 1.0, 2.0, 2.0, 5.0,
+  6.0,   // 12: Evergreen Shrub — hedge
+  6.0,   // 13: Deciduous Shrub — multi-stem
+  5.0,   // 14: Mediterranean — mound
+  5.0,   // 15: Thorny — spiny shrub
+  5.0,   // 16: Desert Shrub — open shrub
+  7.0,   // 17: Mangrove — small tree
   // Succulents (18-23)
-  12.0, 0.5, 2.0, 6.0, 0.15, 0.3,
+  8.0,   // 18: Saguaro — tall cactus
+  2.0,   // 19: Aloe — rosette
+  4.0,   // 20: Caudiciform — swollen-trunk
+  9.0,   // 21: Euphorbia — candelabra
+  1.0,   // 22: Ice Plant — ground-level
+  1.5,   // 23: Epiphytic — trailing
 ];
 
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
     const group = build();
-
-    // Measure actual model height, compute exact scale factor
-    group.updateMatrixWorld(true);
-    const measureBox = new THREE.Box3().setFromObject(group);
-    const rawModelH = Math.max(0.01, measureBox.max.y);
-    group.scale.setScalar(TARGET_HEIGHTS_M[i] / rawModelH);
-
     const merged = mergeGroupGeometry(group);
-    merged.computeBoundingBox();
-    const bb = merged.boundingBox!;
-    const rawH = Math.max(0.01, bb.max.y - bb.min.y);
-
-    // refH = rawH / WORLD_SCALE → scale = plant.height / refH = plant.height * WORLD_SCALE / rawH
-    // All subtypes get the same world-units-per-sim-height mapping.
-    const refH = rawH / WORLD_SCALE;
 
     // Dispose all source geometries/materials
     group.traverse((child) => {
@@ -875,6 +882,6 @@ export function buildSubtypeModels(): SubtypeModel[] {
       }
     });
 
-    return { geometry: merged, referenceHeight: refH };
+    return { geometry: merged, referenceHeight: REF_SIM_HEIGHT[i] };
   });
 }
