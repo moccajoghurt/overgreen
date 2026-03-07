@@ -1,7 +1,6 @@
 import {
   Genome, Plant, SIM, SpeciesCentroid,
   SpeciesColor, TerrainType, World, getPlantConstants,
-  Archetype, archetype,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
 import { classifySubtype } from '../types/subtypes';

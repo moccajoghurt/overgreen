@@ -10,4 +10,6 @@ export interface Renderer {
   markPlantsDirty(): void;
   rebuildTerrain(): void;
   rebuildWater(): void;
+  camera: import('three').PerspectiveCamera;
+  mapControls: import('three/addons/controls/MapControls.js').MapControls;
 }

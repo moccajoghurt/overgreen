@@ -4,6 +4,7 @@ import { speciesColorToRgb } from './ui-utils';
 const MAX_DOM_EVENTS = 50;
 
 const TYPE_STYLES: Record<SimEventType, string> = {
+  speciation: 'color:#af8',
   extinction: 'color:#f66',
   population_record: 'color:#8f8',
   notable_age: 'color:#8cf',

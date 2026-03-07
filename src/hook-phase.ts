@@ -28,13 +28,11 @@ interface HookPhaseOpts {
   camera: THREE.PerspectiveCamera;
   mapControls: MapControls;
   controls: Controls;
-  worldWidth: number;
-  worldHeight: number;
   onRevealComplete: () => void;
 }
 
 export function createHookPhase(opts: HookPhaseOpts) {
-  const { container, camera, mapControls, controls, worldWidth, worldHeight, onRevealComplete } = opts;
+  const { container, camera, mapControls, controls, onRevealComplete } = opts;
 
   let state: HookState = 'idle';
   let revealStartTime = 0;

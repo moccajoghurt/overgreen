@@ -42,8 +42,6 @@ const hookPhase = createHookPhase({
   camera: renderer.camera,
   mapControls: renderer.mapControls,
   controls,
-  worldWidth: world.width,
-  worldHeight: world.height,
   onRevealComplete: () => {
     // Force UI refresh
     lastUITick = -1;
