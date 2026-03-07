@@ -95,19 +95,25 @@ function phaseCalculateLight(world: World): void {
       const myHeight = myPlant?.alive ? myPlant.height : 0;
 
       let shadeSum = 0;
-      for (const [dx, dy] of NEIGHBORS) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (!inBounds(nx, ny, world.width, world.height)) continue;
-        const neighbor = world.grid[ny][nx];
-        if (neighbor.plantId === null) continue;
-        const nPlant = world.plants.get(neighbor.plantId);
-        if (nPlant && nPlant.alive && nPlant.height > myHeight) {
-          // Shade scales with height difference — towering neighbors shade more
-          const diff = nPlant.height - myHeight;
-          const npc = getPlantConstants(nPlant.genome);
-          const nShadow = npc.shadowReduction * eraMults.shadowMult;
-          shadeSum += nShadow * Math.min(1, diff / npc.shadowHeightScale);
+      // Extended shade radius: tall plants shade up to 2 cells away
+      for (let sdy = -2; sdy <= 2; sdy++) {
+        for (let sdx = -2; sdx <= 2; sdx++) {
+          if (sdx === 0 && sdy === 0) continue;
+          const nx = x + sdx;
+          const ny = y + sdy;
+          if (!inBounds(nx, ny, world.width, world.height)) continue;
+          const neighbor = world.grid[ny][nx];
+          if (neighbor.plantId === null) continue;
+          const nPlant = world.plants.get(neighbor.plantId);
+          if (nPlant && nPlant.alive && nPlant.height > myHeight) {
+            const dist = Math.max(Math.abs(sdx), Math.abs(sdy));
+            // Only tall plants cast shade at distance 2 (canopy reach)
+            if (dist > 1 && nPlant.height < 3.0) continue;
+            const diff = nPlant.height - myHeight;
+            const npc = getPlantConstants(nPlant.genome);
+            const nShadow = npc.shadowReduction * eraMults.shadowMult / dist;
+            shadeSum += nShadow * Math.min(1, diff / npc.shadowHeightScale);
+          }
         }
       }
       let rawBase = SIM.BASE_LIGHT;
