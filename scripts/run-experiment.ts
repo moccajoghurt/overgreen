@@ -1,5 +1,5 @@
 import { createWorld } from '../src/simulation';
-import { tickWorld } from '../src/simulation';
+import { tickWorld, clearFrameEvents } from '../src/simulation';
 import { loadScenario } from '../src/scenario-loader';
 import { SCENARIOS } from '../src/scenarios';
 import { SIM } from '../src/types';
@@ -64,6 +64,7 @@ let accumulator = createAccumulator();
 const t0 = performance.now();
 
 for (let t = 1; t <= totalTicks; t++) {
+  clearFrameEvents(world);
   tickWorld(world);
   accumulateTick(accumulator, world);
 

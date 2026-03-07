@@ -1,6 +1,6 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
 import { ERA_NAMES } from './simulation/eras';
-import { createWorld, seedInitialPlants, seedSinglePlant, tickWorld, spawnFire, spawnDisease } from './simulation';
+import { createWorld, seedInitialPlants, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { updateInspector } from './inspector';
@@ -76,7 +76,7 @@ const diagLogger = createDiagnosticLogger();
 // Expose for programmatic access (experiments)
 (window as any).__diagLogger = diagLogger;
 (window as any).__world = world;
-(window as any).__doTick = () => { tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
+(window as any).__doTick = () => { clearFrameEvents(world); tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
 (window as any).__updateUI = () => { lastUITick = -1; updateUI(); };
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);
@@ -261,6 +261,8 @@ function loop(now: number): void {
   const shouldRender = !ffActive;
 
   if (!controls.paused) {
+    // Clear event arrays once per frame so all ticks in a batch accumulate events
+    clearFrameEvents(world);
     if (controls.renderSkip > 0) {
       // FF: time-budgeted, no rendering
       const deadline = performance.now() + FF_BUDGET_MS;

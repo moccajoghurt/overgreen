@@ -630,11 +630,16 @@ function phaseDecomposition(world: World): void {
   }
 }
 
-export function tickWorld(world: World): void {
+/** Clear renderer event arrays. Call once per frame before the tick batch. */
+export function clearFrameEvents(world: World): void {
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
-  world.deathEvents.length = 0;
   world.fireDeathEvents.length = 0;
+}
+
+export function tickWorld(world: World): void {
+  // Per-tick arrays consumed by history/diagnostics — must clear each tick
+  world.deathEvents.length = 0;
   world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
   world.speciationEvents.length = 0;
