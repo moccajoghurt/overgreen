@@ -147,6 +147,9 @@ export const SIM = {
   DEFENSE_HERBIVORE_DAMAGE: 0.3,
   DEFENSE_MAINTENANCE_RATE: 0.05,
 
+  // Reproductive maintenance — ongoing cost for maintaining floral/fruiting structures
+  REPRODUCTIVE_MAINTENANCE_RATE: 0.04,
+
   // Water storage
   WATER_STORAGE_CAPACITY: 5.0,
   WATER_STORAGE_MAINTENANCE: 0.04,

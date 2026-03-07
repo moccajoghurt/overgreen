@@ -252,7 +252,8 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
     + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
-    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult;
+    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult
+    + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE;
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
   return maintenance;
 }
