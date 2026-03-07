@@ -14,9 +14,9 @@ import { ClimateEra } from '../types/environment';
  *   - Northern hills: descend to within ~8 cells of the river
  *   - South of river: a diagonal boundary splits the land:
  *     - Southwest: wetlands (river-fed marshlands)
- *     - Southeast: arid desert
+ *     - Southeast: large arid desert (visually dominant empty zone)
  *   - Spawn at (40,40): soil at the triple point where hill, wetland, and arid meet
- *   - Oasis: wetland pocket deep in the arid southeast
+ *   - Oasis: compact wetland pocket in the arid southeast
  */
 export const genesis: Scenario = (() => {
   const size = 80;
@@ -130,9 +130,10 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
   }
 
   // ── Diagonal boundary: wetland in SW, arid in SE ──
-  // Line runs from roughly (60, river+6) to (15, 79)
+  // Line runs from roughly (50, river+6) to (25, 79)
   // x < boundaryX → wetland, x > boundaryX → arid
-  const boundaryX = 58 - (y - biomeEdge) * 0.8 + (fbm(x + 200, y + 200, 12) - 0.5) * 10;
+  // Shifted west to enlarge arid zone — makes the barren desert more visually prominent
+  const boundaryX = 50 - (y - biomeEdge) * 0.7 + (fbm(x + 200, y + 200, 12) - 0.5) * 10;
 
   if (x < boundaryX) {
     // ── Southwest wetlands ──
@@ -144,8 +145,8 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
   // Oasis: wetland pocket deep in the arid zone
   const oasisCx = 60;
   const oasisCy = 65;
-  const odx = (x - oasisCx) / 8;
-  const ody = (y - oasisCy) / 7;
+  const odx = (x - oasisCx) / 6;
+  const ody = (y - oasisCy) / 5.5;
   const oasisDist = odx * odx + ody * ody;
   const oasisNoise = fbm(x + 55, y + 99, 6) * 0.4;
   if (oasisDist + oasisNoise < 1.0) {

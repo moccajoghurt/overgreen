@@ -4,9 +4,9 @@ import type { MapControls } from 'three/addons/controls/MapControls.js';
 /**
  * Hook-phase camera choreography.
  *
- * Ticks 0-120:     Hold close-up near ground level, very slow orbit
- * Ticks 120-320:   easeOutCubic dolly out + pitch up to mid view
- * Ticks 320+:      Hold steady
+ * Ticks 0-50:      Hold close-up near ground level, very slow orbit
+ * Ticks 50-180:    easeOutCubic dolly out + pitch up to mid view
+ * Ticks 180+:      Hold steady
  * On reveal:       Smooth animate to default view, re-enable controls
  */
 
@@ -22,9 +22,9 @@ const DEFAULT_DISTANCE = 70; // where controls end up after reveal
 const CLOSE_PITCH = 0.4;    // ~23° elevation, near ground level
 const MID_PITCH = 0.9;      // ~52° elevation angle
 const ORBIT_SPEED = 0.002;  // radians per frame (slower for intimacy)
-const HOLD_TICKS = 120;     // hold close-up before dolly begins
+const HOLD_TICKS = 50;      // hold close-up before dolly begins
 const DOLLY_START_TICK = HOLD_TICKS;
-const DOLLY_END_TICK = HOLD_TICKS + 200;
+const DOLLY_END_TICK = HOLD_TICKS + 130; // reach mid-view by tick 180
 const REVEAL_DURATION_MS = 1200;
 
 function easeOutCubic(t: number): number {

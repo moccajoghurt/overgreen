@@ -23,15 +23,16 @@ const URL = `http://localhost:${PORT}`;
 const OUT = 'screenshots';
 
 // Time-based keyframes (seconds after page load)
+// Hook runs at 5x (~15 ticks/sec), camera reaches mid-view by tick 180 (~12s)
 const KEYFRAMES = [
   { sec: 0,  label: 'First paint — close-up, near ground' },
   { sec: 2,  label: '2s — title card: "Overgreen"' },
-  { sec: 5,  label: '5s — post-card, growth starting' },
-  { sec: 10, label: '10s — colony expanding' },
-  { sec: 20, label: '20s — approaching speciation' },
-  { sec: 35, label: '35s — speciation commentary' },
-  { sec: 50, label: '50s — reveal expected' },
-  { sec: 65, label: '65s — post-reveal' },
+  { sec: 5,  label: '5s — subtitle, colony sprouting' },
+  { sec: 8,  label: '8s — camera pulling back, spreading' },
+  { sec: 12, label: '12s — mid-view, biome differentiation' },
+  { sec: 17, label: '17s — moneyshot: river green, arid empty' },
+  { sec: 22, label: '22s — reveal expected' },
+  { sec: 30, label: '30s — post-reveal, full UI' },
 ];
 
 await mkdir(OUT, { recursive: true });

@@ -20,7 +20,7 @@ type HookState = 'idle' | 'waiting' | 'growing' | 'revealing' | 'done';
 
 const STORAGE_KEY = 'overgreen-hook-seen';
 const REVEAL_SPECIES_THRESHOLD = 3;
-const REVEAL_TICK_MIN = 200;
+const REVEAL_TICK_MIN = 250;
 const REVEAL_SEQUENCE_MS = 6000; // total reveal animation time
 
 interface HookPhaseOpts {
@@ -121,8 +121,10 @@ export function createHookPhase(opts: HookPhaseOpts) {
     commentaryEl.classList.remove('visible');
     speciationEl.classList.remove('visible');
     speedEl.classList.remove('visible');
-    // Reset speed pill active state
-    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '2x'));
+    // Default hook speed: 5x for fast time-lapse to moneyshot
+    controls.tickInterval = 67;
+    controls.ticksPerFrame = 0;
+    speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '5x'));
 
     // Start camera choreography
     hookCam.start();
