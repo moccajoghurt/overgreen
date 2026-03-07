@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   BUILDERS,
   mat, jitter, grassBlade, addCanopy, addTrunk,
+  scaleToTarget, TARGET_MODEL_HEIGHTS,
 } from './renderer3d/plant-models';
 
 // ============================================================
@@ -105,10 +106,69 @@ function addWaterDisc(group: THREE.Group): void {
 }
 
 // ============================================================
+// REAL-WORLD HEIGHTS (for display labels + ruler)
+// ============================================================
+const REAL_HEIGHTS_M: number[] = [
+  // Grasses (0-5)
+  0.10, 2.0, 0.50, 8.0, 0.08, 2.5,
+  // Trees (6-11)
+  15.0, 12.0, 20.0, 20.0, 18.0, 15.0,
+  // Shrubs (12-17)
+  1.5, 3.0, 1.0, 2.0, 2.0, 5.0,
+  // Succulents (18-23)
+  12.0, 0.5, 2.0, 6.0, 0.15, 0.3,
+];
+
+function formatHeight(m: number): string {
+  if (m >= 1) return m + 'm';
+  return Math.round(m * 100) + 'cm';
+}
+
+/** Fixed scale: 1 real meter = 1/3 game unit (ground disc = 1 unit = 3m). */
+const M_TO_UNITS = 1 / 3;
+
+/** Add a fixed-scale reference ruler showing real-world meters. */
+function addRuler(scene: THREE.Scene, realH: number): void {
+  const rulerMat = new THREE.MeshBasicMaterial({ color: 0xaa6633 });
+  const rx = -1.5, rz = 1.5;
+  const rulerH = realH * M_TO_UNITS;
+
+  // Vertical bar
+  const barGeo = new THREE.BoxGeometry(0.02, rulerH, 0.02);
+  const bar = new THREE.Mesh(barGeo, rulerMat);
+  bar.position.set(rx, rulerH / 2, rz);
+  scene.add(bar);
+
+  // Bottom and top caps
+  for (const y of [0, rulerH]) {
+    const capGeo = new THREE.BoxGeometry(0.15, 0.015, 0.02);
+    const cap = new THREE.Mesh(capGeo, rulerMat);
+    cap.position.set(rx, y, rz);
+    scene.add(cap);
+  }
+
+  // Tick marks at regular meter intervals
+  let tickInterval: number;
+  if (realH >= 10) tickInterval = 5;
+  else if (realH >= 2) tickInterval = 1;
+  else if (realH >= 0.5) tickInterval = 0.25;
+  else if (realH >= 0.1) tickInterval = 0.05;
+  else tickInterval = 0.02;
+
+  for (let m = tickInterval; m < realH - tickInterval * 0.1; m += tickInterval) {
+    const y = m * M_TO_UNITS;
+    const tickGeo = new THREE.BoxGeometry(0.08, 0.01, 0.02);
+    const tick = new THREE.Mesh(tickGeo, rulerMat);
+    tick.position.set(rx, y, rz);
+    scene.add(tick);
+  }
+}
+
+// ============================================================
 // CAMERA — uniform for all cells so relative sizes are visible
 // ============================================================
-const CAM_Y = 1.0;
-const CAM_DIST = 5.0;
+const CAM_Y = 3.0;
+const CAM_DIST = 14.0;
 const GROUND_R = 0.5; // matches 1×1 sim cell (radius = half cell width)
 
 // Map string IDs to BUILDERS indices
@@ -530,11 +590,16 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
   const arch = ARCHETYPES[row];
   for (let col = 0; col < arch.plants.length; col++) {
     const plant = arch.plants[col];
-    const group = builders[plant.id]();
+    const plantGroup = builders[plant.id]();
 
-    // Add ground platform or water disc (ground radius = sim cell size)
+    // Scale plant to correct game-world proportions
     const baseId = plant.id.replace('w', '');
     const idx = ID_TO_INDEX[baseId];
+    scaleToTarget(plantGroup, idx);
+
+    // Wrapper so ground disc isn't affected by plant scale
+    const group = new THREE.Group();
+    group.add(plantGroup);
     if (idx === 17) {
       addWaterDisc(group); // Mangrove
     } else {
@@ -550,6 +615,9 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     scene.add(dir);
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3));
     scene.add(group);
+
+    // Scale ruler (added to scene, not group, so it doesn't rotate)
+    addRuler(scene, REAL_HEIGHTS_M[idx]);
 
     // Camera (uniform for all cells)
     const cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 500);
@@ -613,7 +681,7 @@ function drawLabels(): void {
       ctx.textAlign = 'center';
       ctx.fillText(p.id, bx + 20, by + 17);
 
-      // Name + species
+      // Name + species + real-world height
       ctx.font = 'bold 13px "Segoe UI", sans-serif';
       ctx.fillStyle = '#1e1e1e';
       ctx.textAlign = 'center';
@@ -621,6 +689,11 @@ function drawLabels(): void {
       ctx.font = 'italic 11px "Segoe UI", sans-serif';
       ctx.fillStyle = '#5a5a5a';
       ctx.fillText(p.species, cx, labelY + 34);
+      const baseId2 = p.id.replace('w', '');
+      const idx2 = ID_TO_INDEX[baseId2];
+      ctx.font = 'bold 11px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#aa6633';
+      ctx.fillText(formatHeight(REAL_HEIGHTS_M[idx2]), cx, labelY + 50);
     }
   }
 }

@@ -832,6 +832,54 @@ export const BUILDERS: (() => THREE.Group)[] = [
 ];
 
 /**
+ * Target game-world heights (units) for each model.
+ * Based on real-world heights at 1m = 1/3 game unit, with a floor
+ * of ~0.08 so ground-cover plants remain visible in the sim.
+ */
+/**
+ * Proportional scale: 1 real meter = 1/3 game unit.
+ * Small plants floored at ~0.08 so they stay visible in the sim.
+ */
+export const TARGET_MODEL_HEIGHTS: number[] = [
+  // Grasses (0-5)          real → true scale (floor 0.08)
+  0.08,   // 0: Turfgrass     0.10m → 0.033 (floored)
+  0.67,   // 1: Tallgrass     2.0m  → 0.67
+  0.17,   // 2: Bunchgrass    0.50m → 0.17
+  2.67,   // 3: Bamboo        8.0m  → 2.67
+  0.08,   // 4: Spreading     0.08m → 0.027 (floored)
+  0.83,   // 5: Sedge         2.5m  → 0.83
+  // Trees (6-11)
+  5.00,   // 6: Oak           15m   → 5.0
+  4.00,   // 7: Magnolia      12m   → 4.0
+  6.67,   // 8: Conifer       20m   → 6.67
+  6.67,   // 9: Tropical      20m   → 6.67
+  6.00,   // 10: Palm         18m   → 6.0
+  5.00,   // 11: Birch        15m   → 5.0
+  // Shrubs (12-17)
+  0.50,   // 12: Ev. Shrub    1.5m  → 0.50
+  1.00,   // 13: Dec. Shrub   3.0m  → 1.0
+  0.33,   // 14: Mediterranean 1.0m → 0.33
+  0.67,   // 15: Thorny       2.0m  → 0.67
+  0.67,   // 16: Desert Shrub 2.0m  → 0.67
+  1.67,   // 17: Mangrove     5.0m  → 1.67
+  // Succulents (18-23)
+  4.00,   // 18: Saguaro      12m   → 4.0
+  0.17,   // 19: Aloe         0.5m  → 0.17
+  0.67,   // 20: Caudiciform  2.0m  → 0.67
+  2.00,   // 21: Euphorbia    6.0m  → 2.0
+  0.08,   // 22: Ice Plant    0.15m → 0.05 (floored)
+  0.10,   // 23: Epiphytic    0.3m  → 0.10
+];
+
+/** Scale a model group to its target game-world height using Box3 measurement. */
+export function scaleToTarget(group: THREE.Group, subtypeIndex: number): void {
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(group);
+  const rawH = Math.max(0.01, box.max.y);
+  group.scale.setScalar(TARGET_MODEL_HEIGHTS[subtypeIndex] / rawH);
+}
+
+/**
  * The simulation height at which each subtype renders at 1× authored model scale.
  * This is a design tuning knob, not derived from geometry.
  *
@@ -875,6 +923,7 @@ const REF_SIM_HEIGHT: number[] = [
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
     const group = build();
+    scaleToTarget(group, i);
     const merged = mergeGroupGeometry(group);
 
     // Dispose all source geometries/materials
