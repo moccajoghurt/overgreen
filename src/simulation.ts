@@ -253,8 +253,18 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     + leafMaint
     + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
     + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult
-    + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE;
+    + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
+    + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE;
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
+
+  // Senescence: maintenance scales up quadratically past onset fraction of maxAge
+  const maxAge = pc.maxAge;
+  const onsetAge = maxAge * SIM.SENESCENCE_ONSET;
+  if (plant.age > onsetAge) {
+    const t = (plant.age - onsetAge) / (maxAge - onsetAge); // 0→1 over senescent period
+    maintenance *= 1 + (SIM.SENESCENCE_MAX_MULT - 1) * t * t;
+  }
+
   return maintenance;
 }
 

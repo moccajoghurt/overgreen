@@ -69,8 +69,11 @@ export const SIM = {
   DECOMP_NUTRIENT_BOOST: 1.5,
   DECOMP_NUTRIENT_PER_HEIGHT: 0.3,
 
-  // Age
+  // Age & Senescence
   MAX_AGE: 2500,
+  SENESCENCE_ONSET: 0.3,       // fraction of maxAge when senescence begins
+  SENESCENCE_MAX_MULT: 4.0,    // maintenance multiplier at maxAge
+  LONGEVITY_MAINTENANCE_RATE: 0.08, // ongoing cost of long-lived tissue
 
   // Disease / Blight
   DISEASE_DISTANCE_THRESHOLD: 0.25,
