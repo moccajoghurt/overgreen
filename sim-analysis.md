@@ -458,23 +458,21 @@ Tree species (w=0.80) goes fully extinct. Herb (70%) and Shrub (30%) coexist. Bo
 
 ### URGENT — Broken / needs immediate fix
 
-1. **SeedInvestment always drifts upward** — SI increases in every experiment (0.50→0.56-0.73). There is no meaningful tradeoff against growth — investing in reproduction always wins. Surplus energy is always better spent on seeds. This is the most consistent broken selection pressure.
+1. **Arid terrain is uninhabitable** — Total extinction in arid-specialist experiment. All plants starve within 250 ticks. The 0.2 recharge + -0.5 vigor dampening + 3.0× leaf maintenance is too harsh for any strategy to establish. Arid cells only support plants when adjacent to water sources (river seepage) or in mixed-terrain scenarios where non-arid neighbors provide a population reservoir.
 
-2. **Arid terrain is uninhabitable** — Total extinction in arid-specialist experiment. All plants starve within 250 ticks. The 0.2 recharge + -0.5 vigor dampening + 3.0× leaf maintenance is too harsh for any strategy to establish. Arid cells only support plants when adjacent to water sources (river seepage) or in mixed-terrain scenarios where non-arid neighbors provide a population reservoir.
+2. **Seed mass always drifts downward** — sz decreases on all terrains (0.26-0.48). No experiment produces upward seed mass evolution. The establishment delay (5 ticks) doesn't create enough K-selection pressure to make large seeds viable.
 
-3. **Water storage is selected against on non-arid terrain** — wst collapses to 0.03-0.26 on soil, 0.05 on wetland. The 0.015/tick maintenance cost makes it a net negative when water is available via roots. Only retains value on arid terrain (0.38). This is a dead trait for ~70% of the map.
-
-4. **Seed mass always drifts downward** — sz decreases on all terrains (0.26-0.48). No experiment produces upward seed mass evolution. The establishment delay (5 ticks) doesn't create enough K-selection pressure to make large seeds viable.
+3. **Longevity only drifts upward** — lon increases in 14/15 surviving experiments (0.43→0.57-0.68). The growth efficiency penalty (0.7× at lon=0.99) is too weak to counterbalance the advantage of living longer. maxAge has near-zero selective effect since starvation kills before age does.
 
 ### MODERATE — Concerning patterns
 
-5. **Longevity only drifts upward** — lon increases in 14/15 surviving experiments (0.43→0.57-0.68). The growth efficiency penalty (0.7× at lon=0.99) is too weak to counterbalance the advantage of living longer. maxAge has near-zero selective effect since starvation kills before age does.
+4. **Water storage is selected against on non-arid terrain** — wst collapses to 0.03-0.26 on soil, 0.05 on wetland. The 0.015/tick maintenance cost makes it a net negative when water is available via roots. Only retains value on arid terrain (0.38). This is a dead trait for ~70% of the map.
 
-6. **Trees lose to grass on flat soil (exp 10)** — Prairie Grass dominates Oak 56/35% with woodiness collapsing (0.87→0.50). Trees should shade out grass via height, but expensive woody maintenance prevents establishment advantage.
+5. **Trees lose to grass on flat soil (exp 10)** — Prairie Grass dominates Oak 56/35% with woodiness collapsing (0.87→0.50). Trees should shade out grass via height, but expensive woody maintenance prevents establishment advantage.
 
-7. **Tree extinction in woodiness evolution (exp 15)** — Tree species (w=0.80) goes fully extinct by 5000 ticks. Herb and Shrub coexist. High woodiness is not viable long-term on flat soil without terrain features that reward height.
+6. **Tree extinction in woodiness evolution (exp 15)** — Tree species (w=0.80) goes fully extinct by 5000 ticks. Herb and Shrub coexist. High woodiness is not viable long-term on flat soil without terrain features that reward height.
 
-8. **Nutrient cycle low population (exp 11)** — Only 149 plants at tick 1000 on soil terrain. Nutrient-poor early conditions severely limit carrying capacity.
+7. **Nutrient cycle low population (exp 11)** — Only 149 plants at tick 1000 on soil terrain. Nutrient-poor early conditions severely limit carrying capacity.
 
 ### Observations (not necessarily bugs)
 
@@ -503,8 +501,6 @@ Tree species (w=0.80) goes fully extinct. Herb (70%) and Shrub (30%) coexist. Bo
 ### 1. Fix Broken Trait Tradeoffs (highest priority)
 
 Several genome traits drift in one direction regardless of environment, preventing evolutionary diversity. Each needs a specific counter-pressure.
-
-**seedInvestment (always up)** — Add reproductive maturity gate. Plants cannot allocate to seeds until they reach ~30% of their potential size (average of height/maxHeight and rootDepth/maxRootDepth). High seedInvestment plants stay small, delaying reproduction AND producing from a smaller energy base. The optimal seedInvestment becomes context-dependent: enough to reproduce once mature, not so much you never mature.
 
 **longevity (always up)** — Add senescence. Maintenance cost scales up quadratically with age as a fraction of maxAge: `senescence = 1 + (age/maxAge)² × 0.5`. Young long-lived plants are efficient; old ones become increasingly expensive. Short-lived plants never hit the expensive years. Creates a real r/K tradeoff: short-lived = cheap but brief, long-lived = slow start but extended reproduction IF you can afford escalating maintenance.
 
