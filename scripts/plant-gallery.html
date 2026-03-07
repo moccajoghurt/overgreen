@@ -36,7 +36,7 @@ import * as THREE from 'three';
 // ============================================================
 // LAYOUT
 // ============================================================
-const COLS = 6, ROWS = 4;
+const COLS = 6, ROWS = 8;
 const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
 const TITLE_H = 80, PAD = 20;
 const W = PAD * 2 + COLS * CELL_W;
@@ -55,6 +55,14 @@ const ARCHETYPES = [
     { id:'1.5', name:'Spreading grass', species:'Cynodon dactylon' },
     { id:'1.6', name:'Sedge/Rush', species:'Cyperus papyrus' },
   ]},
+  { name: 'GRASSES \u2014 WINTER', color: '#7a7a5a', plants: [
+    { id:'1.1w', name:'Turfgrass', species:'Dormant' },
+    { id:'1.2w', name:'Tallgrass', species:'Dormant' },
+    { id:'1.3w', name:'Bunch grass', species:'Dormant' },
+    { id:'1.4w', name:'Bamboo', species:'Semi-evergreen' },
+    { id:'1.5w', name:'Spreading grass', species:'Dormant' },
+    { id:'1.6w', name:'Sedge/Rush', species:'Dormant' },
+  ]},
   { name: 'TREES', color: '#654321', plants: [
     { id:'2.1', name:'Broadleaf deciduous', species:'Quercus robur' },
     { id:'2.2', name:'Broadleaf evergreen', species:'Magnolia grandiflora' },
@@ -62,6 +70,14 @@ const ARCHETYPES = [
     { id:'2.4', name:'Tropical hardwood', species:'Swietenia mahagoni' },
     { id:'2.5', name:'Palm', species:'Cocos nucifera' },
     { id:'2.6', name:'Pioneer/fast-growth', species:'Betula pendula' },
+  ]},
+  { name: 'TREES \u2014 WINTER', color: '#5a4a3a', plants: [
+    { id:'2.1w', name:'Broadleaf deciduous', species:'Bare' },
+    { id:'2.2w', name:'Broadleaf evergreen', species:'Evergreen' },
+    { id:'2.3w', name:'Conifer', species:'Evergreen' },
+    { id:'2.4w', name:'Tropical hardwood', species:'Evergreen' },
+    { id:'2.5w', name:'Palm', species:'Evergreen' },
+    { id:'2.6w', name:'Pioneer/fast-growth', species:'Bare' },
   ]},
   { name: 'SHRUBS', color: '#8c783c', plants: [
     { id:'3.1', name:'Evergreen shrub', species:'Buxus sempervirens' },
@@ -71,6 +87,14 @@ const ARCHETYPES = [
     { id:'3.5', name:'Desert shrub', species:'Larrea tridentata' },
     { id:'3.6', name:'Mangrove', species:'Rhizophora mangle' },
   ]},
+  { name: 'SHRUBS \u2014 WINTER', color: '#6a6a4a', plants: [
+    { id:'3.1w', name:'Evergreen shrub', species:'Evergreen' },
+    { id:'3.2w', name:'Deciduous shrub', species:'Bare' },
+    { id:'3.3w', name:'Mediterranean', species:'Evergreen' },
+    { id:'3.4w', name:'Thorny/Armed', species:'Bare' },
+    { id:'3.5w', name:'Desert shrub', species:'Bare' },
+    { id:'3.6w', name:'Mangrove', species:'Evergreen' },
+  ]},
   { name: 'SUCCULENTS', color: '#558c64', plants: [
     { id:'4.1', name:'Stem succulent', species:'Carnegiea gigantea' },
     { id:'4.2', name:'Leaf succulent', species:'Aloe vera' },
@@ -78,6 +102,14 @@ const ARCHETYPES = [
     { id:'4.4', name:'Euphorbia', species:'Euphorbia ingens' },
     { id:'4.5', name:'Ice plant/Mesemb', species:'Lithops' },
     { id:'4.6', name:'Epiphytic succulent', species:'Schlumbergera' },
+  ]},
+  { name: 'SUCCULENTS \u2014 WINTER', color: '#4a6a4a', plants: [
+    { id:'4.1w', name:'Stem succulent', species:'Unchanged' },
+    { id:'4.2w', name:'Leaf succulent', species:'Unchanged' },
+    { id:'4.3w', name:'Caudiciform', species:'Bare' },
+    { id:'4.4w', name:'Euphorbia', species:'Unchanged' },
+    { id:'4.5w', name:'Ice plant/Mesemb', species:'Unchanged' },
+    { id:'4.6w', name:'Epiphytic succulent', species:'Unchanged' },
   ]},
 ];
 
@@ -967,6 +999,392 @@ builders['4.6'] = function() { // Christmas cactus — epiphytic with arching se
   }
   return { group: g, camY: 0.12, camDist: 1.8 };
 };
+
+// ============================================================
+// WINTER BUILDERS — GRASSES (dormant brown/straw)
+// ============================================================
+
+builders['1.1w'] = function() { // Turfgrass — dormant brown
+  var g = new THREE.Group();
+  addGround(g, 1.8);
+  var bm = mat(0x9a8a5a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 100; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 1.4;
+    var h = 0.08 + Math.random() * 0.06;
+    var geo = grassBlade(h, 0.03, 0.02 * (Math.random() - 0.5));
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  return { group: g, camY: 0.4, camDist: 3.2 };
+};
+
+builders['1.2w'] = function() { // Tallgrass — brown straw, standing seed heads
+  var g = new THREE.Group();
+  addGround(g);
+  var bm = mat(0x8a7a4a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 20; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.25;
+    var h = 1.0 + Math.random() * 0.6;
+    var bend = 0.4 + Math.random() * 0.5;
+    var geo = grassBlade(h, 0.05, bend, (Math.random() - 0.5) * 0.15);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  var sm = mat(0x7a6a4a);
+  for (var i = 0; i < 8; i++) {
+    var geo = new THREE.ConeGeometry(0.025, 0.18, 4);
+    var m = new THREE.Mesh(geo, sm);
+    m.position.set((Math.random() - 0.5) * 0.3, 1.3 + Math.random() * 0.4, (Math.random() - 0.5) * 0.3);
+    g.add(m);
+  }
+  return { group: g, camY: 0.9, camDist: 3.5 };
+};
+
+builders['1.3w'] = function() { // Bunch grass — brown dormant tussock
+  var g = new THREE.Group();
+  addGround(g);
+  var bm = mat(0x8a8a5a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 50; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.random() * 0.15;
+    var h = 0.3 + Math.random() * 0.25;
+    var bend = 0.3 + Math.random() * 0.4;
+    var geo = grassBlade(h, 0.02, bend);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.rotation.y = a + (Math.random() - 0.5) * 0.5;
+    g.add(m);
+  }
+  return { group: g, camY: 0.35, camDist: 2.2 };
+};
+
+builders['1.4w'] = function() { // Bamboo — culms stay, sparse yellowed leaves
+  var g = new THREE.Group();
+  addGround(g);
+  var culmMat = mat(0x7a9a4a);
+  var leafMat = mat(0x8a8a3a, { side: THREE.DoubleSide });
+  var nodeMat = mat(0x6a8a2a);
+  for (var ci = 0; ci < 5; ci++) {
+    var cx = (Math.random() - 0.5) * 0.35;
+    var cz = (Math.random() - 0.5) * 0.35;
+    var totalH = 2.0 + Math.random() * 0.5;
+    var segH = 0.3;
+    var r = 0.035;
+    for (var s = 0; s < Math.floor(totalH / segH); s++) {
+      var seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, segH, 6), culmMat);
+      seg.position.set(cx, s * segH + segH / 2, cz);
+      g.add(seg);
+      if (s > 0 && s % 2 === 0) {
+        var node = new THREE.Mesh(new THREE.TorusGeometry(r * 1.4, r * 0.35, 4, 8), nodeMat);
+        node.position.set(cx, s * segH, cz);
+        node.rotation.x = Math.PI / 2;
+        g.add(node);
+      }
+    }
+    // Fewer leaves, yellowed
+    for (var l = 0; l < 3; l++) {
+      var la = l * Math.PI * 2 / 3 + Math.random() * 0.5;
+      var leaf = new THREE.Mesh(grassBlade(0.3, 0.05, 0.25), leafMat);
+      leaf.position.set(cx + Math.cos(la) * 0.1, totalH, cz + Math.sin(la) * 0.1);
+      leaf.rotation.y = la;
+      leaf.rotation.z = 0.4;
+      g.add(leaf);
+    }
+  }
+  return { group: g, camY: 1.2, camDist: 4.2 };
+};
+
+builders['1.5w'] = function() { // Spreading grass — brown dormant stolons
+  var g = new THREE.Group();
+  addGround(g, 2);
+  var bm = mat(0x9a8a5a, { side: THREE.DoubleSide });
+  var sm = mat(0x7a6a4a);
+  for (var i = 0; i < 6; i++) {
+    var a = i * Math.PI / 3 + Math.random() * 0.3;
+    var len = 0.8 + Math.random() * 0.6;
+    var stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 4), sm);
+    stolon.position.set(Math.cos(a) * len / 2, 0.015, Math.sin(a) * len / 2);
+    stolon.rotation.z = Math.PI / 2;
+    stolon.rotation.y = -a;
+    g.add(stolon);
+    for (var j = 0; j < 3; j++) {
+      var t = (j + 1) / 4;
+      var sx = Math.cos(a) * len * t;
+      var sz = Math.sin(a) * len * t;
+      for (var k = 0; k < 3; k++) {
+        var h = 0.06 + Math.random() * 0.04;
+        var geo = grassBlade(h, 0.02, 0.01);
+        var m = new THREE.Mesh(geo, bm);
+        m.position.set(sx + (Math.random() - 0.5) * 0.05, h / 2, sz + (Math.random() - 0.5) * 0.05);
+        m.rotation.y = Math.random() * Math.PI;
+        g.add(m);
+      }
+    }
+  }
+  for (var i = 0; i < 12; i++) {
+    var h = 0.06 + Math.random() * 0.04;
+    var geo = grassBlade(h, 0.025, 0.01);
+    var m = new THREE.Mesh(geo, bm);
+    m.position.set((Math.random() - 0.5) * 0.15, h / 2, (Math.random() - 0.5) * 0.15);
+    m.rotation.y = Math.random() * Math.PI;
+    g.add(m);
+  }
+  return { group: g, camY: 0.35, camDist: 3.5 };
+};
+
+builders['1.6w'] = function() { // Sedge — brown dried stems, drooping bracts
+  var g = new THREE.Group();
+  addGround(g);
+  var stemMat = mat(0x7a6a4a);
+  var umbMat = mat(0x8a7a4a, { side: THREE.DoubleSide });
+  for (var i = 0; i < 5; i++) {
+    var sx = (Math.random() - 0.5) * 0.3;
+    var sz = (Math.random() - 0.5) * 0.3;
+    var h = 1.3 + Math.random() * 0.4;
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, h, 3), stemMat);
+    stem.position.set(sx, h / 2, sz);
+    g.add(stem);
+    for (var j = 0; j < 10; j++) {
+      var ba = j * Math.PI * 2 / 10;
+      var bract = new THREE.Mesh(grassBlade(0.4, 0.012, 0.45), umbMat);
+      bract.position.set(sx + Math.cos(ba) * 0.03, h, sz + Math.sin(ba) * 0.03);
+      bract.rotation.y = ba;
+      bract.rotation.z = -0.3;
+      g.add(bract);
+    }
+  }
+  return { group: g, camY: 1.0, camDist: 3.8 };
+};
+
+// ============================================================
+// WINTER BUILDERS — TREES
+// ============================================================
+
+builders['2.1w'] = function() { // Oak — bare branches, no canopy
+  var g = new THREE.Group();
+  addGround(g, 2);
+  addTrunk(g, 0, 0, 0, 0.2, 0.12, 1.2, 0x5a3a1a);
+  var t1 = addTrunk(g, -0.15, 1.0, 0, 0.08, 0.05, 0.7, 0x5a3a1a);
+  t1.rotation.z = 0.6;
+  var t2 = addTrunk(g, 0.15, 1.0, 0.1, 0.08, 0.05, 0.65, 0x5a3a1a);
+  t2.rotation.z = -0.5;
+  var t3 = addTrunk(g, 0, 1.0, -0.15, 0.07, 0.04, 0.5, 0x5a3a1a);
+  t3.rotation.x = 0.5;
+  // Extra small twigs where canopy used to be
+  var twigMat = mat(0x5a3a1a);
+  var twigs = [
+    { x: -0.5, y: 1.6, z: 0.1, a: 0.8, len: 0.3 },
+    { x: 0.45, y: 1.55, z: -0.1, a: -0.6, len: 0.25 },
+    { x: 0.1, y: 1.7, z: 0.35, a: 0.3, len: 0.2 },
+    { x: -0.25, y: 1.85, z: -0.3, a: 0.5, len: 0.22 },
+    { x: 0.3, y: 1.8, z: 0.2, a: -0.4, len: 0.18 },
+    { x: -0.1, y: 1.9, z: 0, a: 0.1, len: 0.25 },
+  ];
+  for (var i = 0; i < twigs.length; i++) {
+    var tw = twigs[i];
+    var twig = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.015, tw.len, 3), twigMat);
+    twig.position.set(tw.x, tw.y, tw.z);
+    twig.rotation.z = tw.a;
+    g.add(twig);
+  }
+  return { group: g, camY: 1.2, camDist: 4.8 };
+};
+
+builders['2.2w'] = builders['2.2']; // Magnolia — evergreen, unchanged
+builders['2.3w'] = builders['2.3']; // Conifer — evergreen, unchanged
+builders['2.4w'] = builders['2.4']; // Tropical — evergreen, unchanged
+builders['2.5w'] = builders['2.5']; // Palm — evergreen, unchanged
+
+builders['2.6w'] = function() { // Birch — bare branches, no canopy
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  addTrunk(g, 0, 0, 0, 0.07, 0.04, 2.0, 0xd8d0c8);
+  var patchMat = mat(0x3a3a3a);
+  for (var pi = 0; pi < 6; pi++) {
+    var pa = Math.random() * Math.PI * 2;
+    var py = 0.3 + Math.random() * 1.2;
+    var patch = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.02), patchMat);
+    patch.position.set(Math.cos(pa) * 0.06, py, Math.sin(pa) * 0.06);
+    patch.rotation.y = pa;
+    g.add(patch);
+  }
+  var brMat = mat(0x9a8a7a);
+  for (var i = 0; i < 7; i++) {
+    var a = i * Math.PI * 2 / 7 + Math.random() * 0.3;
+    var y = 1.1 + Math.random() * 0.7;
+    var len = 0.4 + Math.random() * 0.25;
+    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.02, len, 4), brMat);
+    branch.position.set(Math.cos(a) * len / 3, y, Math.sin(a) * len / 3);
+    branch.rotation.z = Math.cos(a) * 0.7;
+    branch.rotation.x = Math.sin(a) * 0.7;
+    g.add(branch);
+    // Sub-twigs at branch tips (no canopy)
+    for (var ti = 0; ti < 3; ti++) {
+      var ta = a + (ti - 1) * 0.4;
+      var tLen = 0.1 + Math.random() * 0.08;
+      var twig = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.007, tLen, 3), brMat);
+      twig.position.set(
+        Math.cos(a) * len * 0.6 + Math.cos(ta) * 0.05,
+        y - 0.1 + ti * 0.04,
+        Math.sin(a) * len * 0.6 + Math.sin(ta) * 0.05
+      );
+      twig.rotation.z = Math.cos(ta) * 0.9;
+      twig.rotation.x = Math.sin(ta) * 0.9;
+      g.add(twig);
+    }
+  }
+  return { group: g, camY: 1.2, camDist: 4.2 };
+};
+
+// ============================================================
+// WINTER BUILDERS — SHRUBS
+// ============================================================
+
+builders['3.1w'] = builders['3.1']; // Evergreen shrub — unchanged
+
+builders['3.2w'] = function() { // Deciduous shrub — bare arching branches
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var stemMat = mat(0x7a6a5a);
+  for (var i = 0; i < 5; i++) {
+    var a = i * Math.PI * 2 / 5 + Math.random() * 0.2;
+    var h = 0.8 + Math.random() * 0.4;
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(Math.cos(a) * 0.2, h * 0.5, Math.sin(a) * 0.2),
+      new THREE.Vector3(Math.cos(a) * 0.5, h * 0.8, Math.sin(a) * 0.5),
+      new THREE.Vector3(Math.cos(a) * 0.6, h * 0.7, Math.sin(a) * 0.6),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.02, 4, false), stemMat));
+    // Small sub-branches at tips
+    var tip = curve.getPoint(0.85);
+    for (var ti = 0; ti < 2; ti++) {
+      var ta = a + (ti - 0.5) * 0.6;
+      var tLen = 0.08 + Math.random() * 0.06;
+      var twig = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.01, tLen, 3), stemMat);
+      twig.position.set(tip.x + Math.cos(ta) * 0.03, tip.y + 0.02, tip.z + Math.sin(ta) * 0.03);
+      twig.rotation.z = Math.cos(ta) * 0.5;
+      twig.rotation.x = Math.sin(ta) * 0.5;
+      g.add(twig);
+    }
+  }
+  return { group: g, camY: 0.6, camDist: 3.5 };
+};
+
+builders['3.3w'] = builders['3.3']; // Mediterranean — evergreen, unchanged
+
+builders['3.4w'] = function() { // Thorny — bare branches with spines, no foliage or flowers
+  var g = new THREE.Group();
+  addGround(g);
+  var spineMat = mat(0x5a4a3a);
+  var woodMat = mat(0x6a4a2a);
+  for (var i = 0; i < 4; i++) {
+    var a = i * Math.PI / 2 + 0.4;
+    var h = 0.6 + Math.random() * 0.2;
+    var lean = 0.35 + Math.random() * 0.2;
+    var branch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, h, 4), woodMat);
+    branch.position.set(Math.cos(a) * 0.06, h / 2, Math.sin(a) * 0.06);
+    branch.rotation.z = Math.cos(a) * lean;
+    branch.rotation.x = Math.sin(a) * lean;
+    g.add(branch);
+  }
+  // Dense spines remain
+  for (var i = 0; i < 50; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var elev = Math.random() * 0.8;
+    var r = 0.15 + Math.random() * 0.15;
+    var sx = Math.cos(a) * r;
+    var sy = 0.35 + elev * 0.4;
+    var sz = Math.sin(a) * r;
+    var spine = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.1, 3), spineMat);
+    spine.position.set(sx, sy, sz);
+    spine.lookAt(sx * 2.5, sy * 1.2, sz * 2.5);
+    g.add(spine);
+  }
+  return { group: g, camY: 0.4, camDist: 3 };
+};
+
+builders['3.5w'] = function() { // Desert shrub — bare stems, no leaf clusters
+  var g = new THREE.Group();
+  addGround(g, 1.5);
+  var stemMat = mat(0x7a6a5a);
+  var mainStems = [
+    { a: 0.0, lean: 0.35, h: 0.65 },
+    { a: 1.1, lean: 0.4, h: 0.55 },
+    { a: 2.3, lean: 0.3, h: 0.7 },
+    { a: 3.5, lean: 0.45, h: 0.5 },
+    { a: 4.7, lean: 0.35, h: 0.6 },
+    { a: 5.6, lean: 0.25, h: 0.55 },
+  ];
+  for (var i = 0; i < mainStems.length; i++) {
+    var s = mainStems[i];
+    var baseR = 0.03 + Math.random() * 0.03;
+    var midR = baseR + s.lean * s.h * 0.35;
+    var tipR = midR + s.lean * s.h * 0.25;
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(s.a) * baseR, 0, Math.sin(s.a) * baseR),
+      new THREE.Vector3(Math.cos(s.a) * midR, s.h * 0.5, Math.sin(s.a) * midR),
+      new THREE.Vector3(Math.cos(s.a) * tipR, s.h * 0.85, Math.sin(s.a) * tipR),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.015, 4, false), stemMat));
+    var forkCount = 2 + Math.floor(Math.random() * 2);
+    for (var f = 0; f < forkCount; f++) {
+      var forkA = s.a + (f - forkCount / 2) * 0.5;
+      var forkLen = 0.15 + Math.random() * 0.12;
+      var forkBase = new THREE.Vector3(Math.cos(s.a) * tipR, s.h * 0.85, Math.sin(s.a) * tipR);
+      var forkTip = new THREE.Vector3(
+        Math.cos(forkA) * (tipR + forkLen * 0.7),
+        s.h * 0.85 + forkLen * 0.5,
+        Math.sin(forkA) * (tipR + forkLen * 0.7)
+      );
+      var fCurve = new THREE.CatmullRomCurve3([forkBase, forkTip]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(fCurve, 4, 0.008, 3, false), stemMat));
+      // No leaf clusters — bare tips
+    }
+  }
+  return { group: g, camY: 0.4, camDist: 3.2 };
+};
+
+builders['3.6w'] = builders['3.6']; // Mangrove — tropical evergreen, unchanged
+
+// ============================================================
+// WINTER BUILDERS — SUCCULENTS (mostly unchanged)
+// ============================================================
+
+builders['4.1w'] = builders['4.1']; // Saguaro — unchanged
+builders['4.2w'] = builders['4.2']; // Aloe — unchanged
+
+builders['4.3w'] = function() { // Caudiciform — bare fleshy branches, no leaf tufts or flowers
+  var g = new THREE.Group();
+  addGround(g);
+  var brMat = mat(0x9a9080, { roughness: 0.5 });
+  var branches = [
+    { a: 0.4, h: 0.4 },
+    { a: 1.8, h: 0.35 },
+    { a: 3.2, h: 0.45 },
+    { a: 4.8, h: 0.38 },
+  ];
+  for (var i = 0; i < branches.length; i++) {
+    var b = branches[i];
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(Math.cos(b.a) * 0.06, b.h * 0.4, Math.sin(b.a) * 0.06),
+      new THREE.Vector3(Math.cos(b.a) * 0.18, b.h, Math.sin(b.a) * 0.18),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.03, 5, false), brMat));
+  }
+  return { group: g, camY: 0.3, camDist: 2.5 };
+};
+
+builders['4.4w'] = builders['4.4']; // Euphorbia — unchanged
+builders['4.5w'] = builders['4.5']; // Ice plant — unchanged
+builders['4.6w'] = builders['4.6']; // Epiphytic — unchanged
 
 // ============================================================
 // RENDERER SETUP
