@@ -35,7 +35,8 @@ export function genomeDistance(a: Genome, b: Genome): number {
   const dd = a.defense - b.defense;
   const dw = a.woodiness - b.woodiness;
   const dwst = a.waterStorage - b.waterStorage;
-  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw + dwst * dwst);
+  const dlon = a.longevity - b.longevity;
+  return Math.sqrt(dr * dr + dh * dh + dl * dl + ds * ds + dsz * dsz + dd * dd + dw * dw + dwst * dwst + dlon * dlon);
 }
 
 /** Visual archetype — determines mesh/rendering path. Pure function of genome. */
@@ -60,6 +61,7 @@ export function createSpeciesCentroid(genome: Genome): SpeciesCentroid {
     sumDefense: genome.defense,
     sumWoodiness: genome.woodiness,
     sumWaterStorage: genome.waterStorage,
+    sumLongevity: genome.longevity,
     count: 1,
     foundingGenome: { ...genome },
   };
@@ -74,6 +76,7 @@ export function addToCentroid(centroid: SpeciesCentroid, genome: Genome): void {
   centroid.sumDefense += genome.defense;
   centroid.sumWoodiness += genome.woodiness;
   centroid.sumWaterStorage += genome.waterStorage;
+  centroid.sumLongevity += genome.longevity;
   centroid.count++;
 }
 
@@ -86,6 +89,7 @@ export function removeFromCentroid(centroid: SpeciesCentroid, genome: Genome): v
   centroid.sumDefense -= genome.defense;
   centroid.sumWoodiness -= genome.woodiness;
   centroid.sumWaterStorage -= genome.waterStorage;
+  centroid.sumLongevity -= genome.longevity;
   centroid.count--;
 }
 
@@ -103,6 +107,7 @@ export function getCentroidGenome(centroid: SpeciesCentroid): Genome {
     defense: centroid.sumDefense / n,
     woodiness: centroid.sumWoodiness / n,
     waterStorage: centroid.sumWaterStorage / n,
+    longevity: centroid.sumLongevity / n,
   };
 }
 
@@ -117,6 +122,7 @@ export function crossoverGenome(a: Genome, b: Genome): Genome {
     defense: pick(a.defense, b.defense),
     woodiness: pick(a.woodiness, b.woodiness),
     waterStorage: pick(a.waterStorage, b.waterStorage),
+    longevity: pick(a.longevity, b.longevity),
   };
 }
 
@@ -130,11 +136,12 @@ export function randomGenome(): Genome {
     defense: 0.1 + Math.random() * 0.8,
     woodiness: 0.1 + Math.random() * 0.8,
     waterStorage: 0.1 + Math.random() * 0.8,
+    longevity: 0.1 + Math.random() * 0.8,
   };
 }
 
 export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number): Plant {
-  const pc = getPlantConstants(genome.woodiness);
+  const pc = getPlantConstants(genome);
   return {
     id, speciesId, x, y, genome,
     height: pc.seedlingHeight,
@@ -152,7 +159,7 @@ export function mutateGenome(parent: Genome, mutationRate?: number): Genome {
   const clamp = (val: number) => Math.max(0.01, Math.min(0.99, val));
   const keys: (keyof Genome)[] = [
     'rootPriority', 'heightPriority', 'leafSize',
-    'seedInvestment', 'seedSize', 'defense', 'woodiness', 'waterStorage',
+    'seedInvestment', 'seedSize', 'defense', 'woodiness', 'waterStorage', 'longevity',
   ];
   // Pick 1-2 genes to mutate (like real point mutations)
   const count = Math.random() < 0.5 ? 1 : 2;
@@ -179,6 +186,7 @@ export function seedSinglePlant(world: World): void {
     defense: 0.5,
     woodiness: 0.5,
     waterStorage: 0.5,
+    longevity: 0.5,
   };
   const speciesId = world.nextSpeciesId++;
   const subtype = classifySubtype(genome);

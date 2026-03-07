@@ -55,19 +55,19 @@ function sumValues(map: Map<number, number>): number {
 interface PopulationSnapshot {
   populations: Map<number, number>;
   totalAlive: number;
-  traitAverages: { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number };
-  speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number }>;
+  traitAverages: { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number };
+  speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number }>;
   speciesMaxGeneration: Map<number, number>;
   speciesTerrainCounts: Map<number, TerrainCounts>;
 }
 
 function countPopulations(world: World): PopulationSnapshot {
   const populations = new Map<number, number>();
-  const speciesSums = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; count: number }>();
+  const speciesSums = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number; count: number }>();
   const speciesMaxGeneration = new Map<number, number>();
   const speciesTerrainCounts = new Map<number, TerrainCounts>();
   let totalAlive = 0;
-  let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumSz = 0, sumDef = 0, sumWood = 0, sumWst = 0;
+  let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumSz = 0, sumDef = 0, sumWood = 0, sumWst = 0, sumLon = 0;
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const sid = plant.speciesId;
@@ -81,11 +81,12 @@ function countPopulations(world: World): PopulationSnapshot {
     sumDef += plant.genome.defense;
     sumWood += plant.genome.woodiness;
     sumWst += plant.genome.waterStorage;
+    sumLon += plant.genome.longevity;
 
     // Per-species trait sums
     let s = speciesSums.get(sid);
     if (!s) {
-      s = { root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, count: 0 };
+      s = { root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0, count: 0 };
       speciesSums.set(sid, s);
     }
     s.root += plant.genome.rootPriority;
@@ -96,6 +97,7 @@ function countPopulations(world: World): PopulationSnapshot {
     s.def += plant.genome.defense;
     s.wood += plant.genome.woodiness;
     s.wst += plant.genome.waterStorage;
+    s.lon += plant.genome.longevity;
     s.count++;
 
     // Per-species max generation
@@ -116,14 +118,14 @@ function countPopulations(world: World): PopulationSnapshot {
   }
 
   const traitAverages = totalAlive > 0
-    ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive, sz: sumSz / totalAlive, def: sumDef / totalAlive, wood: sumWood / totalAlive, wst: sumWst / totalAlive }
-    : { root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0 };
+    ? { root: sumRoot / totalAlive, height: sumHeight / totalAlive, leaf: sumLeaf / totalAlive, seed: sumSeed / totalAlive, sz: sumSz / totalAlive, def: sumDef / totalAlive, wood: sumWood / totalAlive, wst: sumWst / totalAlive, lon: sumLon / totalAlive }
+    : { root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0 };
 
-  const speciesTraitAverages = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number }>();
+  const speciesTraitAverages = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number }>();
   for (const [sid, s] of speciesSums) {
     speciesTraitAverages.set(sid, {
       root: s.root / s.count, height: s.height / s.count, leaf: s.leaf / s.count,
-      seed: s.seed / s.count, sz: s.sz / s.count, def: s.def / s.count, wood: s.wood / s.count, wst: s.wst / s.count,
+      seed: s.seed / s.count, sz: s.sz / s.count, def: s.def / s.count, wood: s.wood / s.count, wst: s.wst / s.count, lon: s.lon / s.count,
     });
   }
 

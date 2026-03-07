@@ -53,6 +53,7 @@ export const genesis: Scenario = (() => {
           defense: 0.10,
           woodiness: 0.55,
           waterStorage: 0.20,
+          longevity: 0.5,
         },
         color: { r: 0.45, g: 0.60, b: 0.20 },
         placements: [{ x: 40, y: 40 }],

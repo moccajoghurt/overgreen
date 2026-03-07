@@ -25,6 +25,7 @@ export interface Genome {
   defense: number;       // 0.01-0.99 — resistance to herbivore grazing
   woodiness: number;     // 0.01-0.99 — herbaceous (low) to woody/tree-like (high)
   waterStorage: number;  // 0.01-0.99 — internal water tank capacity
+  longevity: number;     // 0.01-0.99 — short-lived annual (low) to long-lived perennial (high)
 }
 
 export interface Plant {
@@ -74,6 +75,7 @@ export interface SpeciesCentroid {
   sumDefense: number;
   sumWoodiness: number;
   sumWaterStorage: number;
+  sumLongevity: number;
   count: number;
   foundingGenome: Genome;
 }

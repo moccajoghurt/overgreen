@@ -52,7 +52,7 @@ function phaseRechargeWater(world: World): void {
         if (cell.plantId !== null) {
           const hillPlant = world.plants.get(cell.plantId);
           if (hillPlant && hillPlant.alive) {
-            const hillMaxRoot = getPlantConstants(hillPlant.genome.woodiness).maxRootDepth;
+            const hillMaxRoot = getPlantConstants(hillPlant.genome).maxRootDepth;
             const hillRootFrac = hillPlant.rootDepth / hillMaxRoot;
             if (hillRootFrac > SIM.HILL_ROOT_NUTRIENT_THRESHOLD) {
               const extraction = (hillRootFrac - SIM.HILL_ROOT_NUTRIENT_THRESHOLD)
@@ -105,7 +105,7 @@ function phaseCalculateLight(world: World): void {
         if (nPlant && nPlant.alive && nPlant.height > myHeight) {
           // Shade scales with height difference — towering neighbors shade more
           const diff = nPlant.height - myHeight;
-          const npc = getPlantConstants(nPlant.genome.woodiness);
+          const npc = getPlantConstants(nPlant.genome);
           const nShadow = npc.shadowReduction * eraMults.shadowMult;
           shadeSum += nShadow * Math.min(1, diff / npc.shadowHeightScale);
         }
@@ -189,7 +189,7 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
 
 function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  const pc = getPlantConstants(plant.genome.woodiness);
+  const pc = getPlantConstants(plant.genome);
   let heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
 
   // Wetland: amplified height bonus (canopy emergence)
@@ -212,7 +212,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 }
 
 function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): number {
-  const pc = getPlantConstants(plant.genome.woodiness);
+  const pc = getPlantConstants(plant.genome);
   const mBase = pc.maintenanceBase;
   const mHeight = pc.maintenancePerHeight;
   const mRoot = pc.maintenancePerRoot;
@@ -259,7 +259,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
 
 function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, eraMutationRate: number, eraSeedEnergyMult: number): void {
   const env = world.environment;
-  const pc = getPlantConstants(plant.genome.woodiness);
+  const pc = getPlantConstants(plant.genome);
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
   const capHeight = pc.maxHeight;
@@ -418,7 +418,7 @@ function phaseUpdatePlants(world: World): void {
 function phaseDeath(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    const maxAge = getPlantConstants(plant.genome.woodiness).maxAge;
+    const maxAge = getPlantConstants(plant.genome).maxAge;
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
@@ -465,7 +465,7 @@ function phaseGermination(world: World): void {
         const seed = cell.seeds[i];
         seed.age++;
         seed.energy -= SIM.SEED_DECAY_RATE;
-        const maxAge = getPlantConstants(seed.genome.woodiness).seedMaxAge;
+        const maxAge = getPlantConstants(seed.genome).seedMaxAge;
         if (seed.energy <= 0 || seed.age >= maxAge) {
           // Decrement seed population tracking
           const count = world.seedPopulations.get(seed.speciesId) ?? 1;
@@ -486,7 +486,7 @@ function phaseGermination(world: World): void {
         // Succulent seeds rot in wet soil — only germinate on arid/hill
         if (renderArchetype(seed.genome) === Archetype.Succulent
           && cell.terrainType !== TerrainType.Arid && cell.terrainType !== TerrainType.Hill) continue;
-        const waterThreshold = getPlantConstants(seed.genome.woodiness).seedGerminationWater;
+        const waterThreshold = getPlantConstants(seed.genome).seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
           totalEnergy += seed.energy;
@@ -515,7 +515,7 @@ function phaseGermination(world: World): void {
 
       // Create plant from seed — large seeds produce larger seedlings
       // On productive terrain, dampen vigor toward 1.0 (resources equalize seedling size)
-      const wpc = getPlantConstants(winner.genome.woodiness);
+      const wpc = getPlantConstants(winner.genome);
       const rawVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
       let dampen: number = SIM.SOIL_VIGOR_DAMPEN;
       if (cell.terrainType === TerrainType.Wetland) dampen = SIM.WETLAND_VIGOR_DAMPEN;
@@ -597,7 +597,7 @@ function phaseDecomposition(world: World): void {
   const toRemove: number[] = [];
   for (const plant of world.plants.values()) {
     if (plant.alive) continue;
-    const dpc = getPlantConstants(plant.genome.woodiness);
+    const dpc = getPlantConstants(plant.genome);
     const dWater = dpc.decompWaterBoost;
     const dNutrient = dpc.decompNutrientBoost;
     const dNutrientH = dpc.decompNutrientPerHeight;

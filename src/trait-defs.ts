@@ -16,4 +16,5 @@ export const TRAITS: TraitDef[] = [
   { genomeKey: 'defense',        shortKey: 'def',    label: 'Def',    color: '#c66' },
   { genomeKey: 'woodiness',      shortKey: 'wood',   label: 'Wood',   color: '#a86' },
   { genomeKey: 'waterStorage',   shortKey: 'wst',    label: 'W.Str',  color: '#6cc' },
+  { genomeKey: 'longevity',      shortKey: 'lon',    label: 'Long',   color: '#9c6' },
 ];

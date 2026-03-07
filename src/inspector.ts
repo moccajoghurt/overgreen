@@ -35,7 +35,7 @@ export function updateInspector(world: World, controls: Controls): void {
       text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
       text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
       text += `Energy: ${plant.energy.toFixed(1)}\n`;
-      text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} SI=${plant.genome.seedInvestment.toFixed(2)} SM=${plant.genome.seedSize.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)} WS=${plant.genome.waterStorage.toFixed(2)}\n`;
+      text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} SI=${plant.genome.seedInvestment.toFixed(2)} SM=${plant.genome.seedSize.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)} WS=${plant.genome.waterStorage.toFixed(2)} Lon=${plant.genome.longevity.toFixed(2)}\n`;
       const wsCap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
       text += `Stored Water: ${plant.storedWater.toFixed(1)} / ${wsCap.toFixed(1)}\n`;
       text += `\nLight: ${plant.lastLightReceived.toFixed(2)}  Water: ${plant.lastWaterAbsorbed.toFixed(2)}\n`;
