@@ -67,23 +67,29 @@ const mainRiver = buildSegs([
   { x: 28, y: 42 },   // delta branching point
 ]);
 
-// Delta: three channels fanning wide
+// Delta: three channels fanning wide to the map edge
 const deltaWest = buildSegs([
   { x: 28, y: 42 },
   { x: 18, y: 50 },
   { x: 10, y: 60 },
+  { x: 4, y: 70 },
+  { x: 0, y: 79 },
 ]);
 
 const deltaCenter = buildSegs([
   { x: 28, y: 42 },
   { x: 26, y: 50 },
   { x: 22, y: 58 },
+  { x: 18, y: 68 },
+  { x: 12, y: 79 },
 ]);
 
 const deltaEast = buildSegs([
   { x: 28, y: 42 },
   { x: 34, y: 50 },
   { x: 38, y: 60 },
+  { x: 35, y: 70 },
+  { x: 30, y: 79 },
 ]);
 
 const allRivers = [mainRiver, deltaWest, deltaCenter, deltaEast];
@@ -152,18 +158,6 @@ function isSteppingStone(x: number, y: number): boolean {
   return false;
 }
 
-// ── Sea: SW corner, diagonal coastline ──
-
-function seaDistance(x: number, y: number): number {
-  const coastK = 32;
-  const warp = (fbm(x + 200, y + 200, 14) - 0.5) * 7;
-  return (-(y - x - coastK) - warp) / Math.SQRT2;
-}
-
-function isSea(x: number, y: number): boolean {
-  return seaDistance(x, y) < 0;
-}
-
 // ── Rock outcrops ──
 
 const mtX = 68, mtY = 7;
@@ -198,19 +192,15 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
   const elev = baseElev + (fbm(x, y, 12) - 0.5) * 0.2;
   const mtDist = Math.hypot(x - mtX, y - mtY);
 
-  // ── Sea ──
-  if (isSea(x, y)) {
-    // Mid-delta island: wetland rising from the sea between channels
-    if (Math.hypot(x - deltaIsland.cx, y - deltaIsland.cy) <= deltaIsland.r) {
-      return { x, y, terrain: TerrainType.Wetland, elevation: 0.15 };
-    }
-    return { x, y, terrain: TerrainType.River, elevation: 0.1 };
-  }
-
   // ── Rivers (always punch through) ──
   const riverDist = distToAnyRiver(x, y);
   if (riverDist <= 1.0) {
     return { x, y, terrain: TerrainType.River, elevation: 0.2 };
+  }
+
+  // ── Mid-delta island: wetland between channels ──
+  if (Math.hypot(x - deltaIsland.cx, y - deltaIsland.cy) <= deltaIsland.r) {
+    return { x, y, terrain: TerrainType.Wetland, elevation: 0.15 };
   }
 
   // ── Oasis: expanded spring in SE desert ──
@@ -232,15 +222,11 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
     }
   }
 
-  // ── Coastal wetlands — concentrated near delta channels ──
-  const coastDist = seaDistance(x, y);
-  if (coastDist >= 0 && coastDist < 8) {
-    const wetWidth = riverDist < 8 ? 6.0 : 2.5;
-    if (coastDist < wetWidth) {
-      const wetNoise = fbm(x + 150, y + 150, 6);
-      if (wetNoise > 0.25) {
-        return { x, y, terrain: TerrainType.Wetland, elevation: 0.18 + fbm(x, y, 8) * 0.06 };
-      }
+  // ── Wetlands along lower delta ──
+  if (y > 50 && riverDist > 1.0 && riverDist < 5) {
+    const wetNoise = fbm(x + 150, y + 150, 6);
+    if (wetNoise > 0.35) {
+      return { x, y, terrain: TerrainType.Wetland, elevation: 0.18 + fbm(x, y, 8) * 0.06 };
     }
   }
 
@@ -320,17 +306,17 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
  * Genesis v4 — the opening scenario.
  *
  * A river descends from a lone mountain through a tight canyon and across the
- * desert in a dramatic S-curve to the sea, fanning into a three-channel delta.
- * Deep in the eastern desert, a hidden oasis holds a second seed. Three great
- * inselbergs mark the path between them — the via sacra where two lineages
- * will one day meet.
+ * desert in a dramatic S-curve, fanning into a three-channel delta that flows
+ * off the SW corner of the map. Deep in the eastern desert, a hidden oasis
+ * holds a second seed. Three great inselbergs mark the path between them —
+ * the via sacra where two lineages will one day meet.
  *
- * Terrain layout (80x80):
+ * Terrain layout (80×80):
  *   - The Mountain: dominant rock massif in NE (68,7), isolated from hills
  *   - Alluvial fan: soil apron around mountain base
  *   - Canyon gorge: tight rock walls squeezing the upper river
  *   - Main river: dramatic westward S-curve, then south to delta
- *   - Delta: three channels fanning wide, mid-delta island
+ *   - Delta: three channels fanning wide off the SW corner, mid-delta island
  *   - Wadis: NE, reoriented east (through inselberg zone), NW from escarpment
  *   - Paleochannel: ancient dry channel connecting stepping stones
  *   - Oasis: expanded spring at (65,52) with wide soil ring and long finger
@@ -360,7 +346,7 @@ export const genesis: Scenario = (() => {
     id: 'genesis',
     name: 'Genesis',
     description:
-      'Two seeds. Two worlds. A river descends from a lone mountain through canyon and desert to the sea. At a hidden oasis, a second lineage clings to life. Three stone sentinels mark the path between them. Watch them evolve — and one day, meet.',
+      'Two seeds. Two worlds. A river descends from a lone mountain through canyon and desert, fanning into a great delta. At a hidden oasis, a second lineage clings to life. Three stone sentinels mark the path between them. Watch them evolve — and one day, meet.',
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.45,

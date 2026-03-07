@@ -20,13 +20,13 @@ export const enum SubtypeId {
 /** Human-readable names for each subtype, indexed by SubtypeId. */
 export const SUBTYPE_NAMES: string[] = [
   // Grasses (0-5)
-  'Turfgrass', 'Tallgrass', 'Bunchgrass', 'Bamboo', 'Spreading Grass', 'Sedge',
+  'Turfgrass', 'Tallgrass', 'Bunchgrass', 'Bamboo', 'Ryegrass', 'Sedge',
   // Trees (6-11)
   'Oak', 'Magnolia', 'Conifer', 'Tropical', 'Palm', 'Birch',
   // Shrubs (12-17)
-  'Evergreen Shrub', 'Deciduous Shrub', 'Mediterranean', 'Thorny Shrub', 'Desert Shrub', 'Mangrove',
+  'Holly', 'Hazel', 'Mediterranean', 'Bramble', 'Saltbush', 'Mangrove',
   // Succulents (18-23)
-  'Saguaro', 'Aloe', 'Caudiciform', 'Euphorbia', 'Ice Plant', 'Epiphytic',
+  'Saguaro', 'Aloe', 'Caudiciform', 'Euphorbia', 'Iceplant', 'Epiphytic',
 ];
 
 /** Archetype from subtype: Math.floor(subtypeId / 6) → 0=Grass, 1=Tree, 2=Shrub, 3=Succulent */
