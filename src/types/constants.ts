@@ -242,7 +242,7 @@ function lerpVal(a: number, b: number, t: number): number {
 export function getPlantConstants(genome: import('./core').Genome): PlantConstants {
   const w = Math.max(0, Math.min(1, genome.woodiness));
   const lon = Math.max(0, Math.min(1, genome.longevity));
-  const maxAge = lerpVal(lerpVal(50, 200, w), lerpVal(400, 2500, w), lon);
+  const maxAge = lerpVal(lerpVal(100, 200, w), lerpVal(1000, 2500, w), lon);
   return {
     maxHeight: lerpVal(GRASS.MAX_HEIGHT, SIM.MAX_HEIGHT, w),
     maxRootDepth: lerpVal(GRASS.MAX_ROOT_DEPTH, SIM.MAX_ROOT_DEPTH, w),

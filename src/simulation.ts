@@ -247,14 +247,18 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     const penalty = leafMaint - effectiveLeaf * mLeaf * leafMult;
     leafMaint -= penalty * rootInsulation;
   }
+  // Trait maintenance scales with maturity — seedlings haven't built specialized tissue yet
+  const maturity = Math.min(1, plant.height / pc.maxHeight);
   let maintenance = mBase
     + plant.height * mHeight * heightMult
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
-    + plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
-    + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult
-    + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
-    + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE;
+    + maturity * (
+        plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
+      + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult
+      + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
+      + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE
+    );
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
 
   // Senescence: maintenance scales up quadratically past onset fraction of maxAge
