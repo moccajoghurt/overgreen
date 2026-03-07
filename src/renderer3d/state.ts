@@ -107,7 +107,7 @@ export interface RendererState {
 
   // Plant meshes (24 subtypes — one InstancedMesh per subtype)
   subtypeMeshes: THREE.InstancedMesh[];
-  referenceHeights: Float32Array;
+  maturityHeights: Float32Array;
 
   // Seed mesh
   seeds: THREE.InstancedMesh;

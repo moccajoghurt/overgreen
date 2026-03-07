@@ -166,7 +166,7 @@ const MAX_PER_SUBTYPE = 7000; // 80×80=6400 grid + dying/burning headroom
 
 export function createSubtypeMeshes(): {
   meshes: THREE.InstancedMesh[];
-  referenceHeights: Float32Array;
+  maturityHeights: Float32Array;
 } {
   const models = buildSubtypeModels();
   const meshes = models.map(m => {
@@ -185,8 +185,8 @@ export function createSubtypeMeshes(): {
     mesh.frustumCulled = false;
     return mesh;
   });
-  const referenceHeights = new Float32Array(models.map(m => m.referenceHeight));
-  return { meshes, referenceHeights };
+  const maturityHeights = new Float32Array(models.map(m => m.maturityHeight));
+  return { meshes, maturityHeights };
 }
 
 // ── Seed mesh (flying seeds — separate from plant subtypes) ──

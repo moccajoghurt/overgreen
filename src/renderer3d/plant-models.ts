@@ -817,7 +817,7 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
 
 export interface SubtypeModel {
   geometry: THREE.BufferGeometry;
-  referenceHeight: number;
+  maturityHeight: number;
 }
 
 export const BUILDERS: (() => THREE.Group)[] = [
@@ -883,13 +883,13 @@ export function scaleToTarget(group: THREE.Group, subtypeIndex: number): void {
  * The simulation height at which each subtype renders at 1× authored model scale.
  * This is a design tuning knob, not derived from geometry.
  *
- * Instance scale: s = plant.height / REF_SIM_HEIGHT[subtype]
+ * Instance scale: s = plant.height / MATURITY_HEIGHT[subtype]
  * Rendered height = authored_model_height × s
  *
  * Example: Oak (model ~2.75 units) at sim h=8 → 2.75 × (8/10) = 2.2 world units
  *          Turfgrass (model ~0.2 units) at sim h=1 → 0.2 × (1/1.5) = 0.13 world units
  */
-const REF_SIM_HEIGHT: number[] = [
+const MATURITY_HEIGHT: number[] = [
   // Grasses (0-5)
   1.5,   // 0: Turfgrass — short lawn grass, full size at low sim height
   8.0,   // 1: Tallgrass — prairie grass
@@ -934,6 +934,6 @@ export function buildSubtypeModels(): SubtypeModel[] {
       }
     });
 
-    return { geometry: merged, referenceHeight: REF_SIM_HEIGHT[i] };
+    return { geometry: merged, maturityHeight: MATURITY_HEIGHT[i] };
   });
 }

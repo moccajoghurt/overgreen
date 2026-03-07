@@ -19,9 +19,9 @@ function writePlantInstance(
   plantId: number,
   tr: number, tg: number, tb: number,
 ): void {
-  const { dummy, referenceHeights } = state;
-  const refH = referenceHeights[subtype];
-  const s = (height / refH) * scale;
+  const { dummy, maturityHeights } = state;
+  const matH = maturityHeights[subtype];
+  const s = (height / matH) * scale;
 
   const ry = plantHash(plantId, 0) * Math.PI * 2;
   dummy.position.set(wx, baseY, wz);
