@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ── Helpers (ported from plant-gallery.html) ──
 
@@ -804,7 +805,11 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
   merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   merged.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  return merged;
+
+  // Re-index to restore vertex sharing — cuts GPU vertex processing significantly
+  const indexed = mergeVertices(merged, 1e-4);
+  merged.dispose();
+  return indexed;
 }
 
 // ── Public API ──

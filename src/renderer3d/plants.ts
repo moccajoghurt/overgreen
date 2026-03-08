@@ -271,8 +271,10 @@ export function updatePlants(state: RendererState): void {
 
   // ── Update counts and mark dirty ──
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
-    subtypeMeshes[i].count = subtypeCounts[i];
-    if (subtypeCounts[i] > 0) {
+    const count = subtypeCounts[i];
+    subtypeMeshes[i].count = count;
+    subtypeMeshes[i].visible = count > 0;
+    if (count > 0) {
       subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       subtypeMeshes[i].instanceColor!.needsUpdate = true;
     }
