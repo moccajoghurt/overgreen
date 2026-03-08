@@ -487,136 +487,524 @@ function buildSedge(): THREE.Group {
 
 function buildOak(): THREE.Group {
   const g = new THREE.Group();
-  addTrunk(g, 0, 0, 0, 0.2, 0.12, 1.2, 0x5a3a1a);
-  const t1 = addTrunk(g, -0.15, 1.0, 0, 0.08, 0.05, 0.7, 0x5a3a1a);
-  t1.rotation.z = 0.6;
-  const t2 = addTrunk(g, 0.15, 1.0, 0.1, 0.08, 0.05, 0.65, 0x5a3a1a);
-  t2.rotation.z = -0.5;
-  const t3 = addTrunk(g, 0, 1.0, -0.15, 0.07, 0.04, 0.5, 0x5a3a1a);
-  t3.rotation.x = 0.5;
-  addCanopy(g, 0, 1.9, 0, 0.75, 0x2a5a1a);
-  addCanopy(g, -0.6, 1.7, 0.15, 0.5, 0x2d5a1e);
-  addCanopy(g, 0.55, 1.65, -0.1, 0.48, 0x2a5a1a);
-  addCanopy(g, 0.1, 1.55, 0.45, 0.4, 0x335a22);
-  addCanopy(g, -0.3, 2.0, -0.35, 0.38, 0x2d5a1e);
+
+  // Stout gnarled trunk with prominent root flare
+  const trunkMat = mat(0x5a3a1a);
+  // Root flare — wide at base
+  const flareGeo = new THREE.CylinderGeometry(0.18, 0.35, 0.25, 8);
+  const flare = new THREE.Mesh(flareGeo, mat(0x4a2a10));
+  flare.position.y = 0.125;
+  g.add(flare);
+  // Short thick trunk
+  addTrunk(g, 0, 0.25, 0, 0.18, 0.13, 0.45, 0x5a3a1a);
+
+  // Major fork — trunk splits into 2-3 heavy limbs visible below canopy
+  const branchMat = mat(0x5a3a1a);
+  const forks = [
+    { a: 0.4, tilt: 0.7, len: 0.5, rBot: 0.1, rTop: 0.06 },
+    { a: 2.5, tilt: 0.6, len: 0.45, rBot: 0.09, rTop: 0.055 },
+    { a: 4.2, tilt: 0.65, len: 0.4, rBot: 0.08, rTop: 0.05 },
+  ];
+  for (const f of forks) {
+    const geo = new THREE.CylinderGeometry(f.rTop, f.rBot, f.len, 6);
+    const m = new THREE.Mesh(geo, branchMat);
+    m.position.set(Math.cos(f.a) * 0.08, 0.65, Math.sin(f.a) * 0.08);
+    m.rotation.z = Math.cos(f.a) * f.tilt;
+    m.rotation.x = Math.sin(f.a) * f.tilt;
+    g.add(m);
+  }
+
+  // Canopy palette — warm olive-greens for oak character
+  const canopyColors = [0x66bb44, 0x5aaa3a, 0x77cc55, 0x6ab844, 0x55a033];
+  const cc = () => canopyColors[Math.floor(Math.random() * canopyColors.length)];
+
+  // 4 distinct lobe clusters — arranged asymmetrically for organic feel
+  // Each lobe = 3-4 overlapping canopy spheres
+  const lobes = [
+    { cx: 0.55, cz: 0.15, cy: 1.1, size: 0.4 },  // right lobe
+    { cx: -0.5, cz: -0.2, cy: 1.15, size: 0.38 }, // left lobe
+    { cx: 0.1, cz: 0.5, cy: 1.05, size: 0.35 },   // front lobe
+    { cx: -0.15, cz: -0.5, cy: 1.1, size: 0.36 },  // back lobe
+    { cx: 0.0, cz: 0.0, cy: 1.2, size: 0.45 },     // center mass
+  ];
+  for (const lobe of lobes) {
+    // Core of each lobe
+    addCanopy(g, lobe.cx, lobe.cy, lobe.cz, lobe.size, cc());
+    // 3 satellite spheres around lobe center for roundedness
+    for (let j = 0; j < 3; j++) {
+      const a = (j / 3) * Math.PI * 2 + Math.random() * 0.5;
+      const d = lobe.size * 0.5;
+      addCanopy(g,
+        lobe.cx + Math.cos(a) * d,
+        lobe.cy + (Math.random() - 0.3) * 0.15,
+        lobe.cz + Math.sin(a) * d,
+        lobe.size * (0.55 + Math.random() * 0.15), cc());
+    }
+  }
+
+  // Outer reach — additional spheres pushed far out for wide spread
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const dist = 0.7 + Math.random() * 0.15;
+    addCanopy(g, Math.cos(a) * dist, 1.0 + Math.random() * 0.2, Math.sin(a) * dist,
+      0.28 + Math.random() * 0.1, cc());
+  }
+
+  // Top cap — low and flat, oak crown is broad not pointy
+  addCanopy(g, 0, 1.4, 0, 0.35, cc());
+  addCanopy(g, 0.15, 1.35, -0.1, 0.28, cc());
+
+  // Dense inner fill — seal all gaps, no sky visible through canopy
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.3;
+    const dist = 0.2 + Math.random() * 0.3;
+    const y = 0.95 + Math.random() * 0.3;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, 0.25 + Math.random() * 0.1, cc());
+  }
+
+  // Bottom skirt — close gap between branches and canopy
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    addCanopy(g, Math.cos(a) * 0.35, 0.85, Math.sin(a) * 0.35, 0.22, cc());
+  }
+
   return g;
 }
 
 function buildMagnolia(): THREE.Group {
   const g = new THREE.Group();
-  addTrunk(g, 0, 0, 0, 0.12, 0.08, 1.0, 0x6a5a4a);
-  const geo = jitter(new THREE.SphereGeometry(0.8, 8, 6), 0.08);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, pos.getY(i) * 1.3);
+
+  // Pale silvery-gray bark — magnolia's signature smooth bark
+  const barkColor = 0xbbaa99;
+  const barkDark = 0xaa9988;
+  // Root flare — stout base
+  const flareGeo = new THREE.CylinderGeometry(0.16, 0.24, 0.2, 8);
+  const flareMesh = new THREE.Mesh(flareGeo, mat(barkDark));
+  flareMesh.position.y = 0.1;
+  g.add(flareMesh);
+  // Short thick trunk
+  addTrunk(g, 0, 0.2, 0, 0.16, 0.11, 0.45, barkColor);
+
+  // Low branching — magnolia branches start very low
+  const branchMat = mat(barkColor);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.3;
+    const geo = new THREE.CylinderGeometry(0.025, 0.06, 0.35, 5);
+    const m = new THREE.Mesh(geo, branchMat);
+    m.position.set(Math.cos(a) * 0.08, 0.6, Math.sin(a) * 0.08);
+    m.rotation.z = Math.cos(a) * 0.45;
+    m.rotation.x = Math.sin(a) * 0.45;
+    g.add(m);
   }
-  geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, mat(0x1a4a1a));
-  m.position.set(0, 1.8, 0);
-  g.add(m);
+
+  // Dense egg-shaped crown — glossy magnolia foliage
+  // Multiple green shades: dark interior, bright highlights for glossy look
+  const canopyColors = [0x44aa55, 0x55bb66, 0x3d9e48, 0x4aaa55, 0x66cc77];
+  const cc = () => canopyColors[Math.floor(Math.random() * canopyColors.length)];
+
+  // Core mass — egg shape, slightly taller than wide
+  addCanopy(g, 0, 1.15, 0, 0.55, cc());
+  addCanopy(g, 0, 1.35, 0, 0.5, cc());
+  addCanopy(g, 0, 0.95, 0, 0.5, cc());
+
+  // Dense layered rings — 3 tiers with lots of overlap
+  for (let tier = 0; tier < 3; tier++) {
+    const y = 0.85 + tier * 0.25;
+    const tierR = 0.5 - tier * 0.05;
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + tier * 0.4;
+      const dist = tierR * (0.5 + Math.random() * 0.35);
+      const r = 0.25 + Math.random() * 0.1;
+      addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, r, cc());
+    }
+  }
+
+  // Inner fill — seal all gaps
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2;
+    const dist = 0.15 + Math.random() * 0.2;
+    const y = 0.9 + Math.random() * 0.4;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, 0.22 + Math.random() * 0.08, cc());
+  }
+
+  // Top cap — smooth rounded peak
+  addCanopy(g, 0, 1.55, 0, 0.38, cc());
+  addCanopy(g, 0.08, 1.5, -0.05, 0.3, cc());
+
+  // Bottom skirt — canopy starts low on this tree
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    addCanopy(g, Math.cos(a) * 0.3, 0.75, Math.sin(a) * 0.3, 0.22, cc());
+  }
+
+  // Large showy magnolia blooms — the defining feature
+  // Warm whites and soft pinks that pop against green canopy
+  const bloomMats = [
+    mat(0xfff0dd, { roughness: 0.3 }),  // warm cream
+    mat(0xffccdd, { roughness: 0.3 }),  // soft pink
+    mat(0xffe8d0, { roughness: 0.3 }),  // peachy cream
+  ];
+  // 18 blooms on OUTER canopy surface, distributed for all-angle visibility
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    // Place on outer surface of egg-shaped crown
+    const y = 0.85 + (i % 3) * 0.3 + Math.random() * 0.1;
+    const dist = 0.45 + Math.random() * 0.1;
+    const size = 0.1 + Math.random() * 0.05; // large: 0.10-0.15
+    const geo = new THREE.IcosahedronGeometry(size, 1);
+    const m = new THREE.Mesh(geo, bloomMats[Math.floor(Math.random() * bloomMats.length)]);
+    m.position.set(Math.cos(a) * dist, y, Math.sin(a) * dist);
+    g.add(m);
+  }
+  // A few smaller buds (pointed, cone-shaped) for variety
+  const budMat = mat(0xeedd99, { roughness: 0.5 });
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.5;
+    const y = 1.0 + Math.random() * 0.5;
+    const dist = 0.5 + Math.random() * 0.08;
+    const geo = new THREE.ConeGeometry(0.03, 0.08, 5);
+    const bud = new THREE.Mesh(geo, budMat);
+    bud.position.set(Math.cos(a) * dist, y, Math.sin(a) * dist);
+    g.add(bud);
+  }
+
   return g;
 }
 
 function buildConifer(): THREE.Group {
   const g = new THREE.Group();
-  addTrunk(g, 0, 0, 0, 0.1, 0.06, 1.5, 0x8a4a2a);
-  const nm = mat(0x1a4a2a);
-  for (let i = 0; i < 5; i++) {
-    const y = 0.7 + i * 0.35;
-    const r = 0.75 - i * 0.14;
-    const h = 0.35;
-    const cone = new THREE.Mesh(jitter(new THREE.ConeGeometry(r, h, 7), 0.04), nm);
+
+  // Reddish-brown trunk — barely visible, hidden by lowest tier
+  addTrunk(g, 0, 0, 0, 0.08, 0.05, 0.4, 0x8a5a3a);
+
+  // Tier-based color gradient: dark at bottom → bright at top
+  // Bottom tiers are deep forest, top tiers are sunlit fresh green
+  const tierPalette = [
+    0x2d7744, // tier 0 — darkest, interior shadow
+    0x338850, // tier 1
+    0x3a9955, // tier 2
+    0x44aa60, // tier 3 — mid
+    0x4ebb6a, // tier 4
+    0x55cc77, // tier 5
+    0x66dd88, // tier 6 — brightest, sunlit top
+  ];
+  // Undersides are darker variant for depth
+  const undersidePalette = [
+    0x225533, 0x286640, 0x2d7744, 0x338850, 0x3a9955, 0x44aa60, 0x4ebb6a,
+  ];
+
+  const tierCount = 7;
+  for (let i = 0; i < tierCount; i++) {
+    const t = i / (tierCount - 1); // 0=bottom, 1=top
+    const y = 0.3 + i * 0.28;
+    const r = 0.8 - i * 0.1;
+    const h = 0.35 + (1 - t) * 0.1;
+    const tierColor = tierPalette[i];
+    const underColor = undersidePalette[i];
+
+    // Main tier cone
+    const coneGeo = new THREE.ConeGeometry(r, h, 8);
+    const cone = new THREE.Mesh(coneGeo, mat(tierColor));
     cone.position.set(0, y, 0);
     g.add(cone);
+
+    // Droop cones around edge — use darker underside color
+    const droopCount = Math.max(5, 8 - i);
+    for (let j = 0; j < droopCount; j++) {
+      const a = (j / droopCount) * Math.PI * 2 + i * 0.4;
+      const droopR = r * 0.38;
+      const droopH = h * 0.65;
+      const droopGeo = new THREE.ConeGeometry(droopR, droopH, 5);
+      const droop = new THREE.Mesh(droopGeo, mat(underColor));
+      droop.position.set(
+        Math.cos(a) * r * 0.5,
+        y - h * 0.2,
+        Math.sin(a) * r * 0.5,
+      );
+      droop.rotation.z = Math.cos(a) * 0.3;
+      droop.rotation.x = Math.sin(a) * 0.3;
+      g.add(droop);
+    }
+
+    // Inner fill cones — match tier color
+    if (i > 0 && i < tierCount - 1) {
+      const innerCount = 5;
+      for (let j = 0; j < innerCount; j++) {
+        const a = (j / innerCount) * Math.PI * 2 + i * 0.7;
+        const innerGeo = new THREE.ConeGeometry(r * 0.28, h * 0.55, 5);
+        const inner = new THREE.Mesh(innerGeo, mat(tierColor));
+        inner.position.set(
+          Math.cos(a) * r * 0.25,
+          y + h * 0.05,
+          Math.sin(a) * r * 0.25,
+        );
+        g.add(inner);
+      }
+    }
   }
+
+  // Top spire — brightest green, sits flush
+  const topY = 0.3 + (tierCount - 1) * 0.28;
+  const spireGeo = new THREE.ConeGeometry(0.15, 0.35, 6);
+  const spire = new THREE.Mesh(spireGeo, mat(0x77eebb));
+  spire.position.set(0, topY + 0.15, 0);
+  g.add(spire);
+
   return g;
 }
 
 function buildTropical(): THREE.Group {
   const g = new THREE.Group();
-  addTrunk(g, 0, 0, 0, 0.15, 0.08, 2.2, 0x6a5a4a);
+
+  // Smooth columnar trunk with buttress roots — tropical hardwood
+  const trunkColor = 0x7a6a5a;
+  // Prominent buttress roots — large fin-like structures radiating from base
   const buttMat = mat(0x6a5a4a);
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2 + 0.3;
-    const geo = new THREE.CylinderGeometry(0.015, 0.07, 0.5, 4);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.2;
+    const geo = new THREE.BoxGeometry(0.08, 0.5, 0.22);
     const m = new THREE.Mesh(geo, buttMat);
-    m.position.set(Math.cos(a) * 0.13, 0.2, Math.sin(a) * 0.13);
-    m.rotation.z = Math.cos(a) * 0.35;
-    m.rotation.x = Math.sin(a) * 0.35;
+    m.position.set(Math.cos(a) * 0.18, 0.22, Math.sin(a) * 0.18);
+    m.rotation.y = a;
     g.add(m);
   }
-  addCanopy(g, 0, 2.6, 0, 0.7, 0x2a6a2a);
-  addCanopy(g, 0.3, 2.4, 0.2, 0.4, 0x2d6a25);
-  addCanopy(g, -0.25, 2.5, -0.2, 0.38, 0x2a6a2a);
+  // Main trunk — moderate height
+  addTrunk(g, 0, 0, 0, 0.16, 0.1, 1.1, trunkColor);
+
+  // Lush tropical canopy — impenetrable mass of foliage, wider than tall
+  // Vivid tropical greens — bright for ACES, with sun-bleached top accent
+  const canopyColors = [0x44bb55, 0x55cc66, 0x3aaa44, 0x66dd77, 0x4abc55];
+  const cc = () => canopyColors[Math.floor(Math.random() * canopyColors.length)];
+  const sunTop = 0x88dd55; // yellow-green sun-bleached upper canopy
+
+  // Core mass — large, broad
+  addCanopy(g, 0, 1.55, 0, 0.65, cc());
+  addCanopy(g, 0, 1.4, 0, 0.6, cc());
+  addCanopy(g, 0, 1.7, 0, 0.5, cc());
+
+  // Wide spreading lobes — pushed far out, bigger radius for overlap
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const dist = 0.6 + Math.random() * 0.15;
+    const y = 1.35 + Math.random() * 0.3;
+    const r = 0.38 + Math.random() * 0.12;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, r, cc());
+  }
+
+  // Dense fill layer — intermediate angles
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.4;
+    const dist = 0.3 + Math.random() * 0.25;
+    const y = 1.35 + Math.random() * 0.3;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, 0.3 + Math.random() * 0.1, cc());
+  }
+
+  // Sun-bleached top cap
+  addCanopy(g, 0, 1.8, 0, 0.4, sunTop);
+  addCanopy(g, 0.1, 1.75, -0.08, 0.3, sunTop);
+
+  // Heavy hanging bottom skirt — tropical canopy droops low
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    addCanopy(g, Math.cos(a) * 0.35, 1.1, Math.sin(a) * 0.35, 0.25, cc());
+  }
+  // Second lower ring
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    addCanopy(g, Math.cos(a) * 0.25, 1.0, Math.sin(a) * 0.25, 0.2, cc());
+  }
+
+  // Epiphyte / aerial root accents — hanging vines or moss
+  const vineMat = mat(0x55aa44);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    const dist = 0.4 + Math.random() * 0.1;
+    const len = 0.2 + Math.random() * 0.15;
+    const vine = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.01, 0.015, len, 3),
+      vineMat,
+    );
+    vine.position.set(Math.cos(a) * dist, 1.2 - len / 2, Math.sin(a) * dist);
+    g.add(vine);
+  }
+
   return g;
 }
 
 function buildPalm(): THREE.Group {
   const g = new THREE.Group();
+
+  // Curved trunk with slight lean — CatmullRom spline
   const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0.06, 0.6, 0.03),
-    new THREE.Vector3(0.12, 1.3, 0),
-    new THREE.Vector3(0.08, 1.9, -0.02),
-    new THREE.Vector3(0.05, 2.3, 0),
+    new THREE.Vector3(0.06, 0.5, 0.03),
+    new THREE.Vector3(0.1, 1.1, 0),
+    new THREE.Vector3(0.07, 1.6, -0.02),
+    new THREE.Vector3(0.04, 2.0, 0),
   ]);
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.06, 6, false), mat(0x8a7a6a)));
-  const ringMat = mat(0x7a6a5a);
-  for (let ri = 1; ri < 8; ri++) {
-    const pt = curve.getPoint(ri / 8);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.01, 4, 8), ringMat);
+  // Trunk tube — warm brown
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 14, 0.065, 6, false), mat(0x9a8a7a)));
+  // Rings / scars along trunk
+  const ringMat = mat(0x8a7a6a);
+  for (let ri = 1; ri < 10; ri++) {
+    const pt = curve.getPoint(ri / 10);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 4, 8), ringMat);
     ring.position.copy(pt);
     ring.rotation.x = Math.PI / 2;
     g.add(ring);
   }
-  const fm = matDS(0x4a8a2a);
-  const topY = 2.3, topX = 0.05;
-  for (let i = 0; i < 8; i++) {
-    const a = i * Math.PI * 2 / 8;
-    const fLen = 1.1 + Math.random() * 0.2;
-    const fGeo = new THREE.PlaneGeometry(0.25, fLen, 1, 8);
+
+  // Crown shaft — green cylinder at top where fronds emerge
+  const shaftGeo = new THREE.CylinderGeometry(0.055, 0.07, 0.15, 6);
+  const shaft = new THREE.Mesh(shaftGeo, mat(0x55aa44));
+  shaft.position.set(0.04, 2.05, 0);
+  g.add(shaft);
+
+  // Fronds — 12 broad arching fronds with graceful droop
+  // Per-frond color variation for depth
+  const frondColors = [matDS(0x55bb44), matDS(0x66cc55), matDS(0x44aa33), matDS(0x77dd66)];
+  const fc = () => frondColors[Math.floor(Math.random() * frondColors.length)];
+  const topY = 2.1, topX = 0.04;
+  const frondCount = 12;
+
+  for (let i = 0; i < frondCount; i++) {
+    const a = (i / frondCount) * Math.PI * 2;
+    const fLen = 1.0 + Math.random() * 0.3;
+    const fWidth = 0.3 + Math.random() * 0.08; // wider fronds
+
+    // Main blade + angled cross blade for V-shape volume
+    for (let cross = 0; cross < 2; cross++) {
+      const w = cross === 0 ? fWidth : fWidth * 0.7;
+      const fGeo = new THREE.PlaneGeometry(w, fLen, 2, 12);
+      const fPos = fGeo.attributes.position;
+      for (let vi = 0; vi < fPos.count; vi++) {
+        const origY = fPos.getY(vi);
+        const t = (origY + fLen / 2) / fLen; // 0=base, 1=tip
+        // Taper toward tip
+        fPos.setX(vi, fPos.getX(vi) * (1 - 0.65 * t));
+        // Arch up then droop hard — more droop at tip
+        fPos.setY(vi, t * 0.3 - t * t * t * fLen * 0.55);
+        // Extend outward
+        fPos.setZ(vi, t * fLen * 0.8);
+      }
+      fGeo.computeVertexNormals();
+      const frond = new THREE.Mesh(fGeo, fc());
+      frond.position.set(topX, topY, 0);
+      // V-angle: cross blade tilted slightly for volume
+      frond.rotation.y = a + cross * 0.12;
+      if (cross === 1) frond.rotation.z = 0.1;
+      g.add(frond);
+    }
+  }
+
+  // Dead/brown fronds hanging below — 3 drooping old fronds for realism
+  const deadMat = matDS(0x998844);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 1.0;
+    const fLen = 0.6;
+    const fGeo = new THREE.PlaneGeometry(0.15, fLen, 1, 6);
     const fPos = fGeo.attributes.position;
     for (let vi = 0; vi < fPos.count; vi++) {
       const origY = fPos.getY(vi);
       const t = (origY + fLen / 2) / fLen;
-      fPos.setX(vi, fPos.getX(vi) * (1 - 0.65 * t));
-      fPos.setY(vi, t * 0.2 - t * t * fLen * 0.45);
-      fPos.setZ(vi, t * fLen * 0.85);
+      fPos.setX(vi, fPos.getX(vi) * (1 - 0.5 * t));
+      fPos.setY(vi, -t * fLen * 0.7); // hang straight down
+      fPos.setZ(vi, t * fLen * 0.3);
     }
     fGeo.computeVertexNormals();
-    const frond = new THREE.Mesh(fGeo, fm);
-    frond.position.set(topX, topY, 0);
+    const frond = new THREE.Mesh(fGeo, deadMat);
+    frond.position.set(topX, topY - 0.1, 0);
     frond.rotation.y = a;
     g.add(frond);
   }
+
+  // Coconut cluster at crown base
+  const coconutMat = mat(0x88aa44, { roughness: 0.6 });
+  for (let i = 0; i < 4; i++) {
+    const ca = (i / 4) * Math.PI * 2 + 0.5;
+    const nut = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 5, 4),
+      coconutMat,
+    );
+    nut.position.set(topX + Math.cos(ca) * 0.06, topY - 0.08, Math.sin(ca) * 0.06);
+    g.add(nut);
+  }
+
   return g;
 }
 
 function buildBirch(): THREE.Group {
   const g = new THREE.Group();
-  addTrunk(g, 0, 0, 0, 0.07, 0.04, 2.0, 0xd8d0c8);
-  const patchMat = mat(0x3a3a3a);
-  for (let pi = 0; pi < 6; pi++) {
-    const pa = Math.random() * Math.PI * 2;
-    const py = 0.3 + Math.random() * 1.2;
-    const patch = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.02), patchMat);
-    patch.position.set(Math.cos(pa) * 0.06, py, Math.sin(pa) * 0.06);
+
+  // Bright white bark — must pop, pushed very bright for ACES
+  const barkWhite = 0xf8f4ee;
+  addTrunk(g, 0, 0, 0, 0.06, 0.035, 0.9, barkWhite);
+
+  // Bold dark lenticular patches — birch's signature, large enough to read
+  const lenticelMat = mat(0x443322);
+  for (let pi = 0; pi < 8; pi++) {
+    const pa = (pi / 8) * Math.PI * 2 + Math.random() * 0.3;
+    const py = 0.15 + pi * 0.1 + Math.random() * 0.05;
+    const pw = 0.06 + Math.random() * 0.04;
+    const ph = 0.018 + Math.random() * 0.01;
+    const patch = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), lenticelMat);
+    patch.position.set(Math.cos(pa) * 0.05, py, Math.sin(pa) * 0.05);
     patch.rotation.y = pa;
     g.add(patch);
   }
-  const brMat = mat(0x9a8a7a);
-  for (let i = 0; i < 7; i++) {
-    const a = i * Math.PI * 2 / 7 + Math.random() * 0.3;
-    const y = 1.1 + Math.random() * 0.7;
-    const len = 0.4 + Math.random() * 0.25;
-    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.02, len, 4), brMat);
-    branch.position.set(Math.cos(a) * len / 3, y, Math.sin(a) * len / 3);
-    branch.rotation.z = Math.cos(a) * 0.7;
-    branch.rotation.x = Math.sin(a) * 0.7;
+
+  // Visible branches in exposed trunk section — white bark branches
+  const brMat = mat(0xe8e0d8);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.random() * 0.4;
+    const y = 0.5 + i * 0.12;
+    const len = 0.25 + Math.random() * 0.15;
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.02, len, 4), brMat);
+    branch.position.set(Math.cos(a) * 0.06, y + len * 0.3, Math.sin(a) * 0.06);
+    branch.rotation.z = Math.cos(a) * 0.5;
+    branch.rotation.x = Math.sin(a) * 0.5;
     g.add(branch);
-    addCanopy(g, Math.cos(a) * len * 0.6, y - 0.1, Math.sin(a) * len * 0.6, 0.2, 0x5aaa3a);
   }
-  addCanopy(g, 0, 1.85, 0, 0.35, 0x5aaa3a);
+
+  // Canopy — bright warm yellow-green, birch's signature spring foliage
+  const canopyColors = [0x99dd44, 0xaaee55, 0xbbee66, 0x88cc33, 0xaadd44];
+  const cc = () => canopyColors[Math.floor(Math.random() * canopyColors.length)];
+
+  // Tall narrow crown — 1.3:1 height:width ratio
+  // Canopy starts lower (y=0.7) to fill more of the tree
+  // Core column
+  addCanopy(g, 0, 1.15, 0, 0.4, cc());
+  addCanopy(g, 0, 0.95, 0, 0.38, cc());
+  addCanopy(g, 0, 1.35, 0, 0.35, cc());
+  addCanopy(g, 0, 1.5, 0, 0.3, cc());
+
+  // Narrow mid ring — tight, not wide
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const dist = 0.25 + Math.random() * 0.08;
+    const y = 0.95 + Math.random() * 0.4;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, 0.22 + Math.random() * 0.06, cc());
+  }
+
+  // Fill layer
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.3;
+    const dist = 0.12 + Math.random() * 0.15;
+    const y = 0.9 + Math.random() * 0.5;
+    addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist, 0.2 + Math.random() * 0.06, cc());
+  }
+
+  // Prominent tapered apex — birch crown peaks upward
+  addCanopy(g, 0, 1.65, 0, 0.25, cc());
+  addCanopy(g, 0.03, 1.75, -0.02, 0.18, cc());
+
+  // Lower fringe — canopy starts at branch zone
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.2;
+    addCanopy(g, Math.cos(a) * 0.2, 0.75, Math.sin(a) * 0.2, 0.18, cc());
+  }
+
   return g;
 }
 
