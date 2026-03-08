@@ -6,7 +6,7 @@ import {
   easeOutCubic, lerp, plantHash,
 } from './state';
 import { computePlantTint } from './plant-colors';
-import { classifySubtype, subtypeArchetype } from '../types/subtypes';
+import { classifySubtype } from '../types/subtypes';
 
 const SUBTYPE_COUNT = 24;
 
@@ -66,32 +66,50 @@ function writePlantInstance(
   clrArrays[subtype][ci + 2] = tb;
 }
 
-export function updatePlants(state: RendererState): void {
-  const { world, subtypeMeshes, growingPlants, flyingSeeds,
-    dyingPlants, burningPlants, getCellElevation } = state;
+/** Compute final tint (base tint + disease + highlight) for a live plant. */
+function computeFinalTint(
+  state: RendererState,
+  plantId: number, speciesId: number,
+  genome: import('../types').Genome,
+  x: number, y: number,
+  lineageRoot: number,
+): { tr: number; tg: number; tb: number } {
+  const tint = computePlantTint(state, plantId, speciesId, genome);
+  let tr = tint.r, tg = tint.g, tb = tint.b;
 
-  // Skip full rebuild if no tick occurred and no animations are active
-  const hasTicked = world.tick !== state.lastPlantTick;
-  const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
-    || burningPlants.size > 0 || flyingSeeds.length > 0;
-  const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies
-    || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot;
-  if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty) return;
-  state.plantsDirty = false;
-  state.lastHighlightedSpecies = state.highlightedSpecies;
-  state.lastHighlightedLineageRoot = state.highlightedLineageRoot;
-  state.lastPlantTick = world.tick;
-
-  // Invalidate color cache when colorMode changes
-  if (state.colorMode !== state.lastPlantColorMode) {
-    state.plantColorCache.clear();
-    state.lastPlantColorMode = state.colorMode;
+  // Disease overlay
+  if (state.world.environment.weatherOverlay[y * GRID_WIDTH + x] === WeatherOverlay.Diseased) {
+    tr = lerp(tr, 0.55, 0.4);
+    tg = lerp(tg, 0.50, 0.4);
+    tb = lerp(tb, 0.15, 0.4);
   }
 
-  // Pre-extract instance buffer arrays for each subtype
-  const mtxArrays = subtypeMeshes.map(m => m.instanceMatrix.array as Float32Array);
-  const clrArrays = subtypeMeshes.map(m => m.instanceColor!.array as Float32Array);
-  const subtypeCounts = new Uint32Array(SUBTYPE_COUNT);
+  // Highlighted species/lineage glow / dim
+  if (state.highlightedLineageRoot !== null) {
+    if (lineageRoot === state.highlightedLineageRoot) {
+      tr = Math.min(tr * 1.4, 1.5);
+      tg = Math.min(tg * 1.4, 1.5);
+      tb = Math.min(tb * 1.4, 1.5);
+    } else {
+      tr *= 0.55; tg *= 0.55; tb *= 0.55;
+    }
+  } else if (state.highlightedSpecies !== null) {
+    if (state.highlightedSpecies.has(speciesId)) {
+      tr = Math.min(tr * 1.4, 1.5);
+      tg = Math.min(tg * 1.4, 1.5);
+      tb = Math.min(tb * 1.4, 1.5);
+    } else {
+      tr *= 0.55; tg *= 0.55; tb *= 0.55;
+    }
+  }
+
+  return { tr, tg, tb };
+}
+
+// ── Shared event ingestion (used by both full and incremental paths) ──
+
+function ingestEvents(state: RendererState): void {
+  const { world, growingPlants, flyingSeeds, dyingPlants, burningPlants } = state;
 
   // ── Ingest seed landing events (once per simulation tick) ──
   if (world.tick !== state.lastProcessedTick) {
@@ -159,7 +177,99 @@ export function updatePlants(state: RendererState): void {
     }
   }
 
-  const env = world.environment;
+}
+
+// ── Dying / burning animation rendering (appended after live section) ──
+
+function renderDyingBurning(
+  state: RendererState,
+  subtypeCounts: Uint32Array,
+  mtxArrays: Float32Array[], clrArrays: Float32Array[],
+): void {
+  const { world, dyingPlants, burningPlants, getCellElevation } = state;
+
+  // ── Render dying plants ──
+  const toRemove: number[] = [];
+  for (const [id, dp] of dyingPlants) {
+    dp.progress += 1 / DEATH_ANIM_FRAMES;
+    if (dp.progress >= 1) { toRemove.push(id); continue; }
+
+    // Skip grass subtypes 0-4 — death handled by shader field clearing
+    if (dp.subtype <= 4) continue;
+
+    const wx = dp.x - HALF + 0.5;
+    const wz = dp.y - HALF + 0.5;
+    const shrink = 1 - dp.progress;
+    const baseY = getCellElevation(dp.x, dp.y);
+    const p = dp.progress;
+
+    // Dying tint: fade toward brown
+    let tr = lerp(1.0, 0.45, p);
+    let tg = lerp(1.0, 0.30, p);
+    let tb = lerp(1.0, 0.12, p);
+
+    // Species mode: tint the dying plant too
+    if (state.colorMode === 'species') {
+      const sc = world.speciesColors.get(dp.speciesId);
+      if (sc) {
+        tr *= lerp(0.4 + sc.r * 0.8, 0.45, p);
+        tg *= lerp(0.4 + sc.g * 0.8, 0.30, p);
+        tb *= lerp(0.4 + sc.b * 0.8, 0.12, p);
+      }
+    }
+
+    const idx = subtypeCounts[dp.subtype]++;
+    writePlantInstance(state, dp.subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, dp.height, shrink, id, tr, tg, tb);
+  }
+  for (const id of toRemove) dyingPlants.delete(id);
+
+  // ── Render burning plants ──
+  const burnToRemove: number[] = [];
+  for (const [id, bp] of burningPlants) {
+    const burnFrames = bp.woodiness < 0.4 ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
+    bp.progress += 1 / burnFrames;
+    if (bp.progress >= 1) {
+      burnToRemove.push(id);
+      state.dyingPlants.set(id, { ...bp, progress: 0 });
+      continue;
+    }
+
+    // Skip grass subtypes 0-4 — burn handled by shader field clearing
+    if (bp.subtype <= 4) continue;
+
+    const wx = bp.x - HALF + 0.5;
+    const wz = bp.y - HALF + 0.5;
+    const baseY = getCellElevation(bp.x, bp.y);
+    const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
+    const t = bp.progress;
+    const burnShrink = bp.woodiness < 0.4 ? 1 - t * 0.5 : 1 - t * 0.3;
+
+    // Fire tint: orange-red → dark
+    const tr = (bp.woodiness < 0.4
+      ? lerp(2.5, 0.4, t) * (0.8 + flicker * 0.2)
+      : lerp(2.2, 0.3, t * 0.5) * (0.8 + flicker * 0.2));
+    const tg = (bp.woodiness < 0.4
+      ? lerp(1.5, 0.1, t) * (0.7 + flicker * 0.3)
+      : lerp(1.2, 0.08, t) * (0.7 + flicker * 0.3));
+    const tb = bp.woodiness < 0.4 ? lerp(0.3, 0.03, t) : lerp(0.2, 0.03, t);
+
+    const idx = subtypeCounts[bp.subtype]++;
+    writePlantInstance(state, bp.subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, bp.height, burnShrink, id, tr, tg, tb);
+  }
+  for (const id of burnToRemove) burningPlants.delete(id);
+}
+
+// ── Full rebuild path ──
+
+function fullRebuild(state: RendererState, mtxArrays: Float32Array[], clrArrays: Float32Array[]): void {
+  const { world, growingPlants, getCellElevation } = state;
+  const subtypeCounts = state.subtypeLiveCounts;
+  subtypeCounts.fill(0);
+  state.plantIndex.clear();
+  state.prevPlantHeights.clear();
+  state.prevPlantDisease.clear();
 
   // ── Reuse snapshot map ──
   const newSnapshots = state.nextSnapshots;
@@ -209,39 +319,19 @@ export function updatePlants(state: RendererState): void {
       }
     }
 
-    // Compute tint
-    const tint = computePlantTint(state, plant.id, plant.speciesId, plant.genome,
-      subtypeArchetype(subtype), env);
-
-    // Disease overlay
-    let { r: tr, g: tg, b: tb } = tint;
-    if (world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
-      // Muddy yellow tint (shift multiplier toward brownish)
-      tr = lerp(tr, 0.55, 0.4);
-      tg = lerp(tg, 0.50, 0.4);
-      tb = lerp(tb, 0.15, 0.4);
-    }
-
-    // Highlighted species/lineage glow / dim
-    if (state.highlightedLineageRoot !== null) {
-      if (plant.lineageRoot === state.highlightedLineageRoot) {
-        tr = Math.min(tr * 1.4, 1.5);
-        tg = Math.min(tg * 1.4, 1.5);
-        tb = Math.min(tb * 1.4, 1.5);
-      } else {
-        tr *= 0.55; tg *= 0.55; tb *= 0.55;
-      }
-    } else if (state.highlightedSpecies !== null) {
-      if (state.highlightedSpecies.has(plant.speciesId)) {
-        tr = Math.min(tr * 1.4, 1.5);
-        tg = Math.min(tg * 1.4, 1.5);
-        tb = Math.min(tb * 1.4, 1.5);
-      } else {
-        tr *= 0.55; tg *= 0.55; tb *= 0.55;
-      }
-    }
+    // Compute final tint
+    const { tr, tg, tb } = computeFinalTint(
+      state, plant.id, plant.speciesId, plant.genome,
+      plant.x, plant.y, plant.lineageRoot,
+    );
 
     const idx = subtypeCounts[subtype]++;
+    state.subtypePlantIds[subtype][idx] = plant.id;
+    state.plantIndex.set(plant.id, { subtype, idx });
+    state.prevPlantHeights.set(plant.id, plant.height);
+    const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
+    state.prevPlantDisease.set(plant.id, isDiseased);
+
     writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
       wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
   }
@@ -250,87 +340,302 @@ export function updatePlants(state: RendererState): void {
   state.nextSnapshots = state.prevSnapshots;
   state.prevSnapshots = newSnapshots;
 
-  // ── Render dying plants ──
-  const toRemove: number[] = [];
-  for (const [id, dp] of dyingPlants) {
-    dp.progress += 1 / DEATH_ANIM_FRAMES;
-    if (dp.progress >= 1) { toRemove.push(id); continue; }
-
-    // Skip grass subtypes 0-4 — death handled by shader field clearing
-    if (dp.subtype <= 4) continue;
-
-    const wx = dp.x - HALF + 0.5;
-    const wz = dp.y - HALF + 0.5;
-    const shrink = 1 - dp.progress;
-    const baseY = getCellElevation(dp.x, dp.y);
-    const p = dp.progress;
-
-    // Dying tint: fade toward brown
-    let tr = lerp(1.0, 0.45, p);
-    let tg = lerp(1.0, 0.30, p);
-    let tb = lerp(1.0, 0.12, p);
-
-    // Species mode: tint the dying plant too
-    if (state.colorMode === 'species') {
-      const sc = world.speciesColors.get(dp.speciesId);
-      if (sc) {
-        tr *= lerp(0.4 + sc.r * 0.8, 0.45, p);
-        tg *= lerp(0.4 + sc.g * 0.8, 0.30, p);
-        tb *= lerp(0.4 + sc.b * 0.8, 0.12, p);
-      }
-    }
-
-    const idx = subtypeCounts[dp.subtype]++;
-    writePlantInstance(state, dp.subtype, idx, mtxArrays, clrArrays,
-      wx, wz, baseY, dp.height, shrink, id, tr, tg, tb);
-  }
-  for (const id of toRemove) dyingPlants.delete(id);
-
-  // ── Render burning plants ──
-  const burnToRemove: number[] = [];
-  for (const [id, bp] of burningPlants) {
-    const burnFrames = bp.woodiness < 0.4 ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
-    bp.progress += 1 / burnFrames;
-    if (bp.progress >= 1) {
-      burnToRemove.push(id);
-      dyingPlants.set(id, { ...bp, progress: 0 });
-      continue;
-    }
-
-    // Skip grass subtypes 0-4 — burn handled by shader field clearing
-    if (bp.subtype <= 4) continue;
-
-    const wx = bp.x - HALF + 0.5;
-    const wz = bp.y - HALF + 0.5;
-    const baseY = getCellElevation(bp.x, bp.y);
-    const flicker = Math.sin(performance.now() * 0.015 + id * 7) * 0.5 + 0.5;
-    const t = bp.progress;
-    const burnShrink = bp.woodiness < 0.4 ? 1 - t * 0.5 : 1 - t * 0.3;
-
-    // Fire tint: orange-red → dark
-    const tr = (bp.woodiness < 0.4
-      ? lerp(2.5, 0.4, t) * (0.8 + flicker * 0.2)
-      : lerp(2.2, 0.3, t * 0.5) * (0.8 + flicker * 0.2));
-    const tg = (bp.woodiness < 0.4
-      ? lerp(1.5, 0.1, t) * (0.7 + flicker * 0.3)
-      : lerp(1.2, 0.08, t) * (0.7 + flicker * 0.3));
-    const tb = bp.woodiness < 0.4 ? lerp(0.3, 0.03, t) : lerp(0.2, 0.03, t);
-
-    const idx = subtypeCounts[bp.subtype]++;
-    writePlantInstance(state, bp.subtype, idx, mtxArrays, clrArrays,
-      wx, wz, baseY, bp.height, burnShrink, id, tr, tg, tb);
-  }
-  for (const id of burnToRemove) burningPlants.delete(id);
+  // Dying/burning appended after live plants
+  // Copy live counts so dying/burning appends after them
+  const animCounts = new Uint32Array(subtypeCounts);
+  renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
 
   // ── Update counts and mark dirty ──
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
-    const count = subtypeCounts[i];
-    subtypeMeshes[i].count = count;
-    subtypeMeshes[i].visible = count > 0;
+    const count = animCounts[i];
+    state.subtypeMeshes[i].count = count;
+    state.subtypeMeshes[i].visible = count > 0;
     if (count > 0) {
-      subtypeMeshes[i].instanceMatrix.needsUpdate = true;
-      subtypeMeshes[i].instanceColor!.needsUpdate = true;
+      state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
     }
+  }
+
+  state.forceFullRebuild = false;
+}
+
+// ── Incremental update path ──
+
+function incrementalUpdate(
+  state: RendererState,
+  mtxArrays: Float32Array[], clrArrays: Float32Array[],
+): void {
+  const { world, growingPlants, getCellElevation,
+    subtypePlantIds, plantIndex, subtypeLiveCounts, dirtyPlants,
+    prevPlantHeights, prevPlantDisease } = state;
+
+  // 1. Process deaths: swap-remove dead plants from index
+  for (const [id] of state.prevSnapshots) {
+    if (world.plants.has(id)) continue;
+    // This plant died (already added to dyingPlants/burningPlants by ingestEvents)
+    const entry = plantIndex.get(id);
+    if (entry && entry.subtype > 4) {
+      const { subtype, idx } = entry;
+      const lastIdx = subtypeLiveCounts[subtype] - 1;
+      if (lastIdx > idx) {
+        // Swap last plant into dead slot
+        const lastPlantId = subtypePlantIds[subtype][lastIdx];
+        subtypePlantIds[subtype][idx] = lastPlantId;
+        // Copy matrix and color from last slot to dead slot
+        const mArr = mtxArrays[subtype];
+        mArr.copyWithin(idx * 16, lastIdx * 16, lastIdx * 16 + 16);
+        const cArr = clrArrays[subtype];
+        cArr.copyWithin(idx * 3, lastIdx * 3, lastIdx * 3 + 3);
+        // Update reverse lookup for swapped plant
+        const swapEntry = plantIndex.get(lastPlantId);
+        if (swapEntry) swapEntry.idx = idx;
+        dirtyPlants.add(lastPlantId); // mark swapped plant dirty (may need re-render if also changed)
+      }
+      subtypeLiveCounts[subtype]--;
+      plantIndex.delete(id);
+    }
+    prevPlantHeights.delete(id);
+    prevPlantDisease.delete(id);
+    state.plantColorCache.delete(id);
+  }
+
+  // 2. Process births: append new plants
+  for (const evt of world.germinationEvents) {
+    const plant = world.plants.get(evt.plantId);
+    if (!plant?.alive) continue;
+    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    if (subtype <= 4) continue; // grass handled by shader
+    const idx = subtypeLiveCounts[subtype]++;
+    subtypePlantIds[subtype][idx] = plant.id;
+    plantIndex.set(plant.id, { subtype, idx });
+    prevPlantHeights.set(plant.id, plant.height);
+    const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
+    prevPlantDisease.set(plant.id, isDiseased);
+    dirtyPlants.add(plant.id);
+  }
+
+  // 3. Detect height/disease changes + growing plants + build snapshots (single O(N) pass)
+  const newSnapshots = state.nextSnapshots;
+  newSnapshots.clear();
+  for (const plant of world.plants.values()) {
+    if (!plant.alive) continue;
+    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+
+    newSnapshots.set(plant.id, {
+      x: plant.x, y: plant.y,
+      height: plant.height, rootDepth: plant.rootDepth,
+      leafArea: plant.leafArea, speciesId: plant.speciesId,
+      genome: plant.genome,
+      woodiness: plant.genome.woodiness,
+      subtype,
+    });
+
+    if (subtype <= 4) {
+      // Still advance growth animation for grass
+      const growing = growingPlants.get(plant.id);
+      if (growing) {
+        growing.progress += 1 / GROWTH_ANIM_FRAMES;
+        if (growing.progress >= 1) growingPlants.delete(plant.id);
+      }
+      continue;
+    }
+
+    const prevH = prevPlantHeights.get(plant.id);
+    if (prevH !== undefined && prevH !== plant.height) {
+      dirtyPlants.add(plant.id);
+      prevPlantHeights.set(plant.id, plant.height);
+    }
+
+    const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
+    const wasDiseased = prevPlantDisease.get(plant.id);
+    if (wasDiseased !== undefined && wasDiseased !== isDiseased) {
+      dirtyPlants.add(plant.id);
+      prevPlantDisease.set(plant.id, isDiseased);
+    }
+
+    // Growing plants are always dirty (growScale changes each frame)
+    if (growingPlants.has(plant.id)) {
+      dirtyPlants.add(plant.id);
+    }
+  }
+  state.nextSnapshots = state.prevSnapshots;
+  state.prevSnapshots = newSnapshots;
+
+  // 4. Write dirty instances only
+  for (const pid of dirtyPlants) {
+    const entry = plantIndex.get(pid);
+    if (!entry) continue;
+    const plant = world.plants.get(pid);
+    if (!plant?.alive) continue;
+
+    const { subtype, idx } = entry;
+
+    const wx = plant.x - HALF + 0.5;
+    const wz = plant.y - HALF + 0.5;
+    const baseY = getCellElevation(plant.x, plant.y);
+
+    // Growth animation
+    let growScale = 1.0;
+    const growing = growingPlants.get(plant.id);
+    if (growing) {
+      growing.progress += 1 / GROWTH_ANIM_FRAMES;
+      if (growing.progress >= 1) {
+        growingPlants.delete(plant.id);
+      } else if (growing.progress < 0) {
+        growScale = 0;
+      } else {
+        growScale = Math.max(0.05, easeOutCubic(growing.progress));
+      }
+    }
+
+    const { tr, tg, tb } = computeFinalTint(
+      state, plant.id, plant.speciesId, plant.genome,
+      plant.x, plant.y, plant.lineageRoot,
+    );
+
+    writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
+      wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
+
+    // Partial GPU upload for this instance
+    const mesh = state.subtypeMeshes[subtype];
+    mesh.instanceMatrix.addUpdateRange(idx * 16, 16);
+    mesh.instanceColor!.addUpdateRange(idx * 3, 3);
+  }
+  dirtyPlants.clear();
+
+  // 6. Dying/burning appended after live section
+  const animCounts = new Uint32Array(subtypeLiveCounts);
+  renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
+
+  // 7. Update counts and needsUpdate
+  for (let i = 0; i < SUBTYPE_COUNT; i++) {
+    const count = animCounts[i];
+    state.subtypeMeshes[i].count = count;
+    state.subtypeMeshes[i].visible = count > 0;
+    if (count > 0) {
+      // For incremental path, we used addUpdateRange for dirty instances.
+      // But dying/burning section is fully rewritten each frame, so we still
+      // need needsUpdate = true to flush the update ranges + dying region.
+      state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
+  }
+}
+
+// ── Animation-only path (no tick, just advance dying/burning/growing) ──
+
+function animationOnlyUpdate(
+  state: RendererState,
+  mtxArrays: Float32Array[], clrArrays: Float32Array[],
+): void {
+  const { world, growingPlants, getCellElevation, subtypeLiveCounts, dirtyPlants } = state;
+
+  // Advance growing plants and mark dirty (growScale changed)
+  for (const [pid, growing] of growingPlants) {
+    const plant = world.plants.get(pid);
+    if (!plant?.alive) { growingPlants.delete(pid); continue; }
+    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    if (subtype <= 4) {
+      growing.progress += 1 / GROWTH_ANIM_FRAMES;
+      if (growing.progress >= 1) growingPlants.delete(pid);
+      continue;
+    }
+
+    growing.progress += 1 / GROWTH_ANIM_FRAMES;
+    if (growing.progress >= 1) {
+      growingPlants.delete(pid);
+    }
+
+    const entry = state.plantIndex.get(pid);
+    if (!entry) continue;
+
+    let growScale = 1.0;
+    if (growing.progress < 0) {
+      growScale = 0;
+    } else if (growing.progress < 1) {
+      growScale = Math.max(0.05, easeOutCubic(growing.progress));
+    }
+
+    const wx = plant.x - HALF + 0.5;
+    const wz = plant.y - HALF + 0.5;
+    const baseY = getCellElevation(plant.x, plant.y);
+    const { tr, tg, tb } = computeFinalTint(
+      state, plant.id, plant.speciesId, plant.genome,
+      plant.x, plant.y, plant.lineageRoot,
+    );
+
+    writePlantInstance(state, entry.subtype, entry.idx, mtxArrays, clrArrays,
+      wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
+
+    const mesh = state.subtypeMeshes[entry.subtype];
+    mesh.instanceMatrix.addUpdateRange(entry.idx * 16, 16);
+    mesh.instanceColor!.addUpdateRange(entry.idx * 3, 3);
+  }
+  dirtyPlants.clear();
+
+  // Dying/burning appended after live section
+  const animCounts = new Uint32Array(subtypeLiveCounts);
+  renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
+
+  // Update counts
+  for (let i = 0; i < SUBTYPE_COUNT; i++) {
+    const count = animCounts[i];
+    state.subtypeMeshes[i].count = count;
+    state.subtypeMeshes[i].visible = count > 0;
+    if (count > 0) {
+      state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Main entry point
+// ═══════════════════════════════════════════════════════
+
+export function updatePlants(state: RendererState): void {
+  const { world, subtypeMeshes, growingPlants, flyingSeeds,
+    dyingPlants, burningPlants } = state;
+
+  // Skip if no tick occurred and no animations are active
+  const hasTicked = world.tick !== state.lastPlantTick;
+  const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
+    || burningPlants.size > 0 || flyingSeeds.length > 0;
+  const colorModeChanged = state.colorMode !== state.lastPlantColorMode;
+  const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies
+    || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot;
+  if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty
+      && !state.forceFullRebuild && !colorModeChanged) return;
+
+  state.plantsDirty = false;
+  state.lastHighlightedSpecies = state.highlightedSpecies;
+  state.lastHighlightedLineageRoot = state.highlightedLineageRoot;
+  state.lastPlantTick = world.tick;
+
+  // Invalidate color cache when colorMode changes
+  if (colorModeChanged) {
+    state.plantColorCache.clear();
+    state.lastPlantColorMode = state.colorMode;
+  }
+
+  // Pre-extract instance buffer arrays for each subtype
+  const mtxArrays = subtypeMeshes.map(m => m.instanceMatrix.array as Float32Array);
+  const clrArrays = subtypeMeshes.map(m => m.instanceColor!.array as Float32Array);
+
+  // Decision: which path to take?
+  const needsFullRebuild = state.forceFullRebuild || hoverChanged || colorModeChanged;
+
+  if (needsFullRebuild) {
+    // Full rebuild needed — ingest events, then rebuild everything
+    ingestEvents(state);
+    fullRebuild(state, mtxArrays, clrArrays);
+  } else if (hasTicked) {
+    // Incremental update — only rewrite dirty instances
+    ingestEvents(state);
+    incrementalUpdate(state, mtxArrays, clrArrays);
+  } else {
+    // Animation-only — advance growing/dying/burning at stable indices
+    animationOnlyUpdate(state, mtxArrays, clrArrays);
   }
 }
 

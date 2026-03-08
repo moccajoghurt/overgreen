@@ -361,8 +361,6 @@ export function createGrassLayer(
       // Compute tint (reuses same cache as accent plants)
       const tint = computePlantTint(
         state, plant.id, plant.speciesId, plant.genome,
-        0, // archetype = grass
-        env,
       );
 
       let { r: tr, g: tg, b: tb } = tint;
