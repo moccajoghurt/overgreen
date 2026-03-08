@@ -140,3 +140,4 @@ vite.config.ts.timestamp-*
 
 .plant_img_cache/
 results/
+screenshots/
