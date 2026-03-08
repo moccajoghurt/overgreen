@@ -4,7 +4,7 @@ import {
   Environment, DiseaseEvent, WeatherOverlay,
 } from '../types';
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
-import { genomeDistance, removeFromCentroid } from './plants';
+import { genomeDistance } from './plants';
 import { advanceEra, getEffectiveEraMultipliers } from './eras';
 
 // Season target values: [water, light, leafMaint, growth, seed]
@@ -111,13 +111,6 @@ function killPlantByFire(world: World, x: number, y: number): void {
       offspringCount: plant.offspringCount,
       generation: plant.generation,
     });
-    // Remove from species centroid (same as phaseDeath)
-    const centroid = world.speciesCentroids.get(plant.speciesId);
-    if (centroid) {
-      removeFromCentroid(centroid, plant.genome);
-      if (centroid.count <= 0) world.speciesCentroids.delete(plant.speciesId);
-    }
-
     plant.energy = 0;
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);

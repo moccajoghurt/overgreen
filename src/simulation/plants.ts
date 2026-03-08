@@ -1,5 +1,5 @@
 import {
-  Genome, Plant, SIM, SpeciesCentroid,
+  Genome, Plant, SIM,
   SpeciesColor, TerrainType, World, getPlantConstants,
 } from '../types';
 import { generateSpeciesName } from '../species-names';
@@ -40,66 +40,6 @@ export function genomeDistance(a: Genome, b: Genome): number {
 }
 
 export { Archetype, archetype } from '../types';
-
-export function createSpeciesCentroid(genome: Genome): SpeciesCentroid {
-  return {
-    sumRoot: genome.rootPriority,
-    sumHeight: genome.heightPriority,
-    sumLeaf: genome.leafSize,
-    sumSeed: genome.seedInvestment,
-    sumSeedSize: genome.seedSize,
-    sumDefense: genome.defense,
-    sumWoodiness: genome.woodiness,
-    sumWaterStorage: genome.waterStorage,
-    sumLongevity: genome.longevity,
-    count: 1,
-    foundingGenome: { ...genome },
-  };
-}
-
-export function addToCentroid(centroid: SpeciesCentroid, genome: Genome): void {
-  centroid.sumRoot += genome.rootPriority;
-  centroid.sumHeight += genome.heightPriority;
-  centroid.sumLeaf += genome.leafSize;
-  centroid.sumSeed += genome.seedInvestment;
-  centroid.sumSeedSize += genome.seedSize;
-  centroid.sumDefense += genome.defense;
-  centroid.sumWoodiness += genome.woodiness;
-  centroid.sumWaterStorage += genome.waterStorage;
-  centroid.sumLongevity += genome.longevity;
-  centroid.count++;
-}
-
-export function removeFromCentroid(centroid: SpeciesCentroid, genome: Genome): void {
-  centroid.sumRoot -= genome.rootPriority;
-  centroid.sumHeight -= genome.heightPriority;
-  centroid.sumLeaf -= genome.leafSize;
-  centroid.sumSeed -= genome.seedInvestment;
-  centroid.sumSeedSize -= genome.seedSize;
-  centroid.sumDefense -= genome.defense;
-  centroid.sumWoodiness -= genome.woodiness;
-  centroid.sumWaterStorage -= genome.waterStorage;
-  centroid.sumLongevity -= genome.longevity;
-  centroid.count--;
-}
-
-export function getCentroidGenome(centroid: SpeciesCentroid): Genome {
-  if (centroid.count < SIM.SPECIATION_MIN_SPECIES_SIZE) {
-    return centroid.foundingGenome;
-  }
-  const n = centroid.count;
-  return {
-    rootPriority: centroid.sumRoot / n,
-    heightPriority: centroid.sumHeight / n,
-    leafSize: centroid.sumLeaf / n,
-    seedInvestment: centroid.sumSeed / n,
-    seedSize: centroid.sumSeedSize / n,
-    defense: centroid.sumDefense / n,
-    woodiness: centroid.sumWoodiness / n,
-    waterStorage: centroid.sumWaterStorage / n,
-    longevity: centroid.sumLongevity / n,
-  };
-}
 
 export function crossoverGenome(a: Genome, b: Genome): Genome {
   const pick = (va: number, vb: number) => Math.random() < 0.5 ? va : vb;
@@ -190,7 +130,7 @@ export function seedSinglePlant(world: World): void {
   const cell = world.grid[cy][cx];
   cell.plantId = id;
   cell.lastSpeciesId = speciesId;
-  world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
+  world.subtypeSpecies.set(subtype, speciesId);
 }
 
 export function seedInitialPlants(world: World, _count: number): void {
@@ -227,11 +167,17 @@ export function seedInitialPlants(world: World, _count: number): void {
   for (const center of centers) {
     for (let s = 0; s < SPECIES_PER_CLUSTER; s++) {
       const genome = randomGenome();
-      const speciesId = world.nextSpeciesId++;
       const subtype = classifySubtype(genome);
-      world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-      world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
-      world.speciesSubtypes.set(speciesId, subtype);
+
+      // Reuse existing species if this subtype already has one
+      let speciesId = world.subtypeSpecies.get(subtype);
+      if (speciesId === undefined) {
+        speciesId = world.nextSpeciesId++;
+        world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
+        world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
+        world.speciesSubtypes.set(speciesId, subtype);
+        world.subtypeSpecies.set(subtype, speciesId);
+      }
 
       // Place 2 copies of this species within cluster radius
       for (let copy = 0; copy < COPIES_PER_SPECIES; copy++) {
@@ -250,14 +196,6 @@ export function seedInitialPlants(world: World, _count: number): void {
           world.plants.set(id, plant);
           cell.plantId = id;
           cell.lastSpeciesId = speciesId;
-
-          // Track species centroid
-          const existing = world.speciesCentroids.get(speciesId);
-          if (!existing) {
-            world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
-          } else {
-            addToCentroid(existing, genome);
-          }
           break;
         }
       }

@@ -42,7 +42,6 @@ export function createSpeciesLabelsOverlay(
   let showLineage = false;
   let hoveredSpecies: number | null = null;
   let lastUpdateTick = -UPDATE_EVERY_N_TICKS;
-  const establishedSpecies = new Set<number>(); // species that crossed 50 pop
   let lineageMapRef: Map<number, number> = new Map();
   let hoveredLineageRoot: number | null = null;
 
@@ -459,16 +458,10 @@ export function createSpeciesLabelsOverlay(
       if (plant.generation > prev) maxGen.set(plant.speciesId, plant.generation);
     }
 
-    // Track species that cross the establishment threshold (permanent)
-    const MIN_LABEL_POP = 50;
-    for (const [sid, pop] of speciesPopulation) {
-      if (pop >= MIN_LABEL_POP) establishedSpecies.add(sid);
-    }
-
-    // Show established species that are still alive (or the hovered one)
+    // Show all living species (or the hovered one)
     const visibleSpecies = new Set<number>();
-    for (const sid of establishedSpecies) {
-      if (speciesPopulation.has(sid)) visibleSpecies.add(sid);
+    for (const sid of speciesPopulation.keys()) {
+      visibleSpecies.add(sid);
     }
     if (hoveredSpecies !== null && speciesPopulation.has(hoveredSpecies)) {
       visibleSpecies.add(hoveredSpecies);
@@ -728,7 +721,6 @@ export function createSpeciesLabelsOverlay(
       entry.el.remove();
     }
     lineageLabels.clear();
-    establishedSpecies.clear();
   }
 
   return { update, updatePositions, setVisible, setHoveredSpecies, setHoveredLineageRoot, setLineageVisible, setLineageMap, reset };

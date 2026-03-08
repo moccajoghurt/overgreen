@@ -1,7 +1,6 @@
 import { TRAITS } from './trait-defs';
 import {
   createPlant, genomeDistance, randomGenome, generateSpeciesColor,
-  createSpeciesCentroid, addToCentroid,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
 import { classifySubtype } from './types/subtypes';
@@ -378,14 +377,21 @@ export function createSandboxPanel(
 
     // New species
     if (speciesId === null) {
-      speciesId = world.nextSpeciesId++;
-      const color = generateSpeciesColor(speciesId);
       const subtype = classifySubtype(genome);
-      const name = generateSpeciesName(genome, speciesId, subtype);
-      world.speciesColors.set(speciesId, color);
-      world.speciesNames.set(speciesId, name);
-      world.speciesSubtypes.set(speciesId, subtype);
-      customSpecies.set(speciesId, { name, genome, placedCount: 1 });
+      // Reuse existing species for this subtype if one exists
+      const existingForSubtype = world.subtypeSpecies.get(subtype);
+      if (existingForSubtype !== undefined) {
+        speciesId = existingForSubtype;
+      } else {
+        speciesId = world.nextSpeciesId++;
+        const color = generateSpeciesColor(speciesId);
+        const name = generateSpeciesName(genome, speciesId, subtype);
+        world.speciesColors.set(speciesId, color);
+        world.speciesNames.set(speciesId, name);
+        world.speciesSubtypes.set(speciesId, subtype);
+        world.subtypeSpecies.set(subtype, speciesId);
+      }
+      customSpecies.set(speciesId, { name: world.speciesNames.get(speciesId)!, genome, placedCount: 1 });
     }
 
     // Create plant
@@ -394,14 +400,6 @@ export function createSandboxPanel(
     world.plants.set(id, plant);
     cell.plantId = id;
     cell.lastSpeciesId = speciesId;
-
-    // Track species centroid
-    const existingCentroid = world.speciesCentroids.get(speciesId);
-    if (!existingCentroid) {
-      world.speciesCentroids.set(speciesId, createSpeciesCentroid(genome));
-    } else {
-      addToCentroid(existingCentroid, genome);
-    }
 
     rebuildPlacedList();
     updatePreview();

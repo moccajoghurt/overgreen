@@ -76,20 +76,6 @@ export interface Cell {
   seeds: Seed[];
 }
 
-export interface SpeciesCentroid {
-  sumRoot: number;
-  sumHeight: number;
-  sumLeaf: number;
-  sumSeed: number;
-  sumSeedSize: number;
-  sumDefense: number;
-  sumWoodiness: number;
-  sumWaterStorage: number;
-  sumLongevity: number;
-  count: number;
-  foundingGenome: Genome;
-}
-
 export interface World {
   width: number;
   height: number;
@@ -112,10 +98,10 @@ export interface World {
   nextHerbivoreId: number;
   herbivoreDeathEvents: HerbivoreDeathEvent[];
   herbivoreBirthEvents: HerbivoreBirthEvent[];
-  speciesCentroids: Map<number, SpeciesCentroid>;
   speciationEvents: SpeciationEvent[];
   speciesSubtypes: Map<number, number>;
   speciesLineage: Map<number, number>;  // childSpeciesId → parentSpeciesId
+  subtypeSpecies: Map<number, number>;  // subtypeId → speciesId
 }
 
 export interface DeathEvent {

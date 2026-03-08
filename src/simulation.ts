@@ -1,8 +1,8 @@
 import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
-  mutateGenome, crossoverGenome, genomeDistance, getCentroidGenome,
-  Archetype, archetype, createSpeciesCentroid, addToCentroid, removeFromCentroid,
+  mutateGenome, crossoverGenome,
+  Archetype, archetype,
   generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
@@ -452,13 +452,6 @@ function phaseDeath(world: World): void {
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
-      // Remove from species centroid
-      const centroid = world.speciesCentroids.get(plant.speciesId);
-      if (centroid) {
-        removeFromCentroid(centroid, plant.genome);
-        if (centroid.count <= 0) world.speciesCentroids.delete(plant.speciesId);
-      }
-
       // Use disease flag computed in phaseUpdatePlants
       let cause: 'starvation' | 'age' | 'disease' = plant.age >= maxAge ? 'age' : 'starvation';
       if (cause === 'starvation' && plant.isDiseased) {
@@ -553,34 +546,30 @@ function phaseGermination(world: World): void {
       else if (cell.terrainType === TerrainType.Arid) dampen = SIM.ARID_VIGOR_DAMPEN;
       const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
-      // Speciation check: compare child genome to parent species centroid
+      // Speciation check: subtype-based
       let finalSpeciesId = winner.speciesId;
-      const parentCentroid = world.speciesCentroids.get(winner.speciesId);
-      if (parentCentroid) {
-        const centroidGenome = getCentroidGenome(parentCentroid);
-        const dist = genomeDistance(winner.genome, centroidGenome);
-        const archetypeChanged = archetype(centroidGenome) !== archetype(winner.genome);
-        const threshold = SIM.SPECIATION_DISTANCE_THRESHOLD;
-        // Different body plan (archetype) → always speciate; otherwise use distance threshold
-        if ((archetypeChanged || dist > threshold) && parentCentroid.count >= SIM.SPECIATION_MIN_POPULATION) {
+      const childSubtype = classifySubtype(winner.genome);
+      const parentSubtype = world.speciesSubtypes.get(winner.speciesId);
+      if (childSubtype !== parentSubtype) {
+        const existingSpeciesForSubtype = world.subtypeSpecies.get(childSubtype);
+        if (existingSpeciesForSubtype !== undefined) {
+          // Join existing species for this subtype
+          finalSpeciesId = existingSpeciesForSubtype;
+        } else {
+          // Create new species for this subtype
           finalSpeciesId = world.nextSpeciesId++;
-          const newSubtype = classifySubtype(winner.genome);
           world.speciesColors.set(finalSpeciesId, generateSpeciesColor(finalSpeciesId));
-          const newName = generateSpeciesName(winner.genome, finalSpeciesId, newSubtype);
+          const newName = generateSpeciesName(winner.genome, finalSpeciesId, childSubtype);
           world.speciesNames.set(finalSpeciesId, newName);
-          world.speciesCentroids.set(finalSpeciesId, createSpeciesCentroid(winner.genome));
-          world.speciesSubtypes.set(finalSpeciesId, newSubtype);
+          world.speciesSubtypes.set(finalSpeciesId, childSubtype);
+          world.subtypeSpecies.set(childSubtype, finalSpeciesId);
           world.speciesLineage.set(finalSpeciesId, winner.speciesId);
           world.speciationEvents.push({
             newSpeciesId: finalSpeciesId,
             parentSpeciesId: winner.speciesId,
             newSpeciesName: newName,
           });
-        } else {
-          addToCentroid(parentCentroid, winner.genome);
         }
-      } else {
-        world.speciesCentroids.set(winner.speciesId, createSpeciesCentroid(winner.genome));
       }
 
       const childId = world.nextPlantId++;
