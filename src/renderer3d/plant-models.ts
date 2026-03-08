@@ -224,23 +224,25 @@ function buildSpreading(): THREE.Group {
     stolon.rotation.y = -a;
     g.add(stolon);
   }
-  // Short wiry blades with radial falloff
-  const step = 0.14;
-  const radius = 0.55;
+  // Short beefy blades — uniform grid, tilted for full ground coverage
+  const step = 0.22;
+  const half = 0.50;
   let idx = 0;
-  for (let gx = -radius; gx <= radius; gx += step) {
-    for (let gz = -radius; gz <= radius; gz += step) {
-      const f = gcFalloff(gx, gz, radius);
-      if (f < 0.01 || Math.random() > f) continue;
-      const scatter = 0.05 + (1 - f) * 0.06;
-      const ox = gx + (Math.random() - 0.5) * scatter;
-      const oz = gz + (Math.random() - 0.5) * scatter;
-      const h = (0.10 + Math.random() * 0.08) * (0.3 + 0.7 * f);
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.06;
+      const oz = gz + (Math.random() - 0.5) * 0.06;
+      const h = 0.10 + Math.random() * 0.07;
+      const w = 0.38 + Math.random() * 0.10;
       for (let cross = 0; cross < 2; cross++) {
-        const geo = grassBlade(h, 0.15, 0.01 * (Math.random() - 0.5));
+        const geo = grassBlade(h, w, 0.01 * (Math.random() - 0.5));
         const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
-        m.position.set(ox, h / 2, oz);
-        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        m.position.set(ox, h * 0.3, oz);
+        m.rotation.set(
+          0.6 + Math.random() * 0.4,
+          cross * Math.PI / 2 + (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.3,
+        );
         g.add(m);
         idx++;
       }
