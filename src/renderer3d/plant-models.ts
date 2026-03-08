@@ -137,22 +137,26 @@ function buildBunchgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm1 = matDS(0x6a8a6a);
   const bm2 = matDS(0x5a7a5a);
-  const step = 0.15;
-  const radius = 0.55;
+  const bm3 = matDS(0x7a9a7a);
+  const step = 0.22;
+  const half = 0.50;
   let idx = 0;
-  for (let gx = -radius; gx <= radius; gx += step) {
-    for (let gz = -radius; gz <= radius; gz += step) {
-      const f = gcFalloff(gx, gz, radius);
-      if (f < 0.01 || Math.random() > f) continue;
-      const scatter = 0.06 + (1 - f) * 0.06;
-      const ox = gx + (Math.random() - 0.5) * scatter;
-      const oz = gz + (Math.random() - 0.5) * scatter;
-      const h = (0.5 + Math.random() * 0.4) * (0.3 + 0.7 * f);
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.06;
+      const oz = gz + (Math.random() - 0.5) * 0.06;
+      const h = 0.45 + Math.random() * 0.35;
+      const w = 0.36 + Math.random() * 0.10;
       for (let cross = 0; cross < 2; cross++) {
-        const geo = grassBlade(h, 0.18, 0.02 * (Math.random() - 0.5));
-        const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
-        m.position.set(ox, h / 2, oz);
-        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        const geo = grassBlade(h, w, 0.02 * (Math.random() - 0.5));
+        const cm = idx % 5 === 0 ? bm3 : idx % 3 === 0 ? bm2 : bm1;
+        const m = new THREE.Mesh(geo, cm);
+        m.position.set(ox, h * 0.3, oz);
+        m.rotation.set(
+          0.5 + Math.random() * 0.4,
+          cross * Math.PI / 2 + (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.3,
+        );
         g.add(m);
         idx++;
       }
