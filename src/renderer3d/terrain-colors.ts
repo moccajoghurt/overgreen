@@ -2,6 +2,16 @@ import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types'
 import { Archetype, archetype } from '../types';
 import { RendererState, GRID, lerp } from './state';
 
+// Pre-computed terrain base colors (RGB, from HSL constants)
+const TERRAIN_RGB: Record<number, [number, number, number]> = {
+  [TerrainType.Soil]:    [0.4480, 0.3200, 0.1920],
+  [TerrainType.River]:   [0.4480, 0.3200, 0.1920],
+  [TerrainType.Rock]:    [0.4028, 0.3800, 0.3572], // + elevation * [0.0636, 0.06, 0.0564]
+  [TerrainType.Hill]:    [0.5130, 0.3889, 0.2470],
+  [TerrainType.Wetland]: [0.1540, 0.2860, 0.2420],
+  [TerrainType.Arid]:    [0.6480, 0.5360, 0.3120],
+};
+
 function computeSnowCoverage(env: Environment): number {
   if (env.season === Season.Autumn && env.seasonProgress > 0.8) {
     return (env.seasonProgress - 0.8) * (0.15 / 0.2);
@@ -17,7 +27,7 @@ function computeSnowCoverage(env: Environment): number {
 }
 
 export function updateTerrainColors(state: RendererState): void {
-  const { world, tmpColor, colorArray, colorAttr } = state;
+  const { world, colorArray, colorAttr } = state;
 
   if (world.tick === state.lastTerrainTick
     && state.colorMode === state.lastTerrainColorMode) return;
@@ -95,20 +105,17 @@ export function updateTerrainColors(state: RendererState): void {
       const cell = world.grid[y][x];
       const idx = y * GRID + x;
 
-      // Base terrain color (flat HSL, no noise)
-      let h: number, s: number, l: number;
-      switch (cell.terrainType) {
-        case TerrainType.River:  h = 30 / 360; s = 0.40; l = 0.32; break;
-        case TerrainType.Rock:   h = 30 / 360; s = 0.06; l = 0.38 + cell.elevation * 0.06; break;
-        case TerrainType.Hill:   h = 32 / 360; s = 0.35; l = 0.38; break;
-        case TerrainType.Wetland: h = 160 / 360; s = 0.30; l = 0.22; break;
-        case TerrainType.Arid:   h = 40 / 360; s = 0.35; l = 0.48; break;
-        default:                 h = 30 / 360; s = 0.40; l = 0.32; break;
+      const rgb = TERRAIN_RGB[cell.terrainType] ?? TERRAIN_RGB[TerrainType.Soil];
+      if (cell.terrainType === TerrainType.Rock) {
+        const e = cell.elevation;
+        cellBaseR[idx] = rgb[0] + e * 0.0636;
+        cellBaseG[idx] = rgb[1] + e * 0.06;
+        cellBaseB[idx] = rgb[2] + e * 0.0564;
+      } else {
+        cellBaseR[idx] = rgb[0];
+        cellBaseG[idx] = rgb[1];
+        cellBaseB[idx] = rgb[2];
       }
-      tmpColor.setHSL(h, s, l);
-      cellBaseR[idx] = tmpColor.r;
-      cellBaseG[idx] = tmpColor.g;
-      cellBaseB[idx] = tmpColor.b;
 
       // Plant tint
       if (cell.plantId == null) continue;
