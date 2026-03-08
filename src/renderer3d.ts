@@ -101,6 +101,14 @@ export function createRenderer3D(
   webgl.domElement.style.display = 'block';
   container.appendChild(webgl.domElement);
 
+  // ── Vignette overlay (pure CSS, zero GPU cost) ──
+  const vignette = document.createElement('div');
+  vignette.style.cssText =
+    'position:absolute;inset:0;pointer-events:none;' +
+    'background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.45) 100%);'
+  ;
+  container.appendChild(vignette);
+
   // ── Map Controls ──
   const controls = new MapControls(camera, webgl.domElement);
   controls.minPolarAngle = 0.3;
