@@ -1151,236 +1151,430 @@ function buildMangrove(): THREE.Group {
 
 function buildSaguaro(): THREE.Group {
   const g = new THREE.Group();
-  const cm = mat(0x5a8a4a);
-  const main = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 2.0, 10), cm);
-  main.position.set(0, 1.0, 0);
-  g.add(main);
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), cm);
-  cap.position.set(0, 2.0, 0);
+  // Saguaro cactus — tall ribbed column with 3D-distributed arms, multi-tone greens
+  const bodyGreen = mat(0x6a9a55);
+  const lightGreen = mat(0x7aaa65);
+  const darkGreen = mat(0x4a7a3a);
+
+  // Main column — slightly tapered
+  const mainH = 2.0;
+  const mainGeo = new THREE.CylinderGeometry(0.13, 0.17, mainH, 8);
+  const mainMesh = new THREE.Mesh(mainGeo, bodyGreen);
+  mainMesh.position.set(0, mainH / 2, 0);
+  g.add(mainMesh);
+
+  // Dome cap on main column
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), lightGreen);
+  cap.position.set(0, mainH, 0);
   g.add(cap);
-  const arm1 = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.18, 0.8, 0),
-    new THREE.Vector3(0.5, 0.7, 0),
-    new THREE.Vector3(0.55, 1.0, 0),
-    new THREE.Vector3(0.5, 1.3, 0),
-  ]);
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(arm1, 10, 0.08, 8, false), cm));
-  const arm1Cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cm);
-  arm1Cap.position.set(0.5, 1.3, 0);
-  g.add(arm1Cap);
-  const arm2 = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.18, 1.0, 0),
-    new THREE.Vector3(-0.45, 0.95, 0),
-    new THREE.Vector3(-0.48, 1.2, 0),
-    new THREE.Vector3(-0.42, 1.55, 0),
-  ]);
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(arm2, 10, 0.07, 8, false), cm));
-  const arm2Cap = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cm);
-  arm2Cap.position.set(-0.42, 1.55, 0);
-  g.add(arm2Cap);
+
+  // 4 arms distributed around the trunk in 3D
+  const armData = [
+    { a: 0.4, startY: 0.85, spread: 0.48, topY: 1.35, thick: 0.075 },
+    { a: 2.0, startY: 1.05, spread: 0.42, topY: 1.60, thick: 0.065 },
+    { a: 3.5, startY: 0.65, spread: 0.52, topY: 1.10, thick: 0.070 },
+    { a: 5.2, startY: 1.20, spread: 0.38, topY: 1.75, thick: 0.060 },
+  ];
+  for (let i = 0; i < armData.length; i++) {
+    const arm = armData[i];
+    const cx = Math.cos(arm.a), cz = Math.sin(arm.a);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(cx * 0.17, arm.startY, cz * 0.17),
+      new THREE.Vector3(cx * arm.spread, arm.startY - 0.08, cz * arm.spread),
+      new THREE.Vector3(cx * (arm.spread + 0.04), arm.startY + (arm.topY - arm.startY) * 0.5, cz * (arm.spread + 0.04)),
+      new THREE.Vector3(cx * arm.spread * 0.92, arm.topY, cz * arm.spread * 0.92),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, arm.thick, 6, false), i % 2 === 0 ? bodyGreen : lightGreen));
+    const tip = curve.getPoint(1);
+    const armCap = new THREE.Mesh(
+      new THREE.SphereGeometry(arm.thick, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2),
+      lightGreen,
+    );
+    armCap.position.copy(tip);
+    g.add(armCap);
+  }
+
+  // Vertical rib accents — thin ridges on main column
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI * 2 / 6;
+    const ribGeo = new THREE.BoxGeometry(0.015, mainH * 0.9, 0.015);
+    const rib = new THREE.Mesh(ribGeo, darkGreen);
+    rib.position.set(Math.cos(a) * 0.155, mainH * 0.48, Math.sin(a) * 0.155);
+    g.add(rib);
+  }
+
   return g;
 }
 
 function buildAloe(): THREE.Group {
   const g = new THREE.Group();
+  // Agave/Aloe rosette — big thick fleshy 3D leaves, multi-tone greens
+  const leafBright = mat(0x77aa55);
+  const leafGreen = mat(0x6a9a50);
+  const leafDark = mat(0x558844);
+
+  // 3 rings of thick triangular leaves — LARGE dimensions
   const rings = [
-    { count: 7, offset: 0, lean: 0.7, len: 0.55, baseR: 0.06 },
-    { count: 5, offset: 0.45, lean: 0.4, len: 0.45, baseR: 0.04 },
+    { count: 11, offset: 0.0, lean: 1.05, len: 1.4, thick: 0.08, baseR: 0.18 },
+    { count: 8, offset: 0.28, lean: 0.7, len: 1.1, thick: 0.07, baseR: 0.12 },
+    { count: 5, offset: 0.55, lean: 0.4, len: 0.75, thick: 0.06, baseR: 0.06 },
   ];
-  for (const ring of rings) {
+
+  for (let ri = 0; ri < rings.length; ri++) {
+    const ring = rings[ri];
+    const ringMats = [leafBright, leafGreen, leafDark];
     for (let i = 0; i < ring.count; i++) {
       const a = i * Math.PI * 2 / ring.count + ring.offset;
-      const lGeo = new THREE.PlaneGeometry(0.07, ring.len, 1, 6);
-      const lPos = lGeo.attributes.position;
-      for (let vi = 0; vi < lPos.count; vi++) {
-        const origY = lPos.getY(vi);
+
+      // Thick fleshy leaf — tapered cross-section
+      const leafGeo = new THREE.BoxGeometry(ring.thick * 2.5, ring.len, ring.thick, 1, 6, 1);
+      const pos = leafGeo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const origY = pos.getY(vi);
         const t = (origY + ring.len / 2) / ring.len;
-        lPos.setX(vi, lPos.getX(vi) * (1 - 0.7 * t));
-        lPos.setY(vi, t * ring.len * 0.6 + 0.05);
-        lPos.setZ(vi, t * t * ring.len * 0.5);
+        pos.setX(vi, pos.getX(vi) * (1 - 0.75 * t));
+        pos.setZ(vi, pos.getZ(vi) * (1 - 0.5 * t));
+        const curveY = t * ring.len * 0.65 + 0.05;
+        const curveOut = t * t * ring.len * 0.5;
+        pos.setY(vi, curveY);
+        pos.setZ(vi, pos.getZ(vi) + curveOut);
       }
-      lGeo.computeVertexNormals();
-      const leaf = new THREE.Mesh(lGeo, matDS(0x5a7a4a));
-      leaf.position.set(Math.cos(a) * ring.baseR, 0, Math.sin(a) * ring.baseR);
-      leaf.rotation.y = -a + Math.PI / 2;
-      leaf.rotation.x = -ring.lean;
-      g.add(leaf);
-      const lGeo2 = lGeo.clone();
-      const leaf2 = new THREE.Mesh(lGeo2, matDS(0x4a6a3a));
-      leaf2.position.set(Math.cos(a) * ring.baseR, 0.015, Math.sin(a) * ring.baseR);
-      leaf2.rotation.y = -a + Math.PI / 2;
-      leaf2.rotation.x = -ring.lean;
-      g.add(leaf2);
+      leafGeo.computeVertexNormals();
+
+      const leafMesh = new THREE.Mesh(leafGeo, ringMats[ri]);
+      leafMesh.position.set(Math.cos(a) * ring.baseR, 0, Math.sin(a) * ring.baseR);
+      leafMesh.rotation.y = -a + Math.PI / 2;
+      leafMesh.rotation.x = -ring.lean;
+      g.add(leafMesh);
+
     }
   }
+
   return g;
 }
 
 function buildCaudiciform(): THREE.Group {
   const g = new THREE.Group();
-  const brMat = mat(0x9a9080);
+  // Desert rose / Adenium — big swollen caudex, short branches, pink flowers
+  const caudexMat = mat(0x9a8870);
+  const caudexDark = mat(0x887766);
+  const branchMat = mat(0x7a6a55);
+
+  // BIG bulbous caudex — the defining feature
+  const caudexGeo = new THREE.SphereGeometry(0.30, 10, 8);
+  caudexGeo.scale(1.0, 0.75, 0.9); // slightly squashed
+  const caudex = new THREE.Mesh(jitter(caudexGeo, 0.02), caudexMat);
+  caudex.position.set(0, 0.20, 0);
+  g.add(caudex);
+
+  // Surface texture bumps on caudex
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI * 2 / 8 + 0.3;
+    const bumpR = 0.06 + Math.random() * 0.03;
+    const bump = new THREE.Mesh(
+      jitter(new THREE.SphereGeometry(bumpR, 5, 4), 0.008),
+      i % 2 === 0 ? caudexMat : caudexDark,
+    );
+    bump.position.set(Math.cos(a) * 0.22, 0.16 + Math.random() * 0.08, Math.sin(a) * 0.22);
+    g.add(bump);
+  }
+
+  // Exposed root flanges at base
+  for (let i = 0; i < 5; i++) {
+    const a = i * Math.PI * 2 / 5;
+    const rootGeo = new THREE.CylinderGeometry(0.02, 0.04, 0.18, 4);
+    const root = new THREE.Mesh(rootGeo, caudexDark);
+    root.position.set(Math.cos(a) * 0.18, 0.02, Math.sin(a) * 0.18);
+    root.rotation.z = -Math.cos(a) * 0.5;
+    root.rotation.x = -Math.sin(a) * 0.5;
+    g.add(root);
+  }
+
+  // 5 short stubby branches from top of caudex
+  const leafColors = [0x5aaa44, 0x66bb55, 0x4d9d3d];
+  const flowerMat = mat(0xff6699);
+  const flowerMat2 = mat(0xff88aa);
+
   const branches = [
-    { a: 0.4, h: 0.4 },
-    { a: 1.8, h: 0.35 },
-    { a: 3.2, h: 0.45 },
-    { a: 4.8, h: 0.38 },
+    { a: 0.3, h: 0.50, spread: 0.12, flower: true },
+    { a: 1.5, h: 0.42, spread: 0.14, flower: false },
+    { a: 2.8, h: 0.55, spread: 0.10, flower: true },
+    { a: 4.2, h: 0.38, spread: 0.13, flower: true },
+    { a: 5.4, h: 0.48, spread: 0.11, flower: false },
   ];
-  for (const b of branches) {
+  for (let i = 0; i < branches.length; i++) {
+    const b = branches[i];
+    const cx = Math.cos(b.a), cz = Math.sin(b.a);
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(Math.cos(b.a) * 0.06, b.h * 0.4, Math.sin(b.a) * 0.06),
-      new THREE.Vector3(Math.cos(b.a) * 0.18, b.h, Math.sin(b.a) * 0.18),
+      new THREE.Vector3(cx * 0.08, 0.35, cz * 0.08),
+      new THREE.Vector3(cx * b.spread, 0.35 + b.h * 0.6, cz * b.spread),
+      new THREE.Vector3(cx * (b.spread + 0.04), 0.35 + b.h, cz * (b.spread + 0.04)),
     ]);
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.03, 5, false), brMat));
-    addCanopy(g, Math.cos(b.a) * 0.2, b.h + 0.02, Math.sin(b.a) * 0.2, 0.09, 0x4a7a3a);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.025, 4, false), branchMat));
+
+    // Leaf cluster at tip
+    const tip = curve.getPoint(0.9);
+    addCanopy(g, tip.x, tip.y, tip.z, 0.10, leafColors[i % leafColors.length]);
+    addCanopy(g, tip.x + 0.02, tip.y + 0.04, tip.z, 0.07, leafColors[(i + 1) % leafColors.length]);
+
+    // Pink flowers on marked branches
+    if (b.flower) {
+      for (let fi = 0; fi < 3; fi++) {
+        const fa = b.a + (fi - 1) * 0.4;
+        const fl = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(0.035, 0),
+          fi % 2 === 0 ? flowerMat : flowerMat2,
+        );
+        fl.position.set(tip.x + Math.cos(fa) * 0.04, tip.y + 0.06, tip.z + Math.sin(fa) * 0.04);
+        g.add(fl);
+      }
+    }
   }
-  for (let fi = 0; fi < 3; fi++) {
-    const fa = branches[fi].a + 0.2;
-    const fh = branches[fi].h;
-    const fl = new THREE.Mesh(new THREE.SphereGeometry(0.035, 4, 3), mat(0xcc4477));
-    fl.position.set(Math.cos(fa) * 0.22, fh + 0.06, Math.sin(fa) * 0.22);
-    g.add(fl);
-  }
+
   return g;
 }
 
 function buildEuphorbia(): THREE.Group {
   const g = new THREE.Group();
-  const em = mat(0x3a6a3a);
-  addTrunk(g, 0.03, 0, -0.02, 0.1, 0.07, 0.7, 0x5a4a2a);
-  const arms = [
-    { a: 0.3, startY: 0.65, spread: 0.32, topY: 1.4, thick: 0.05 },
-    { a: 1.5, startY: 0.55, spread: 0.28, topY: 1.15, thick: 0.045 },
-    { a: 2.4, startY: 0.7, spread: 0.35, topY: 1.55, thick: 0.05 },
-    { a: 3.8, startY: 0.6, spread: 0.25, topY: 1.25, thick: 0.04 },
-    { a: 5.0, startY: 0.5, spread: 0.3, topY: 1.0, thick: 0.042 },
-    { a: 5.8, startY: 0.68, spread: 0.22, topY: 1.35, thick: 0.038 },
+  // Candelabra euphorbia — woody trunk, multi-tone succulent stems, yellow-green cyathia tips
+  const trunkMat = mat(0x6a5535);
+  const stemDark = mat(0x4a7a3a);
+  const stemMid = mat(0x5a8a4a);
+  const stemLight = mat(0x6a9a55);
+  const tipMat = mat(0xbbcc44); // yellow-green cyathia
+
+  // Short woody trunk
+  addTrunk(g, 0, 0, 0, 0.10, 0.08, 0.55, 0x6a5535);
+
+  // Central stem continuing above trunk
+  const centerH = 1.6;
+  const centerGeo = new THREE.CylinderGeometry(0.05, 0.065, centerH - 0.55, 6);
+  const center = new THREE.Mesh(centerGeo, stemMid);
+  center.position.set(0, 0.55 + (centerH - 0.55) / 2, 0);
+  g.add(center);
+  const cCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2), stemLight);
+  cCap.position.set(0, centerH, 0);
+  g.add(cCap);
+  // Cyathia at center tip
+  const cFlower = new THREE.Mesh(new THREE.IcosahedronGeometry(0.03, 0), tipMat);
+  cFlower.position.set(0, centerH + 0.03, 0);
+  g.add(cFlower);
+
+  // 7 candelabra arms — U-shaped curves from trunk to vertical tips
+  const armData = [
+    { a: 0.3, startY: 0.50, spread: 0.30, topY: 1.40, thick: 0.048 },
+    { a: 1.2, startY: 0.58, spread: 0.26, topY: 1.20, thick: 0.042 },
+    { a: 2.0, startY: 0.45, spread: 0.32, topY: 1.50, thick: 0.050 },
+    { a: 2.9, startY: 0.55, spread: 0.24, topY: 1.15, thick: 0.040 },
+    { a: 3.8, startY: 0.48, spread: 0.28, topY: 1.35, thick: 0.045 },
+    { a: 4.8, startY: 0.60, spread: 0.25, topY: 1.25, thick: 0.042 },
+    { a: 5.6, startY: 0.52, spread: 0.30, topY: 1.45, thick: 0.046 },
   ];
-  for (let i = 0; i < arms.length; i++) {
-    const arm = arms[i];
+  for (let i = 0; i < armData.length; i++) {
+    const arm = armData[i];
     const cx = Math.cos(arm.a), cz = Math.sin(arm.a);
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0.03, arm.startY, -0.02),
-      new THREE.Vector3(cx * arm.spread * 0.8, arm.startY - 0.1, cz * arm.spread * 0.8),
-      new THREE.Vector3(cx * arm.spread, arm.topY, cz * arm.spread),
+      new THREE.Vector3(cx * 0.08, arm.startY, cz * 0.08),
+      new THREE.Vector3(cx * arm.spread * 0.9, arm.startY - 0.06, cz * arm.spread * 0.9),
+      new THREE.Vector3(cx * arm.spread, arm.startY + (arm.topY - arm.startY) * 0.4, cz * arm.spread),
+      new THREE.Vector3(cx * arm.spread * 0.95, arm.topY, cz * arm.spread * 0.95),
     ]);
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, arm.thick, 6, false), em));
-    const armTop = curve.getPoint(1);
-    const armCap = new THREE.Mesh(new THREE.SphereGeometry(arm.thick, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2), em);
-    armCap.position.copy(armTop);
+    const armMat = [stemDark, stemMid, stemLight][i % 3];
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, arm.thick, 5, false), armMat));
+
+    // Dome cap
+    const tip = curve.getPoint(1);
+    const armCap = new THREE.Mesh(
+      new THREE.SphereGeometry(arm.thick, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2),
+      stemLight,
+    );
+    armCap.position.copy(tip);
     g.add(armCap);
-    if (i % 2 === 0) {
-      const forkA = arm.a + (Math.random() - 0.5) * 0.8;
+
+    // Cyathia at arm tip
+    const flower = new THREE.Mesh(new THREE.IcosahedronGeometry(0.022, 0), tipMat);
+    flower.position.set(tip.x, tip.y + 0.025, tip.z);
+    g.add(flower);
+
+    // Fork on some arms
+    if (i % 3 === 0) {
+      const forkA = arm.a + 0.5;
       const forkCurve = new THREE.CatmullRomCurve3([
-        armTop,
-        new THREE.Vector3(Math.cos(forkA) * (arm.spread + 0.12), arm.topY + 0.25, Math.sin(forkA) * (arm.spread + 0.12)),
+        tip,
+        new THREE.Vector3(Math.cos(forkA) * (arm.spread + 0.10), arm.topY + 0.20, Math.sin(forkA) * (arm.spread + 0.10)),
       ]);
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(forkCurve, 5, arm.thick * 0.7, 5, false), em));
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(forkCurve, 5, arm.thick * 0.7, 4, false), stemMid));
       const fTip = forkCurve.getPoint(1);
-      const fCap = new THREE.Mesh(new THREE.SphereGeometry(arm.thick * 0.7, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2), em);
+      const fCap = new THREE.Mesh(
+        new THREE.SphereGeometry(arm.thick * 0.7, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2),
+        stemLight,
+      );
       fCap.position.copy(fTip);
       g.add(fCap);
     }
   }
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.8, 6), em);
-  top.position.set(0.03, 1.1, -0.02);
-  g.add(top);
-  const centerCap = new THREE.Mesh(new THREE.SphereGeometry(0.045, 5, 3, 0, Math.PI * 2, 0, Math.PI / 2), em);
-  centerCap.position.set(0.03, 1.5, -0.02);
-  g.add(centerCap);
+
   return g;
 }
 
 function buildIcePlant(): THREE.Group {
   const g = new THREE.Group();
-  const leafMat = mat(0x6a9a4a);
-  const leafMat2 = mat(0x5a8a3a);
+  // Ice plant / Delosperma — wide spreading succulent ground mat, vivid daisy flowers
+  const leafBright = mat(0x77bb55);
+  const leafMid = mat(0x66aa44);
+  const leafDark = mat(0x559933);
+
+  // 12 clumps spread wide — 3x scale from before
   const clumps = [
-    { x: 0, z: 0, count: 12, r: 0.12, flower: true },
-    { x: -0.18, z: 0.1, count: 10, r: 0.1, flower: true },
-    { x: 0.16, z: -0.1, count: 9, r: 0.09, flower: false },
-    { x: 0.1, z: 0.16, count: 8, r: 0.08, flower: true },
-    { x: -0.12, z: -0.14, count: 7, r: 0.07, flower: false },
+    { x: 0.00, z: 0.00, count: 16, r: 0.40, flower: true },
+    { x: -0.55, z: 0.25, count: 14, r: 0.35, flower: true },
+    { x: 0.50, z: -0.30, count: 13, r: 0.32, flower: false },
+    { x: 0.25, z: 0.55, count: 12, r: 0.30, flower: true },
+    { x: -0.30, z: -0.50, count: 12, r: 0.30, flower: true },
+    { x: -0.60, z: -0.20, count: 11, r: 0.28, flower: false },
+    { x: 0.60, z: 0.25, count: 11, r: 0.28, flower: true },
+    { x: 0.00, z: -0.60, count: 10, r: 0.26, flower: false },
+    { x: -0.10, z: 0.60, count: 10, r: 0.26, flower: true },
+    { x: 0.45, z: 0.50, count: 9, r: 0.24, flower: false },
+    { x: -0.50, z: 0.50, count: 9, r: 0.24, flower: true },
+    { x: 0.40, z: -0.55, count: 8, r: 0.22, flower: false },
   ];
+
+  const leafMats = [leafBright, leafMid, leafDark];
   for (let ci = 0; ci < clumps.length; ci++) {
     const cl = clumps[ci];
+
     for (let i = 0; i < cl.count; i++) {
-      const a = i * Math.PI * 2 / cl.count + ci * 0.5;
-      const lean = 0.4 + Math.random() * 0.3;
-      const fLen = 0.06 + Math.random() * 0.03;
+      const a = i * Math.PI * 2 / cl.count + ci * 0.35;
+      const lean = 0.5 + Math.random() * 0.3;
+      const fLen = 0.14 + Math.random() * 0.06;
       const finger = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.012, fLen, 3, 5),
-        i % 2 === 0 ? leafMat : leafMat2,
+        new THREE.CapsuleGeometry(0.028, fLen, 3, 5),
+        leafMats[(i + ci) % 3],
       );
       finger.position.set(
-        cl.x + Math.cos(a) * cl.r * 0.3,
-        fLen * 0.4,
-        cl.z + Math.sin(a) * cl.r * 0.3,
+        cl.x + Math.cos(a) * cl.r * 0.4,
+        fLen * 0.25,
+        cl.z + Math.sin(a) * cl.r * 0.4,
       );
       finger.rotation.z = -Math.cos(a) * lean;
       finger.rotation.x = -Math.sin(a) * lean;
       g.add(finger);
     }
+
+    // Vivid daisy flowers — magenta/pink with yellow centers
     if (cl.flower) {
-      const center = new THREE.Mesh(new THREE.SphereGeometry(0.015, 5, 3), mat(0xdd8822));
-      center.position.set(cl.x, 0.1, cl.z);
+      const centerMat = mat(0xeeaa22);
+      const petalColors = [0xff44aa, 0xff66bb, 0xee3399, 0xff55cc, 0xdd2288];
+
+      const center = new THREE.Mesh(new THREE.SphereGeometry(0.045, 5, 3), centerMat);
+      center.position.set(cl.x, 0.22, cl.z);
       g.add(center);
-      const petalMat = matDS(0xeedd33);
-      for (let pi = 0; pi < 10; pi++) {
-        const pa = pi * Math.PI * 2 / 10;
-        const petal = new THREE.Mesh(new THREE.PlaneGeometry(0.018, 0.035), petalMat);
+
+      const petalMat = mat(petalColors[ci % petalColors.length]);
+      for (let pi = 0; pi < 14; pi++) {
+        const pa = pi * Math.PI * 2 / 14;
+        const petal = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.045, 0.08),
+          petalMat,
+        );
         petal.position.set(
-          cl.x + Math.cos(pa) * 0.025,
-          0.1,
-          cl.z + Math.sin(pa) * 0.025,
+          cl.x + Math.cos(pa) * 0.06,
+          0.22,
+          cl.z + Math.sin(pa) * 0.06,
         );
         petal.rotation.y = -pa;
-        petal.rotation.x = -0.4;
+        petal.rotation.x = -0.5;
         g.add(petal);
       }
     }
   }
+
   return g;
 }
 
 function buildEpiphytic(): THREE.Group {
   const g = new THREE.Group();
-  const segMat = mat(0x2a6a3a);
-  const base = new THREE.Mesh(jitter(new THREE.SphereGeometry(0.08, 5, 4), 0.01), mat(0x3a5a2a));
-  base.position.y = 0.06;
-  base.scale.y = 0.6;
+  // Christmas/orchid cactus — smooth arching stems with leaf-segment blobs, showy flowers
+  const segBright = mat(0x55aa44);
+  const segMid = mat(0x449933);
+  const segDark = mat(0x338822);
+  const flowerRed = mat(0xee3355);
+  const flowerPink = mat(0xff6688);
+
+  // Chunky central base
+  const base = new THREE.Mesh(
+    jitter(new THREE.SphereGeometry(0.25, 7, 5), 0.02),
+    segDark,
+  );
+  base.position.y = 0.22;
+  base.scale.y = 0.65;
   g.add(base);
-  for (let i = 0; i < 7; i++) {
-    const a = i * Math.PI * 2 / 7 + (Math.random() - 0.5) * 0.3;
-    const spread = 0.25 + Math.random() * 0.15;
-    const droop = 0.1 + Math.random() * 0.1;
-    const segCount = 4 + Math.floor(Math.random() * 3);
+
+  // Upper base mass
+  const baseTop = new THREE.Mesh(
+    jitter(new THREE.SphereGeometry(0.18, 6, 4), 0.015),
+    segMid,
+  );
+  baseTop.position.y = 0.35;
+  baseTop.scale.y = 0.6;
+  g.add(baseTop);
+
+  // 10 arching stems — smooth tube with leaf-segment blobs
+  for (let i = 0; i < 10; i++) {
+    const a = i * Math.PI * 2 / 10 + (Math.random() - 0.5) * 0.15;
+    const spread = 0.65 + Math.random() * 0.20;
+    const archH = 0.30 + Math.random() * 0.15;
+    const droop = 0.10 + Math.random() * 0.15;
+    const segCount = 5 + Math.floor(Math.random() * 2);
+
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0.08, 0),
-      new THREE.Vector3(Math.cos(a) * spread * 0.4, 0.12, Math.sin(a) * spread * 0.4),
-      new THREE.Vector3(Math.cos(a) * spread * 0.7, 0.06, Math.sin(a) * spread * 0.7),
-      new THREE.Vector3(Math.cos(a) * spread, -droop, Math.sin(a) * spread),
+      new THREE.Vector3(Math.cos(a) * 0.12, 0.28, Math.sin(a) * 0.12),
+      new THREE.Vector3(Math.cos(a) * spread * 0.35, 0.30 + archH, Math.sin(a) * spread * 0.35),
+      new THREE.Vector3(Math.cos(a) * spread * 0.65, 0.25 + archH * 0.5, Math.sin(a) * spread * 0.65),
+      new THREE.Vector3(Math.cos(a) * spread, 0.15 - droop, Math.sin(a) * spread),
     ]);
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.008, 3, false), segMat));
+
+    // Thicker connecting stem
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.022, 4, false), segMid));
+
+    // Flattened ellipsoid segments along stem — organic-looking
+    const segMats = [segBright, segMid, segDark];
     for (let s = 0; s < segCount; s++) {
       const t = (s + 0.5) / segCount;
       const pt = curve.getPoint(t);
-      const tangent = curve.getTangent(t);
-      const geo = new THREE.PlaneGeometry(0.06, 0.035);
-      jitter(geo, 0.003);
-      const seg = new THREE.Mesh(geo, matDS(s % 2 === 0 ? 0x2a6a3a : 0x2a7a3a));
-      seg.position.copy(pt);
-      seg.rotation.y = Math.atan2(tangent.x, tangent.z);
-      seg.rotation.x = Math.PI / 2 + Math.asin(Math.max(-1, Math.min(1, tangent.y)));
-      g.add(seg);
+
+      // Use flattened icosahedrons instead of boxes — much smoother
+      const blobSize = 0.06 + Math.random() * 0.02;
+      const blobGeo = jitter(new THREE.IcosahedronGeometry(blobSize, 0), 0.006);
+      const blob = new THREE.Mesh(blobGeo, segMats[(s + i) % 3]);
+      blob.position.copy(pt);
+      blob.scale.set(1.3, 0.6, 1.0); // flatten into leaf-pad shape
+      g.add(blob);
     }
+
+    // Showy tubular flowers at tips — every 3rd stem
     if (i % 3 === 0) {
-      const tip = curve.getPoint(1);
-      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.025, 4, 3), mat(0xcc4466));
-      flower.position.copy(tip);
-      g.add(flower);
+      const tip = curve.getPoint(0.92);
+      const fMat = i % 6 === 0 ? flowerRed : flowerPink;
+
+      // Flower bloom — cluster of small spheres
+      for (let fi = 0; fi < 4; fi++) {
+        const fa = fi * Math.PI * 2 / 4;
+        const fl = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(0.03, 0),
+          fMat,
+        );
+        fl.position.set(
+          tip.x + Math.cos(fa) * 0.02,
+          tip.y + 0.03 + fi * 0.01,
+          tip.z + Math.sin(fa) * 0.02,
+        );
+        g.add(fl);
+      }
     }
   }
+
   return g;
 }
 

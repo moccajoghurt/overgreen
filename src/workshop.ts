@@ -93,7 +93,10 @@ const plantH = bbox.max.y - bbox.min.y;
 const centerY = (bbox.max.y + bbox.min.y) / 2;
 
 // ── Camera angles ──
-const camDist = Math.max(plantH * 1.8, 2.5);
+// Frame proportionally — use plant width too so low-spreading plants aren't microscopic
+const plantW = Math.max(bbox.max.x - bbox.min.x, bbox.max.z - bbox.min.z);
+const frameDim = Math.max(plantH, plantW) || 0.5;
+const camDist = Math.max(frameDim * 2.2, 0.8);
 const cameras: THREE.PerspectiveCamera[] = [];
 
 for (let i = 0; i < angleCount; i++) {
