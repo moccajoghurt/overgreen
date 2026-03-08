@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season, ColorMode } from './types';
+import type { TimingHooks } from './perf';
 import { RendererState, GRID, HALF } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
@@ -95,6 +96,8 @@ export function createRenderer3D(
   const webgl = new THREE.WebGLRenderer({ antialias: true });
   webgl.setSize(container.clientWidth, container.clientHeight);
   webgl.setPixelRatio(window.devicePixelRatio);
+  webgl.toneMapping = THREE.ACESFilmicToneMapping;
+  webgl.toneMappingExposure = 1.8;
   webgl.domElement.style.display = 'block';
   container.appendChild(webgl.domElement);
 
@@ -177,7 +180,7 @@ export function createRenderer3D(
   // Public API (Renderer interface)
   // ═══════════════════════════════════════════════════════
 
-  function render(selectedCell: { x: number; y: number } | null): void {
+  function render(selectedCell: { x: number; y: number } | null, hooks?: TimingHooks): void {
     const env = world.environment;
 
     // Seasonal directional light color + intensity
@@ -224,14 +227,14 @@ export function createRenderer3D(
     // Update water animation
     waterSurface.update(env, skyDome.getSunDirection(), skyDome.getFogColor());
 
-    updateTerrainColors(state);
-    updatePlants(state);
-    updateSeeds(state);
-    updateWeatherParticles(state);
-    updateHerbivores(state);
-    updateFireParticles(state);
-    updateDroughtParticles(state);
-    updateDiseaseParticles(state);
+    hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
+    hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
+    hooks?.begin('seeds');          updateSeeds(state);             hooks?.end('seeds');
+    hooks?.begin('weather');        updateWeatherParticles(state);  hooks?.end('weather');
+    hooks?.begin('herbivoresR');    updateHerbivores(state);        hooks?.end('herbivoresR');
+    hooks?.begin('fire');           updateFireParticles(state);     hooks?.end('fire');
+    hooks?.begin('drought');        updateDroughtParticles(state);  hooks?.end('drought');
+    hooks?.begin('disease');        updateDiseaseParticles(state);  hooks?.end('disease');
 
     if (selectedCell) {
       selectMesh.visible = true;
@@ -245,7 +248,8 @@ export function createRenderer3D(
     }
 
     controls.update();
-    webgl.render(scene, camera);
+
+    hooks?.begin('glDraw');  webgl.render(scene, camera);  hooks?.end('glDraw');
   }
 
   function cellAt(

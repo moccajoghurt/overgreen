@@ -21,6 +21,8 @@ import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 import { genesis } from './scenarios/genesis';
 import { createHookPhase } from './hook-phase';
+import { PerfTracker } from './perf';
+import { createPerfPanel } from './perf-panel';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -52,6 +54,31 @@ const hookPhase = createHookPhase({
 
 // Natural colors during hook — species colors activate on reveal
 renderer.setColorMode('natural');
+
+// ── Performance tracking ──
+const perfTracker = new PerfTracker();
+// Register all labels in display order
+perfTracker.register('simTotal', 'sim');
+perfTracker.register('environment', 'sim');
+perfTracker.register('rechargeWater', 'sim');
+perfTracker.register('calculateLight', 'sim');
+perfTracker.register('updatePlants', 'sim');
+perfTracker.register('herbivores', 'sim');
+perfTracker.register('death', 'sim');
+perfTracker.register('decomposition', 'sim');
+perfTracker.register('germination', 'sim');
+perfTracker.register('renderTotal', 'render');
+perfTracker.register('terrainColors', 'render');
+perfTracker.register('plants', 'render');
+perfTracker.register('seeds', 'render');
+perfTracker.register('weather', 'render');
+perfTracker.register('herbivoresR', 'render');
+perfTracker.register('fire', 'render');
+perfTracker.register('drought', 'render');
+perfTracker.register('disease', 'render');
+perfTracker.register('glDraw', 'render');
+perfTracker.register('frame', 'frame');
+const perfPanel = createPerfPanel(container, perfTracker);
 
 const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
 colorToggle.addEventListener('change', () => {
@@ -275,8 +302,8 @@ function updateUI(): void {
 }
 
 
-function doTick(): void {
-  tickWorld(world);
+function doTick(hooks?: import('./perf').TimingHooks): void {
+  tickWorld(world, hooks);
   recordTick(history, world);
   diagLogger.recordTick(world);
 
@@ -301,6 +328,7 @@ let wasWarpActive = false;
 let lastRenderMs = 4;       // rolling estimate of render cost
 
 function loop(now: number): void {
+  perfTracker.begin('frame');
   frameCount++;
   const warpActive = controls.renderSkip > 0 && !controls.paused;
 
@@ -319,14 +347,17 @@ function loop(now: number): void {
 
   const shouldRender = !warpActive;
 
+  const perfHooks = perfPanel.isVisible() ? perfTracker : undefined;
+
   if (!controls.paused) {
     // Clear event arrays once per frame so all ticks in a batch accumulate events
     clearFrameEvents(world);
+    perfTracker.begin('simTotal');
     if (controls.renderSkip > 0) {
       // Warp: time-budgeted, no rendering
       const deadline = performance.now() + WARP_BUDGET_MS;
       while (performance.now() < deadline) {
-        doTick();
+        doTick(perfHooks);
       }
       lastTickTime = now;
       ffOverlay.update(world);
@@ -334,12 +365,13 @@ function loop(now: number): void {
       // Fast: adaptive budget based on how long rendering takes
       const tickBudget = Math.max(2, TARGET_FRAME_MS - lastRenderMs - SAFETY_MARGIN_MS);
       const deadline = performance.now() + tickBudget;
-      do { doTick(); } while (performance.now() < deadline);
+      do { doTick(perfHooks); } while (performance.now() < deadline);
       lastTickTime = now;
     } else if (now - lastTickTime >= controls.tickInterval) {
-      doTick();
+      doTick(perfHooks);
       lastTickTime = now;
     }
+    perfTracker.end('simTotal');
   }
 
   // Update hook phase
@@ -356,7 +388,8 @@ function loop(now: number): void {
       highlightSet = new Set([controls.hoveredSpecies]);
     }
     renderer.setHighlightedSpecies(highlightSet);
-    renderer.render(controls.selectedCell);
+    perfTracker.begin('renderTotal');
+    renderer.render(controls.selectedCell, perfHooks);
     if (!hookPhase.active) {
       speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies);
       speciesLabels.setHoveredLineageRoot(
@@ -367,6 +400,7 @@ function loop(now: number): void {
       speciesLabels.updatePositions();
       terrainLabels.updatePositions();
     }
+    perfTracker.end('renderTotal');
     // Smooth render time estimate for adaptive tick budgeting
     lastRenderMs = lastRenderMs * 0.8 + (performance.now() - renderStart) * 0.2;
   }
@@ -381,6 +415,8 @@ function loop(now: number): void {
     }
   }
 
+  perfTracker.end('frame');
+  perfPanel.update();
   requestAnimationFrame(loop);
 }
 
@@ -388,6 +424,10 @@ requestAnimationFrame(loop);
 
 // Debug shortcuts
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'F3') {
+    e.preventDefault();
+    perfPanel.toggle();
+  }
   if (e.key === 'f' || e.key === 'F') {
     spawnFire(world);
   }

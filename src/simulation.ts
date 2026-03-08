@@ -1,4 +1,5 @@
 import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
+import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
   mutateGenome, crossoverGenome,
@@ -630,19 +631,19 @@ export function clearFrameEvents(world: World): void {
   world.fireDeathEvents.length = 0;
 }
 
-export function tickWorld(world: World): void {
+export function tickWorld(world: World, hooks?: TimingHooks): void {
   // Per-tick arrays consumed by history/diagnostics — must clear each tick
   world.deathEvents.length = 0;
   world.seedsAttempted = 0;
   world.environmentEvents.length = 0;
   world.speciationEvents.length = 0;
-  phaseEnvironment(world);
-  phaseRechargeWater(world);
-  phaseCalculateLight(world);
-  phaseUpdatePlants(world);
-  phaseHerbivores(world);
-  phaseDeath(world);
-  phaseDecomposition(world);
-  phaseGermination(world);
+  hooks?.begin('environment');  phaseEnvironment(world);       hooks?.end('environment');
+  hooks?.begin('rechargeWater'); phaseRechargeWater(world);    hooks?.end('rechargeWater');
+  hooks?.begin('calculateLight'); phaseCalculateLight(world);  hooks?.end('calculateLight');
+  hooks?.begin('updatePlants'); phaseUpdatePlants(world);      hooks?.end('updatePlants');
+  hooks?.begin('herbivores');   phaseHerbivores(world);        hooks?.end('herbivores');
+  hooks?.begin('death');        phaseDeath(world);             hooks?.end('death');
+  hooks?.begin('decomposition'); phaseDecomposition(world);    hooks?.end('decomposition');
+  hooks?.begin('germination');  phaseGermination(world);       hooks?.end('germination');
   world.tick++;
 }
