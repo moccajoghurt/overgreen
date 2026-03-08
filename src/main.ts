@@ -111,6 +111,17 @@ const diagLogger = createDiagnosticLogger();
 (window as any).__world = world;
 (window as any).__doTick = () => { clearFrameEvents(world); tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
 (window as any).__updateUI = () => { lastUITick = -1; updateUI(); };
+(window as any).__perfTracker = perfTracker;
+(window as any).__setCamera = (pos: {x:number,y:number,z:number}, target: {x:number,y:number,z:number}) => {
+  renderer.camera.position.set(pos.x, pos.y, pos.z);
+  renderer.mapControls.target.set(target.x, target.y, target.z);
+  renderer.mapControls.update();
+};
+(window as any).__getCamera = () => {
+  const p = renderer.camera.position;
+  const t = renderer.mapControls.target;
+  return { position: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2) }, target: { x: +t.x.toFixed(2), y: +t.y.toFixed(2), z: +t.z.toFixed(2) } };
+};
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const lineagePanel = createLineagePanel(document.getElementById('lineage-container')!, container, renderer);
 const chart = createPopulationChart(document.getElementById('population-container')!);

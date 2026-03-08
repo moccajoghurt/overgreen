@@ -8,6 +8,29 @@ export function createPerfPanel(container: HTMLElement, tracker: PerfTracker) {
     'z-index:100;white-space:pre;display:none;';
   container.appendChild(el);
 
+  // Perf stats area (updated every 500ms)
+  const statsEl = document.createElement('div');
+  el.appendChild(statsEl);
+
+  // Camera row with click-to-copy
+  const camRow = document.createElement('div');
+  camRow.style.cssText =
+    'pointer-events:auto;margin-top:4px;padding-top:4px;border-top:1px solid #444;' +
+    'cursor:pointer;color:#8f8;font-size:10px;';
+  camRow.title = 'Click to copy camera flags for capture scripts';
+  camRow.addEventListener('click', () => {
+    const cam = (window as any).__getCamera?.();
+    if (!cam) return;
+    const { position: p, target: t } = cam;
+    const text = `--pos ${p.x},${p.y},${p.z} --target ${t.x},${t.y},${t.z}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const prev = camRow.style.color;
+      camRow.style.color = '#ff0';
+      setTimeout(() => { camRow.style.color = prev; }, 400);
+    });
+  });
+  el.appendChild(camRow);
+
   let visible = false;
   let lastUpdate = 0;
 
@@ -111,9 +134,16 @@ export function createPerfPanel(container: HTMLElement, tracker: PerfTracker) {
       escaped = escaped.replace(`__SPAN${i}__`, spans[i]);
     }
     // Strip ANSI codes and use simple category headers
-    el.innerHTML = escaped
+    statsEl.innerHTML = escaped
       .replace(/\x1b\[1m/g, '<b style="color:#fff">')
       .replace(/\x1b\[0m/g, '</b>');
+
+    // Update camera row
+    const cam = (window as any).__getCamera?.();
+    if (cam) {
+      const { position: p, target: t } = cam;
+      camRow.textContent = `cam (${p.x}, ${p.y}, ${p.z}) \u2192 (${t.x}, ${t.y}, ${t.z})  [copy]`;
+    }
   }
 
   function toggle(): void {
