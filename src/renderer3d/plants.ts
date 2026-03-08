@@ -33,8 +33,11 @@ function writePlantInstance(
   const s = (height / matH) * scale;
 
   const ry = plantHash(plantId, 0) * Math.PI * 2;
-  dummy.position.set(wx, baseY, wz);
   if (groundCover[subtype]) {
+    // Random XZ offset to break grid alignment (±0.15 units)
+    const jx = (plantHash(plantId, 1) - 0.5) * 0.3;
+    const jz = (plantHash(plantId, 2) - 0.5) * 0.3;
+    dummy.position.set(wx + jx, baseY, wz + jz);
     dummy.scale.set(1, s, 1);
 
     // Recover cell coords and look up terrain slope
@@ -50,6 +53,7 @@ function writePlantInstance(
     _qTiltZ.setFromAxisAngle(_zAxis, Math.atan2(dYdX, 1));
     dummy.quaternion.copy(_qTiltZ).multiply(_qTiltX).multiply(_qSpin);
   } else {
+    dummy.position.set(wx, baseY, wz);
     dummy.scale.setScalar(s);
     dummy.quaternion.setFromAxisAngle(_yAxis, ry);
   }

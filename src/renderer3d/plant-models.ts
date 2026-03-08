@@ -27,6 +27,12 @@ export function grassBlade(h: number, w: number, bend: number, twist = 0): THREE
   return geo;
 }
 
+/** Radial density/height falloff for ground-cover models. Returns 1.0 at center, 0.0 at edge. */
+function gcFalloff(x: number, z: number, radius: number): number {
+  const d2 = (x * x + z * z) / (radius * radius);
+  return d2 >= 1.0 ? 0.0 : 1 - d2;
+}
+
 /** Material helper — roughness is cosmetic for gallery; sim only reads color channel. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mat(color: number, extra?: Record<string, any>): THREE.MeshStandardMaterial {
@@ -62,13 +68,16 @@ function buildTurfgrass(): THREE.Group {
   const bm1 = matDS(0x4a8a3a);
   const bm2 = matDS(0x3d7a30);
   const step = 0.14;
-  const half = 0.49;
+  const radius = 0.55;
   let idx = 0;
-  for (let gx = -half; gx <= half; gx += step) {
-    for (let gz = -half; gz <= half; gz += step) {
-      const ox = gx + (Math.random() - 0.5) * 0.05;
-      const oz = gz + (Math.random() - 0.5) * 0.05;
-      const h = 0.18 + Math.random() * 0.12;
+  for (let gx = -radius; gx <= radius; gx += step) {
+    for (let gz = -radius; gz <= radius; gz += step) {
+      const f = gcFalloff(gx, gz, radius);
+      if (f < 0.01 || Math.random() > f) continue;
+      const scatter = 0.05 + (1 - f) * 0.06;
+      const ox = gx + (Math.random() - 0.5) * scatter;
+      const oz = gz + (Math.random() - 0.5) * scatter;
+      const h = (0.18 + Math.random() * 0.12) * (0.3 + 0.7 * f);
       for (let cross = 0; cross < 2; cross++) {
         const geo = grassBlade(h, 0.17, 0.02 * (Math.random() - 0.5));
         const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
@@ -85,17 +94,17 @@ function buildTurfgrass(): THREE.Group {
 function buildTallgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm = matDS(0x3a7a4a);
-  // Dense grid of crossed wide blades to fully carpet the cell.
-  // Raw model spans ~2.0 units; GROUND_COVER scaling shrinks XZ to 1.0.
   const step = 0.3;
-  const half = 0.9;
-  for (let gx = -half; gx <= half; gx += step) {
-    for (let gz = -half; gz <= half; gz += step) {
-      const ox = gx + (Math.random() - 0.5) * 0.15;
-      const oz = gz + (Math.random() - 0.5) * 0.15;
-      const h = 1.4 + Math.random() * 0.6;
+  const radius = 1.0;
+  for (let gx = -radius; gx <= radius; gx += step) {
+    for (let gz = -radius; gz <= radius; gz += step) {
+      const f = gcFalloff(gx, gz, radius);
+      if (f < 0.01 || Math.random() > f) continue;
+      const scatter = 0.15 + (1 - f) * 0.1;
+      const ox = gx + (Math.random() - 0.5) * scatter;
+      const oz = gz + (Math.random() - 0.5) * scatter;
+      const h = (1.4 + Math.random() * 0.6) * (0.3 + 0.7 * f);
       const bend = 0.2 + Math.random() * 0.3;
-      // Two crossed blades per position — ensures coverage from all camera angles
       for (let cross = 0; cross < 2; cross++) {
         const geo = grassBlade(h, 0.5, bend, (Math.random() - 0.5) * 0.1);
         const m = new THREE.Mesh(geo, bm);
@@ -105,12 +114,16 @@ function buildTallgrass(): THREE.Group {
       }
     }
   }
-  // Seed heads spread across cell
+  // Seed heads with radial falloff
   const sm = mat(0x8a6a4a);
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 14; i++) {
+    const sx = (Math.random() - 0.5) * 1.8;
+    const sz = (Math.random() - 0.5) * 1.8;
+    const f = gcFalloff(sx, sz, radius);
+    if (f < 0.15) continue;
     const geo = new THREE.ConeGeometry(0.04, 0.2, 4);
     const m = new THREE.Mesh(geo, sm);
-    m.position.set((Math.random() - 0.5) * 1.6, 1.6 + Math.random() * 0.4, (Math.random() - 0.5) * 1.6);
+    m.position.set(sx, (1.6 + Math.random() * 0.4) * (0.5 + 0.5 * f), sz);
     g.add(m);
   }
   return g;
@@ -121,13 +134,16 @@ function buildBunchgrass(): THREE.Group {
   const bm1 = matDS(0x6a8a6a);
   const bm2 = matDS(0x5a7a5a);
   const step = 0.15;
-  const half = 0.50;
+  const radius = 0.55;
   let idx = 0;
-  for (let gx = -half; gx <= half; gx += step) {
-    for (let gz = -half; gz <= half; gz += step) {
-      const ox = gx + (Math.random() - 0.5) * 0.06;
-      const oz = gz + (Math.random() - 0.5) * 0.06;
-      const h = 0.5 + Math.random() * 0.4;
+  for (let gx = -radius; gx <= radius; gx += step) {
+    for (let gz = -radius; gz <= radius; gz += step) {
+      const f = gcFalloff(gx, gz, radius);
+      if (f < 0.01 || Math.random() > f) continue;
+      const scatter = 0.06 + (1 - f) * 0.06;
+      const ox = gx + (Math.random() - 0.5) * scatter;
+      const oz = gz + (Math.random() - 0.5) * scatter;
+      const h = (0.5 + Math.random() * 0.4) * (0.3 + 0.7 * f);
       for (let cross = 0; cross < 2; cross++) {
         const geo = grassBlade(h, 0.18, 0.02 * (Math.random() - 0.5));
         const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
@@ -147,12 +163,14 @@ function buildBamboo(): THREE.Group {
   const leafMat = matDS(0x2a6a2a);
   const nodeMat = mat(0x6a8a2a);
   const step = 0.25;
-  const half = 0.45;
-  for (let gx = -half; gx <= half; gx += step) {
-    for (let gz = -half; gz <= half; gz += step) {
+  const radius = 0.50;
+  for (let gx = -radius; gx <= radius; gx += step) {
+    for (let gz = -radius; gz <= radius; gz += step) {
+      const f = gcFalloff(gx, gz, radius);
+      if (f < 0.01 || Math.random() > f) continue;
       const cx = gx + (Math.random() - 0.5) * 0.1;
       const cz = gz + (Math.random() - 0.5) * 0.1;
-      const totalH = 2.0 + Math.random() * 0.5;
+      const totalH = (2.0 + Math.random() * 0.5) * (0.4 + 0.6 * f);
       const r = 0.035;
       // Culm as 3 tall segments
       const segH = totalH / 3;
@@ -202,14 +220,18 @@ function buildSpreading(): THREE.Group {
     sz.rotation.x = Math.PI / 2;
     g.add(sz);
   }
-  // Short wiry blades growing from the stolon network
+  // Short wiry blades with radial falloff
   const step = 0.14;
+  const radius = 0.55;
   let idx = 0;
-  for (let gx = -half; gx <= half; gx += step) {
-    for (let gz = -half; gz <= half; gz += step) {
-      const ox = gx + (Math.random() - 0.5) * 0.05;
-      const oz = gz + (Math.random() - 0.5) * 0.05;
-      const h = 0.10 + Math.random() * 0.08;
+  for (let gx = -radius; gx <= radius; gx += step) {
+    for (let gz = -radius; gz <= radius; gz += step) {
+      const f = gcFalloff(gx, gz, radius);
+      if (f < 0.01 || Math.random() > f) continue;
+      const scatter = 0.05 + (1 - f) * 0.06;
+      const ox = gx + (Math.random() - 0.5) * scatter;
+      const oz = gz + (Math.random() - 0.5) * scatter;
+      const h = (0.10 + Math.random() * 0.08) * (0.3 + 0.7 * f);
       for (let cross = 0; cross < 2; cross++) {
         const geo = grassBlade(h, 0.15, 0.01 * (Math.random() - 0.5));
         const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
@@ -227,20 +249,24 @@ function buildSedge(): THREE.Group {
   const g = new THREE.Group();
   const stemMat = mat(0x5a9a4a);
   const umbMat = matDS(0x3a8a3a);
-  for (let i = 0; i < 5; i++) {
-    const sx = (Math.random() - 0.5) * 0.3;
-    const sz = (Math.random() - 0.5) * 0.3;
-    const h = 1.5 + Math.random() * 0.5;
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, h, 3), stemMat);
-    stem.position.set(sx, h / 2, sz);
-    g.add(stem);
-    for (let j = 0; j < 14; j++) {
-      const ba = j * Math.PI * 2 / 14;
-      const bract = new THREE.Mesh(grassBlade(0.5, 0.012, 0.3), umbMat);
-      bract.position.set(sx + Math.cos(ba) * 0.03, h, sz + Math.sin(ba) * 0.03);
-      bract.rotation.y = ba;
-      bract.rotation.z = -0.2;
-      g.add(bract);
+  const step = 0.25;
+  const half = 0.45;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const sx = gx + (Math.random() - 0.5) * 0.1;
+      const sz = gz + (Math.random() - 0.5) * 0.1;
+      const h = 1.5 + Math.random() * 0.5;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, h, 3), stemMat);
+      stem.position.set(sx, h / 2, sz);
+      g.add(stem);
+      for (let j = 0; j < 8; j++) {
+        const ba = j * Math.PI * 2 / 8;
+        const bract = new THREE.Mesh(grassBlade(0.45, 0.015, 0.04), umbMat);
+        bract.position.set(sx + Math.cos(ba) * 0.03, h, sz + Math.sin(ba) * 0.03);
+        bract.rotation.y = ba;
+        bract.rotation.z = -0.2;
+        g.add(bract);
+      }
     }
   }
   return g;
@@ -965,7 +991,7 @@ const MATURITY_HEIGHT: number[] = [
 ];
 
 /** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
-const GROUND_COVER = new Set([0, 1, 2, 3, 4]); // turfgrass, tallgrass, bunchgrass, bamboo, spreading
+const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]); // turfgrass, tallgrass, bunchgrass, bamboo, spreading, sedge
 
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
@@ -973,13 +999,14 @@ export function buildSubtypeModels(): SubtypeModel[] {
     const isGC = GROUND_COVER.has(i);
 
     if (isGC) {
-      // Ground cover: scale Y to target height, XZ to 1.2 units (20% overlap hides seams)
+      // Ground cover: scale Y to target height, XZ to 1.5 units (25% overlap per side,
+      // combined with radial density falloff in builders for natural edge blending)
       group.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(group);
       const rawH = Math.max(0.01, box.max.y);
       const yScale = TARGET_MODEL_HEIGHTS[i] / rawH;
       const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
-      const xzScale = 1.2 / Math.max(0.01, rawXZ);
+      const xzScale = 1.5 / Math.max(0.01, rawXZ);
       group.scale.set(xzScale, yScale, xzScale);
     } else {
       scaleToTarget(group, i);
