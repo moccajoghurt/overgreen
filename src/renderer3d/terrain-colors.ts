@@ -83,12 +83,12 @@ export function updateTerrainColors(state: RendererState): void {
   // ── Vegetation tint pass ──
   // Per-archetype tint colors [R, G, B] and max blend strengths
   const VEG_TINT: [number, number, number][] = [
-    [0.18, 0.42, 0.08],  // Grass — saturated green
+    [0.22, 0.48, 0.12],  // Grass — bright natural green (primary grass visual)
     [0.12, 0.20, 0.06],  // Tree — dark understory
     [0.16, 0.32, 0.08],  // Shrub — medium green
   ];
-  const VEG_MAX_BLEND = [0.85, 0.50, 0.70];
-  const VEG_REF_HEIGHT = [0.6, 3.0, 1.2];
+  const VEG_MAX_BLEND = [0.92, 0.50, 0.70];
+  const VEG_REF_HEIGHT = [0.4, 3.0, 1.2];
   const snowSuppression = 1 - Math.min(1, snowCov);
 
   const vegR = new Float32Array(cellCount);
