@@ -1,4 +1,4 @@
-import { Cell, Genome, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
+import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -87,52 +87,59 @@ function phaseRechargeWater(world: World): void {
   }
 }
 
-// Pre-computed shadow values per plant, reused across ticks to avoid allocations
-const shadowCache = new Map<number, { sr: number; shs: number }>();
+// Flat arrays for light calculation — allocated once, reused every tick.
+// Replaces per-neighbor Map.get() lookups with direct Float32Array indexing.
+const _gridSize = GRID_WIDTH * GRID_WIDTH;
+const _heightGrid = new Float32Array(_gridSize);
+const _srGrid = new Float32Array(_gridSize);
+const _shsGrid = new Float32Array(_gridSize);
 
 function phaseCalculateLight(world: World): void {
   const eraMults = getEffectiveEraMultipliers(world.environment.era);
   const shadowMult = eraMults.shadowMult;
+  const W = world.width;
+  const H = world.height;
 
-  // Build per-plant shadow cache (one getPlantConstants call per plant, not per neighbor visit)
-  shadowCache.clear();
+  // Build flat grids from live plants (dead/absent → 0)
+  _heightGrid.fill(0);
+  _srGrid.fill(0);
+  _shsGrid.fill(0);
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
+    const idx = plant.y * W + plant.x;
+    _heightGrid[idx] = plant.height;
     const w = Math.max(0, Math.min(1, plant.genome.woodiness));
-    shadowCache.set(plant.id, {
-      sr: 0.05 + (0.25 - 0.05) * w,   // lerpVal(GRASS.SHADOW_REDUCTION, SIM.SHADOW_REDUCTION, w)
-      shs: 1.0 + (3.0 - 1.0) * w,     // lerpVal(GRASS.SHADOW_HEIGHT_SCALE, SIM.SHADOW_HEIGHT_SCALE, w)
-    });
+    _srGrid[idx] = 0.05 + 0.20 * w;
+    _shsGrid[idx] = 1.0 + 2.0 * w;
   }
 
-  for (let y = 0; y < world.height; y++) {
-    for (let x = 0; x < world.width; x++) {
-      const cell = world.grid[y][x];
-      const myPlant = cell.plantId !== null ? world.plants.get(cell.plantId) : null;
-      const myHeight = myPlant?.alive ? myPlant.height : 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const myIdx = y * W + x;
+      const myHeight = _heightGrid[myIdx];
 
       let shadeSum = 0;
       // Extended shade radius: tall plants shade up to 2 cells away
       for (let sdy = -2; sdy <= 2; sdy++) {
+        const ny = y + sdy;
+        if (ny < 0 || ny >= H) continue;
         for (let sdx = -2; sdx <= 2; sdx++) {
           if (sdx === 0 && sdy === 0) continue;
           const nx = x + sdx;
-          const ny = y + sdy;
-          if (!inBounds(nx, ny, world.width, world.height)) continue;
-          const neighbor = world.grid[ny][nx];
-          if (neighbor.plantId === null) continue;
-          const nPlant = world.plants.get(neighbor.plantId);
-          if (nPlant && nPlant.alive && nPlant.height > myHeight) {
-            const dist = Math.max(Math.abs(sdx), Math.abs(sdy));
-            // Only tall plants cast shade at distance 2 (canopy reach)
-            if (dist > 1 && nPlant.height < 3.0) continue;
-            const diff = nPlant.height - myHeight;
-            const sc = shadowCache.get(nPlant.id)!;
-            const nShadow = sc.sr * shadowMult / dist;
-            shadeSum += nShadow * Math.min(1, diff / sc.shs);
-          }
+          if (nx < 0 || nx >= W) continue;
+          const nIdx = ny * W + nx;
+          const nHeight = _heightGrid[nIdx];
+          if (nHeight <= myHeight) continue;
+          const dist = Math.max(Math.abs(sdx), Math.abs(sdy));
+          // Only tall plants cast shade at distance 2 (canopy reach)
+          if (dist > 1 && nHeight < 3.0) continue;
+          const diff = nHeight - myHeight;
+          const nShadow = _srGrid[nIdx] * shadowMult / dist;
+          shadeSum += nShadow * Math.min(1, diff / _shsGrid[nIdx]);
         }
       }
+
+      const cell = world.grid[y][x];
       let rawBase = SIM.BASE_LIGHT;
       if (cell.terrainType === TerrainType.Hill) {
         rawBase += SIM.HILL_LIGHT_BONUS;

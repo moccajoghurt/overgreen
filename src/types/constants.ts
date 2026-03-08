@@ -232,12 +232,19 @@ function lerpVal(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+// Quantized cache for getPlantConstants — pure function of (woodiness, longevity),
+// so cache never needs clearing. Bounded at ~10K entries (101×101 bins).
+const _constantsCache = new Map<number, PlantConstants>();
+
 /** Linearly interpolate all plant constants between herbaceous (w=0) and woody (w=1) endpoints. */
 export function getPlantConstants(genome: import('./core').Genome): PlantConstants {
   const w = Math.max(0, Math.min(1, genome.woodiness));
   const lon = Math.max(0, Math.min(1, genome.longevity));
+  const key = Math.round(w * 100) * 101 + Math.round(lon * 100);
+  const cached = _constantsCache.get(key);
+  if (cached) return cached;
   const maxAge = lerpVal(lerpVal(100, 200, w), lerpVal(1000, 2500, w), lon);
-  return {
+  const result: PlantConstants = {
     maxHeight: lerpVal(GRASS.MAX_HEIGHT, SIM.MAX_HEIGHT, w),
     maxRootDepth: lerpVal(GRASS.MAX_ROOT_DEPTH, SIM.MAX_ROOT_DEPTH, w),
     maxLeafArea: lerpVal(GRASS.MAX_LEAF_AREA, SIM.MAX_LEAF_AREA, w),
@@ -263,4 +270,6 @@ export function getPlantConstants(genome: import('./core').Genome): PlantConstan
     seedMaxAge: lerpVal(GRASS.SEED_MAX_AGE, SIM.SEED_MAX_AGE, w),
     seedGerminationWater: lerpVal(GRASS.SEED_GERMINATION_WATER, SIM.SEED_GERMINATION_WATER, w),
   };
+  _constantsCache.set(key, result);
+  return result;
 }

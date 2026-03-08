@@ -46,7 +46,7 @@ export function matDS(color: number): THREE.MeshStandardMaterial {
 }
 
 export function addCanopy(group: THREE.Group, x: number, y: number, z: number, radius: number, color = 0x2d5a1e): THREE.Mesh {
-  const geo = jitter(new THREE.IcosahedronGeometry(radius, 1), radius * 0.15);
+  const geo = jitter(new THREE.IcosahedronGeometry(radius, 0), radius * 0.15);
   const m = new THREE.Mesh(geo, mat(color));
   m.position.set(x, y, z);
   group.add(m);
