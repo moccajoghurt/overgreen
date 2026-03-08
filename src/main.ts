@@ -355,7 +355,7 @@ function loop(now: number): void {
 
   const shouldRender = !warpActive;
 
-  const perfHooks = perfPanel.isVisible() ? perfTracker : undefined;
+  const perfHooks = perfTracker;
 
   if (!controls.paused) {
     // Clear event arrays once per frame so all ticks in a batch accumulate events

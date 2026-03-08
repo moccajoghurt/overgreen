@@ -97,10 +97,6 @@ try {
   console.log(`Advancing to tick ${TICK}...`);
   await advanceToTick(page, TICK);
 
-  // Toggle perf panel on so subsystem hooks fire during rendering
-  await page.keyboard.press('F3');
-  await new Promise(r => setTimeout(r, 200));
-
   // Unpause so renderer runs continuously for perf measurement
   await page.evaluate(() => {
     const btn = document.getElementById('btn-play-pause');
