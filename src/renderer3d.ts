@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season, ColorMode } from './types';
 import type { TimingHooks } from './perf';
-import { RendererState, GRID, HALF } from './renderer3d/state';
+import { RendererState, GRID, HALF, MAX_PER_SUBTYPE } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
@@ -27,7 +27,7 @@ export function createRenderer3D(
   const dirLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
   dirLight.position.set(30, 50, 20);
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
+  dirLight.shadow.mapSize.set(512, 512);
   dirLight.shadow.camera.near = 1;
   dirLight.shadow.camera.far = 150;
   dirLight.shadow.camera.left = -50;
@@ -186,7 +186,7 @@ export function createRenderer3D(
     growingPlants: new Map(),
     flyingSeeds: [],
     lastProcessedTick: -1,
-    lastShadowPlantCount: -1,
+    lastShadowCounts: new Uint32Array(24),
     lastTerrainTick: -1,
     lastTerrainColorMode: 'natural',
     lastPlantTick: -1,
@@ -198,6 +198,13 @@ export function createRenderer3D(
     lastHighlightedLineageRoot: null,
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
+    subtypePlantIds: Array.from({ length: 24 }, () => new Int32Array(MAX_PER_SUBTYPE)),
+    plantIndex: new Map(),
+    subtypeLiveCounts: new Uint32Array(24),
+    dirtyPlants: new Set(),
+    prevPlantHeights: new Map(),
+    prevPlantDisease: new Map(),
+    forceFullRebuild: true,
     ...weather,
     ...events,
     herbivoreMesh,
@@ -272,17 +279,33 @@ export function createRenderer3D(
     // Update grass layer uniforms (per-frame wind animation)
     grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor, camera);
 
-    // Re-render shadow map every 5 sim ticks, but force update on population change
-    // (deaths/births move shadows instantly; gradual growth can wait)
-    const plantCount = world.plants.size;
-    if (state.plantsDirty || (world.tick !== state.lastProcessedTick &&
-        (world.tick % 5 === 0 || plantCount !== state.lastShadowPlantCount))) {
-      webgl.shadowMap.needsUpdate = true;
-      state.lastShadowPlantCount = plantCount;
-    }
+    // Capture before updatePlants clears these
+    const isNewTick = world.tick !== state.lastProcessedTick;
+    const isFirstFrame = state.lastProcessedTick === -1;
 
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
     hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
+
+    // Re-render shadow map when per-subtype instance counts change (deaths/births),
+    // or periodically every 30 ticks for gradual growth. Checked AFTER updatePlants
+    // so mesh counts reflect the current tick. Always render on first frame.
+    if (isNewTick) {
+      let shadowDirty = isFirstFrame || world.tick % 30 === 0;
+      if (!shadowDirty) {
+        for (let i = 0; i < subtypeMeshes.length; i++) {
+          if (subtypeMeshes[i].count !== state.lastShadowCounts[i]) {
+            shadowDirty = true;
+            break;
+          }
+        }
+      }
+      if (shadowDirty) {
+        webgl.shadowMap.needsUpdate = true;
+        for (let i = 0; i < subtypeMeshes.length; i++) {
+          state.lastShadowCounts[i] = subtypeMeshes[i].count;
+        }
+      }
+    }
     hooks?.begin('grass');          grassLayer.updateCellData(state); hooks?.end('grass');
     hooks?.begin('seeds');          updateSeeds(state);             hooks?.end('seeds');
     hooks?.begin('weather');        updateWeatherParticles(state);  hooks?.end('weather');
@@ -427,6 +450,12 @@ export function createRenderer3D(
     state.flyingSeeds.length = 0;
     state.plantColorCache.clear();
     state.nextSnapshots.clear();
+    state.plantIndex.clear();
+    state.subtypeLiveCounts.fill(0);
+    state.dirtyPlants.clear();
+    state.prevPlantHeights.clear();
+    state.prevPlantDisease.clear();
+    state.forceFullRebuild = true;
     state.prevHerbivoreSnapshots.clear();
     state.dyingHerbivores.clear();
     state.movingHerbivores.clear();
@@ -439,7 +468,7 @@ export function createRenderer3D(
 
     // Force full update on next frame
     state.lastProcessedTick = -1;
-    state.lastShadowPlantCount = -1;
+    state.lastShadowCounts.fill(0);
     state.lastTerrainTick = -1;
     state.lastPlantTick = -1;
     state.lastHerbivoreTick = -1;

@@ -127,7 +127,7 @@ export interface RendererState {
   growingPlants: Map<number, GrowingPlant>;
   flyingSeeds: FlyingSeed[];
   lastProcessedTick: number;
-  lastShadowPlantCount: number;
+  lastShadowCounts: Uint32Array;
   lastTerrainTick: number;
   lastTerrainColorMode: ColorMode;
   lastPlantTick: number;
@@ -139,9 +139,18 @@ export interface RendererState {
   lastHighlightedLineageRoot: number | null;
 
   // Performance: cached plant base colors (keyed by plant id, invalidated on colorMode change)
-  plantColorCache: Map<number, { cr: number; cg: number; cb: number; tr: number; tg: number; tb: number }>;
+  plantColorCache: Map<number, { cr: number; cg: number; cb: number }>;
   // Performance: double-buffered snapshot maps to avoid per-tick allocation
   nextSnapshots: Map<number, PlantSnapshot>;
+
+  // Dirty-tracking for incremental plant instance updates
+  subtypePlantIds: Int32Array[];      // [24][MAX_PER_SUBTYPE] — plantId at each instance index
+  plantIndex: Map<number, { subtype: number; idx: number }>;  // reverse lookup
+  subtypeLiveCounts: Uint32Array;     // [24] — live plant count per subtype
+  dirtyPlants: Set<number>;           // cleared each frame
+  prevPlantHeights: Map<number, number>;  // for height-change detection
+  prevPlantDisease: Map<number, boolean>; // for disease-change detection
+  forceFullRebuild: boolean;          // true on first frame, highlight/colorMode/terrain changes
 
   // Weather meshes & particles
   snowMesh: THREE.InstancedMesh;
