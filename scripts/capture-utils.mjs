@@ -51,18 +51,25 @@ export async function navigateToApp(page, port) {
 export async function pauseSim(page) {
   await page.evaluate(() => {
     const btn = document.getElementById('btn-play-pause');
-    if (btn && btn.textContent.trim() === 'Pause') btn.click();
+    if (btn && btn.textContent.trim().includes('Running')) btn.click();
   });
   await new Promise(r => setTimeout(r, 500));
 }
 
 export async function loadScenario(page, scenarioId) {
   await page.evaluate((id) => {
-    const btn = document.getElementById('btn-load-scenario');
-    const sel = document.getElementById('scenario-select');
-    if (!sel || !btn) throw new Error('Scenario UI not found');
-    sel.value = id;
-    btn.click();
+    // Try featured map buttons first
+    const btn = document.querySelector(`button[data-scenario-id="${id}"]`);
+    if (btn) { btn.click(); return; }
+    // Try dev dropdown buttons
+    const dropdown = document.getElementById('dev-scenario-dropdown');
+    if (dropdown) {
+      const devBtns = dropdown.querySelectorAll('button');
+      for (const b of devBtns) {
+        if (b.textContent.trim().toLowerCase() === id.toLowerCase()) { b.click(); return; }
+      }
+    }
+    throw new Error(`Scenario "${id}" not found`);
   }, scenarioId);
   await new Promise(r => setTimeout(r, 1000));
 }
