@@ -391,7 +391,9 @@ function loop(now: number): void {
     perfTracker.begin('renderTotal');
     renderer.render(controls.selectedCell, perfHooks);
     if (!hookPhase.active) {
-      speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies);
+      const hoveredPlant = controls.hoveredPlantId !== null ? world.plants.get(controls.hoveredPlantId) : null;
+      const hoveredPlantPos = hoveredPlant?.alive ? { x: hoveredPlant.x, y: hoveredPlant.y } : null;
+      speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies, hoveredPlantPos);
       speciesLabels.setHoveredLineageRoot(
         controls.hoverLineageEnabled && controls.hoveredSpecies !== null
           ? getLineageRoot(world.speciesLineage, controls.hoveredSpecies)

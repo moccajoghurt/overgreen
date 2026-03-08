@@ -41,6 +41,7 @@ export function createSpeciesLabelsOverlay(
   let showAll = false;
   let showLineage = false;
   let hoveredSpecies: number | null = null;
+  let hoveredPlantPos: { x: number; y: number } | null = null;
   let lastUpdateTick = -UPDATE_EVERY_N_TICKS;
   let lineageMapRef: Map<number, number> = new Map();
   let hoveredLineageRoot: number | null = null;
@@ -648,8 +649,16 @@ export function createSpeciesLabelsOverlay(
 
   function updatePositions(): void {
     for (const [sid, entry] of labels) {
-      entry.displayX += (entry.targetX - entry.displayX) * LERP_SPEED;
-      entry.displayY += (entry.targetY - entry.displayY) * LERP_SPEED;
+      // When hovering a specific plant, snap label directly to the plant position
+      if (sid === hoveredSpecies && hoveredPlantPos) {
+        entry.targetX = hoveredPlantPos.x;
+        entry.targetY = hoveredPlantPos.y;
+        entry.displayX = hoveredPlantPos.x;
+        entry.displayY = hoveredPlantPos.y;
+      } else {
+        entry.displayX += (entry.targetX - entry.displayX) * LERP_SPEED;
+        entry.displayY += (entry.targetY - entry.displayY) * LERP_SPEED;
+      }
 
       const shouldShow = showAll || sid === hoveredSpecies;
       const screen = renderer.projectToScreen(entry.displayX, entry.displayY);
@@ -685,8 +694,9 @@ export function createSpeciesLabelsOverlay(
     showAll = show;
   }
 
-  function setHoveredSpecies(speciesId: number | null): void {
+  function setHoveredSpecies(speciesId: number | null, plantPos?: { x: number; y: number } | null): void {
     hoveredSpecies = speciesId;
+    hoveredPlantPos = plantPos ?? null;
   }
 
   function setHoveredLineageRoot(rootId: number | null): void {

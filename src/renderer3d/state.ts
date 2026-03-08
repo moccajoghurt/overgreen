@@ -29,6 +29,7 @@ export const SPORE_PARTICLE_COUNT = 250;
 export const MAX_DECOR_STONES = 6000;
 export const MAX_DECOR_REEDS = 5000;
 export const MAX_DECOR_DRY_BRUSH = 2000;
+export const MAX_PER_SUBTYPE = 7000; // 80×80=6400 grid + dying/burning headroom
 
 // ── Animation interfaces ──
 
@@ -109,6 +110,7 @@ export interface RendererState {
   subtypeMeshes: THREE.InstancedMesh[];
   maturityHeights: Float32Array;
   groundCover: boolean[];
+
 
   // Seed mesh
   seeds: THREE.InstancedMesh;

@@ -269,6 +269,49 @@ export function createRenderer3D(
     return { x: cx, y: cy };
   }
 
+  function plantAt(
+    canvasX: number, canvasY: number,
+  ): { plantId: number; speciesId: number } | null {
+    ndcMouse.x = (canvasX / webgl.domElement.clientWidth) * 2 - 1;
+    ndcMouse.y = -(canvasY / webgl.domElement.clientHeight) * 2 + 1;
+
+    raycaster.setFromCamera(ndcMouse, camera);
+    const hits = raycaster.intersectObject(terrain.terrainMesh);
+    if (hits.length === 0) return null;
+
+    const p = hits[0].point;
+    const cx = Math.floor(p.x + HALF);
+    const cy = Math.floor(p.z + HALF);
+
+    // Search a 3x3 neighborhood for the closest plant to the hit point
+    let bestPlant: { plantId: number; speciesId: number } | null = null;
+    let bestDist = Infinity;
+    for (let dy = -1; dy <= 1; dy++) {
+      const ny = cy + dy;
+      if (ny < 0 || ny >= GRID) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = cx + dx;
+        if (nx < 0 || nx >= GRID) continue;
+        const cell = world.grid[ny][nx];
+        if (cell.plantId === null) continue;
+        const plant = world.plants.get(cell.plantId);
+        if (!plant?.alive) continue;
+        const wx = plant.x - HALF + 0.5;
+        const wz = plant.y - HALF + 0.5;
+        const ddx = p.x - wx;
+        const ddz = p.z - wz;
+        const dist = ddx * ddx + ddz * ddz;
+        // Only match if within roughly the plant's visual footprint
+        const radius = Math.max(0.3, plant.height * 0.4);
+        if (dist < radius * radius && dist < bestDist) {
+          bestDist = dist;
+          bestPlant = { plantId: plant.id, speciesId: plant.speciesId };
+        }
+      }
+    }
+    return bestPlant;
+  }
+
   const projVec = new THREE.Vector3();
 
   function projectToScreen(gridX: number, gridY: number): { x: number; y: number } | null {
@@ -349,5 +392,5 @@ export function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
+  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }

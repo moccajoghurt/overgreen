@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { World } from '../types';
 import {
-  GRID, ELEV_SCALE, MAX_SEEDS,
+  GRID, ELEV_SCALE, MAX_SEEDS, MAX_PER_SUBTYPE,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
@@ -166,8 +166,6 @@ export function rebuildTerrainGeometry(
 }
 
 // ── Per-subtype instanced meshes (24 subtypes, one InstancedMesh each) ──
-
-const MAX_PER_SUBTYPE = 7000; // 80×80=6400 grid + dying/burning headroom
 
 export function createSubtypeMeshes(): {
   meshes: THREE.InstancedMesh[];
