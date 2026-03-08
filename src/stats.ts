@@ -1,4 +1,4 @@
-import { SIM, TerrainType, World } from './types';
+import { SIM, TERRAIN_PROPS, TerrainType, World } from './types';
 
 // ── Types ──
 
@@ -221,9 +221,7 @@ export function computeSnapshot(
 
     sumLight += plant.lastLightReceived;
     // Compare against terrain+season base to detect actual neighbor shading (not seasonal darkness)
-    let unshadedBase = SIM.BASE_LIGHT;
-    if (cell.terrainType === TerrainType.Hill) unshadedBase += SIM.HILL_LIGHT_BONUS;
-    else if (cell.terrainType === TerrainType.Arid) unshadedBase += SIM.ARID_LIGHT_BONUS;
+    const unshadedBase = SIM.BASE_LIGHT + TERRAIN_PROPS[cell.terrainType].lightBonus;
     if (plant.lastLightReceived < unshadedBase * world.environment.lightMult * 0.9) shadedCount++;
     sumRootDepth += plant.rootDepth;
     const waterNeeded = plant.leafArea * SIM.TRANSPIRATION_PER_LEAF;

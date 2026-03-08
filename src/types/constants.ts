@@ -1,3 +1,5 @@
+import { TerrainType } from './core';
+
 export const GRID_WIDTH = 80;
 export const GRID_HEIGHT = 80;
 
@@ -273,3 +275,107 @@ export function getPlantConstants(genome: import('./core').Genome): PlantConstan
   _constantsCache.set(key, result);
   return result;
 }
+
+// ── Terrain property lookup table ──
+
+export interface TerrainProperties {
+  waterTable: number;
+  lightBonus: number;
+  establishmentTicks: number;
+  vigorDampen: number;
+  nutrientMax: number;
+  maintRootMult: number;
+  maintHeightMult: number;
+  maintLeafMult: number;
+  maintWStorageMult: number;
+  heightBonusMult: number;
+  plantable: boolean;
+  succulentGermination: boolean;
+}
+
+export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
+  [TerrainType.Soil]: {
+    waterTable: SIM.SOIL_WATER_TABLE,
+    lightBonus: 0,
+    establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
+    vigorDampen: SIM.SOIL_VIGOR_DAMPEN,
+    nutrientMax: SIM.MAX_NUTRIENTS,
+    maintRootMult: 1.0,
+    maintHeightMult: 1.0,
+    maintLeafMult: 1.0,
+    maintWStorageMult: SIM.SOIL_MAINT_WSTORAGE_MULT,
+    heightBonusMult: 1.0,
+    plantable: true,
+    succulentGermination: false,
+  },
+  [TerrainType.River]: {
+    waterTable: SIM.SOIL_WATER_TABLE,
+    lightBonus: 0,
+    establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
+    vigorDampen: 0,
+    nutrientMax: SIM.MAX_NUTRIENTS,
+    maintRootMult: 1.0,
+    maintHeightMult: 1.0,
+    maintLeafMult: 1.0,
+    maintWStorageMult: 1.0,
+    heightBonusMult: 1.0,
+    plantable: false,
+    succulentGermination: false,
+  },
+  [TerrainType.Rock]: {
+    waterTable: SIM.SOIL_WATER_TABLE,
+    lightBonus: 0,
+    establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
+    vigorDampen: 0,
+    nutrientMax: SIM.ROCK_NUTRIENT_MAX,
+    maintRootMult: 1.0,
+    maintHeightMult: 1.0,
+    maintLeafMult: 1.0,
+    maintWStorageMult: 1.0,
+    heightBonusMult: 1.0,
+    plantable: false,
+    succulentGermination: false,
+  },
+  [TerrainType.Hill]: {
+    waterTable: SIM.HILL_WATER_TABLE,
+    lightBonus: SIM.HILL_LIGHT_BONUS,
+    establishmentTicks: SIM.HILL_ESTABLISHMENT_TICKS,
+    vigorDampen: SIM.HILL_VIGOR_DAMPEN,
+    nutrientMax: SIM.HILL_NUTRIENT_MAX,
+    maintRootMult: SIM.HILL_MAINT_ROOT_MULT,
+    maintHeightMult: SIM.HILL_MAINT_HEIGHT_MULT,
+    maintLeafMult: SIM.HILL_MAINT_LEAF_MULT,
+    maintWStorageMult: 1.0,
+    heightBonusMult: 1.0,
+    plantable: true,
+    succulentGermination: true,
+  },
+  [TerrainType.Wetland]: {
+    waterTable: SIM.WETLAND_WATER_TABLE,
+    lightBonus: 0,
+    establishmentTicks: SIM.WETLAND_ESTABLISHMENT_TICKS,
+    vigorDampen: SIM.WETLAND_VIGOR_DAMPEN,
+    nutrientMax: SIM.WETLAND_NUTRIENT_MAX,
+    maintRootMult: SIM.WETLAND_MAINT_ROOT_MULT,
+    maintHeightMult: SIM.WETLAND_MAINT_HEIGHT_MULT,
+    maintLeafMult: SIM.WETLAND_MAINT_LEAF_MULT,
+    maintWStorageMult: SIM.WETLAND_MAINT_WSTORAGE_MULT,
+    heightBonusMult: SIM.WETLAND_HEIGHT_BONUS_MULT,
+    plantable: true,
+    succulentGermination: false,
+  },
+  [TerrainType.Arid]: {
+    waterTable: SIM.ARID_WATER_TABLE,
+    lightBonus: SIM.ARID_LIGHT_BONUS,
+    establishmentTicks: SIM.ARID_ESTABLISHMENT_TICKS,
+    vigorDampen: SIM.ARID_VIGOR_DAMPEN,
+    nutrientMax: SIM.ARID_NUTRIENT_MAX,
+    maintRootMult: SIM.ARID_MAINT_ROOT_MULT,
+    maintHeightMult: SIM.ARID_MAINT_HEIGHT_MULT,
+    maintLeafMult: SIM.ARID_MAINT_LEAF_MULT,
+    maintWStorageMult: 1.0,
+    heightBonusMult: 1.0,
+    plantable: true,
+    succulentGermination: true,
+  },
+};

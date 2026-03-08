@@ -1,4 +1,4 @@
-import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TerrainType, World, getPlantConstants } from './types';
+import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -48,24 +48,20 @@ function phaseRechargeWater(world: World): void {
 
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
-      if (cell.terrainType === TerrainType.Hill) {
-        // Bedrock nutrient extraction: deep roots weather minerals
-        if (cell.plantId !== null) {
-          const hillPlant = world.plants.get(cell.plantId);
-          if (hillPlant && hillPlant.alive) {
-            const hillMaxRoot = getPlantConstants(hillPlant.genome).maxRootDepth;
-            const hillRootFrac = hillPlant.rootDepth / hillMaxRoot;
-            if (hillRootFrac > SIM.HILL_ROOT_NUTRIENT_THRESHOLD) {
-              const extraction = (hillRootFrac - SIM.HILL_ROOT_NUTRIENT_THRESHOLD)
-                * SIM.HILL_ROOT_NUTRIENT_BONUS * hillPlant.rootDepth;
-              cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients + extraction);
-            }
+      // Hill bedrock nutrient extraction: deep roots weather minerals
+      if (cell.terrainType === TerrainType.Hill && cell.plantId !== null) {
+        const hillPlant = world.plants.get(cell.plantId);
+        if (hillPlant && hillPlant.alive) {
+          const hillMaxRoot = getPlantConstants(hillPlant.genome).maxRootDepth;
+          const hillRootFrac = hillPlant.rootDepth / hillMaxRoot;
+          if (hillRootFrac > SIM.HILL_ROOT_NUTRIENT_THRESHOLD) {
+            const extraction = (hillRootFrac - SIM.HILL_ROOT_NUTRIENT_THRESHOLD)
+              * SIM.HILL_ROOT_NUTRIENT_BONUS * hillPlant.rootDepth;
+            cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients + extraction);
           }
         }
-        cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
-      } else if (cell.terrainType === TerrainType.Arid) {
-        cell.nutrients = Math.min(SIM.ARID_NUTRIENT_MAX, cell.nutrients);
       }
+      cell.nutrients = Math.min(TERRAIN_PROPS[cell.terrainType].nutrientMax, cell.nutrients);
     }
   }
 
@@ -140,12 +136,7 @@ function phaseCalculateLight(world: World): void {
       }
 
       const cell = world.grid[y][x];
-      let rawBase = SIM.BASE_LIGHT;
-      if (cell.terrainType === TerrainType.Hill) {
-        rawBase += SIM.HILL_LIGHT_BONUS;
-      } else if (cell.terrainType === TerrainType.Arid) {
-        rawBase += SIM.ARID_LIGHT_BONUS;
-      }
+      const rawBase = SIM.BASE_LIGHT + TERRAIN_PROPS[cell.terrainType].lightBonus;
       const baseLight = rawBase * world.environment.lightMult;
       cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeSum);
     }
@@ -180,10 +171,7 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
   }
 
   // Groundwater: roots below water table access saturated zone (all terrains)
-  let waterTable: number = SIM.SOIL_WATER_TABLE;
-  if (cell.terrainType === TerrainType.Hill) waterTable = SIM.HILL_WATER_TABLE;
-  else if (cell.terrainType === TerrainType.Wetland) waterTable = SIM.WETLAND_WATER_TABLE;
-  else if (cell.terrainType === TerrainType.Arid) waterTable = SIM.ARID_WATER_TABLE;
+  const waterTable = TERRAIN_PROPS[cell.terrainType].waterTable;
 
   if (plant.rootDepth > waterTable) {
     const saturatedDepth = plant.rootDepth - waterTable;
@@ -222,10 +210,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   const pc = getPlantConstants(plant.genome);
   let heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
 
-  // Wetland: amplified height bonus (canopy emergence)
-  if (cell.terrainType === TerrainType.Wetland) {
-    heightLightBonus *= SIM.WETLAND_HEIGHT_BONUS_MULT;
-  }
+  heightLightBonus *= TERRAIN_PROPS[cell.terrainType].heightBonusMult;
 
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
 
@@ -249,26 +234,12 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   const mLeaf = pc.maintenancePerLeaf;
   const maxRoot = pc.maxRootDepth;
 
-  // Terrain-specific per-trait multipliers (Soil = 1.0)
   const cell = world.grid[plant.y][plant.x];
-  let rootMult = 1.0, heightMult = 1.0, leafMult = 1.0, wStorageMult = 1.0;
-  if (cell.terrainType === TerrainType.Hill) {
-    rootMult = SIM.HILL_MAINT_ROOT_MULT;
-    heightMult = SIM.HILL_MAINT_HEIGHT_MULT;
-    leafMult = SIM.HILL_MAINT_LEAF_MULT;
-  } else if (cell.terrainType === TerrainType.Wetland) {
-    rootMult = SIM.WETLAND_MAINT_ROOT_MULT;
-    heightMult = SIM.WETLAND_MAINT_HEIGHT_MULT;
-    leafMult = SIM.WETLAND_MAINT_LEAF_MULT;
-    wStorageMult = SIM.WETLAND_MAINT_WSTORAGE_MULT;
-  } else if (cell.terrainType === TerrainType.Arid) {
-    rootMult = SIM.ARID_MAINT_ROOT_MULT;
-    heightMult = SIM.ARID_MAINT_HEIGHT_MULT;
-    leafMult = SIM.ARID_MAINT_LEAF_MULT;
-  } else {
-    // Soil (default terrain)
-    wStorageMult = SIM.SOIL_MAINT_WSTORAGE_MULT;
-  }
+  const tp = TERRAIN_PROPS[cell.terrainType];
+  const rootMult = tp.maintRootMult;
+  const heightMult = tp.maintHeightMult;
+  const leafMult = tp.maintLeafMult;
+  const wStorageMult = tp.maintWStorageMult;
 
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   let leafMaint = effectiveLeaf * mLeaf * leafMult * world.environment.leafMaintenanceMult;
@@ -356,8 +327,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const ty = plant.y + dy;
     if (!inBounds(tx, ty, world.width, world.height)) continue;
     const targetCell = world.grid[ty][tx];
-    const tt = targetCell.terrainType;
-    if (tt === TerrainType.River || tt === TerrainType.Rock) continue;
+    if (!TERRAIN_PROPS[targetCell.terrainType].plantable) continue;
     if (targetCell.seeds.length >= SIM.SEED_MAX_PER_CELL) continue;
 
     // Mate search: scan nearby cells for a same-species mate
@@ -428,15 +398,10 @@ function phaseUpdatePlants(world: World): void {
     // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
     // Harsh terrains take longer, rewarding large seeds with more energy reserves
     // Small seedlings take longer to establish (vigor-scaled)
-    let baseEstTicks: number = SIM.SOIL_ESTABLISHMENT_TICKS;
-    if (cell.terrainType === TerrainType.Hill) baseEstTicks = SIM.HILL_ESTABLISHMENT_TICKS;
-    else if (cell.terrainType === TerrainType.Wetland) baseEstTicks = SIM.WETLAND_ESTABLISHMENT_TICKS;
-    else if (cell.terrainType === TerrainType.Arid) baseEstTicks = SIM.ARID_ESTABLISHMENT_TICKS;
+    const cellTp = TERRAIN_PROPS[cell.terrainType];
+    const baseEstTicks = cellTp.establishmentTicks;
     const rawVigorEst = SIM.SEED_SIZE_VIGOR_MIN + plant.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
-    let dampenEst: number = SIM.SOIL_VIGOR_DAMPEN;
-    if (cell.terrainType === TerrainType.Wetland) dampenEst = SIM.WETLAND_VIGOR_DAMPEN;
-    else if (cell.terrainType === TerrainType.Hill) dampenEst = SIM.HILL_VIGOR_DAMPEN;
-    else if (cell.terrainType === TerrainType.Arid) dampenEst = SIM.ARID_VIGOR_DAMPEN;
+    const dampenEst = cellTp.vigorDampen;
     const vigorEst = Math.max(0.1, rawVigorEst + (1.0 - rawVigorEst) * dampenEst);
     const estTicks = Math.ceil(baseEstTicks / vigorEst);
     const establishing = plant.age < estTicks;
@@ -533,7 +498,7 @@ function phaseGermination(world: World): void {
         const seed = cell.seeds[i];
         // Succulent seeds rot in wet soil — only germinate on arid/hill
         if (archetype(seed.genome) === Archetype.Succulent
-          && cell.terrainType !== TerrainType.Arid && cell.terrainType !== TerrainType.Hill) continue;
+          && !TERRAIN_PROPS[cell.terrainType].succulentGermination) continue;
         const waterThreshold = getPlantConstants(seed.genome).seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
@@ -565,10 +530,7 @@ function phaseGermination(world: World): void {
       // On productive terrain, dampen vigor toward 1.0 (resources equalize seedling size)
       const wpc = getPlantConstants(winner.genome);
       const rawVigor = SIM.SEED_SIZE_VIGOR_MIN + winner.genome.seedSize * SIM.SEED_SIZE_VIGOR_RANGE;
-      let dampen: number = SIM.SOIL_VIGOR_DAMPEN;
-      if (cell.terrainType === TerrainType.Wetland) dampen = SIM.WETLAND_VIGOR_DAMPEN;
-      else if (cell.terrainType === TerrainType.Hill) dampen = SIM.HILL_VIGOR_DAMPEN;
-      else if (cell.terrainType === TerrainType.Arid) dampen = SIM.ARID_VIGOR_DAMPEN;
+      const dampen = TERRAIN_PROPS[cell.terrainType].vigorDampen;
       const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
       // Speciation check: subtype-based
@@ -634,11 +596,7 @@ function phaseDecomposition(world: World): void {
     cell.waterLevel = Math.min(SIM.MAX_WATER, cell.waterLevel + dWater);
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS,
       cell.nutrients + dNutrient + plant.height * dNutrientH);
-    if (cell.terrainType === TerrainType.Hill) {
-      cell.nutrients = Math.min(SIM.HILL_NUTRIENT_MAX, cell.nutrients);
-    } else if (cell.terrainType === TerrainType.Arid) {
-      cell.nutrients = Math.min(SIM.ARID_NUTRIENT_MAX, cell.nutrients);
-    }
+    cell.nutrients = Math.min(TERRAIN_PROPS[cell.terrainType].nutrientMax, cell.nutrients);
     cell.plantId = null;
     toRemove.push(plant.id);
   }
