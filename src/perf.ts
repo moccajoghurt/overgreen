@@ -14,7 +14,6 @@ interface PerfEntry {
 export class PerfTracker implements TimingHooks {
   private entries = new Map<string, PerfEntry>();
   private order: string[] = [];
-  private frameAvgMs = 16.67;
 
   register(label: string, category: string): void {
     this.entries.set(label, { label, category, avgMs: 0, lastStart: 0 });
@@ -44,10 +43,11 @@ export class PerfTracker implements TimingHooks {
   }
 
   getFps(): number {
-    return this.frameAvgMs > 0 ? 1000 / this.frameAvgMs : 0;
+    const f = this.entries.get('frame');
+    return f && f.avgMs > 0 ? 1000 / f.avgMs : 0;
   }
 
   getFrameMs(): number {
-    return this.frameAvgMs;
+    return this.entries.get('frame')?.avgMs ?? 0;
   }
 }
