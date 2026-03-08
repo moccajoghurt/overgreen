@@ -12,6 +12,58 @@ import { createTerrainDetailTexture } from './terrain-detail-texture';
 
 // ── Terrain ──
 
+/**
+ * Compute smooth normals from the height-field gradient at each corner,
+ * then assign them to the non-indexed terrain geometry's 6 vertices per cell.
+ */
+function smoothTerrainNormals(
+  geo: THREE.BufferGeometry,
+  corners: Float32Array,
+  cs: number, // cornerSize = GRID + 1
+): void {
+  // Compute per-corner normals from finite-difference height gradients
+  const cornerNormals = new Float32Array(cs * cs * 3);
+  for (let cy = 0; cy < cs; cy++) {
+    for (let cx = 0; cx < cs; cx++) {
+      const h = corners[cy * cs + cx];
+      const hL = cx > 0 ? corners[cy * cs + cx - 1] : h;
+      const hR = cx < cs - 1 ? corners[cy * cs + cx + 1] : h;
+      const hU = cy > 0 ? corners[(cy - 1) * cs + cx] : h;
+      const hD = cy < cs - 1 ? corners[(cy + 1) * cs + cx] : h;
+      const dx = cx > 0 && cx < cs - 1 ? 2 : 1;
+      const dz = cy > 0 && cy < cs - 1 ? 2 : 1;
+      // normal = normalize(-dh/dx, 1, -dh/dz)
+      const nx = -(hR - hL) / dx;
+      const nz = -(hD - hU) / dz;
+      const len = Math.sqrt(nx * nx + 1 + nz * nz);
+      const i3 = (cy * cs + cx) * 3;
+      cornerNormals[i3] = nx / len;
+      cornerNormals[i3 + 1] = 1 / len;
+      cornerNormals[i3 + 2] = nz / len;
+    }
+  }
+
+  // Assign corner normals to each cell's 6 vertices
+  const normAttr = geo.attributes.normal;
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const base = (row * GRID + col) * 6;
+      // Corner indices: TL=(col,row), TR=(col+1,row), BL=(col,row+1), BR=(col+1,row+1)
+      const iTL = (row * cs + col) * 3;
+      const iTR = (row * cs + col + 1) * 3;
+      const iBL = ((row + 1) * cs + col) * 3;
+      const iBR = ((row + 1) * cs + col + 1) * 3;
+      // Vertex order: TL, BL, TR, BL, BR, TR
+      const corners_for_verts = [iTL, iBL, iTR, iBL, iBR, iTR];
+      for (let v = 0; v < 6; v++) {
+        const ci = corners_for_verts[v];
+        normAttr.setXYZ(base + v, cornerNormals[ci], cornerNormals[ci + 1], cornerNormals[ci + 2]);
+      }
+    }
+  }
+  normAttr.needsUpdate = true;
+}
+
 export interface TerrainResult {
   terrainMesh: THREE.Mesh;
   colorArray: Float32Array;
@@ -83,7 +135,7 @@ export function createTerrain(world: World): TerrainResult {
     }
   }
   posAttr.needsUpdate = true;
-  terrainGeo.computeVertexNormals();
+  smoothTerrainNormals(terrainGeo, corners, cornerSize);
 
   function getCellElevation(cx: number, cy: number): number {
     // Average the 4 corner heights to match the actual terrain mesh surface
@@ -152,7 +204,7 @@ export function rebuildTerrainGeometry(
     }
   }
   posAttr.needsUpdate = true;
-  terrain.terrainMesh.geometry.computeVertexNormals();
+  smoothTerrainNormals(terrain.terrainMesh.geometry, corners, cornerSize);
 
   function getCellElevation(cx: number, cy: number): number {
     const tl = corners[cy * cornerSize + cx];
