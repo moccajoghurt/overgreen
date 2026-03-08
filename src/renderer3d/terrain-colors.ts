@@ -2,36 +2,11 @@ import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '..
 import { Archetype, archetype } from '../types';
 import { RendererState, GRID, lerp } from './state';
 
-// ── Per-cell terrain color noise ──
-// Deterministic hash: stable per cell position, no flickering
-function terrainCellHash(cx: number, cy: number, salt: number): number {
-  let h = (cx * 2654435761 + cy * 340573 + salt * 1013904223) | 0;
-  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
-  h = ((h >> 16) ^ h) * 0x45d9f3b | 0;
-  h = (h >> 16) ^ h;
-  return (h & 0x7FFFFFFF) / 0x7FFFFFFF;
-}
-
-// Per-terrain noise amplitude: [hue±, saturation±, lightness±]
-const TERRAIN_NOISE: Record<number, [number, number, number]> = {
-  [TerrainType.Soil]:    [0.015, 0.08, 0.07],
-  [TerrainType.Arid]:    [0.010, 0.06, 0.10],  // sand ripple — strong lightness
-  [TerrainType.Hill]:    [0.018, 0.10, 0.09],
-  [TerrainType.Rock]:    [0.012, 0.08, 0.12],  // craggy — strongest lightness
-  [TerrainType.Wetland]: [0.020, 0.10, 0.07],  // patchy wet/dry
-  [TerrainType.River]:   [0.000, 0.00, 0.00],
-};
-
 // ── Water adjacency cache ──
 let waterAdjCache: Float32Array | null = null;
 let waterAdjCacheTick = -1;
 
-/**
- * Compute per-cell water adjacency weight (0→1) using smooth distance falloff.
- * Uses Euclidean distance to nearest river cell with a smooth ramp,
- * so the wet-earth band follows the river organically rather than per-cell.
- */
-const WATER_ADJ_RADIUS = 2.5; // cells — falloff distance from river edge
+const WATER_ADJ_RADIUS = 2.5;
 
 function computeWaterAdjacency(world: World): Float32Array {
   if (waterAdjCache && waterAdjCacheTick === 0 && world.tick !== 0) {
@@ -41,7 +16,6 @@ function computeWaterAdjacency(world: World): Float32Array {
     return waterAdjCache;
   }
 
-  // Collect river cell centers
   const riverCenters: [number, number][] = [];
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -64,7 +38,6 @@ function computeWaterAdjacency(world: World): Float32Array {
     for (let col = 0; col < GRID; col++) {
       if (world.grid[row][col].terrainType === TerrainType.River) continue;
 
-      // Find minimum distance to any river cell (local search)
       const cy = row + 0.5, cx = col + 0.5;
       let minDist2 = WATER_ADJ_RADIUS * WATER_ADJ_RADIUS + 1;
 
@@ -83,9 +56,8 @@ function computeWaterAdjacency(world: World): Float32Array {
 
       const dist = Math.sqrt(minDist2);
       if (dist < WATER_ADJ_RADIUS) {
-        // Smooth hermite falloff: 1 at river edge → 0 at radius
         const t = dist / WATER_ADJ_RADIUS;
-        adj[row * GRID + col] = 1 - t * t * (3 - 2 * t); // smoothstep inverse
+        adj[row * GRID + col] = 1 - t * t * (3 - 2 * t);
       }
     }
   }
@@ -101,22 +73,15 @@ export function invalidateWaterAdjacency(): void {
   waterAdjCacheTick = -1;
 }
 
-/**
- * Snow coverage factor (0→1) based on season + progress.
- * Ramps up in late autumn, peaks mid-winter, melts in early spring.
- */
 function computeSnowCoverage(env: Environment): number {
   if (env.season === Season.Autumn && env.seasonProgress > 0.8) {
-    // Late autumn: snow starts appearing
     return (env.seasonProgress - 0.8) * (0.15 / 0.2);
   }
   if (env.season === Season.Winter) {
-    // Bell curve peaking at ~0.85 mid-winter
     const x = env.seasonProgress;
     return 0.15 + 0.70 * Math.sin(x * Math.PI);
   }
   if (env.season === Season.Spring && env.seasonProgress < 0.2) {
-    // Early spring: melting remnants
     return 0.15 * (1 - env.seasonProgress / 0.2);
   }
   return 0;
@@ -125,7 +90,6 @@ function computeSnowCoverage(env: Environment): number {
 export function updateTerrainColors(state: RendererState): void {
   const { world, tmpColor, colorArray, colorAttr } = state;
 
-  // Skip if nothing changed since last update
   if (world.tick === state.lastTerrainTick
     && state.colorMode === state.lastTerrainColorMode) return;
   state.lastTerrainTick = world.tick;
@@ -133,47 +97,31 @@ export function updateTerrainColors(state: RendererState): void {
 
   const arr = colorArray;
   const env = world.environment;
-
-  // Hoist season-invariant computations out of the per-cell loop
-  const seasonColorsData = [
-    0.3, 0.6, 0.3,  // Spring: green
-    0.6, 0.5, 0.2,  // Summer: golden
-    0.5, 0.35, 0.2, // Autumn: orange-brown
-    0.3, 0.35, 0.5, // Winter: blue-grey
-  ];
-  const si0 = env.season * 3;
-  const si1 = ((env.season + 1) % 4) * 3;
-  const st = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
-  const sr = seasonColorsData[si0] + (seasonColorsData[si1] - seasonColorsData[si0]) * st;
-  const sg = seasonColorsData[si0 + 1] + (seasonColorsData[si1 + 1] - seasonColorsData[si0 + 1]) * st;
-  const sb = seasonColorsData[si0 + 2] + (seasonColorsData[si1 + 2] - seasonColorsData[si0 + 2]) * st;
   const snowCov = computeSnowCoverage(env);
 
-  // ── Per-plant-type ground tinting ──
-  // Each plant type tints the terrain differently with smooth corner blending.
-  const cornerSize = GRID + 1;
+  // Season progress (smooth cosine interpolation)
+  const st = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
 
-  // Seasonal ground tint colors: [spring, summer, autumn, winter] × [r, g, b]
+  // ── Plant tint season colors ──
   const grassTintColors = [
-    0.22, 0.45, 0.12,  // Spring: dark green
-    0.20, 0.38, 0.10,  // Summer: deep green
-    0.40, 0.30, 0.10,  // Autumn: olive-brown
-    0.35, 0.30, 0.18,  // Winter: dull straw
+    0.22, 0.45, 0.12,
+    0.20, 0.38, 0.10,
+    0.40, 0.30, 0.10,
+    0.35, 0.30, 0.18,
   ];
   const treeTintColors = [
-    0.18, 0.28, 0.10,  // Spring: mossy dark brown
-    0.15, 0.22, 0.08,  // Summer: deep shade brown
-    0.38, 0.22, 0.08,  // Autumn: reddish leaf litter
-    0.25, 0.20, 0.15,  // Winter: bare dark soil
+    0.18, 0.28, 0.10,
+    0.15, 0.22, 0.08,
+    0.38, 0.22, 0.08,
+    0.25, 0.20, 0.15,
   ];
   const shrubTintColors = [
-    0.20, 0.35, 0.12,  // Spring: dark green-brown
-    0.18, 0.30, 0.10,  // Summer: dark green
-    0.38, 0.28, 0.10,  // Autumn: warm brown
-    0.30, 0.25, 0.16,  // Winter: muted brown
+    0.20, 0.35, 0.12,
+    0.18, 0.30, 0.10,
+    0.38, 0.28, 0.10,
+    0.30, 0.25, 0.16,
   ];
 
-  // Interpolate each table by season progress
   const ti0 = env.season * 3, ti1 = ((env.season + 1) % 4) * 3;
   const grassTR = grassTintColors[ti0] + (grassTintColors[ti1] - grassTintColors[ti0]) * st;
   const grassTG = grassTintColors[ti0 + 1] + (grassTintColors[ti1 + 1] - grassTintColors[ti0 + 1]) * st;
@@ -185,33 +133,34 @@ export function updateTerrainColors(state: RendererState): void {
   const shrubTG = shrubTintColors[ti0 + 1] + (shrubTintColors[ti1 + 1] - shrubTintColors[ti0 + 1]) * st;
   const shrubTB = shrubTintColors[ti0 + 2] + (shrubTintColors[ti1 + 2] - shrubTintColors[ti0 + 2]) * st;
 
-  // ── Water adjacency (wet-earth shoreline blend) ──
+  // ── Water adjacency (cached) ──
   const waterAdj = computeWaterAdjacency(world);
-
-  // Corner-average the water adjacency weights for smooth blending
-  const cornerWaterAdj = new Float32Array(cornerSize * cornerSize);
-  for (let cy = 0; cy <= GRID; cy++) {
-    for (let cx = 0; cx <= GRID; cx++) {
-      let sum = 0, count = 0;
-      for (let dy = -1; dy <= 0; dy++) {
-        for (let dx = -1; dx <= 0; dx++) {
-          const gx = cx + dx, gy = cy + dy;
-          if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-            sum += waterAdj[gy * GRID + gx];
-            count++;
-          }
-        }
-      }
-      cornerWaterAdj[cy * cornerSize + cx] = count > 0 ? sum / count : 0;
-    }
-  }
-
-  // Wet-earth target color (HSL ~200°, 0.25, 0.18 → dark cool brown)
   const wetR = 0.135, wetG = 0.162, wetB = 0.225;
   const WET_BLEND = 0.35;
 
-  // Per-cell: pre-multiplied tint color (r×w, g×w, b×w) and blend weight
+  // ── Pre-build remaining-ticks lookup for weather fade-outs ──
   const cellCount = GRID * GRID;
+  const remainingTicks = new Float32Array(cellCount);
+  for (const [key, val] of env.scorchedCells) {
+    const i = key.indexOf(',');
+    const x = +key.slice(0, i), y = +key.slice(i + 1);
+    remainingTicks[y * GRID + x] = val;
+  }
+  for (const [key, val] of env.parchedCells) {
+    const i = key.indexOf(',');
+    const x = +key.slice(0, i), y = +key.slice(i + 1);
+    remainingTicks[y * GRID + x] = val;
+  }
+  for (const [key, val] of env.diseasedCells) {
+    const i = key.indexOf(',');
+    const x = +key.slice(0, i), y = +key.slice(i + 1);
+    remainingTicks[y * GRID + x] = val;
+  }
+
+  // ── Combined per-cell pass: base terrain color + plant tint ──
+  const cellBaseR = new Float32Array(cellCount);
+  const cellBaseG = new Float32Array(cellCount);
+  const cellBaseB = new Float32Array(cellCount);
   const cellRW = new Float32Array(cellCount);
   const cellGW = new Float32Array(cellCount);
   const cellBW = new Float32Array(cellCount);
@@ -220,6 +169,24 @@ export function updateTerrainColors(state: RendererState): void {
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
       const cell = world.grid[y][x];
+      const idx = y * GRID + x;
+
+      // Base terrain color (flat HSL, no noise)
+      let h: number, s: number, l: number;
+      switch (cell.terrainType) {
+        case TerrainType.River:  h = 30 / 360; s = 0.40; l = 0.32; break;
+        case TerrainType.Rock:   h = 30 / 360; s = 0.06; l = 0.38 + cell.elevation * 0.06; break;
+        case TerrainType.Hill:   h = 32 / 360; s = 0.35; l = 0.38; break;
+        case TerrainType.Wetland: h = 160 / 360; s = 0.30; l = 0.22; break;
+        case TerrainType.Arid:   h = 40 / 360; s = 0.35; l = 0.48; break;
+        default:                 h = 30 / 360; s = 0.40; l = 0.32; break;
+      }
+      tmpColor.setHSL(h, s, l);
+      cellBaseR[idx] = tmpColor.r;
+      cellBaseG[idx] = tmpColor.g;
+      cellBaseB[idx] = tmpColor.b;
+
+      // Plant tint
       if (cell.plantId == null) continue;
       const plant = world.plants.get(cell.plantId);
       if (!plant || !plant.alive) continue;
@@ -228,15 +195,13 @@ export function updateTerrainColors(state: RendererState): void {
       let tr: number, tg: number, tb: number, tw: number;
 
       if (state.colorMode === 'species') {
-        // Species mode: tint ground with the species color
         const sc = world.speciesColors.get(plant.speciesId);
         if (!sc) continue;
         tr = sc.r; tg = sc.g; tb = sc.b; tw = 0.55;
       } else {
-        // Natural mode: tint by plant type
         const arch = archetype(genome);
         if (arch === Archetype.Succulent) {
-          continue; // Succulents: no ground tint (keep arid sand)
+          continue;
         } else if (arch === Archetype.Grass) {
           tr = grassTR; tg = grassTG; tb = grassTB; tw = 1.0;
         } else {
@@ -250,7 +215,6 @@ export function updateTerrainColors(state: RendererState): void {
         }
       }
 
-      const idx = y * GRID + x;
       cellRW[idx] = tr * tw;
       cellGW[idx] = tg * tw;
       cellBW[idx] = tb * tw;
@@ -258,7 +222,11 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
-  // Corner averaging: blend weight = mean(cell weights), tint color = weighted average
+  // ── Single corner-averaging pass (base terrain + plant tint) ──
+  const cornerSize = GRID + 1;
+  const cornerBaseR = new Float32Array(cornerSize * cornerSize);
+  const cornerBaseG = new Float32Array(cornerSize * cornerSize);
+  const cornerBaseB = new Float32Array(cornerSize * cornerSize);
   const cornerR = new Float32Array(cornerSize * cornerSize);
   const cornerG = new Float32Array(cornerSize * cornerSize);
   const cornerB = new Float32Array(cornerSize * cornerSize);
@@ -266,13 +234,18 @@ export function updateTerrainColors(state: RendererState): void {
 
   for (let cy = 0; cy <= GRID; cy++) {
     for (let cx = 0; cx <= GRID; cx++) {
-      let sumRW = 0, sumGW = 0, sumBW = 0, sumW = 0, count = 0;
+      let sumR = 0, sumG = 0, sumB = 0;
+      let sumRW = 0, sumGW = 0, sumBW = 0, sumW = 0;
+      let count = 0;
       for (let dy = -1; dy <= 0; dy++) {
         for (let dx = -1; dx <= 0; dx++) {
           const gx = cx + dx, gy = cy + dy;
           if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
             const idx = gy * GRID + gx;
             count++;
+            sumR += cellBaseR[idx];
+            sumG += cellBaseG[idx];
+            sumB += cellBaseB[idx];
             sumRW += cellRW[idx];
             sumGW += cellGW[idx];
             sumBW += cellBW[idx];
@@ -281,7 +254,10 @@ export function updateTerrainColors(state: RendererState): void {
         }
       }
       const ci = cy * cornerSize + cx;
-      cornerW[ci] = count > 0 ? sumW / count : 0;
+      cornerBaseR[ci] = sumR / count;
+      cornerBaseG[ci] = sumG / count;
+      cornerBaseB[ci] = sumB / count;
+      cornerW[ci] = sumW / count;
       if (sumW > 0) {
         cornerR[ci] = sumRW / sumW;
         cornerG[ci] = sumGW / sumW;
@@ -290,79 +266,18 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
-  // ── Pre-pass: compute per-cell base terrain color (switch + season tint) ──
-  const cellBaseR = new Float32Array(cellCount);
-  const cellBaseG = new Float32Array(cellCount);
-  const cellBaseB = new Float32Array(cellCount);
-
+  // ── Per-cell vertex writing ──
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const cell = world.grid[row][col];
-
-      // Deterministic per-cell noise for terrain color variation
-      const nh = terrainCellHash(col, row, 0) * 2 - 1; // -1..1
-      const ns = terrainCellHash(col, row, 1) * 2 - 1;
-      const nl = terrainCellHash(col, row, 2) * 2 - 1;
-      const noise = TERRAIN_NOISE[cell.terrainType];
-
-      let h: number, s: number, l: number;
-      switch (cell.terrainType) {
-        case TerrainType.River:  h = 30 / 360; s = 0.40; l = 0.32; break;
-        case TerrainType.Rock:   h = 30 / 360; s = 0.06; l = 0.38 + cell.elevation * 0.06; break;
-        case TerrainType.Hill:   h = 32 / 360; s = 0.35; l = 0.38; break;
-        case TerrainType.Wetland: h = 160 / 360; s = 0.30; l = 0.22; break;
-        case TerrainType.Arid:   h = 40 / 360; s = 0.35; l = 0.48; break;
-        default:                 h = 30 / 360; s = 0.40; l = 0.32; break;
-      }
-
-      tmpColor.setHSL(h + nh * noise[0], s + ns * noise[1], l + nl * noise[2]);
-      tmpColor.r = tmpColor.r * 0.85 + sr * 0.15;
-      tmpColor.g = tmpColor.g * 0.85 + sg * 0.15;
-      tmpColor.b = tmpColor.b * 0.85 + sb * 0.15;
-      const idx = row * GRID + col;
-      cellBaseR[idx] = tmpColor.r;
-      cellBaseG[idx] = tmpColor.g;
-      cellBaseB[idx] = tmpColor.b;
-    }
-  }
-
-  // ── Corner-average base terrain colors for smooth boundaries ──
-  const cornerBaseR = new Float32Array(cornerSize * cornerSize);
-  const cornerBaseG = new Float32Array(cornerSize * cornerSize);
-  const cornerBaseB = new Float32Array(cornerSize * cornerSize);
-
-  for (let cy = 0; cy <= GRID; cy++) {
-    for (let cx = 0; cx <= GRID; cx++) {
-      let sumR = 0, sumG = 0, sumB = 0, count = 0;
-      for (let dy = -1; dy <= 0; dy++) {
-        for (let dx = -1; dx <= 0; dx++) {
-          const gx = cx + dx, gy = cy + dy;
-          if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-            const idx = gy * GRID + gx;
-            sumR += cellBaseR[idx];
-            sumG += cellBaseG[idx];
-            sumB += cellBaseB[idx];
-            count++;
-          }
-        }
-      }
-      const ci = cy * cornerSize + cx;
-      cornerBaseR[ci] = sumR / count;
-      cornerBaseG[ci] = sumG / count;
-      cornerBaseB[ci] = sumB / count;
-    }
-  }
-
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      const cell = world.grid[row][col];
+      const cellIdx = row * GRID + col;
 
       const cTL = row * cornerSize + col;
       const cTR = row * cornerSize + col + 1;
       const cBL = (row + 1) * cornerSize + col;
       const cBR = (row + 1) * cornerSize + col + 1;
 
-      // Snow coverage (per-cell, applied to each vertex below)
+      // Snow
       let cellSnow = 0;
       if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
         let boost = 1.0;
@@ -372,47 +287,38 @@ export function updateTerrainColors(state: RendererState): void {
         cellSnow = Math.min(1, snowCov * boost);
       }
 
-      // Weather overlay — compute blend target + factor (per-cell, sharp)
+      // Weather overlay
       let wxR = 0, wxG = 0, wxB = 0, wxBlend = 0;
       let wxUsesAvg = false;
-      const overlayVal = env.weatherOverlay[row * GRID + col];
+      const overlayVal = env.weatherOverlay[cellIdx];
       if (overlayVal === WeatherOverlay.Drought) {
         wxUsesAvg = true; wxBlend = 0.4;
       } else if (overlayVal === WeatherOverlay.Burning) {
         wxR = 0.9; wxG = 0.3; wxB = 0.05; wxBlend = 0.7;
       } else if (overlayVal === WeatherOverlay.Scorched) {
-        const key = `${col},${row}`;
-        const remaining = env.scorchedCells.get(key) ?? 0;
+        const remaining = remainingTicks[cellIdx];
         wxR = 0.12; wxG = 0.08; wxB = 0.06;
         wxBlend = 0.6 * Math.min(1, remaining / 40);
       } else if (overlayVal === WeatherOverlay.Parched) {
-        const key = `${col},${row}`;
-        const remaining = env.parchedCells.get(key) ?? 0;
+        const remaining = remainingTicks[cellIdx];
         wxR = 0.55; wxG = 0.42; wxB = 0.28;
         wxBlend = 0.4 * Math.min(1, remaining / 30);
       } else if (overlayVal === WeatherOverlay.Diseased) {
         wxR = 0.45; wxG = 0.50; wxB = 0.08; wxBlend = 0.5;
       } else if (overlayVal === WeatherOverlay.Blighted) {
-        const key = `${col},${row}`;
-        const remaining = env.diseasedCells.get(key) ?? 0;
+        const remaining = remainingTicks[cellIdx];
         wxR = 0.40; wxG = 0.42; wxB = 0.12;
         wxBlend = 0.35 * Math.min(1, remaining / SIM.DISEASE_SCAR_DURATION);
       }
 
-      // Water adjacency blend factors per corner
-      const waTL = cornerWaterAdj[cTL] * WET_BLEND;
-      const waTR = cornerWaterAdj[cTR] * WET_BLEND;
-      const waBL = cornerWaterAdj[cBL] * WET_BLEND;
-      const waBR = cornerWaterAdj[cBR] * WET_BLEND;
+      // Water adjacency (use per-cell value directly, already smooth)
+      const wa = waterAdj[cellIdx] * WET_BLEND;
 
-      const base = (row * GRID + col) * 18;
+      const base = cellIdx * 18;
 
-      // Per-vertex: corner-averaged base → snow → weather → wet-earth → plant tint
       const corners = [cTL, cBL, cTR, cBL, cBR, cTR];
-      const waFactors = [waTL, waBL, waTR, waBL, waBR, waTR];
       for (let v = 0; v < 6; v++) {
         const ci = corners[v];
-        const wa = waFactors[v];
         let vr = cornerBaseR[ci], vg = cornerBaseG[ci], vb = cornerBaseB[ci];
 
         // Snow
