@@ -58,14 +58,15 @@ export function addTrunk(group: THREE.Group, x: number, y: number, z: number, rB
 
 function buildTurfgrass(): THREE.Group {
   const g = new THREE.Group();
-  const bm = matDS(0x4a8a3a);
-  for (let i = 0; i < 30; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = Math.random() * 0.3;
-    const h = 0.12 + Math.random() * 0.08;
-    const geo = grassBlade(h, 0.03, 0.02 * (Math.random() - 0.5));
-    const m = new THREE.Mesh(geo, bm);
-    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+  const bm1 = matDS(0x4a8a3a);
+  const bm2 = matDS(0x3d7a30);
+  for (let i = 0; i < 70; i++) {
+    const x = (Math.random() - 0.5) * 0.95;
+    const z = (Math.random() - 0.5) * 0.95;
+    const h = 0.18 + Math.random() * 0.12;
+    const geo = grassBlade(h, 0.08 + Math.random() * 0.04, 0.03 * (Math.random() - 0.5));
+    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
+    m.position.set(x, h / 2, z);
     m.rotation.y = Math.random() * Math.PI;
     g.add(m);
   }
@@ -98,16 +99,17 @@ function buildTallgrass(): THREE.Group {
 
 function buildBunchgrass(): THREE.Group {
   const g = new THREE.Group();
-  const bm = matDS(0x6a8a6a);
-  for (let i = 0; i < 60; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = Math.random() * 0.15;
-    const h = 0.4 + Math.random() * 0.35;
+  const bm1 = matDS(0x6a8a6a);
+  const bm2 = matDS(0x5a7a5a);
+  for (let i = 0; i < 65; i++) {
+    const x = (Math.random() - 0.5) * 0.95;
+    const z = (Math.random() - 0.5) * 0.95;
+    const h = 0.5 + Math.random() * 0.4;
     const bend = 0.2 + Math.random() * 0.3;
-    const geo = grassBlade(h, 0.02, bend);
-    const m = new THREE.Mesh(geo, bm);
-    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
-    m.rotation.y = a + (Math.random() - 0.5) * 0.5;
+    const geo = grassBlade(h, 0.06 + Math.random() * 0.03, bend);
+    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
+    m.position.set(x, h / 2, z);
+    m.rotation.y = Math.random() * Math.PI;
     g.add(m);
   }
   return g;
@@ -149,35 +151,27 @@ function buildBamboo(): THREE.Group {
 
 function buildSpreading(): THREE.Group {
   const g = new THREE.Group();
-  const bm = matDS(0x4a8a3a);
+  const bm1 = matDS(0x4a8a3a);
+  const bm2 = matDS(0x3e7e32);
   const sm = mat(0x6a7a3a);
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3 + Math.random() * 0.3;
-    const len = 0.15 + Math.random() * 0.12;
+  // Stolons radiating outward across the cell
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + Math.random() * 0.3;
+    const len = 0.3 + Math.random() * 0.15;
     const stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 4), sm);
     stolon.position.set(Math.cos(a) * len / 2, 0.015, Math.sin(a) * len / 2);
     stolon.rotation.z = Math.PI / 2;
     stolon.rotation.y = -a;
     g.add(stolon);
-    for (let j = 0; j < 2; j++) {
-      const t = (j + 1) / 3;
-      const sx = Math.cos(a) * len * t;
-      const sz = Math.sin(a) * len * t;
-      for (let k = 0; k < 4; k++) {
-        const h = 0.1 + Math.random() * 0.07;
-        const geo = grassBlade(h, 0.02, 0.01);
-        const m = new THREE.Mesh(geo, bm);
-        m.position.set(sx + (Math.random() - 0.5) * 0.05, h / 2, sz + (Math.random() - 0.5) * 0.05);
-        m.rotation.y = Math.random() * Math.PI;
-        g.add(m);
-      }
-    }
   }
-  for (let i = 0; i < 12; i++) {
-    const h = 0.1 + Math.random() * 0.06;
-    const geo = grassBlade(h, 0.025, 0.01);
-    const m = new THREE.Mesh(geo, bm);
-    m.position.set((Math.random() - 0.5) * 0.1, h / 2, (Math.random() - 0.5) * 0.1);
+  // Dense blade clusters spread across the full cell
+  for (let i = 0; i < 60; i++) {
+    const x = (Math.random() - 0.5) * 0.95;
+    const z = (Math.random() - 0.5) * 0.95;
+    const h = 0.14 + Math.random() * 0.1;
+    const geo = grassBlade(h, 0.07 + Math.random() * 0.03, 0.015 * (Math.random() - 0.5));
+    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
+    m.position.set(x, h / 2, z);
     m.rotation.y = Math.random() * Math.PI;
     g.add(m);
   }
@@ -818,6 +812,7 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
 export interface SubtypeModel {
   geometry: THREE.BufferGeometry;
   maturityHeight: number;
+  groundCover: boolean;
 }
 
 export const BUILDERS: (() => THREE.Group)[] = [
@@ -920,10 +915,27 @@ const MATURITY_HEIGHT: number[] = [
   1.5,   // 23: Epiphytic — trailing
 ];
 
+/** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
+const GROUND_COVER = new Set([0, 2, 4]); // turfgrass, bunchgrass, spreading
+
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
     const group = build();
-    scaleToTarget(group, i);
+    const isGC = GROUND_COVER.has(i);
+
+    if (isGC) {
+      // Ground cover: scale Y to target height, XZ to fill exactly 1.0 unit cell
+      group.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(group);
+      const rawH = Math.max(0.01, box.max.y);
+      const yScale = TARGET_MODEL_HEIGHTS[i] / rawH;
+      const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+      const xzScale = 1.0 / Math.max(0.01, rawXZ);
+      group.scale.set(xzScale, yScale, xzScale);
+    } else {
+      scaleToTarget(group, i);
+    }
+
     const merged = mergeGroupGeometry(group);
 
     // Dispose all source geometries/materials
@@ -934,6 +946,6 @@ export function buildSubtypeModels(): SubtypeModel[] {
       }
     });
 
-    return { geometry: merged, maturityHeight: MATURITY_HEIGHT[i] };
+    return { geometry: merged, maturityHeight: MATURITY_HEIGHT[i], groundCover: isGC };
   });
 }

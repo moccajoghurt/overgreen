@@ -19,13 +19,17 @@ function writePlantInstance(
   plantId: number,
   tr: number, tg: number, tb: number,
 ): void {
-  const { dummy, maturityHeights } = state;
+  const { dummy, maturityHeights, groundCover } = state;
   const matH = maturityHeights[subtype];
   const s = (height / matH) * scale;
 
   const ry = plantHash(plantId, 0) * Math.PI * 2;
   dummy.position.set(wx, baseY, wz);
-  dummy.scale.setScalar(s);
+  if (groundCover[subtype]) {
+    dummy.scale.set(1, s, 1);
+  } else {
+    dummy.scale.setScalar(s);
+  }
   dummy.rotation.set(0, ry, 0);
   dummy.updateMatrix();
   dummy.matrix.toArray(mtxArrays[subtype], idx * 16);

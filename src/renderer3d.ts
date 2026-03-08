@@ -45,7 +45,7 @@ export function createRenderer3D(
   scene.add(waterSurface.mesh);
 
   // ── Plants (24 subtype meshes + seeds) ──
-  const { meshes: subtypeMeshes, maturityHeights } = createSubtypeMeshes();
+  const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
   for (const mesh of subtypeMeshes) scene.add(mesh);
   const seeds = createSeedMesh();
   scene.add(seeds);
@@ -138,6 +138,7 @@ export function createRenderer3D(
     getCellElevation,
     subtypeMeshes,
     maturityHeights,
+    groundCover,
     seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),

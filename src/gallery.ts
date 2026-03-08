@@ -3,6 +3,7 @@ import {
   BUILDERS,
   mat,
   scaleToTarget,
+  TARGET_MODEL_HEIGHTS,
 } from './renderer3d/plant-models';
 
 // ============================================================
@@ -59,15 +60,15 @@ const ARCHETYPES: ArchetypeRow[] = [
 // ============================================================
 // GALLERY-ONLY HELPERS
 // ============================================================
-function addGround(group: THREE.Group, radius = 1.5): void {
-  const geo = new THREE.CylinderGeometry(radius, radius, 0.05, 16);
+function addGround(group: THREE.Group): void {
+  const geo = new THREE.BoxGeometry(1, 0.05, 1);
   const m = new THREE.Mesh(geo, mat(0xc4a882, { roughness: 1 }));
   m.position.y = -0.025;
   group.add(m);
 }
 
 function addWaterDisc(group: THREE.Group): void {
-  const geo = new THREE.CylinderGeometry(GROUND_R, GROUND_R, 0.04, 16);
+  const geo = new THREE.BoxGeometry(1, 0.04, 1);
   const m = new THREE.Mesh(geo, mat(0x4a7a8a, { roughness: 0.3, transparent: true, opacity: 0.7 }));
   m.position.y = -0.02;
   group.add(m);
@@ -136,8 +137,8 @@ function addRuler(scene: THREE.Scene, realH: number): void {
 // CAMERA — uniform for all cells so relative sizes are visible
 // ============================================================
 const CAM_Y = 3.0;
-const CAM_DIST = 14.0;
-const GROUND_R = 0.5; // matches 1×1 sim cell (radius = half cell width)
+let camDist = 14.0;
+// Ground panels are 1×1 boxes matching sim cell size
 
 // Map string IDs to BUILDERS indices
 const ID_TO_INDEX: Record<string, number> = {
@@ -200,7 +201,19 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
-    scaleToTarget(plantGroup, idx);
+    const GROUND_COVER = new Set([0, 2, 4]);
+    if (GROUND_COVER.has(idx)) {
+      // Ground cover: scale Y to target height, XZ to fill 1.0 unit cell
+      plantGroup.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(plantGroup);
+      const rawH = Math.max(0.01, box.max.y);
+      const yScale = TARGET_MODEL_HEIGHTS[idx] / rawH;
+      const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+      const xzScale = 1.0 / Math.max(0.01, rawXZ);
+      plantGroup.scale.set(xzScale, yScale, xzScale);
+    } else {
+      scaleToTarget(plantGroup, idx);
+    }
 
     // Wrapper so ground disc isn't affected by plant scale
     const group = new THREE.Group();
@@ -208,7 +221,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     if (idx === 17) {
       addWaterDisc(group); // Mangrove
     } else {
-      addGround(group, GROUND_R);
+      addGround(group);
     }
 
     // Scene
@@ -226,7 +239,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 
     // Camera (uniform for all cells)
     const cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 500);
-    cam.position.set(CAM_DIST * 0.7, CAM_Y + CAM_DIST * 0.35, CAM_DIST * 0.7);
+    cam.position.set(camDist * 0.7, CAM_Y + camDist * 0.35, camDist * 0.7);
     cam.lookAt(0, CAM_Y * 0.7, 0);
 
     // Viewport (WebGL y=0 is bottom)
@@ -304,6 +317,15 @@ function drawLabels(): void {
 drawLabels();
 
 // ============================================================
+// ZOOM (scroll wheel)
+// ============================================================
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  camDist *= e.deltaY > 0 ? 1.1 : 0.9;
+  camDist = Math.max(1, Math.min(50, camDist));
+}, { passive: false });
+
+// ============================================================
 // ANIMATION LOOP
 // ============================================================
 function animate(time: number): void {
@@ -312,6 +334,8 @@ function animate(time: number): void {
 
   for (const c of cells) {
     c.group.rotation.y = t * 0.3;
+    c.camera.position.set(camDist * 0.7, CAM_Y + camDist * 0.35, camDist * 0.7);
+    c.camera.lookAt(0, CAM_Y * 0.7, 0);
     renderer.setViewport(c.vx, c.vyGL, CELL_W, CELL_3D);
     renderer.setScissor(c.vx, c.vyGL, CELL_W, CELL_3D);
     renderer.render(c.scene, c.camera);
