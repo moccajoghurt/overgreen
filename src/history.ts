@@ -59,6 +59,8 @@ interface PopulationSnapshot {
   speciesTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number }>;
   speciesMaxGeneration: Map<number, number>;
   speciesTerrainCounts: Map<number, TerrainCounts>;
+  lineagePopulations: Map<number, number>;
+  lineageTraitAverages: Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number }>;
 }
 
 function countPopulations(world: World): PopulationSnapshot {
@@ -66,6 +68,7 @@ function countPopulations(world: World): PopulationSnapshot {
   const speciesSums = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number; count: number }>();
   const speciesMaxGeneration = new Map<number, number>();
   const speciesTerrainCounts = new Map<number, TerrainCounts>();
+  const lineageSums = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number; count: number }>();
   let totalAlive = 0;
   let sumRoot = 0, sumHeight = 0, sumLeaf = 0, sumSeed = 0, sumSz = 0, sumDef = 0, sumWood = 0, sumWst = 0, sumLon = 0;
   for (const plant of world.plants.values()) {
@@ -100,6 +103,24 @@ function countPopulations(world: World): PopulationSnapshot {
     s.lon += plant.genome.longevity;
     s.count++;
 
+    // Per-lineage trait sums
+    const lr = plant.lineageRoot;
+    let ls = lineageSums.get(lr);
+    if (!ls) {
+      ls = { root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0, count: 0 };
+      lineageSums.set(lr, ls);
+    }
+    ls.root += plant.genome.rootPriority;
+    ls.height += plant.genome.heightPriority;
+    ls.leaf += plant.genome.leafSize;
+    ls.seed += plant.genome.seedInvestment;
+    ls.sz += plant.genome.seedSize;
+    ls.def += plant.genome.defense;
+    ls.wood += plant.genome.woodiness;
+    ls.wst += plant.genome.waterStorage;
+    ls.lon += plant.genome.longevity;
+    ls.count++;
+
     // Per-species max generation
     const prev = speciesMaxGeneration.get(sid) ?? 0;
     if (plant.generation > prev) speciesMaxGeneration.set(sid, plant.generation);
@@ -129,7 +150,17 @@ function countPopulations(world: World): PopulationSnapshot {
     });
   }
 
-  return { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts };
+  const lineagePopulations = new Map<number, number>();
+  const lineageTraitAverages = new Map<number, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number }>();
+  for (const [lr, ls] of lineageSums) {
+    lineagePopulations.set(lr, ls.count);
+    lineageTraitAverages.set(lr, {
+      root: ls.root / ls.count, height: ls.height / ls.count, leaf: ls.leaf / ls.count,
+      seed: ls.seed / ls.count, sz: ls.sz / ls.count, def: ls.def / ls.count, wood: ls.wood / ls.count, wst: ls.wst / ls.count, lon: ls.lon / ls.count,
+    });
+  }
+
+  return { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts, lineagePopulations, lineageTraitAverages };
 }
 
 function detectExtinctions(
@@ -225,7 +256,7 @@ function detectAgeMilestones(history: History, world: World): void {
 }
 
 export function recordTick(history: History, world: World): void {
-  const { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts } = countPopulations(world);
+  const { populations, totalAlive, traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts, lineagePopulations, lineageTraitAverages } = countPopulations(world);
 
   // Count herbivores
   let herbivoreCount = 0;
@@ -235,7 +266,7 @@ export function recordTick(history: History, world: World): void {
 
   // Store snapshot (sampled — every Nth tick for complete history)
   if (world.tick % SNAPSHOT_INTERVAL === 0) {
-    history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts, herbivoreCount });
+    history.snapshots.push({ tick: world.tick, populations: new Map(populations), traitAverages, speciesTraitAverages, speciesMaxGeneration, speciesTerrainCounts, lineagePopulations, lineageTraitAverages, herbivoreCount });
   }
 
   // Update species records + detect population milestones

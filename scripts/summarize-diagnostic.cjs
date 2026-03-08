@@ -122,16 +122,18 @@ for (const tick of keyTicks) {
 // ── Lineage Stats ──
 
 const lastSnapForLineage = snaps[snaps.length - 1];
-if (lastSnapForLineage.speciesLineage && lastSnapForLineage.speciesDetail) {
-  const lineageMap = new Map(Object.entries(lastSnapForLineage.speciesLineage).map(([k,v]) => [Number(k), Number(v)]));
-  function getLineageRoot(id) { let c = id; while (lineageMap.has(c)) c = lineageMap.get(c); return c; }
+if (lastSnapForLineage.lineageRoots && lastSnapForLineage.speciesDetail) {
+  const lineageRoots = lastSnapForLineage.lineageRoots; // rootId → speciesId[]
 
   // Group species by root
   const groups = new Map();
-  for (const sp of lastSnapForLineage.speciesDetail) {
-    const root = getLineageRoot(sp.id);
-    if (!groups.has(root)) groups.set(root, []);
-    groups.get(root).push(sp);
+  for (const [rootId, memberIds] of Object.entries(lineageRoots)) {
+    const rootNum = Number(rootId);
+    const members = [];
+    for (const sp of lastSnapForLineage.speciesDetail) {
+      if (memberIds.includes(sp.id)) members.push(sp);
+    }
+    if (members.length > 0) groups.set(rootNum, members);
   }
 
   const sorted = [...groups.entries()].map(([rootId, members]) => {
@@ -141,7 +143,8 @@ if (lastSnapForLineage.speciesLineage && lastSnapForLineage.speciesDetail) {
   }).sort((a, b) => b.totalPop - a.totalPop);
 
   p(`## Lineage Stats (tick ${lastSnapForLineage.tick})`);
-  p(`Total: ${lastSnapForLineage.speciesDetail.length} species in ${groups.size} lineages (${lineageMap.size} speciation events)`);
+  const totalSpecies = lastSnapForLineage.speciesDetail.length;
+  p(`Total: ${totalSpecies} species in ${groups.size} lineages`);
   p();
   for (const g of sorted) {
     const top3 = g.members.sort((a,b) => b.count - a.count).slice(0, 3);
@@ -153,30 +156,12 @@ if (lastSnapForLineage.speciesLineage && lastSnapForLineage.speciesDetail) {
   }
   p();
 
-  // Lineage depth distribution
-  const depths = new Map();
-  for (const sp of lastSnapForLineage.speciesDetail) {
-    let d = 0, cur = sp.id;
-    while (lineageMap.has(cur)) { cur = lineageMap.get(cur); d++; }
-    depths.set(sp.id, d);
-  }
-  const maxDepth = Math.max(...depths.values(), 0);
-  if (maxDepth > 0) {
-    const depthCounts = new Array(maxDepth + 1).fill(0);
-    for (const dd of depths.values()) depthCounts[dd]++;
-    p(`Lineage depth: ${depthCounts.map((c, i) => `d${i}:${c}`).join(' ')}`);
-    p();
-  }
-
   // Lineage count over time
   p(`Lineages over time:`);
   for (const snap of snaps) {
-    if (!snap.speciesLineage || !snap.speciesDetail) continue;
-    const lin = new Map(Object.entries(snap.speciesLineage).map(([k,v]) => [Number(k), Number(v)]));
-    function gr(id) { let c = id; while (lin.has(c)) c = lin.get(c); return c; }
-    const roots = new Set();
-    for (const sp of snap.speciesDetail) roots.add(gr(sp.id));
-    p(`  tick ${String(snap.tick).padStart(4)}: ${String(snap.speciesDetail.length).padStart(3)} species, ${roots.size} lineages`);
+    if (!snap.lineageRoots || !snap.speciesDetail) continue;
+    const rootCount = Object.keys(snap.lineageRoots).length;
+    p(`  tick ${String(snap.tick).padStart(4)}: ${String(snap.speciesDetail.length).padStart(3)} species, ${rootCount} lineages`);
   }
   p();
 

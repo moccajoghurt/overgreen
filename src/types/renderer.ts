@@ -10,6 +10,7 @@ export interface Renderer {
   moveTo(gridX: number, gridY: number): void;
   setColorMode(mode: ColorMode): void;
   setHighlightedSpecies(ids: Set<number> | null): void;
+  setHighlightedLineageRoot(rootId: number | null): void;
   markPlantsDirty(): void;
   rebuildTerrain(): void;
   rebuildWater(): void;

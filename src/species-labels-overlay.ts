@@ -1,7 +1,6 @@
 import { World, Renderer, History } from './types';
 import { speciesCentroid, speciesColorToRgb, speciesColorToRgba, hexToRgba } from './ui-utils';
 import { TRAITS } from './trait-defs';
-import { getLineageRoot } from './lineage';
 
 const UPDATE_EVERY_N_TICKS = 10;
 const LERP_SPEED = 0.08; // per frame — smooth but responsive
@@ -43,7 +42,6 @@ export function createSpeciesLabelsOverlay(
   let hoveredSpecies: number | null = null;
   let hoveredPlantPos: { x: number; y: number } | null = null;
   let lastUpdateTick = -UPDATE_EVERY_N_TICKS;
-  let lineageMapRef: Map<number, number> = new Map();
   let hoveredLineageRoot: number | null = null;
 
   const overlay = document.createElement('div');
@@ -299,7 +297,7 @@ export function createSpeciesLabelsOverlay(
 
   function drawLineagePopulationArea(
     ctx: CanvasRenderingContext2D,
-    members: number[],
+    rootId: number,
     history: History,
     fillColor: string,
     strokeColor: string,
@@ -318,16 +316,14 @@ export function createSpeciesLabelsOverlay(
       const snap = snaps[i];
       let total = 0;
       for (const v of snap.populations.values()) total += v;
-      let groupCount = 0;
-      for (const sid of members) groupCount += snap.populations.get(sid) ?? 0;
+      const groupCount = snap.lineagePopulations.get(rootId) ?? 0;
       pcts.push(total > 0 ? groupCount / total : 0);
     }
     if (snaps.length % step !== 0) {
       const snap = snaps[snaps.length - 1];
       let total = 0;
       for (const v of snap.populations.values()) total += v;
-      let groupCount = 0;
-      for (const sid of members) groupCount += snap.populations.get(sid) ?? 0;
+      const groupCount = snap.lineagePopulations.get(rootId) ?? 0;
       pcts.push(total > 0 ? groupCount / total : 0);
     }
 
@@ -374,8 +370,7 @@ export function createSpeciesLabelsOverlay(
 
   function drawLineageSparkline(
     ctx: CanvasRenderingContext2D,
-    members: number[],
-    speciesPopulation: Map<number, number>,
+    rootId: number,
     history: History,
   ): void {
     ctx.save();
@@ -387,28 +382,10 @@ export function createSpeciesLabelsOverlay(
 
     const step = Math.max(1, Math.floor(snaps.length / MAX_SPARK_POINTS));
 
-    // For each snapshot, compute population-weighted average traits across members
     const points: (Record<string, number> | null)[] = [];
     const collectPoint = (snapIdx: number) => {
-      const snap = snaps[snapIdx];
-      const avg: Record<string, number> = {};
-      for (const t of TRAITS) avg[t.shortKey] = 0;
-      let weightSum = 0;
-      for (const sid of members) {
-        const pop = snap.populations.get(sid) ?? 0;
-        const traits = snap.speciesTraitAverages.get(sid);
-        if (traits && pop > 0) {
-          for (const t of TRAITS) {
-            avg[t.shortKey] += (traits as Record<string, number>)[t.shortKey] * pop;
-          }
-          weightSum += pop;
-        }
-      }
-      if (weightSum > 0) {
-        for (const t of TRAITS) avg[t.shortKey] /= weightSum;
-        return avg;
-      }
-      return null;
+      const traits = snaps[snapIdx].lineageTraitAverages.get(rootId);
+      return traits ? (traits as Record<string, number>) : null;
     };
 
     for (let i = 0; i < snaps.length; i += step) {
@@ -524,13 +501,19 @@ export function createSpeciesLabelsOverlay(
 
     // ── Lineage labels ──
     if (showLineage || hoveredLineageRoot !== null) {
-      // Group alive species by lineage root
+      // Group alive species by lineage root, and compute per-lineage centroids directly from plants
       const rootGroups = new Map<number, number[]>();
-      for (const sid of speciesPopulation.keys()) {
-        const root = getLineageRoot(lineageMapRef, sid);
-        let group = rootGroups.get(root);
-        if (!group) { group = []; rootGroups.set(root, group); }
-        group.push(sid);
+      const rootCentroids = new Map<number, { sumX: number; sumY: number; count: number }>();
+      for (const plant of world.plants.values()) {
+        if (!plant.alive) continue;
+        let group = rootGroups.get(plant.lineageRoot);
+        if (!group) { group = []; rootGroups.set(plant.lineageRoot, group); }
+        if (!group.includes(plant.speciesId)) group.push(plant.speciesId);
+        let c = rootCentroids.get(plant.lineageRoot);
+        if (!c) { c = { sumX: 0, sumY: 0, count: 0 }; rootCentroids.set(plant.lineageRoot, c); }
+        c.sumX += plant.x;
+        c.sumY += plant.y;
+        c.count++;
       }
 
       // Remove lineage labels for roots no longer present
@@ -542,20 +525,10 @@ export function createSpeciesLabelsOverlay(
       }
 
       for (const [rootId, members] of rootGroups) {
-        // Compute aggregate centroid across all member species
-        let sumX = 0, sumY = 0, totalPop = 0;
-        for (const sid of members) {
-          const pos = speciesCentroid(world, sid);
-          const pop = speciesPopulation.get(sid) ?? 0;
-          if (pos && pop > 0) {
-            sumX += pos.x * pop;
-            sumY += pos.y * pop;
-            totalPop += pop;
-          }
-        }
-        if (totalPop === 0) continue;
-        const cx = sumX / totalPop;
-        const cy = sumY / totalPop;
+        const cent = rootCentroids.get(rootId)!;
+        if (cent.count === 0) continue;
+        const cx = cent.sumX / cent.count;
+        const cy = cent.sumY / cent.count;
 
         const sc = world.speciesColors.get(rootId);
         const rgb = sc ? speciesColorToRgb(sc) : '#888';
@@ -605,39 +578,26 @@ export function createSpeciesLabelsOverlay(
           });
         }
 
-        // Population-weighted average genome bars
+        // Genome bars from latest snapshot's lineage trait averages
         const entry = lineageLabels.get(rootId)!;
         const snaps = history.snapshots;
         if (snaps.length > 0) {
-          const latestSnap = snaps[snaps.length - 1];
-          const avg: Record<string, number> = {};
-          for (const t of TRAITS) avg[t.shortKey] = 0;
-          let weightSum = 0;
-          for (const sid of members) {
-            const pop = speciesPopulation.get(sid) ?? 0;
-            const traits = latestSnap.speciesTraitAverages.get(sid);
-            if (traits && pop > 0) {
-              for (const t of TRAITS) {
-                avg[t.shortKey] += (traits as Record<string, number>)[t.shortKey] * pop;
-              }
-              weightSum += pop;
-            }
-          }
-          if (weightSum > 0) {
-            for (const t of TRAITS) avg[t.shortKey] /= weightSum;
+          const traits = snaps[snaps.length - 1].lineageTraitAverages.get(rootId);
+          if (traits) {
             for (let i = 0; i < TRAITS.length; i++) {
-              entry.barFills[i].style.height = `${(avg[TRAITS[i].shortKey] * 100).toFixed(1)}%`;
+              const val = (traits as Record<string, number>)[TRAITS[i].shortKey];
+              entry.barFills[i].style.height = `${(val * 100).toFixed(1)}%`;
             }
           }
         }
 
-        // Population chart: sum of all member species populations
+        // Population chart from lineage-level history
         const popFill = sc ? speciesColorToRgba(sc, 0.3) : 'rgba(136,136,136,0.3)';
         const popStroke = sc ? speciesColorToRgba(sc, 0.7) : 'rgba(136,136,136,0.7)';
-        drawLineagePopulationArea(entry.popCtx, members, history, popFill, popStroke);
+        drawLineagePopulationArea(entry.popCtx, rootId, history, popFill, popStroke);
 
-        // Sparklines: population-weighted average traits
-        drawLineageSparkline(entry.sparkCtx, members, speciesPopulation, history);
+        // Sparklines from lineage-level history
+        drawLineageSparkline(entry.sparkCtx, rootId, history);
       }
     } else {
       // Hide all lineage labels when not in lineage mode
@@ -717,10 +677,6 @@ export function createSpeciesLabelsOverlay(
     }
   }
 
-  function setLineageMap(map: Map<number, number>): void {
-    lineageMapRef = map;
-  }
-
   function reset(): void {
     lastUpdateTick = -UPDATE_EVERY_N_TICKS;
     for (const entry of labels.values()) {
@@ -733,5 +689,5 @@ export function createSpeciesLabelsOverlay(
     lineageLabels.clear();
   }
 
-  return { update, updatePositions, setVisible, setHoveredSpecies, setHoveredLineageRoot, setLineageVisible, setLineageMap, reset };
+  return { update, updatePositions, setVisible, setHoveredSpecies, setHoveredLineageRoot, setLineageVisible, reset };
 }

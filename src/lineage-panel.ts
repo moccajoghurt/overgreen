@@ -1,7 +1,6 @@
 import { World, SpeciesColor, Renderer } from './types';
 import { speciesColorToRgb, hexToRgba } from './ui-utils';
 import { TRAITS } from './trait-defs';
-import { getLineageRoot } from './lineage';
 
 export function createLineagePanel(
   container: HTMLElement,
@@ -10,7 +9,6 @@ export function createLineagePanel(
 ) {
   let lastRenderedTick = -1;
   let sortBy: 'count' | string = 'count';
-  let lineageMapRef: Map<number, number> = new Map();
 
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'display:flex; flex-direction:column; height:100%; font-family:monospace;';
@@ -134,10 +132,6 @@ export function createLineagePanel(
     });
   }
 
-  function setLineageMap(map: Map<number, number>): void {
-    lineageMapRef = map;
-  }
-
   function update(world: World): void {
     if (world.tick === lastRenderedTick) return;
     lastRenderedTick = world.tick;
@@ -166,13 +160,13 @@ export function createLineagePanel(
       b.lon += plant.genome.longevity;
     }
 
-    // Group by lineage root
+    // Group by lineage root (read from plants)
     const groups = new Map<number, number[]>();
-    for (const sid of speciesBuckets.keys()) {
-      const root = getLineageRoot(lineageMapRef, sid);
-      let g = groups.get(root);
-      if (!g) { g = []; groups.set(root, g); }
-      g.push(sid);
+    for (const plant of world.plants.values()) {
+      if (!plant.alive) continue;
+      let g = groups.get(plant.lineageRoot);
+      if (!g) { g = []; groups.set(plant.lineageRoot, g); }
+      if (!g.includes(plant.speciesId)) g.push(plant.speciesId);
     }
 
     // Build lineage data with population-weighted genome averages
@@ -252,5 +246,5 @@ export function createLineagePanel(
     lastRenderedTick = -1;
   }
 
-  return { update, setLineageMap, reset };
+  return { update, reset };
 }

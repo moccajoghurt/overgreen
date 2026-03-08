@@ -307,7 +307,6 @@ export function createWorld(width: number, height: number): World {
     herbivoreDeathEvents: [], herbivoreBirthEvents: [],
     speciationEvents: [],
     speciesSubtypes: new Map(),
-    speciesLineage: new Map(),
     subtypeSpecies: new Map(),
   };
 }

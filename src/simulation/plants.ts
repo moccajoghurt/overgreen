@@ -70,10 +70,10 @@ export function randomGenome(): Genome {
   };
 }
 
-export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number): Plant {
+export function createPlant(id: number, x: number, y: number, genome: Genome, speciesId: number, lineageRoot: number): Plant {
   const pc = getPlantConstants(genome);
   return {
-    id, speciesId, x, y, genome,
+    id, speciesId, lineageRoot, x, y, genome,
     height: pc.seedlingHeight,
     rootDepth: pc.seedlingRoot,
     leafArea: pc.seedlingLeaf,
@@ -125,7 +125,7 @@ export function seedSinglePlant(world: World): void {
   world.speciesSubtypes.set(speciesId, subtype);
 
   const id = world.nextPlantId++;
-  const plant = createPlant(id, cx, cy, genome, speciesId);
+  const plant = createPlant(id, cx, cy, genome, speciesId, speciesId);
   world.plants.set(id, plant);
   const cell = world.grid[cy][cx];
   cell.plantId = id;
@@ -192,7 +192,7 @@ export function seedInitialPlants(world: World, _count: number): void {
           if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
 
           const id = world.nextPlantId++;
-          const plant = createPlant(id, px, py, genome, speciesId);
+          const plant = createPlant(id, px, py, genome, speciesId, speciesId);
           world.plants.set(id, plant);
           cell.plantId = id;
           cell.lastSpeciesId = speciesId;

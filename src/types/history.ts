@@ -10,6 +10,8 @@ export interface TickSnapshot {
   speciesTraitAverages: Map<number, TraitAverages>;
   speciesMaxGeneration: Map<number, number>;
   speciesTerrainCounts: Map<number, TerrainCounts>;
+  lineagePopulations: Map<number, number>; // lineageRoot → alive count
+  lineageTraitAverages: Map<number, TraitAverages>; // lineageRoot → weighted avg
   herbivoreCount: number;
 }
 

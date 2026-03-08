@@ -128,7 +128,9 @@ export interface RendererState {
   lastPlantColorMode: ColorMode;
   plantsDirty: boolean;
   highlightedSpecies: Set<number> | null;
+  highlightedLineageRoot: number | null;
   lastHighlightedSpecies: Set<number> | null;
+  lastHighlightedLineageRoot: number | null;
 
   // Performance: cached plant base colors (keyed by plant id, invalidated on colorMode change)
   plantColorCache: Map<number, { cr: number; cg: number; cb: number; tr: number; tg: number; tb: number }>;

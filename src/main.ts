@@ -14,7 +14,6 @@ import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
-import { getLineageGroup, getLineageRoot } from './lineage';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
@@ -94,7 +93,6 @@ labelsToggle.addEventListener('change', () => {
 const lineageLabelsToggle = document.getElementById('lineage-labels-toggle') as HTMLInputElement;
 lineageLabelsToggle.addEventListener('change', () => {
   speciesLabels.setLineageVisible(lineageLabelsToggle.checked);
-  speciesLabels.setLineageMap(world.speciesLineage);
 });
 
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
@@ -290,14 +288,12 @@ function updateUI(): void {
     updateInspector(world, controls);
   }
   genomePanel.update(world);
-  lineagePanel.setLineageMap(world.speciesLineage);
   lineagePanel.update(world);
   chart.update(history, world.speciesColors);
   traitChart.update(history);
   ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   sandboxPanel.update(world);
-  speciesLabels.setLineageMap(world.speciesLineage);
   speciesLabels.update(world, history);
 }
 
@@ -382,21 +378,25 @@ function loop(now: number): void {
   if (shouldRender) {
     const renderStart = performance.now();
     let highlightSet: Set<number> | null = null;
-    if (controls.hoverLineageEnabled && controls.hoveredSpecies !== null) {
-      highlightSet = getLineageGroup(world.speciesLineage, controls.hoveredSpecies);
-    } else if (controls.hoverEnabled && controls.hoveredSpecies !== null) {
-      highlightSet = new Set([controls.hoveredSpecies]);
+    const hoveredPlant = controls.hoveredPlantId !== null ? world.plants.get(controls.hoveredPlantId) : null;
+    if (controls.hoverLineageEnabled && hoveredPlant?.alive) {
+      renderer.setHighlightedLineageRoot(hoveredPlant.lineageRoot);
+      renderer.setHighlightedSpecies(null);
+    } else {
+      renderer.setHighlightedLineageRoot(null);
+      if (controls.hoverEnabled && controls.hoveredSpecies !== null) {
+        highlightSet = new Set([controls.hoveredSpecies]);
+      }
+      renderer.setHighlightedSpecies(highlightSet);
     }
-    renderer.setHighlightedSpecies(highlightSet);
     perfTracker.begin('renderTotal');
     renderer.render(controls.selectedCell, perfHooks);
     if (!hookPhase.active) {
-      const hoveredPlant = controls.hoveredPlantId !== null ? world.plants.get(controls.hoveredPlantId) : null;
       const hoveredPlantPos = hoveredPlant?.alive ? { x: hoveredPlant.x, y: hoveredPlant.y } : null;
       speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies, hoveredPlantPos);
       speciesLabels.setHoveredLineageRoot(
-        controls.hoverLineageEnabled && controls.hoveredSpecies !== null
-          ? getLineageRoot(world.speciesLineage, controls.hoveredSpecies)
+        controls.hoverLineageEnabled && hoveredPlant?.alive
+          ? hoveredPlant.lineageRoot
           : null,
       );
       speciesLabels.updatePositions();

@@ -41,6 +41,7 @@ export function archetype(genome: Genome): Archetype {
 export interface Plant {
   id: number;
   speciesId: number;
+  lineageRoot: number;
   x: number;
   y: number;
   height: number;
@@ -100,7 +101,6 @@ export interface World {
   herbivoreBirthEvents: HerbivoreBirthEvent[];
   speciationEvents: SpeciationEvent[];
   speciesSubtypes: Map<number, number>;
-  speciesLineage: Map<number, number>;  // childSpeciesId → parentSpeciesId
   subtypeSpecies: Map<number, number>;  // subtypeId → speciesId
 }
 
@@ -122,6 +122,7 @@ export interface FireDeathEvent {
 
 export interface Seed {
   speciesId: number;
+  lineageRoot: number;
   genome: Genome;
   energy: number;
   age: number;

@@ -377,6 +377,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     // Create dormant seed instead of a live plant
     const seed: Seed = {
       speciesId: plant.speciesId,
+      lineageRoot: plant.lineageRoot,
       genome: childGenome,
       energy: effectiveSeedEnergy * eraSeedEnergyMult,
       age: 0,
@@ -580,7 +581,6 @@ function phaseGermination(world: World): void {
           world.speciesNames.set(finalSpeciesId, newName);
           world.speciesSubtypes.set(finalSpeciesId, childSubtype);
           world.subtypeSpecies.set(childSubtype, finalSpeciesId);
-          world.speciesLineage.set(finalSpeciesId, winner.speciesId);
           world.speciationEvents.push({
             newSpeciesId: finalSpeciesId,
             parentSpeciesId: winner.speciesId,
@@ -591,7 +591,7 @@ function phaseGermination(world: World): void {
 
       const childId = world.nextPlantId++;
       const child: Plant = {
-        id: childId, speciesId: finalSpeciesId,
+        id: childId, speciesId: finalSpeciesId, lineageRoot: winner.lineageRoot,
         x, y,
         height: wpc.seedlingHeight * seedSizeVigor, rootDepth: wpc.seedlingRoot * seedSizeVigor, leafArea: wpc.seedlingLeaf * seedSizeVigor,
         energy: winner.energy, age: 0, alive: true,

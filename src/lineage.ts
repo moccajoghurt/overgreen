@@ -1,20 +1,14 @@
-/** Follow parent chain to the root ancestor. */
-export function getLineageRoot(lineage: Map<number, number>, speciesId: number): number {
-  let id = speciesId;
-  while (lineage.has(id)) {
-    id = lineage.get(id)!;
-  }
-  return id;
-}
+import { World } from './types';
 
-/** All species sharing the same root ancestor (including the root itself). */
-export function getLineageGroup(lineage: Map<number, number>, speciesId: number): Set<number> {
-  const root = getLineageRoot(lineage, speciesId);
-  const group = new Set<number>([root]);
-  for (const [child, parent] of lineage) {
-    if (getLineageRoot(lineage, child) === root) {
-      group.add(child);
+/** Get all species IDs that belong to a given lineage root (from alive plants). */
+export function getLineageGroup(world: World, rootId: number): Set<number> {
+  const group = new Set<number>();
+  for (const p of world.plants.values()) {
+    if (p.alive && p.lineageRoot === rootId) {
+      group.add(p.speciesId);
     }
   }
+  // Always include the root itself
+  group.add(rootId);
   return group;
 }

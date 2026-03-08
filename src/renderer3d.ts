@@ -182,7 +182,9 @@ export function createRenderer3D(
     lastPlantColorMode: 'natural',
     plantsDirty: false,
     highlightedSpecies: null,
+    highlightedLineageRoot: null,
     lastHighlightedSpecies: null,
+    lastHighlightedLineageRoot: null,
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
     ...weather,
@@ -381,6 +383,10 @@ export function createRenderer3D(
     state.highlightedSpecies = ids;
   }
 
+  function setHighlightedLineageRoot(rootId: number | null): void {
+    state.highlightedLineageRoot = rootId;
+  }
+
   function markPlantsDirty(): void { state.plantsDirty = true; }
 
   function rebuildTerrain(): void {
@@ -424,5 +430,5 @@ export function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
+  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, setHighlightedLineageRoot, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }

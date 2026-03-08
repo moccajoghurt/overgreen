@@ -20,7 +20,6 @@ export function loadScenario(world: World, scenario: Scenario): void {
   world.herbivores.clear();
   world.speciesColors.clear();
   world.speciesNames.clear();
-  world.speciesLineage.clear();
   world.speciesSubtypes.clear();
   world.subtypeSpecies.clear();
   world.seedLandingEvents.length = 0;
@@ -94,7 +93,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (cell.plantId !== null) continue;
 
       const id = world.nextPlantId++;
-      const plant = createPlant(id, pos.x, pos.y, sp.genome, sp.id);
+      const plant = createPlant(id, pos.x, pos.y, sp.genome, sp.id, sp.id);
       world.plants.set(id, plant);
       cell.plantId = id;
       cell.lastSpeciesId = sp.id;

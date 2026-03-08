@@ -48,10 +48,12 @@ export function updatePlants(state: RendererState): void {
   const hasTicked = world.tick !== state.lastPlantTick;
   const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
     || burningPlants.size > 0 || flyingSeeds.length > 0;
-  const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies;
+  const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies
+    || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot;
   if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty) return;
   state.plantsDirty = false;
   state.lastHighlightedSpecies = state.highlightedSpecies;
+  state.lastHighlightedLineageRoot = state.highlightedLineageRoot;
   state.lastPlantTick = world.tick;
 
   // Invalidate color cache when colorMode changes
@@ -183,8 +185,16 @@ export function updatePlants(state: RendererState): void {
       tb = lerp(tb, 0.15, 0.4);
     }
 
-    // Highlighted species glow / dim
-    if (state.highlightedSpecies !== null) {
+    // Highlighted species/lineage glow / dim
+    if (state.highlightedLineageRoot !== null) {
+      if (plant.lineageRoot === state.highlightedLineageRoot) {
+        tr = Math.min(tr * 1.4, 1.5);
+        tg = Math.min(tg * 1.4, 1.5);
+        tb = Math.min(tb * 1.4, 1.5);
+      } else {
+        tr *= 0.55; tg *= 0.55; tb *= 0.55;
+      }
+    } else if (state.highlightedSpecies !== null) {
       if (state.highlightedSpecies.has(plant.speciesId)) {
         tr = Math.min(tr * 1.4, 1.5);
         tg = Math.min(tg * 1.4, 1.5);
