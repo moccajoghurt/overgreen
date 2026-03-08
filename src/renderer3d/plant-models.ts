@@ -61,15 +61,23 @@ function buildTurfgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm1 = matDS(0x4a8a3a);
   const bm2 = matDS(0x3d7a30);
-  for (let i = 0; i < 70; i++) {
-    const x = (Math.random() - 0.5) * 0.95;
-    const z = (Math.random() - 0.5) * 0.95;
-    const h = 0.18 + Math.random() * 0.12;
-    const geo = grassBlade(h, 0.08 + Math.random() * 0.04, 0.03 * (Math.random() - 0.5));
-    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
-    m.position.set(x, h / 2, z);
-    m.rotation.y = Math.random() * Math.PI;
-    g.add(m);
+  const step = 0.14;
+  const half = 0.49;
+  let idx = 0;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.05;
+      const oz = gz + (Math.random() - 0.5) * 0.05;
+      const h = 0.18 + Math.random() * 0.12;
+      for (let cross = 0; cross < 2; cross++) {
+        const geo = grassBlade(h, 0.17, 0.02 * (Math.random() - 0.5));
+        const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
+        m.position.set(ox, h / 2, oz);
+        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        g.add(m);
+        idx++;
+      }
+    }
   }
   return g;
 }
@@ -77,22 +85,32 @@ function buildTurfgrass(): THREE.Group {
 function buildTallgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm = matDS(0x3a7a4a);
-  for (let i = 0; i < 24; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = Math.random() * 0.25;
-    const h = 1.2 + Math.random() * 0.8;
-    const bend = 0.3 + Math.random() * 0.4;
-    const geo = grassBlade(h, 0.06, bend, (Math.random() - 0.5) * 0.15);
-    const m = new THREE.Mesh(geo, bm);
-    m.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
-    m.rotation.y = Math.random() * Math.PI;
-    g.add(m);
+  // Dense grid of crossed wide blades to fully carpet the cell.
+  // Raw model spans ~2.0 units; GROUND_COVER scaling shrinks XZ to 1.0.
+  const step = 0.3;
+  const half = 0.9;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.15;
+      const oz = gz + (Math.random() - 0.5) * 0.15;
+      const h = 1.4 + Math.random() * 0.6;
+      const bend = 0.2 + Math.random() * 0.3;
+      // Two crossed blades per position — ensures coverage from all camera angles
+      for (let cross = 0; cross < 2; cross++) {
+        const geo = grassBlade(h, 0.5, bend, (Math.random() - 0.5) * 0.1);
+        const m = new THREE.Mesh(geo, bm);
+        m.position.set(ox, h / 2, oz);
+        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        g.add(m);
+      }
+    }
   }
+  // Seed heads spread across cell
   const sm = mat(0x8a6a4a);
-  for (let i = 0; i < 6; i++) {
-    const geo = new THREE.ConeGeometry(0.02, 0.15, 4);
+  for (let i = 0; i < 10; i++) {
+    const geo = new THREE.ConeGeometry(0.04, 0.2, 4);
     const m = new THREE.Mesh(geo, sm);
-    m.position.set((Math.random() - 0.5) * 0.3, 1.5 + Math.random() * 0.4, (Math.random() - 0.5) * 0.3);
+    m.position.set((Math.random() - 0.5) * 1.6, 1.6 + Math.random() * 0.4, (Math.random() - 0.5) * 1.6);
     g.add(m);
   }
   return g;
@@ -921,7 +939,7 @@ const MATURITY_HEIGHT: number[] = [
 ];
 
 /** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
-const GROUND_COVER = new Set([0, 2, 4]); // turfgrass, bunchgrass, spreading
+const GROUND_COVER = new Set([0, 1, 2, 4]); // turfgrass, tallgrass, bunchgrass, spreading
 
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
