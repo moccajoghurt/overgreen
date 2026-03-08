@@ -120,10 +120,11 @@ export function updateTerrainColors(state: RendererState): void {
 
       // Snow
       let cellSnow = 0;
-      if (snowCov > 0 && cell.terrainType !== TerrainType.River) {
+      if (snowCov > 0) {
         let boost = 1.0;
         if (cell.terrainType === TerrainType.Rock) boost = 1.2;
         else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
+        else if (cell.terrainType === TerrainType.River) boost = 0.4;
         else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
         cellSnow = Math.min(1, snowCov * boost);
       }
