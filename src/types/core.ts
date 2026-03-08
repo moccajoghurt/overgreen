@@ -102,6 +102,7 @@ export interface World {
   speciationEvents: SpeciationEvent[];
   speciesSubtypes: Map<number, number>;
   subtypeSpecies: Map<number, number>;  // subtypeId → speciesId
+  heightChangedIds: Set<number>;        // plant ids whose height changed this tick
 }
 
 export interface DeathEvent {

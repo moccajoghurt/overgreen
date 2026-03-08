@@ -277,7 +277,6 @@ function fullRebuild(
   subtypeCounts.fill(0);
   subtypeCountsLow.fill(0);
   state.plantIndex.clear();
-  state.prevPlantHeights.clear();
   state.prevPlantDisease.clear();
 
   const camX = state.camera.position.x;
@@ -357,7 +356,6 @@ function fullRebuild(
         wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
     }
 
-    state.prevPlantHeights.set(plant.id, plant.height);
     const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
     state.prevPlantDisease.set(plant.id, isDiseased);
   }
@@ -402,7 +400,7 @@ function incrementalUpdate(
   const { world, growingPlants, getCellElevation,
     subtypePlantIds, subtypePlantIdsLow, plantIndex,
     subtypeLiveCounts, subtypeLiveCountsLow, dirtyPlants,
-    prevPlantHeights, prevPlantDisease } = state;
+    prevPlantDisease } = state;
 
   const camX = state.camera.position.x;
   const camZ = state.camera.position.z;
@@ -432,7 +430,6 @@ function incrementalUpdate(
       counts[subtype]--;
       plantIndex.delete(id);
     }
-    prevPlantHeights.delete(id);
     prevPlantDisease.delete(id);
     state.plantColorCache.delete(id);
   }
@@ -460,7 +457,6 @@ function incrementalUpdate(
       plantIndex.set(plant.id, { subtype, idx, low: false });
     }
 
-    prevPlantHeights.set(plant.id, plant.height);
     const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
     prevPlantDisease.set(plant.id, isDiseased);
     dirtyPlants.add(plant.id);
@@ -492,10 +488,8 @@ function incrementalUpdate(
       continue;
     }
 
-    const prevH = prevPlantHeights.get(plant.id);
-    if (prevH !== undefined && prevH !== plant.height) {
+    if (world.heightChangedIds.has(plant.id)) {
       dirtyPlants.add(plant.id);
-      prevPlantHeights.set(plant.id, plant.height);
     }
 
     const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;

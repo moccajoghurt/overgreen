@@ -151,7 +151,6 @@ export interface RendererState {
   subtypeLiveCounts: Uint32Array;     // [24] — live plant count per subtype
   subtypeLiveCountsLow: Uint32Array;  // [24] — live plant count per subtype (low LOD)
   dirtyPlants: Set<number>;           // cleared each frame
-  prevPlantHeights: Map<number, number>;  // for height-change detection
   prevPlantDisease: Map<number, boolean>; // for disease-change detection
   forceFullRebuild: boolean;          // true on first frame, highlight/colorMode/terrain changes
 

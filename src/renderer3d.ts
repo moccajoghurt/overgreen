@@ -207,7 +207,6 @@ export function createRenderer3D(
     subtypeLiveCounts: new Uint32Array(24),
     subtypeLiveCountsLow: new Uint32Array(24),
     dirtyPlants: new Set(),
-    prevPlantHeights: new Map(),
     prevPlantDisease: new Map(),
     forceFullRebuild: true,
     lodDistSq: 25 * 25,
@@ -315,13 +314,17 @@ export function createRenderer3D(
         }
       }
     }
-    hooks?.begin('grass');          grassLayer.updateCellData(state); hooks?.end('grass');
-    hooks?.begin('seeds');          updateSeeds(state);             hooks?.end('seeds');
-    hooks?.begin('weather');        updateWeatherParticles(state);  hooks?.end('weather');
+    // In fast mode (tickDelta > 1), throttle secondary updates to every 3rd tick
+    const skipSecondary = tickDelta > 1 && (world.tick % 3 !== 0);
+    if (!skipSecondary) {
+      hooks?.begin('grass');          grassLayer.updateCellData(state); hooks?.end('grass');
+      hooks?.begin('seeds');          updateSeeds(state);             hooks?.end('seeds');
+      hooks?.begin('weather');        updateWeatherParticles(state);  hooks?.end('weather');
+      hooks?.begin('fire');           updateFireParticles(state);     hooks?.end('fire');
+      hooks?.begin('drought');        updateDroughtParticles(state);  hooks?.end('drought');
+      hooks?.begin('disease');        updateDiseaseParticles(state);  hooks?.end('disease');
+    }
     hooks?.begin('herbivoresR');    updateHerbivores(state);        hooks?.end('herbivoresR');
-    hooks?.begin('fire');           updateFireParticles(state);     hooks?.end('fire');
-    hooks?.begin('drought');        updateDroughtParticles(state);  hooks?.end('drought');
-    hooks?.begin('disease');        updateDiseaseParticles(state);  hooks?.end('disease');
 
     if (selectedCell) {
       selectMesh.visible = true;
@@ -463,7 +466,6 @@ export function createRenderer3D(
     state.subtypeLiveCounts.fill(0);
     state.subtypeLiveCountsLow.fill(0);
     state.dirtyPlants.clear();
-    state.prevPlantHeights.clear();
     state.prevPlantDisease.clear();
     state.forceFullRebuild = true;
     state.prevHerbivoreSnapshots.clear();

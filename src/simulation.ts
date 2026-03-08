@@ -305,7 +305,11 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     const maxLeaf = capLeaf * (0.3 + 0.7 * lFrac);
 
     plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
-    plant.height = Math.min(maxHeight, plant.height + heightGrowth);
+    const newHeight = Math.min(maxHeight, plant.height + heightGrowth);
+    if (newHeight !== plant.height) {
+      plant.height = newHeight;
+      world.heightChangedIds.add(plant.id);
+    }
     plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
   }
 
@@ -610,6 +614,7 @@ export function clearFrameEvents(world: World): void {
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
   world.fireDeathEvents.length = 0;
+  world.heightChangedIds.clear();
 }
 
 export function tickWorld(world: World, hooks?: TimingHooks): void {

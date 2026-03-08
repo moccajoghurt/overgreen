@@ -421,12 +421,17 @@ function loop(now: number): void {
   }
 
   // Only update UI when rendering and simulation has ticked or selected cell changed
+  // Throttle in fast mode: update every ~4th tick to save 5-10ms/frame
   const selChanged = controls.selectedCell !== lastUISelectedCell;
+  const isFastMode = controls.tickBudgetMs > 0;
   if (shouldRender && (world.tick !== lastUITick || selChanged)) {
-    lastUITick = world.tick;
-    lastUISelectedCell = controls.selectedCell;
-    if (!hookPhase.active) {
-      updateUI();
+    const skipUI = isFastMode && !selChanged && (world.tick % 8 !== 0);
+    if (!skipUI) {
+      lastUITick = world.tick;
+      lastUISelectedCell = controls.selectedCell;
+      if (!hookPhase.active) {
+        updateUI();
+      }
     }
   }
 
