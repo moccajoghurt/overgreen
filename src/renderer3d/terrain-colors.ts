@@ -1,4 +1,5 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
+import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
 
 // Pre-computed terrain base colors (RGB, from HSL constants)
@@ -76,6 +77,80 @@ export function updateTerrainColors(state: RendererState): void {
         cellBaseG[idx] = rgb[1];
         cellBaseB[idx] = rgb[2];
       }
+    }
+  }
+
+  // ── Vegetation tint pass ──
+  // Per-archetype tint colors [R, G, B] and max blend strengths
+  const VEG_TINT: [number, number, number][] = [
+    [0.18, 0.42, 0.08],  // Grass — saturated green
+    [0.12, 0.20, 0.06],  // Tree — dark understory
+    [0.16, 0.32, 0.08],  // Shrub — medium green
+  ];
+  const VEG_MAX_BLEND = [0.85, 0.50, 0.70];
+  const VEG_REF_HEIGHT = [0.6, 3.0, 1.2];
+  const snowSuppression = 1 - Math.min(1, snowCov);
+
+  const vegR = new Float32Array(cellCount);
+  const vegG = new Float32Array(cellCount);
+  const vegB = new Float32Array(cellCount);
+  const vegBlend = new Float32Array(cellCount);
+
+  // First pass: compute per-cell vegetation tint
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cell = world.grid[y][x];
+      if (cell.plantId == null) continue;
+      const plant = world.plants.get(cell.plantId);
+      if (!plant) continue;
+      const subtype = world.speciesSubtypes.get(plant.speciesId)
+        ?? classifySubtype(plant.genome);
+      const arch = subtypeArchetype(subtype);
+      if (arch === 3) continue; // skip succulents
+      const idx = y * GRID + x;
+      const blend = VEG_MAX_BLEND[arch]
+        * Math.min(1, plant.height / VEG_REF_HEIGHT[arch])
+        * snowSuppression;
+      vegR[idx] = VEG_TINT[arch][0];
+      vegG[idx] = VEG_TINT[arch][1];
+      vegB[idx] = VEG_TINT[arch][2];
+      vegBlend[idx] = blend;
+    }
+  }
+
+  // Neighbor spreading: bare cells pick up fraction of neighbor tint
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const idx = y * GRID + x;
+      if (vegBlend[idx] > 0) continue; // already vegetated
+      let sumR = 0, sumG = 0, sumB = 0, sumB2 = 0, count = 0;
+      const neighbors = [
+        y > 0 ? (y - 1) * GRID + x : -1,
+        y < GRID - 1 ? (y + 1) * GRID + x : -1,
+        x > 0 ? y * GRID + (x - 1) : -1,
+        x < GRID - 1 ? y * GRID + (x + 1) : -1,
+      ];
+      for (const ni of neighbors) {
+        if (ni >= 0 && vegBlend[ni] > 0) {
+          sumR += vegR[ni]; sumG += vegG[ni]; sumB += vegB[ni];
+          sumB2 += vegBlend[ni]; count++;
+        }
+      }
+      if (count > 0) {
+        vegR[idx] = sumR / count;
+        vegG[idx] = sumG / count;
+        vegB[idx] = sumB / count;
+        vegBlend[idx] = (sumB2 / count) * 0.6;
+      }
+    }
+  }
+
+  // Apply tint: lerp cellBase toward vegetation color
+  for (let i = 0; i < cellCount; i++) {
+    if (vegBlend[i] > 0) {
+      cellBaseR[i] = lerp(cellBaseR[i], vegR[i], vegBlend[i]);
+      cellBaseG[i] = lerp(cellBaseG[i], vegG[i], vegBlend[i]);
+      cellBaseB[i] = lerp(cellBaseB[i], vegB[i], vegBlend[i]);
     }
   }
 
