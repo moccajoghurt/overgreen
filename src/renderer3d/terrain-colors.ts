@@ -31,6 +31,15 @@ export function updateTerrainColors(state: RendererState): void {
 
   if (world.tick === state.lastTerrainTick
     && state.colorMode === state.lastTerrainColorMode) return;
+
+  // Throttle in fast mode: when multiple ticks ran since last render,
+  // only update terrain colors every 5 ticks
+  const colorModeChanged = state.colorMode !== state.lastTerrainColorMode;
+  if (state.lastTerrainTick >= 0 && !colorModeChanged) {
+    const tickDelta = world.tick - state.lastTerrainTick;
+    if (tickDelta > 1 && world.tick % 5 !== 0) return;
+  }
+
   state.lastTerrainTick = world.tick;
   state.lastTerrainColorMode = state.colorMode;
 

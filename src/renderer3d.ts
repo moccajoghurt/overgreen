@@ -289,6 +289,7 @@ export function createRenderer3D(
     // Capture before updatePlants clears these
     const isNewTick = world.tick !== state.lastProcessedTick;
     const isFirstFrame = state.lastProcessedTick === -1;
+    const tickDelta = isFirstFrame ? 1 : world.tick - state.lastProcessedTick;
 
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
     hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
@@ -298,7 +299,7 @@ export function createRenderer3D(
     // so mesh counts reflect the current tick. Always render on first frame.
     if (isNewTick) {
       let shadowDirty = isFirstFrame || world.tick % 30 === 0;
-      if (!shadowDirty) {
+      if (!shadowDirty && tickDelta <= 1) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
           if (state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i] !== state.lastShadowCounts[i]) {
             shadowDirty = true;
