@@ -192,6 +192,7 @@ export function createRenderer3D(
     lastTerrainTick: -1,
     lastTerrainColorMode: 'natural',
     lastPlantTick: -1,
+    animSpeed: 1,
     lastPlantColorMode: 'natural',
     plantsDirty: false,
     highlightedSpecies: null,

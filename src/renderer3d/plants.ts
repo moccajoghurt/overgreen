@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GRID_WIDTH, WeatherOverlay } from '../types';
 import {
-  RendererState, GRID, HALF, MAX_SEEDS,
+  RendererState, GRID, HALF, MAX_SEEDS, MAX_DYING,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
   easeOutCubic, lerp, plantHash,
 } from './state';
@@ -115,6 +115,7 @@ function ingestEvents(state: RendererState): void {
   if (world.tick !== state.lastProcessedTick) {
     state.lastProcessedTick = world.tick;
     for (const evt of world.seedLandingEvents) {
+      if (flyingSeeds.length >= MAX_SEEDS) break;
       let parentHeight = 1.0;
       const cell = world.grid[evt.parentY]?.[evt.parentX];
       if (cell?.plantId != null) {
@@ -158,6 +159,7 @@ function ingestEvents(state: RendererState): void {
   const fireDeathIds = new Set<number>();
   for (const evt of world.fireDeathEvents) {
     fireDeathIds.add(evt.id);
+    if (burningPlants.size >= MAX_DYING) continue;
     const subtype = world.speciesSubtypes?.get(evt.speciesId) ?? classifySubtype(evt.genome);
     burningPlants.set(evt.id, {
       x: evt.x, y: evt.y,
@@ -173,6 +175,7 @@ function ingestEvents(state: RendererState): void {
   // ── Detect deaths ──
   for (const [id, snap] of state.prevSnapshots) {
     if (!world.plants.has(id) && !fireDeathIds.has(id)) {
+      if (dyingPlants.size >= MAX_DYING) continue;
       dyingPlants.set(id, { ...snap, progress: 0 });
     }
   }
@@ -191,7 +194,7 @@ function renderDyingBurning(
   // ── Render dying plants ──
   const toRemove: number[] = [];
   for (const [id, dp] of dyingPlants) {
-    dp.progress += 1 / DEATH_ANIM_FRAMES;
+    dp.progress += state.animSpeed / DEATH_ANIM_FRAMES;
     if (dp.progress >= 1) { toRemove.push(id); continue; }
 
     // Skip grass subtypes 0-4 — death handled by shader field clearing
@@ -228,7 +231,7 @@ function renderDyingBurning(
   const burnToRemove: number[] = [];
   for (const [id, bp] of burningPlants) {
     const burnFrames = bp.woodiness < 0.4 ? BURN_ANIM_FRAMES * 0.5 : BURN_ANIM_FRAMES;
-    bp.progress += 1 / burnFrames;
+    bp.progress += state.animSpeed / burnFrames;
     if (bp.progress >= 1) {
       burnToRemove.push(id);
       state.dyingPlants.set(id, { ...bp, progress: 0 });
@@ -305,7 +308,7 @@ function fullRebuild(
       // Still advance growth animation so grass-layer reads correct growScale
       const growing = growingPlants.get(plant.id);
       if (growing) {
-        growing.progress += 1 / GROWTH_ANIM_FRAMES;
+        growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
         if (growing.progress >= 1) growingPlants.delete(plant.id);
       }
       continue;
@@ -319,7 +322,7 @@ function fullRebuild(
     let growScale = 1.0;
     const growing = growingPlants.get(plant.id);
     if (growing) {
-      growing.progress += 1 / GROWTH_ANIM_FRAMES;
+      growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) {
         growingPlants.delete(plant.id);
       } else if (growing.progress < 0) {
@@ -483,7 +486,7 @@ function incrementalUpdate(
       // Still advance growth animation for grass
       const growing = growingPlants.get(plant.id);
       if (growing) {
-        growing.progress += 1 / GROWTH_ANIM_FRAMES;
+        growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
         if (growing.progress >= 1) growingPlants.delete(plant.id);
       }
       continue;
@@ -527,7 +530,7 @@ function incrementalUpdate(
     let growScale = 1.0;
     const growing = growingPlants.get(plant.id);
     if (growing) {
-      growing.progress += 1 / GROWTH_ANIM_FRAMES;
+      growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) {
         growingPlants.delete(plant.id);
       } else if (growing.progress < 0) {
@@ -598,12 +601,12 @@ function animationOnlyUpdate(
     if (!plant?.alive) { growingPlants.delete(pid); continue; }
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
     if (subtype <= 4) {
-      growing.progress += 1 / GROWTH_ANIM_FRAMES;
+      growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) growingPlants.delete(pid);
       continue;
     }
 
-    growing.progress += 1 / GROWTH_ANIM_FRAMES;
+    growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
     if (growing.progress >= 1) {
       growingPlants.delete(pid);
     }
@@ -699,6 +702,10 @@ export function updatePlants(state: RendererState): void {
   state.plantsDirty = false;
   state.lastHighlightedSpecies = state.highlightedSpecies;
   state.lastHighlightedLineageRoot = state.highlightedLineageRoot;
+  // Fast-forward animations proportionally when multiple ticks ran this frame
+  state.animSpeed = hasTicked && state.lastPlantTick >= 0
+    ? Math.max(1, world.tick - state.lastPlantTick)
+    : 1;
   state.lastPlantTick = world.tick;
 
   // Invalidate color cache when colorMode changes
@@ -739,7 +746,7 @@ export function updateSeeds(state: RendererState): void {
 
   for (let i = flyingSeeds.length - 1; i >= 0; i--) {
     const fs = flyingSeeds[i];
-    fs.progress += 1 / fs.flightFrames;
+    fs.progress += state.animSpeed / fs.flightFrames;
 
     if (fs.progress >= 1) {
       flyingSeeds.splice(i, 1);

@@ -155,6 +155,9 @@ export interface RendererState {
   prevPlantDisease: Map<number, boolean>; // for disease-change detection
   forceFullRebuild: boolean;          // true on first frame, highlight/colorMode/terrain changes
 
+  // Animation speed multiplier (scales with ticks-per-frame in fast mode)
+  animSpeed: number;
+
   // LOD distance threshold (squared) and camera tracking
   lodDistSq: number;
   lastLodCamX: number;
