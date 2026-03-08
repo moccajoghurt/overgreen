@@ -136,19 +136,21 @@ export function createLineagePanel(
     if (world.tick === lastRenderedTick) return;
     lastRenderedTick = world.tick;
 
-    // Accumulate per-species genome sums
-    const speciesBuckets = new Map<number, {
-      count: number; root: number; height: number; leaf: number;
+    // Accumulate directly per lineage root
+    const lineageBuckets = new Map<number, {
+      count: number; speciesIds: Set<number>;
+      root: number; height: number; leaf: number;
       seed: number; sz: number; def: number; wood: number; wst: number; lon: number;
     }>();
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
-      let b = speciesBuckets.get(plant.speciesId);
+      let b = lineageBuckets.get(plant.lineageRoot);
       if (!b) {
-        b = { count: 0, root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0 };
-        speciesBuckets.set(plant.speciesId, b);
+        b = { count: 0, speciesIds: new Set(), root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0 };
+        lineageBuckets.set(plant.lineageRoot, b);
       }
       b.count++;
+      b.speciesIds.add(plant.speciesId);
       b.root += plant.genome.rootPriority;
       b.height += plant.genome.heightPriority;
       b.leaf += plant.genome.leafSize;
@@ -160,43 +162,25 @@ export function createLineagePanel(
       b.lon += plant.genome.longevity;
     }
 
-    // Group by lineage root (read from plants)
-    const groups = new Map<number, number[]>();
-    for (const plant of world.plants.values()) {
-      if (!plant.alive) continue;
-      let g = groups.get(plant.lineageRoot);
-      if (!g) { g = []; groups.set(plant.lineageRoot, g); }
-      if (!g.includes(plant.speciesId)) g.push(plant.speciesId);
-    }
-
-    // Build lineage data with population-weighted genome averages
+    // Build lineage data
     const data: LineageData[] = [];
-    for (const [rootId, members] of groups) {
-      let totalCount = 0;
-      let root = 0, height = 0, leaf = 0, seed = 0, sz = 0, def = 0, wood = 0, wst = 0, lon = 0;
-      for (const sid of members) {
-        const b = speciesBuckets.get(sid)!;
-        totalCount += b.count;
-        root += b.root; height += b.height; leaf += b.leaf;
-        seed += b.seed; sz += b.sz; def += b.def;
-        wood += b.wood; wst += b.wst; lon += b.lon;
-      }
+    for (const [rootId, b] of lineageBuckets) {
       data.push({
         rootId,
         name: world.speciesNames.get(rootId) ?? `Sp ${rootId}`,
-        count: totalCount,
-        speciesCount: members.length,
+        count: b.count,
+        speciesCount: b.speciesIds.size,
         color: world.speciesColors.get(rootId) ?? { r: 0.5, g: 0.5, b: 0.5 },
         avgGenome: {
-          rootPriority: root / totalCount,
-          heightPriority: height / totalCount,
-          leafSize: leaf / totalCount,
-          seedInvestment: seed / totalCount,
-          seedSize: sz / totalCount,
-          defense: def / totalCount,
-          woodiness: wood / totalCount,
-          waterStorage: wst / totalCount,
-          longevity: lon / totalCount,
+          rootPriority: b.root / b.count,
+          heightPriority: b.height / b.count,
+          leafSize: b.leaf / b.count,
+          seedInvestment: b.seed / b.count,
+          seedSize: b.sz / b.count,
+          defense: b.def / b.count,
+          woodiness: b.wood / b.count,
+          waterStorage: b.wst / b.count,
+          longevity: b.lon / b.count,
         },
       });
     }
