@@ -201,7 +201,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
-    const GROUND_COVER = new Set([0, 1, 2, 4]);
+    const GROUND_COVER = new Set([0, 1, 2, 3, 4]);
     if (GROUND_COVER.has(idx)) {
       // Ground cover: scale Y to target height, XZ to fill 1.0 unit cell
       plantGroup.updateMatrixWorld(true);

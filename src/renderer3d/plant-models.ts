@@ -146,30 +146,36 @@ function buildBamboo(): THREE.Group {
   const culmMat = mat(0x8aaa3a);
   const leafMat = matDS(0x2a6a2a);
   const nodeMat = mat(0x6a8a2a);
-  for (let ci = 0; ci < 5; ci++) {
-    const cx = (Math.random() - 0.5) * 0.35;
-    const cz = (Math.random() - 0.5) * 0.35;
-    const totalH = 2.0 + Math.random() * 0.5;
-    const segH = 0.3;
-    const r = 0.035;
-    for (let s = 0; s < Math.floor(totalH / segH); s++) {
-      const seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, segH, 6), culmMat);
-      seg.position.set(cx, s * segH + segH / 2, cz);
-      g.add(seg);
-      if (s > 0 && s % 2 === 0) {
-        const node = new THREE.Mesh(new THREE.TorusGeometry(r * 1.4, r * 0.35, 4, 8), nodeMat);
-        node.position.set(cx, s * segH, cz);
-        node.rotation.x = Math.PI / 2;
-        g.add(node);
+  const step = 0.25;
+  const half = 0.45;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const cx = gx + (Math.random() - 0.5) * 0.1;
+      const cz = gz + (Math.random() - 0.5) * 0.1;
+      const totalH = 2.0 + Math.random() * 0.5;
+      const r = 0.035;
+      // Culm as 3 tall segments
+      const segH = totalH / 3;
+      for (let s = 0; s < 3; s++) {
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, segH, 6), culmMat);
+        seg.position.set(cx, s * segH + segH / 2, cz);
+        g.add(seg);
+        if (s > 0) {
+          const node = new THREE.Mesh(new THREE.TorusGeometry(r * 1.4, r * 0.35, 4, 8), nodeMat);
+          node.position.set(cx, s * segH, cz);
+          node.rotation.x = Math.PI / 2;
+          g.add(node);
+        }
       }
-    }
-    for (let l = 0; l < 6; l++) {
-      const la = l * Math.PI / 3 + Math.random() * 0.3;
-      const leaf = new THREE.Mesh(grassBlade(0.4, 0.06, 0.2), leafMat);
-      leaf.position.set(cx + Math.cos(la) * 0.1, totalH, cz + Math.sin(la) * 0.1);
-      leaf.rotation.y = la;
-      leaf.rotation.z = 0.3;
-      g.add(leaf);
+      // Crown of leaves at the top of each culm
+      for (let l = 0; l < 5; l++) {
+        const la = l * Math.PI * 2 / 5 + Math.random() * 0.3;
+        const leaf = new THREE.Mesh(grassBlade(0.4, 0.08, 0.03), leafMat);
+        leaf.position.set(cx + Math.cos(la) * 0.08, totalH, cz + Math.sin(la) * 0.08);
+        leaf.rotation.y = la;
+        leaf.rotation.z = 0.3 + Math.random() * 0.3;
+        g.add(leaf);
+      }
     }
   }
   return g;
@@ -946,7 +952,7 @@ const MATURITY_HEIGHT: number[] = [
 ];
 
 /** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
-const GROUND_COVER = new Set([0, 1, 2, 4]); // turfgrass, tallgrass, bunchgrass, spreading
+const GROUND_COVER = new Set([0, 1, 2, 3, 4]); // turfgrass, tallgrass, bunchgrass, bamboo, spreading
 
 export function buildSubtypeModels(): SubtypeModel[] {
   return BUILDERS.map((build, i) => {
