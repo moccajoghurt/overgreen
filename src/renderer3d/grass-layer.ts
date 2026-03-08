@@ -19,12 +19,23 @@ const FADE_END = 50.0;
 
 // Per-subtype blade heights at full growth (world units)
 const SUBTYPE_BLADE_HEIGHT: number[] = [
-  0.12,  // 0: Turfgrass
-  0.25,  // 1: Tallgrass
-  0.16,  // 2: Bunchgrass
-  0.08,  // 3: Bamboo
-  0.08,  // 4: Spreading
-  0.20,  // 5: Sedge
+  0.10,  // 0: Turfgrass — short lawn
+  0.38,  // 1: Tallgrass — tall prairie grass
+  0.22,  // 2: Bunchgrass — medium bunchy
+  0.08,  // 3: Bamboo — low ground cover
+  0.06,  // 4: Spreading/Ryegrass — carpet-like
+  0.28,  // 5: Sedge — medium-tall
+];
+
+// Per-subtype color tint multipliers — bold hue shifts so each grass species
+// is visually distinct even at full zoom-out (~20+ degree hue separation)
+const SUBTYPE_COLOR_TINT: [number, number, number][] = [
+  [1.10, 1.10, 0.35],  // 0: Turfgrass — warm yellow-green lawn
+  [1.80, 0.85, 0.20],  // 1: Tallgrass — golden straw prairie
+  [0.55, 0.75, 0.50],  // 2: Bunchgrass — dark forest green
+  [0.70, 1.80, 0.30],  // 3: Bamboo — vivid lime
+  [0.35, 1.50, 1.80],  // 4: Spreading/Ryegrass — cool teal-green
+  [1.80, 0.65, 0.25],  // 5: Sedge — rusty bronze-green
 ];
 
 export interface GrassLayer {
@@ -72,9 +83,11 @@ const grassVertexShader = /* glsl */`
     }
     float fadeFactor = 1.0 - smoothstep(uFadeStart, uFadeEnd, dist);
 
-    // Sample cell data at blade's actual world position (bilinear-filtered)
-    vec2 cellUV = (vec2(wx, wz) + ${HALF.toFixed(1)}) / ${GRID.toFixed(1)};
-    vec4 cellData = texture2D(uCellData, cellUV);
+    // Sample cell data at blade's world position with nearest filter
+    // Each blade adopts the species color/height of whichever cell it physically
+    // occupies → sharp species boundaries, visual smoothness from blade scatter
+    vec2 bladeUV = (vec2(wx, wz) + ${HALF.toFixed(1)}) / ${GRID.toFixed(1)};
+    vec4 cellData = texture2D(uCellData, bladeUV);
     float bladeHeight = cellData.r;
     vTint = cellData.gba;
 
@@ -86,8 +99,8 @@ const grassVertexShader = /* glsl */`
       return;
     }
 
-    // Sample elevation at blade's actual world position (bilinear-filtered)
-    float elev = texture2D(uElevation, cellUV).r;
+    // Sample elevation at blade world position (bilinear → smooth terrain)
+    float elev = texture2D(uElevation, bladeUV).r;
 
     // Blade height with per-blade variation and distance fade
     float h = bladeHeight * aHeightVar * fadeFactor;
@@ -102,8 +115,14 @@ const grassVertexShader = /* glsl */`
     float perpX = -sy;
     float perpZ = cy;
 
-    // Side offset: 0=left(-1), 1=right(+1), 2=left(-1 tapered), 3=right(+1 tapered)
-    float isLeft = 1.0 - 2.0 * step(0.5, mod(vid, 2.0)); // -1 for even(left), +1 for odd(right)
+    // Camera-facing flip: if blade normal faces away from camera, reverse winding
+    // This gives full blade density with FrontSide (no DoubleSide perf cost)
+    vec2 toCamera2D = uCameraPos.xz - vec2(wx, wz);
+    float faceDot = perpX * toCamera2D.x + perpZ * toCamera2D.y;
+    float flipSign = step(0.0, faceDot) * 2.0 - 1.0;
+
+    // Side offset: 0=left(-1), 1=right(+1), flipped when facing away from camera
+    float isLeft = flipSign * (1.0 - 2.0 * step(0.5, mod(vid, 2.0)));
     // Taper: top verts are narrower (degenerate at very tip for natural look)
     float taper = mix(1.0, 0.15, isTop);
     float baseOffX = perpX * aBladeWidth * isLeft * taper;
@@ -143,8 +162,8 @@ const grassFragmentShader = /* glsl */`
   varying vec3 vWorldPos;
 
   void main() {
-    // Fake AO: darken blade base
-    float ao = mix(0.5, 1.0, vHeight01);
+    // Fake AO: darken blade base, stronger gradient
+    float ao = mix(0.45, 1.0, vHeight01);
 
     // Approximate blade normal (pointing up + slightly outward)
     vec3 bladeNormal = normalize(vec3(0.0, 1.0, 0.0));
@@ -153,9 +172,15 @@ const grassFragmentShader = /* glsl */`
     float NdotL = max(dot(bladeNormal, uSunDirection), 0.0);
     float diffuse = 0.55 + NdotL * 0.45;
 
-    // Base grass green, modulated by tint multiplier
+    // Tip highlight — grass tips catch more light
+    float tipBrightness = mix(0.9, 1.2, vHeight01);
+
+    // Landscape-scale brightness variation (~5 cell period)
+    // Modulates brightness only — preserves species hue identity
+    float brightnessMod = 1.0 + sin(vWorldPos.x * 0.22 + 1.3) * sin(vWorldPos.z * 0.18 + 0.7) * 0.15;
+
     vec3 baseGreen = vec3(0.28, 0.52, 0.18);
-    vec3 color = baseGreen * vTint * ao * diffuse;
+    vec3 color = baseGreen * vTint * ao * diffuse * tipBrightness * brightnessMod;
 
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
@@ -190,8 +215,8 @@ export function createGrassLayer(
         const ox = (plantHash(cellIdx, 100 + b) - 0.5) * 1.6;  // ±0.8
         const oz = (plantHash(cellIdx, 200 + b) - 0.5) * 1.6;
         const yaw = plantHash(cellIdx, 300 + b) * Math.PI * 2;
-        const hv = 0.7 + plantHash(cellIdx, 400 + b) * 0.6;    // [0.7, 1.3]
-        const bw = 0.03 + plantHash(cellIdx, 500 + b) * 0.04;  // [0.03, 0.07]
+        const hv = 0.5 + plantHash(cellIdx, 400 + b) * 1.3;    // [0.5, 1.8]
+        const bw = 0.05 + plantHash(cellIdx, 500 + b) * 0.06;  // [0.05, 0.11]
 
         const baseVert = vi;
         // 4 vertices per blade quad
@@ -235,8 +260,8 @@ export function createGrassLayer(
     cellDataArray, GRID, GRID,
     THREE.RGBAFormat, THREE.FloatType,
   );
-  cellDataTex.minFilter = THREE.LinearFilter;
-  cellDataTex.magFilter = THREE.LinearFilter;
+  cellDataTex.minFilter = THREE.NearestFilter;
+  cellDataTex.magFilter = THREE.NearestFilter;
   cellDataTex.needsUpdate = true;
 
   const elevArray = new Float32Array(GRID * GRID * 4); // RGBA but we only use R
@@ -271,7 +296,7 @@ export function createGrassLayer(
     vertexShader: grassVertexShader,
     fragmentShader: grassFragmentShader,
     uniforms,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
     fog: false,
     depthWrite: true,
   });
@@ -341,6 +366,12 @@ export function createGrassLayer(
       );
 
       let { r: tr, g: tg, b: tb } = tint;
+
+      // Per-subtype color shift — gives each grass species a distinct hue
+      const subtypeTint = SUBTYPE_COLOR_TINT[subtype] ?? [1, 1, 1];
+      tr *= subtypeTint[0];
+      tg *= subtypeTint[1];
+      tb *= subtypeTint[2];
 
       // Disease overlay
       if (env.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased) {
