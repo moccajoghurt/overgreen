@@ -14,10 +14,21 @@ interface PerfEntry {
 export class PerfTracker implements TimingHooks {
   private entries = new Map<string, PerfEntry>();
   private order: string[] = [];
+  private lastFrameTime = 0;
+  private frameIntervalMs = 0; // EMA of wall-clock time between frames
 
   register(label: string, category: string): void {
     this.entries.set(label, { label, category, avgMs: 0, lastStart: 0 });
     this.order.push(label);
+  }
+
+  /** Call once per frame with the RAF timestamp to track real frame-to-frame interval. */
+  markFrame(now: number): void {
+    if (this.lastFrameTime > 0) {
+      const dt = now - this.lastFrameTime;
+      this.frameIntervalMs += (dt - this.frameIntervalMs) * 0.1;
+    }
+    this.lastFrameTime = now;
   }
 
   begin(label: string): void {
@@ -42,12 +53,18 @@ export class PerfTracker implements TimingHooks {
     return out;
   }
 
+  /** Real FPS based on wall-clock frame-to-frame interval. */
   getFps(): number {
-    const f = this.entries.get('frame');
-    return f && f.avgMs > 0 ? 1000 / f.avgMs : 0;
+    return this.frameIntervalMs > 0 ? 1000 / this.frameIntervalMs : 0;
   }
 
+  /** Wall-clock frame-to-frame interval (ms). */
   getFrameMs(): number {
+    return this.frameIntervalMs;
+  }
+
+  /** CPU-side work time for a frame (ms). */
+  getFrameWorkMs(): number {
     return this.entries.get('frame')?.avgMs ?? 0;
   }
 }

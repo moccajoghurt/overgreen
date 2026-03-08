@@ -42,6 +42,7 @@ export function createPerfPanel(container: HTMLElement, tracker: PerfTracker) {
 
     const fps = tracker.getFps();
     const frameMs = tracker.getFrameMs();
+    const workMs = tracker.getFrameWorkMs();
     const entries = tracker.getEntries();
 
     // Compute child sums and "other" per category
@@ -78,7 +79,7 @@ export function createPerfPanel(container: HTMLElement, tracker: PerfTracker) {
       }
     }
 
-    let text = `${Math.round(fps)} FPS | ${frameMs.toFixed(1)}ms\n`;
+    let text = `${Math.round(fps)} FPS | ${frameMs.toFixed(1)}ms (work ${workMs.toFixed(1)}ms)\n`;
     let currentCat = '';
 
     function appendOtherRow(cat: string): void {

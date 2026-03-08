@@ -336,6 +336,7 @@ let wasWarpActive = false;
 let lastRenderMs = 4;       // rolling estimate of render cost
 
 function loop(now: number): void {
+  perfTracker.markFrame(now);
   perfTracker.begin('frame');
   frameCount++;
   const warpActive = controls.renderSkip > 0 && !controls.paused;
