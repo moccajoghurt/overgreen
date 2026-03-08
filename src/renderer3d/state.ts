@@ -127,6 +127,7 @@ export interface RendererState {
   growingPlants: Map<number, GrowingPlant>;
   flyingSeeds: FlyingSeed[];
   lastProcessedTick: number;
+  lastShadowPlantCount: number;
   lastTerrainTick: number;
   lastTerrainColorMode: ColorMode;
   lastPlantTick: number;

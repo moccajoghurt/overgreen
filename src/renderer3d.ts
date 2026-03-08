@@ -186,6 +186,7 @@ export function createRenderer3D(
     growingPlants: new Map(),
     flyingSeeds: [],
     lastProcessedTick: -1,
+    lastShadowPlantCount: -1,
     lastTerrainTick: -1,
     lastTerrainColorMode: 'natural',
     lastPlantTick: -1,
@@ -271,9 +272,13 @@ export function createRenderer3D(
     // Update grass layer uniforms (per-frame wind animation)
     grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor, camera);
 
-    // Only re-render shadow map when sim state changes
-    if (world.tick !== state.lastProcessedTick || state.plantsDirty) {
+    // Re-render shadow map every 5 sim ticks, but force update on population change
+    // (deaths/births move shadows instantly; gradual growth can wait)
+    const plantCount = world.plants.size;
+    if (state.plantsDirty || (world.tick !== state.lastProcessedTick &&
+        (world.tick % 5 === 0 || plantCount !== state.lastShadowPlantCount))) {
       webgl.shadowMap.needsUpdate = true;
+      state.lastShadowPlantCount = plantCount;
     }
 
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
@@ -434,6 +439,7 @@ export function createRenderer3D(
 
     // Force full update on next frame
     state.lastProcessedTick = -1;
+    state.lastShadowPlantCount = -1;
     state.lastTerrainTick = -1;
     state.lastPlantTick = -1;
     state.lastHerbivoreTick = -1;
