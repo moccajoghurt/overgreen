@@ -69,6 +69,7 @@ perfTracker.register('germination', 'sim');
 perfTracker.register('renderTotal', 'render');
 perfTracker.register('terrainColors', 'render');
 perfTracker.register('plants', 'render');
+perfTracker.register('grass', 'render');
 perfTracker.register('seeds', 'render');
 perfTracker.register('weather', 'render');
 perfTracker.register('herbivoresR', 'render');

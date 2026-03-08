@@ -6,6 +6,7 @@ import type { WaterSurface } from './water';
 import type { DistantEnvironment } from './environment';
 import type { RockFormations } from './rocks';
 import type { HerbivoreSnapshot, DyingHerbivore, MovingHerbivore } from './herbivores';
+import type { GrassLayer } from './grass-layer';
 
 // ── Constants ──
 
@@ -111,6 +112,9 @@ export interface RendererState {
   subtypeMeshes: THREE.InstancedMesh[];
   maturityHeights: Float32Array;
   groundCover: boolean[];
+
+  // Shader-based grass base layer
+  grassLayer: GrassLayer;
 
 
   // Seed mesh

@@ -13,6 +13,7 @@ import { createDistantEnvironment } from './renderer3d/environment';
 import { createTerrain, rebuildTerrainGeometry, createSubtypeMeshes, createSeedMesh, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
+import { createGrassLayer } from './renderer3d/grass-layer';
 
 export function createRenderer3D(
   container: HTMLElement,
@@ -57,6 +58,10 @@ export function createRenderer3D(
   // ── Water surface ──
   let waterSurface = createWaterSurface(world);
   scene.add(waterSurface.mesh);
+
+  // ── Shader-based grass base layer ──
+  const grassLayer = createGrassLayer(getCellElevation);
+  scene.add(grassLayer.mesh);
 
   // ── Plants (24 subtype meshes + seeds) ──
   const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
@@ -172,6 +177,7 @@ export function createRenderer3D(
     subtypeMeshes,
     maturityHeights,
     groundCover,
+    grassLayer,
     seeds,
     prevSnapshots: new Map(),
     dyingPlants: new Map(),
@@ -257,7 +263,12 @@ export function createRenderer3D(
     );
 
     // Update water animation
-    waterSurface.update(env, skyDome.getSunDirection(), skyDome.getFogColor());
+    const sunDir = skyDome.getSunDirection();
+    const fogColor = skyDome.getFogColor();
+    waterSurface.update(env, sunDir, fogColor);
+
+    // Update grass layer uniforms (per-frame wind animation)
+    grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor);
 
     // Only re-render shadow map when sim state changes
     if (world.tick !== state.lastProcessedTick || state.plantsDirty) {
@@ -266,6 +277,7 @@ export function createRenderer3D(
 
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
     hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
+    hooks?.begin('grass');          grassLayer.updateCellData(state); hooks?.end('grass');
     hooks?.begin('seeds');          updateSeeds(state);             hooks?.end('seeds');
     hooks?.begin('weather');        updateWeatherParticles(state);  hooks?.end('weather');
     hooks?.begin('herbivoresR');    updateHerbivores(state);        hooks?.end('herbivoresR');
@@ -415,6 +427,9 @@ export function createRenderer3D(
 
     // Re-place terrain decorations with new elevation
     placeTerrainDecor(world, getCellElevation, decor);
+
+    // Rebuild grass layer elevation texture
+    grassLayer.rebuildElevation(getCellElevation);
 
     // Force full update on next frame
     state.lastProcessedTick = -1;
