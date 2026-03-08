@@ -60,8 +60,9 @@ export function createRenderer3D(
 
   // ── Plants (24 subtype meshes + seeds) ──
   const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
-  for (const mesh of subtypeMeshes) {
-    mesh.castShadow = true;
+  for (let i = 0; i < subtypeMeshes.length; i++) {
+    const mesh = subtypeMeshes[i];
+    mesh.castShadow = i >= 6; // skip shadow casting for grass (0-5)
     scene.add(mesh);
   }
   const seeds = createSeedMesh();
