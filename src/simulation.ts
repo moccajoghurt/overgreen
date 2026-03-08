@@ -87,8 +87,24 @@ function phaseRechargeWater(world: World): void {
   }
 }
 
+// Pre-computed shadow values per plant, reused across ticks to avoid allocations
+const shadowCache = new Map<number, { sr: number; shs: number }>();
+
 function phaseCalculateLight(world: World): void {
   const eraMults = getEffectiveEraMultipliers(world.environment.era);
+  const shadowMult = eraMults.shadowMult;
+
+  // Build per-plant shadow cache (one getPlantConstants call per plant, not per neighbor visit)
+  shadowCache.clear();
+  for (const plant of world.plants.values()) {
+    if (!plant.alive) continue;
+    const w = Math.max(0, Math.min(1, plant.genome.woodiness));
+    shadowCache.set(plant.id, {
+      sr: 0.05 + (0.25 - 0.05) * w,   // lerpVal(GRASS.SHADOW_REDUCTION, SIM.SHADOW_REDUCTION, w)
+      shs: 1.0 + (3.0 - 1.0) * w,     // lerpVal(GRASS.SHADOW_HEIGHT_SCALE, SIM.SHADOW_HEIGHT_SCALE, w)
+    });
+  }
+
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
@@ -111,9 +127,9 @@ function phaseCalculateLight(world: World): void {
             // Only tall plants cast shade at distance 2 (canopy reach)
             if (dist > 1 && nPlant.height < 3.0) continue;
             const diff = nPlant.height - myHeight;
-            const npc = getPlantConstants(nPlant.genome);
-            const nShadow = npc.shadowReduction * eraMults.shadowMult / dist;
-            shadeSum += nShadow * Math.min(1, diff / npc.shadowHeightScale);
+            const sc = shadowCache.get(nPlant.id)!;
+            const nShadow = sc.sr * shadowMult / dist;
+            shadeSum += nShadow * Math.min(1, diff / sc.shs);
           }
         }
       }
