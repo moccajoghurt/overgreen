@@ -263,13 +263,23 @@ function renderDyingBurning(
 
 // ── Full rebuild path ──
 
-function fullRebuild(state: RendererState, mtxArrays: Float32Array[], clrArrays: Float32Array[]): void {
+function fullRebuild(
+  state: RendererState,
+  mtxArrays: Float32Array[], clrArrays: Float32Array[],
+  mtxArraysLow: Float32Array[], clrArraysLow: Float32Array[],
+): void {
   const { world, growingPlants, getCellElevation } = state;
   const subtypeCounts = state.subtypeLiveCounts;
+  const subtypeCountsLow = state.subtypeLiveCountsLow;
   subtypeCounts.fill(0);
+  subtypeCountsLow.fill(0);
   state.plantIndex.clear();
   state.prevPlantHeights.clear();
   state.prevPlantDisease.clear();
+
+  const camX = state.camera.position.x;
+  const camZ = state.camera.position.z;
+  const lodDistSq = state.lodDistSq;
 
   // ── Reuse snapshot map ──
   const newSnapshots = state.nextSnapshots;
@@ -325,27 +335,39 @@ function fullRebuild(state: RendererState, mtxArrays: Float32Array[], clrArrays:
       plant.x, plant.y, plant.lineageRoot,
     );
 
-    const idx = subtypeCounts[subtype]++;
-    state.subtypePlantIds[subtype][idx] = plant.id;
-    state.plantIndex.set(plant.id, { subtype, idx });
+    // LOD: pick hi or lo mesh based on distance to camera
+    const dx = wx - camX;
+    const dz = wz - camZ;
+    const isLow = dx * dx + dz * dz > lodDistSq;
+
+    if (isLow) {
+      const idx = subtypeCountsLow[subtype]++;
+      state.subtypePlantIdsLow[subtype][idx] = plant.id;
+      state.plantIndex.set(plant.id, { subtype, idx, low: true });
+      writePlantInstance(state, subtype, idx, mtxArraysLow, clrArraysLow,
+        wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
+    } else {
+      const idx = subtypeCounts[subtype]++;
+      state.subtypePlantIds[subtype][idx] = plant.id;
+      state.plantIndex.set(plant.id, { subtype, idx, low: false });
+      writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
+        wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
+    }
+
     state.prevPlantHeights.set(plant.id, plant.height);
     const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
     state.prevPlantDisease.set(plant.id, isDiseased);
-
-    writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
-      wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
   }
 
   // Swap snapshot buffers
   state.nextSnapshots = state.prevSnapshots;
   state.prevSnapshots = newSnapshots;
 
-  // Dying/burning appended after live plants
-  // Copy live counts so dying/burning appends after them
+  // Dying/burning appended after live plants (hi mesh only)
   const animCounts = new Uint32Array(subtypeCounts);
   renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
 
-  // ── Update counts and mark dirty ──
+  // ── Update counts and mark dirty (hi + lo) ──
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
     const count = animCounts[i];
     state.subtypeMeshes[i].count = count;
@@ -353,6 +375,14 @@ function fullRebuild(state: RendererState, mtxArrays: Float32Array[], clrArrays:
     if (count > 0) {
       state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
+
+    const countLow = subtypeCountsLow[i];
+    state.subtypeMeshesLow[i].count = countLow;
+    state.subtypeMeshesLow[i].visible = countLow > 0;
+    if (countLow > 0) {
+      state.subtypeMeshesLow[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshesLow[i].instanceColor!.needsUpdate = true;
     }
   }
 
@@ -364,10 +394,16 @@ function fullRebuild(state: RendererState, mtxArrays: Float32Array[], clrArrays:
 function incrementalUpdate(
   state: RendererState,
   mtxArrays: Float32Array[], clrArrays: Float32Array[],
+  mtxArraysLow: Float32Array[], clrArraysLow: Float32Array[],
 ): void {
   const { world, growingPlants, getCellElevation,
-    subtypePlantIds, plantIndex, subtypeLiveCounts, dirtyPlants,
+    subtypePlantIds, subtypePlantIdsLow, plantIndex,
+    subtypeLiveCounts, subtypeLiveCountsLow, dirtyPlants,
     prevPlantHeights, prevPlantDisease } = state;
+
+  const camX = state.camera.position.x;
+  const camZ = state.camera.position.z;
+  const lodDistSq = state.lodDistSq;
 
   // 1. Process deaths: swap-remove dead plants from index
   for (const [id] of state.prevSnapshots) {
@@ -375,23 +411,22 @@ function incrementalUpdate(
     // This plant died (already added to dyingPlants/burningPlants by ingestEvents)
     const entry = plantIndex.get(id);
     if (entry && entry.subtype > 4) {
-      const { subtype, idx } = entry;
-      const lastIdx = subtypeLiveCounts[subtype] - 1;
+      const { subtype, idx, low } = entry;
+      const counts = low ? subtypeLiveCountsLow : subtypeLiveCounts;
+      const ids = low ? subtypePlantIdsLow : subtypePlantIds;
+      const mArrs = low ? mtxArraysLow : mtxArrays;
+      const cArrs = low ? clrArraysLow : clrArrays;
+      const lastIdx = counts[subtype] - 1;
       if (lastIdx > idx) {
-        // Swap last plant into dead slot
-        const lastPlantId = subtypePlantIds[subtype][lastIdx];
-        subtypePlantIds[subtype][idx] = lastPlantId;
-        // Copy matrix and color from last slot to dead slot
-        const mArr = mtxArrays[subtype];
-        mArr.copyWithin(idx * 16, lastIdx * 16, lastIdx * 16 + 16);
-        const cArr = clrArrays[subtype];
-        cArr.copyWithin(idx * 3, lastIdx * 3, lastIdx * 3 + 3);
-        // Update reverse lookup for swapped plant
+        const lastPlantId = ids[subtype][lastIdx];
+        ids[subtype][idx] = lastPlantId;
+        mArrs[subtype].copyWithin(idx * 16, lastIdx * 16, lastIdx * 16 + 16);
+        cArrs[subtype].copyWithin(idx * 3, lastIdx * 3, lastIdx * 3 + 3);
         const swapEntry = plantIndex.get(lastPlantId);
         if (swapEntry) swapEntry.idx = idx;
-        dirtyPlants.add(lastPlantId); // mark swapped plant dirty (may need re-render if also changed)
+        dirtyPlants.add(lastPlantId);
       }
-      subtypeLiveCounts[subtype]--;
+      counts[subtype]--;
       plantIndex.delete(id);
     }
     prevPlantHeights.delete(id);
@@ -399,15 +434,29 @@ function incrementalUpdate(
     state.plantColorCache.delete(id);
   }
 
-  // 2. Process births: append new plants
+  // 2. Process births: append new plants (LOD based on current camera)
   for (const evt of world.germinationEvents) {
     const plant = world.plants.get(evt.plantId);
     if (!plant?.alive) continue;
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
     if (subtype <= 4) continue; // grass handled by shader
-    const idx = subtypeLiveCounts[subtype]++;
-    subtypePlantIds[subtype][idx] = plant.id;
-    plantIndex.set(plant.id, { subtype, idx });
+
+    const wx = plant.x - HALF + 0.5;
+    const wz = plant.y - HALF + 0.5;
+    const dx = wx - camX;
+    const dz = wz - camZ;
+    const isLow = dx * dx + dz * dz > lodDistSq;
+
+    if (isLow) {
+      const idx = subtypeLiveCountsLow[subtype]++;
+      subtypePlantIdsLow[subtype][idx] = plant.id;
+      plantIndex.set(plant.id, { subtype, idx, low: true });
+    } else {
+      const idx = subtypeLiveCounts[subtype]++;
+      subtypePlantIds[subtype][idx] = plant.id;
+      plantIndex.set(plant.id, { subtype, idx, low: false });
+    }
+
     prevPlantHeights.set(plant.id, plant.height);
     const isDiseased = world.environment.weatherOverlay[plant.y * GRID_WIDTH + plant.x] === WeatherOverlay.Diseased;
     prevPlantDisease.set(plant.id, isDiseased);
@@ -461,14 +510,14 @@ function incrementalUpdate(
   state.nextSnapshots = state.prevSnapshots;
   state.prevSnapshots = newSnapshots;
 
-  // 4. Write dirty instances only
+  // 4. Write dirty instances only (to whichever LOD mesh they belong to)
   for (const pid of dirtyPlants) {
     const entry = plantIndex.get(pid);
     if (!entry) continue;
     const plant = world.plants.get(pid);
     if (!plant?.alive) continue;
 
-    const { subtype, idx } = entry;
+    const { subtype, idx, low } = entry;
 
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
@@ -493,35 +542,43 @@ function incrementalUpdate(
       plant.x, plant.y, plant.lineageRoot,
     );
 
-    writePlantInstance(state, subtype, idx, mtxArrays, clrArrays,
+    const targetMtx = low ? mtxArraysLow : mtxArrays;
+    const targetClr = low ? clrArraysLow : clrArrays;
+    writePlantInstance(state, subtype, idx, targetMtx, targetClr,
       wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
 
     // Partial GPU upload for this instance
-    const mesh = state.subtypeMeshes[subtype];
+    const mesh = low ? state.subtypeMeshesLow[subtype] : state.subtypeMeshes[subtype];
     mesh.instanceMatrix.addUpdateRange(idx * 16, 16);
     mesh.instanceColor!.addUpdateRange(idx * 3, 3);
   }
   dirtyPlants.clear();
 
-  // 6. Dying/burning appended after live section
+  // 6. Dying/burning appended after live section (hi mesh only)
   const animCounts = new Uint32Array(subtypeLiveCounts);
   renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
 
-  // 7. Update counts and needsUpdate
+  // 7. Update counts and needsUpdate (hi + lo)
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
     const count = animCounts[i];
     const liveCount = subtypeLiveCounts[i];
     state.subtypeMeshes[i].count = count;
     state.subtypeMeshes[i].visible = count > 0;
     if (count > 0) {
-      // Dying/burning section must be explicitly marked for GPU upload —
-      // needsUpdate alone only uploads addUpdateRange'd regions when ranges exist.
       if (count > liveCount) {
         state.subtypeMeshes[i].instanceMatrix.addUpdateRange(liveCount * 16, (count - liveCount) * 16);
         state.subtypeMeshes[i].instanceColor!.addUpdateRange(liveCount * 3, (count - liveCount) * 3);
       }
       state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
+
+    const countLow = subtypeLiveCountsLow[i];
+    state.subtypeMeshesLow[i].count = countLow;
+    state.subtypeMeshesLow[i].visible = countLow > 0;
+    if (countLow > 0) {
+      state.subtypeMeshesLow[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshesLow[i].instanceColor!.needsUpdate = true;
     }
   }
 }
@@ -531,8 +588,9 @@ function incrementalUpdate(
 function animationOnlyUpdate(
   state: RendererState,
   mtxArrays: Float32Array[], clrArrays: Float32Array[],
+  mtxArraysLow: Float32Array[], clrArraysLow: Float32Array[],
 ): void {
-  const { world, growingPlants, getCellElevation, subtypeLiveCounts, dirtyPlants } = state;
+  const { world, growingPlants, getCellElevation, subtypeLiveCounts, subtypeLiveCountsLow, dirtyPlants } = state;
 
   // Advance growing plants and mark dirty (growScale changed)
   for (const [pid, growing] of growingPlants) {
@@ -568,34 +626,42 @@ function animationOnlyUpdate(
       plant.x, plant.y, plant.lineageRoot,
     );
 
-    writePlantInstance(state, entry.subtype, entry.idx, mtxArrays, clrArrays,
+    const targetMtx = entry.low ? mtxArraysLow : mtxArrays;
+    const targetClr = entry.low ? clrArraysLow : clrArrays;
+    writePlantInstance(state, entry.subtype, entry.idx, targetMtx, targetClr,
       wx, wz, baseY, plant.height, growScale, plant.id, tr, tg, tb);
 
-    const mesh = state.subtypeMeshes[entry.subtype];
+    const mesh = entry.low ? state.subtypeMeshesLow[entry.subtype] : state.subtypeMeshes[entry.subtype];
     mesh.instanceMatrix.addUpdateRange(entry.idx * 16, 16);
     mesh.instanceColor!.addUpdateRange(entry.idx * 3, 3);
   }
   dirtyPlants.clear();
 
-  // Dying/burning appended after live section
+  // Dying/burning appended after live section (hi mesh only)
   const animCounts = new Uint32Array(subtypeLiveCounts);
   renderDyingBurning(state, animCounts, mtxArrays, clrArrays);
 
-  // Update counts
+  // Update counts (hi + lo)
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
     const count = animCounts[i];
     const liveCount = subtypeLiveCounts[i];
     state.subtypeMeshes[i].count = count;
     state.subtypeMeshes[i].visible = count > 0;
     if (count > 0) {
-      // Dying/burning section must be explicitly marked for GPU upload —
-      // needsUpdate alone only uploads addUpdateRange'd regions when ranges exist.
       if (count > liveCount) {
         state.subtypeMeshes[i].instanceMatrix.addUpdateRange(liveCount * 16, (count - liveCount) * 16);
         state.subtypeMeshes[i].instanceColor!.addUpdateRange(liveCount * 3, (count - liveCount) * 3);
       }
       state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
+    }
+
+    const countLow = subtypeLiveCountsLow[i];
+    state.subtypeMeshesLow[i].count = countLow;
+    state.subtypeMeshesLow[i].visible = countLow > 0;
+    if (countLow > 0) {
+      state.subtypeMeshesLow[i].instanceMatrix.needsUpdate = true;
+      state.subtypeMeshesLow[i].instanceColor!.needsUpdate = true;
     }
   }
 }
@@ -605,8 +671,20 @@ function animationOnlyUpdate(
 // ═══════════════════════════════════════════════════════
 
 export function updatePlants(state: RendererState): void {
-  const { world, subtypeMeshes, growingPlants, flyingSeeds,
+  const { world, subtypeMeshes, subtypeMeshesLow, growingPlants, flyingSeeds,
     dyingPlants, burningPlants } = state;
+
+  // Detect camera movement for LOD reassignment
+  const camX = state.camera.position.x;
+  const camZ = state.camera.position.z;
+  const camDx = camX - state.lastLodCamX;
+  const camDz = camZ - state.lastLodCamZ;
+  const cameraMoved = camDx * camDx + camDz * camDz > 4; // >2 units
+  if (cameraMoved) {
+    state.forceFullRebuild = true;
+    state.lastLodCamX = camX;
+    state.lastLodCamZ = camZ;
+  }
 
   // Skip if no tick occurred and no animations are active
   const hasTicked = world.tick !== state.lastPlantTick;
@@ -629,9 +707,11 @@ export function updatePlants(state: RendererState): void {
     state.lastPlantColorMode = state.colorMode;
   }
 
-  // Pre-extract instance buffer arrays for each subtype
+  // Pre-extract instance buffer arrays for each subtype (hi + lo)
   const mtxArrays = subtypeMeshes.map(m => m.instanceMatrix.array as Float32Array);
   const clrArrays = subtypeMeshes.map(m => m.instanceColor!.array as Float32Array);
+  const mtxArraysLow = subtypeMeshesLow.map(m => m.instanceMatrix.array as Float32Array);
+  const clrArraysLow = subtypeMeshesLow.map(m => m.instanceColor!.array as Float32Array);
 
   // Decision: which path to take?
   const needsFullRebuild = state.forceFullRebuild || hoverChanged || colorModeChanged;
@@ -639,14 +719,14 @@ export function updatePlants(state: RendererState): void {
   if (needsFullRebuild) {
     // Full rebuild needed — ingest events, then rebuild everything
     ingestEvents(state);
-    fullRebuild(state, mtxArrays, clrArrays);
+    fullRebuild(state, mtxArrays, clrArrays, mtxArraysLow, clrArraysLow);
   } else if (hasTicked) {
     // Incremental update — only rewrite dirty instances
     ingestEvents(state);
-    incrementalUpdate(state, mtxArrays, clrArrays);
+    incrementalUpdate(state, mtxArrays, clrArrays, mtxArraysLow, clrArraysLow);
   } else {
     // Animation-only — advance growing/dying/burning at stable indices
-    animationOnlyUpdate(state, mtxArrays, clrArrays);
+    animationOnlyUpdate(state, mtxArrays, clrArrays, mtxArraysLow, clrArraysLow);
   }
 }
 

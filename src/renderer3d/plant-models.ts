@@ -2290,8 +2290,8 @@ const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]); // turfgrass, tallgrass, bunch
  *  Carpet provides base coverage; these provide per-type visual identity. */
 const GRASS_ACCENT = new Set([0, 1, 2, 4]); // turf, tall, bunch, spreading
 
-export function buildSubtypeModels(): SubtypeModel[] {
-  return BUILDERS.map((build, i) => {
+function buildModelsFromBuilders(builders: (() => THREE.Group)[]): SubtypeModel[] {
+  return builders.map((build, i) => {
     const group = build();
     const isGC = GROUND_COVER.has(i);
     const isAccent = GRASS_ACCENT.has(i);
@@ -2324,4 +2324,12 @@ export function buildSubtypeModels(): SubtypeModel[] {
 
     return { geometry: merged, maturityHeight: MATURITY_HEIGHT[i], groundCover: isGC };
   });
+}
+
+export function buildSubtypeModels(): SubtypeModel[] {
+  return buildModelsFromBuilders(BUILDERS);
+}
+
+export function buildSubtypeModelsLow(): SubtypeModel[] {
+  return buildModelsFromBuilders(BUILDERS_LOW);
 }

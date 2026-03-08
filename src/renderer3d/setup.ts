@@ -6,7 +6,7 @@ import {
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
 } from './state';
-import { buildSubtypeModels } from './plant-models';
+import { buildSubtypeModels, buildSubtypeModelsLow } from './plant-models';
 import { createRockFormations, RockFormations } from './rocks';
 import { createTerrainDetailTexture } from './terrain-detail-texture';
 
@@ -243,13 +243,10 @@ export function rebuildTerrainGeometry(
 
 // ── Per-subtype instanced meshes (24 subtypes, one InstancedMesh each) ──
 
-export function createSubtypeMeshes(): {
-  meshes: THREE.InstancedMesh[];
-  maturityHeights: Float32Array;
-  groundCover: boolean[];
-} {
-  const models = buildSubtypeModels();
-  const meshes = models.map(m => {
+import type { SubtypeModel } from './plant-models';
+
+function createMeshesFromModels(models: SubtypeModel[]): THREE.InstancedMesh[] {
+  return models.map(m => {
     const meshMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
@@ -265,9 +262,21 @@ export function createSubtypeMeshes(): {
     mesh.frustumCulled = false;
     return mesh;
   });
+}
+
+export function createSubtypeMeshes(): {
+  meshes: THREE.InstancedMesh[];
+  meshesLow: THREE.InstancedMesh[];
+  maturityHeights: Float32Array;
+  groundCover: boolean[];
+} {
+  const models = buildSubtypeModels();
+  const modelsLow = buildSubtypeModelsLow();
+  const meshes = createMeshesFromModels(models);
+  const meshesLow = createMeshesFromModels(modelsLow);
   const maturityHeights = new Float32Array(models.map(m => m.maturityHeight));
   const groundCover = models.map(m => m.groundCover);
-  return { meshes, maturityHeights, groundCover };
+  return { meshes, meshesLow, maturityHeights, groundCover };
 }
 
 // ── Seed mesh (flying seeds — separate from plant subtypes) ──

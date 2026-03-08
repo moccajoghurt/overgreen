@@ -63,13 +63,14 @@ export function createRenderer3D(
   const grassLayer = createGrassLayer(getCellElevation);
   scene.add(grassLayer.mesh);
 
-  // ── Plants (24 subtype meshes + seeds) ──
-  const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
+  // ── Plants (24 subtype meshes × 2 LOD levels + seeds) ──
+  const { meshes: subtypeMeshes, meshesLow: subtypeMeshesLow, maturityHeights, groundCover } = createSubtypeMeshes();
   for (let i = 0; i < subtypeMeshes.length; i++) {
     if (i <= 4) continue; // subtypes 0-4: handled entirely by shader grass field
-    const mesh = subtypeMeshes[i];
-    mesh.castShadow = i >= 6; // skip shadow casting for sedge (5)
-    scene.add(mesh);
+    subtypeMeshes[i].castShadow = i >= 6;
+    subtypeMeshesLow[i].castShadow = i >= 6;
+    scene.add(subtypeMeshes[i]);
+    scene.add(subtypeMeshesLow[i]);
   }
   const seeds = createSeedMesh();
   scene.add(seeds);
@@ -176,6 +177,7 @@ export function createRenderer3D(
     getCellElevation,
     getCellSlope,
     subtypeMeshes,
+    subtypeMeshesLow,
     maturityHeights,
     groundCover,
     grassLayer,
@@ -199,12 +201,17 @@ export function createRenderer3D(
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
     subtypePlantIds: Array.from({ length: 24 }, () => new Int32Array(MAX_PER_SUBTYPE)),
+    subtypePlantIdsLow: Array.from({ length: 24 }, () => new Int32Array(MAX_PER_SUBTYPE)),
     plantIndex: new Map(),
     subtypeLiveCounts: new Uint32Array(24),
+    subtypeLiveCountsLow: new Uint32Array(24),
     dirtyPlants: new Set(),
     prevPlantHeights: new Map(),
     prevPlantDisease: new Map(),
     forceFullRebuild: true,
+    lodDistSq: 25 * 25,
+    lastLodCamX: Infinity,
+    lastLodCamZ: Infinity,
     ...weather,
     ...events,
     herbivoreMesh,
@@ -293,7 +300,7 @@ export function createRenderer3D(
       let shadowDirty = isFirstFrame || world.tick % 30 === 0;
       if (!shadowDirty) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          if (state.subtypeLiveCounts[i] !== state.lastShadowCounts[i]) {
+          if (state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i] !== state.lastShadowCounts[i]) {
             shadowDirty = true;
             break;
           }
@@ -302,7 +309,7 @@ export function createRenderer3D(
       if (shadowDirty) {
         webgl.shadowMap.needsUpdate = true;
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          state.lastShadowCounts[i] = state.subtypeLiveCounts[i];
+          state.lastShadowCounts[i] = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i];
         }
       }
     }
@@ -452,6 +459,7 @@ export function createRenderer3D(
     state.nextSnapshots.clear();
     state.plantIndex.clear();
     state.subtypeLiveCounts.fill(0);
+    state.subtypeLiveCountsLow.fill(0);
     state.dirtyPlants.clear();
     state.prevPlantHeights.clear();
     state.prevPlantDisease.clear();

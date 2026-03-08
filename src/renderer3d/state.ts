@@ -108,8 +108,9 @@ export interface RendererState {
   getCellElevation: (cx: number, cy: number) => number;
   getCellSlope: (cx: number, cy: number) => Float32Array;
 
-  // Plant meshes (24 subtypes — one InstancedMesh per subtype)
+  // Plant meshes (24 subtypes — one InstancedMesh per subtype, hi + lo LOD)
   subtypeMeshes: THREE.InstancedMesh[];
+  subtypeMeshesLow: THREE.InstancedMesh[];
   maturityHeights: Float32Array;
   groundCover: boolean[];
 
@@ -145,12 +146,19 @@ export interface RendererState {
 
   // Dirty-tracking for incremental plant instance updates
   subtypePlantIds: Int32Array[];      // [24][MAX_PER_SUBTYPE] — plantId at each instance index
-  plantIndex: Map<number, { subtype: number; idx: number }>;  // reverse lookup
+  subtypePlantIdsLow: Int32Array[];   // [24][MAX_PER_SUBTYPE] — plantId at each instance index (low LOD)
+  plantIndex: Map<number, { subtype: number; idx: number; low: boolean }>;  // reverse lookup
   subtypeLiveCounts: Uint32Array;     // [24] — live plant count per subtype
+  subtypeLiveCountsLow: Uint32Array;  // [24] — live plant count per subtype (low LOD)
   dirtyPlants: Set<number>;           // cleared each frame
   prevPlantHeights: Map<number, number>;  // for height-change detection
   prevPlantDisease: Map<number, boolean>; // for disease-change detection
   forceFullRebuild: boolean;          // true on first frame, highlight/colorMode/terrain changes
+
+  // LOD distance threshold (squared) and camera tracking
+  lodDistSq: number;
+  lastLodCamX: number;
+  lastLodCamZ: number;
 
   // Weather meshes & particles
   snowMesh: THREE.InstancedMesh;
