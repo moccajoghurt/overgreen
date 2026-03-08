@@ -1,77 +1,6 @@
-import { SIM, TerrainType, WeatherOverlay, Environment, Season, World } from '../types';
+import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
 import { Archetype, archetype } from '../types';
 import { RendererState, GRID, lerp } from './state';
-
-// ── Water adjacency cache ──
-let waterAdjCache: Float32Array | null = null;
-let waterAdjCacheTick = -1;
-
-const WATER_ADJ_RADIUS = 2.5;
-
-function computeWaterAdjacency(world: World): Float32Array {
-  if (waterAdjCache && waterAdjCacheTick === 0 && world.tick !== 0) {
-    return waterAdjCache;
-  }
-  if (waterAdjCache && waterAdjCacheTick >= 0 && world.tick > 0) {
-    return waterAdjCache;
-  }
-
-  const riverCenters: [number, number][] = [];
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      if (world.grid[row][col].terrainType === TerrainType.River) {
-        riverCenters.push([row + 0.5, col + 0.5]);
-      }
-    }
-  }
-
-  const adj = new Float32Array(GRID * GRID);
-  if (riverCenters.length === 0) {
-    waterAdjCache = adj;
-    waterAdjCacheTick = world.tick;
-    return adj;
-  }
-
-  const searchR = Math.ceil(WATER_ADJ_RADIUS) + 1;
-
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      if (world.grid[row][col].terrainType === TerrainType.River) continue;
-
-      const cy = row + 0.5, cx = col + 0.5;
-      let minDist2 = WATER_ADJ_RADIUS * WATER_ADJ_RADIUS + 1;
-
-      for (let dr = -searchR; dr <= searchR; dr++) {
-        for (let dc = -searchR; dc <= searchR; dc++) {
-          const nr = row + dr, nc = col + dc;
-          if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID
-            && world.grid[nr][nc].terrainType === TerrainType.River) {
-            const dy = cy - (nr + 0.5);
-            const dx = cx - (nc + 0.5);
-            const d2 = dy * dy + dx * dx;
-            if (d2 < minDist2) minDist2 = d2;
-          }
-        }
-      }
-
-      const dist = Math.sqrt(minDist2);
-      if (dist < WATER_ADJ_RADIUS) {
-        const t = dist / WATER_ADJ_RADIUS;
-        adj[row * GRID + col] = 1 - t * t * (3 - 2 * t);
-      }
-    }
-  }
-
-  waterAdjCache = adj;
-  waterAdjCacheTick = world.tick;
-  return adj;
-}
-
-/** Invalidate water adjacency cache (call on scenario reload). */
-export function invalidateWaterAdjacency(): void {
-  waterAdjCache = null;
-  waterAdjCacheTick = -1;
-}
 
 function computeSnowCoverage(env: Environment): number {
   if (env.season === Season.Autumn && env.seasonProgress > 0.8) {
@@ -132,11 +61,6 @@ export function updateTerrainColors(state: RendererState): void {
   const shrubTR = shrubTintColors[ti0] + (shrubTintColors[ti1] - shrubTintColors[ti0]) * st;
   const shrubTG = shrubTintColors[ti0 + 1] + (shrubTintColors[ti1 + 1] - shrubTintColors[ti0 + 1]) * st;
   const shrubTB = shrubTintColors[ti0 + 2] + (shrubTintColors[ti1 + 2] - shrubTintColors[ti0 + 2]) * st;
-
-  // ── Water adjacency (cached) ──
-  const waterAdj = computeWaterAdjacency(world);
-  const wetR = 0.135, wetG = 0.162, wetB = 0.225;
-  const WET_BLEND = 0.35;
 
   // ── Pre-build remaining-ticks lookup for weather fade-outs ──
   const cellCount = GRID * GRID;
@@ -311,9 +235,6 @@ export function updateTerrainColors(state: RendererState): void {
         wxBlend = 0.35 * Math.min(1, remaining / SIM.DISEASE_SCAR_DURATION);
       }
 
-      // Water adjacency (use per-cell value directly, already smooth)
-      const wa = waterAdj[cellIdx] * WET_BLEND;
-
       const base = cellIdx * 18;
 
       const corners = [cTL, cBL, cTR, cBL, cBR, cTR];
@@ -341,11 +262,6 @@ export function updateTerrainColors(state: RendererState): void {
             vb = lerp(vb, wxB, wxBlend);
           }
         }
-
-        // Wet-earth blend
-        vr = lerp(vr, wetR, wa);
-        vg = lerp(vg, wetG, wa);
-        vb = lerp(vb, wetB, wa);
 
         // Plant tint
         const cw = cornerW[ci];
