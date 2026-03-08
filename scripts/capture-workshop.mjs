@@ -2,7 +2,7 @@
  * Capture a plant workshop screenshot via headless Puppeteer.
  *
  * Usage:
- *   node scripts/capture-workshop.mjs [--subtype 6] [--port 5173]
+ *   node scripts/capture-workshop.mjs [--subtype 6] [--port 5173] [--compare]
  *
  * Requires: Vite dev server running (`npm run dev`)
  * Output:   screenshots/workshop.png
@@ -15,14 +15,18 @@ function getArg(name, fallback) {
   const i = args.indexOf(name);
   return i !== -1 && args[i + 1] ? args[i + 1] : fallback;
 }
+function hasFlag(name) {
+  return args.includes(name);
+}
 
 const PORT = getArg('--port', '5173');
 const SUBTYPE = getArg('--subtype', '6');
 const ANGLES = getArg('--angles', '4');
+const COMPARE = hasFlag('--compare');
 const OUT = 'screenshots';
 const CELL = 400;
 const W = parseInt(ANGLES, 10) * CELL;
-const H = CELL;
+const H = COMPARE ? CELL * 2 : CELL;
 
 await mkdir(OUT, { recursive: true });
 
@@ -41,7 +45,8 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: W, height: H, deviceScaleFactor: 2 });
 
-const url = `http://localhost:${PORT}/workshop.html?subtype=${SUBTYPE}&angles=${ANGLES}`;
+const compareParam = COMPARE ? '&compare=1' : '';
+const url = `http://localhost:${PORT}/workshop.html?subtype=${SUBTYPE}&angles=${ANGLES}${compareParam}`;
 console.log(`Navigating to ${url}`);
 await page.goto(url, { waitUntil: 'networkidle0', timeout: 15000 });
 

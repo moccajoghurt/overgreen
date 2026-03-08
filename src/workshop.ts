@@ -4,22 +4,25 @@
  * Query params:
  *   ?subtype=6        subtype index (default 6 = Oak)
  *   ?angles=3         number of camera angles (default 4)
+ *   ?compare=1        show high-mesh (top) and low-mesh (bottom) side by side
  *
  * Signals readiness by setting window.__workshopReady = true
  */
 import * as THREE from 'three';
-import { BUILDERS, scaleToTarget, TARGET_MODEL_HEIGHTS } from './renderer3d/plant-models';
+import { BUILDERS, BUILDERS_LOW, scaleToTarget, TARGET_MODEL_HEIGHTS } from './renderer3d/plant-models';
 
 // ── Config from query params ──
 const params = new URLSearchParams(location.search);
 const subtypeIdx = parseInt(params.get('subtype') ?? '6', 10);
 const angleCount = parseInt(params.get('angles') ?? '4', 10);
+const compareMode = params.get('compare') === '1';
 
 // ── Layout ──
 const CELL = 400;                       // px per view
 const COLS = angleCount;
+const ROWS = compareMode ? 2 : 1;
 const W = COLS * CELL;
-const H = CELL;
+const H = ROWS * CELL;
 
 // ── Subtype names for label ──
 const NAMES: Record<number, string> = {
@@ -49,9 +52,7 @@ renderer.toneMappingExposure = 1.1;
 // ── Build the plant ──
 const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]);
 
-function buildPlant(): THREE.Group {
-  const plantGroup = BUILDERS[subtypeIdx]();
-
+function scalePlant(plantGroup: THREE.Group): void {
   if (GROUND_COVER.has(subtypeIdx)) {
     plantGroup.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(plantGroup);
@@ -63,48 +64,52 @@ function buildPlant(): THREE.Group {
   } else {
     scaleToTarget(plantGroup, subtypeIdx);
   }
-
-  return plantGroup;
 }
 
-// ── Scene setup ──
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf0ede8);
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dir = new THREE.DirectionalLight(0xfff5e0, 1.0);
-dir.position.set(3, 5, 2);
-scene.add(dir);
-scene.add(new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3));
+function makeScene(builders: (() => THREE.Group)[]): { scene: THREE.Scene; centerY: number; camDist: number } {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf0ede8);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const dir = new THREE.DirectionalLight(0xfff5e0, 1.0);
+  dir.position.set(3, 5, 2);
+  scene.add(dir);
+  scene.add(new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3));
 
-// Ground disc
-const groundGeo = new THREE.BoxGeometry(1, 0.05, 1);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0xc4a882, roughness: 1 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.position.y = -0.025;
-scene.add(ground);
+  // Ground disc
+  const groundGeo = new THREE.BoxGeometry(1, 0.05, 1);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0xc4a882, roughness: 1 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.position.y = -0.025;
+  scene.add(ground);
 
-const plant = buildPlant();
-scene.add(plant);
+  const plantGroup = builders[subtypeIdx]();
+  scalePlant(plantGroup);
+  scene.add(plantGroup);
 
-// Measure plant height for camera framing
-plant.updateMatrixWorld(true);
-const bbox = new THREE.Box3().setFromObject(plant);
-const plantH = bbox.max.y - bbox.min.y;
-const centerY = (bbox.max.y + bbox.min.y) / 2;
+  plantGroup.updateMatrixWorld(true);
+  const bbox = new THREE.Box3().setFromObject(plantGroup);
+  const plantH = bbox.max.y - bbox.min.y;
+  const centerY = (bbox.max.y + bbox.min.y) / 2;
+  const plantW = Math.max(bbox.max.x - bbox.min.x, bbox.max.z - bbox.min.z);
+  const frameDim = Math.max(plantH, plantW) || 0.5;
+  const camDist = Math.max(frameDim * 2.2, 0.8);
+
+  return { scene, centerY, camDist };
+}
+
+// Build scene(s)
+const hiScene = makeScene(BUILDERS);
+const loScene = compareMode ? makeScene(BUILDERS_LOW) : null;
+
+// Use the high-mesh framing for both so they're at the same scale
+const { centerY, camDist } = hiScene;
 
 // ── Camera angles ──
-// Frame proportionally — use plant width too so low-spreading plants aren't microscopic
-const plantW = Math.max(bbox.max.x - bbox.min.x, bbox.max.z - bbox.min.z);
-const frameDim = Math.max(plantH, plantW) || 0.5;
-const camDist = Math.max(frameDim * 2.2, 0.8);
 const cameras: THREE.PerspectiveCamera[] = [];
-
 for (let i = 0; i < angleCount; i++) {
   const cam = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
   const angle = (i / angleCount) * Math.PI * 2;
-
-  // Orbit at slight elevation
-  const elevAngle = 0.35; // ~20 degrees above horizon
+  const elevAngle = 0.35;
   cam.position.set(
     Math.sin(angle) * camDist * Math.cos(elevAngle),
     centerY + camDist * Math.sin(elevAngle),
@@ -115,11 +120,23 @@ for (let i = 0; i < angleCount; i++) {
 }
 
 // ── Render all views ──
+// Top row: high-mesh
 for (let i = 0; i < cameras.length; i++) {
   const vx = i * CELL;
-  renderer.setViewport(vx, 0, CELL, CELL);
-  renderer.setScissor(vx, 0, CELL, CELL);
-  renderer.render(scene, cameras[i]);
+  const vy = compareMode ? CELL : 0; // WebGL y=0 is bottom, so top row = H - CELL
+  renderer.setViewport(vx, vy, CELL, CELL);
+  renderer.setScissor(vx, vy, CELL, CELL);
+  renderer.render(hiScene.scene, cameras[i]);
+}
+
+// Bottom row: low-mesh (compare mode only)
+if (compareMode && loScene) {
+  for (let i = 0; i < cameras.length; i++) {
+    const vx = i * CELL;
+    renderer.setViewport(vx, 0, CELL, CELL);
+    renderer.setScissor(vx, 0, CELL, CELL);
+    renderer.render(loScene.scene, cameras[i]);
+  }
 }
 
 // ── Draw labels on a 2D overlay ──
@@ -137,6 +154,14 @@ ctx.font = 'bold 16px monospace';
 ctx.fillStyle = '#fff';
 ctx.fillText(label, 10, 24);
 
+if (compareMode) {
+  ctx.font = 'bold 14px monospace';
+  ctx.fillStyle = '#8f8';
+  ctx.fillText('HIGH MESH', 10, 44);
+  ctx.fillStyle = '#f88';
+  ctx.fillText('LOW MESH', 10, CELL + 20);
+}
+
 const angleLabels = ['Front', 'Side R', 'Back', 'Side L', '45°', '135°', '225°', '315°'];
 for (let i = 0; i < angleCount; i++) {
   ctx.font = '12px monospace';
@@ -146,4 +171,4 @@ for (let i = 0; i < angleCount; i++) {
 
 // Signal ready for puppeteer
 (window as any).__workshopReady = true;
-console.log(`[workshop] Rendered subtype ${subtypeIdx} (${NAMES[subtypeIdx]}) from ${angleCount} angles`);
+console.log(`[workshop] Rendered subtype ${subtypeIdx} (${NAMES[subtypeIdx]}) from ${angleCount} angles${compareMode ? ' [COMPARE]' : ''}`);

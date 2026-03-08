@@ -1578,6 +1578,547 @@ function buildEpiphytic(): THREE.Group {
   return g;
 }
 
+// ── Low-mesh builders (LOD versions, 8–12 meshes each) ──
+
+function buildSedgeLow(): THREE.Group {
+  const g = new THREE.Group();
+  const stemColors = [mat(0x77bb55), mat(0x88cc66), mat(0x66aa44)];
+  const umbColors = [matDS(0x55aa44), matDS(0x66bb55)];
+  // Very dense stem grid — packed tight so ground is occluded from typical camera angles
+  const half = 0.46;
+  const step = 0.15;
+  let si = 0;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      if (Math.random() > 0.95) continue;
+      const sx = gx + (Math.random() - 0.5) * step * 0.35;
+      const sz = gz + (Math.random() - 0.5) * step * 0.35;
+      const edgeDist = Math.max(Math.abs(sx), Math.abs(sz)) / half;
+      const tierScale = edgeDist < 0.35 ? 1.0 : edgeDist < 0.7 ? 0.75 : 0.5;
+      const h = (1.2 + Math.random() * 0.4) * tierScale;
+      // Slightly wider stems for better occlusion
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.030, h, 3), stemColors[si % 3]);
+      stem.position.set(sx, h / 2, sz);
+      g.add(stem);
+      // Drooping spoke plane — papyrus umbel hint
+      const spokeLen = h * 0.17;
+      const spokeGeo = new THREE.PlaneGeometry(0.022, spokeLen, 1, 2);
+      const spos = spokeGeo.attributes.position;
+      for (let vi = 0; vi < spos.count; vi++) {
+        const sy = spos.getY(vi);
+        const t = (sy + spokeLen / 2) / spokeLen;
+        spos.setZ(vi, spokeLen * 0.2 * t * t);
+      }
+      spokeGeo.computeVertexNormals();
+      const spoke = new THREE.Mesh(spokeGeo, umbColors[si % 2]);
+      spoke.position.set(sx, h, sz);
+      spoke.rotation.y = si * 0.7;
+      spoke.rotation.z = -0.5;
+      g.add(spoke);
+      si++;
+    }
+  }
+  return g;
+}
+
+function buildOakLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Trunk + flare
+  addTrunk(g, 0, 0, 0, 0.18, 0.13, 0.6, 0x5a3a1a);
+  const flare = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 0.2, 6), mat(0x4a2a10));
+  flare.position.y = 0.1;
+  g.add(flare);
+  // Broad canopy — 6 large spheres for lobe silhouette
+  const cc = [0x66bb44, 0x5aaa3a, 0x77cc55, 0x6ab844, 0x55a033, 0x66bb44];
+  const lobes: [number, number, number, number][] = [
+    [0.45, 1.1, 0.15, 0.45], [-0.4, 1.15, -0.2, 0.42],
+    [0.1, 1.2, 0.4, 0.4], [-0.15, 1.1, -0.4, 0.38],
+    [0.0, 1.25, 0.0, 0.5], [0.0, 0.9, 0.0, 0.4],
+  ];
+  for (let i = 0; i < lobes.length; i++) {
+    const [x, y, z, r] = lobes[i];
+    addCanopy(g, x, y, z, r, cc[i]);
+  }
+  return g;
+}
+
+function buildMagnoliaLow(): THREE.Group {
+  const g = new THREE.Group();
+  addTrunk(g, 0, 0, 0, 0.16, 0.11, 0.5, 0xbbaa99);
+  // Egg-shaped crown — 4 spheres
+  const cc = [0x44aa55, 0x55bb66, 0x3d9e48, 0x66cc77];
+  addCanopy(g, 0, 1.15, 0, 0.55, cc[0]);
+  addCanopy(g, 0, 1.4, 0, 0.48, cc[1]);
+  addCanopy(g, 0, 0.9, 0, 0.45, cc[2]);
+  addCanopy(g, 0, 1.55, 0, 0.35, cc[3]);
+  // 6 bloom spheres distributed around canopy — magnolia's defining feature
+  const bloomMats = [
+    mat(0xfff0dd, { roughness: 0.3 }),
+    mat(0xffccdd, { roughness: 0.3 }),
+    mat(0xffe8d0, { roughness: 0.3 }),
+  ];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const y = 0.85 + (i % 3) * 0.25;
+    const dist = 0.45 + (i % 2) * 0.05;
+    const m = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.10, 0),
+      bloomMats[i % 3],
+    );
+    m.position.set(Math.cos(a) * dist, y, Math.sin(a) * dist);
+    g.add(m);
+  }
+  return g;
+}
+
+function buildConiferLow(): THREE.Group {
+  const g = new THREE.Group();
+  addTrunk(g, 0, 0, 0, 0.08, 0.05, 0.35, 0x8a5a3a);
+  // 7 stacked cones — defining tier silhouette
+  const palette = [0x2d7744, 0x338850, 0x3a9955, 0x44aa60, 0x4ebb6a, 0x55cc77, 0x66dd88];
+  for (let i = 0; i < 7; i++) {
+    const y = 0.3 + i * 0.28;
+    const r = 0.8 - i * 0.1;
+    const h = 0.35 + (1 - i / 6) * 0.1;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), mat(palette[i]));
+    cone.position.set(0, y, 0);
+    g.add(cone);
+  }
+  return g;
+}
+
+function buildTropicalLow(): THREE.Group {
+  const g = new THREE.Group();
+  addTrunk(g, 0, 0, 0, 0.16, 0.1, 1.1, 0x7a6a5a);
+  // 2 buttress roots
+  const buttMat = mat(0x6a5a4a);
+  for (let i = 0; i < 2; i++) {
+    const a = (i / 2) * Math.PI * 2 + 0.4;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.22), buttMat);
+    m.position.set(Math.cos(a) * 0.18, 0.22, Math.sin(a) * 0.18);
+    m.rotation.y = a;
+    g.add(m);
+  }
+  // Canopy — 5 large spheres
+  const cc = [0x44bb55, 0x55cc66, 0x3aaa44, 0x66dd77, 0x88dd55];
+  addCanopy(g, 0, 1.55, 0, 0.65, cc[0]);
+  addCanopy(g, 0.4, 1.4, 0.2, 0.45, cc[1]);
+  addCanopy(g, -0.3, 1.35, -0.3, 0.4, cc[2]);
+  addCanopy(g, 0, 1.75, 0, 0.4, cc[3]);
+  addCanopy(g, 0, 1.1, 0, 0.35, cc[4]);
+  return g;
+}
+
+function buildPalmLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Curved trunk — fewer segments
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.06, 0.5, 0.03),
+    new THREE.Vector3(0.1, 1.1, 0),
+    new THREE.Vector3(0.07, 1.6, -0.02),
+    new THREE.Vector3(0.04, 2.0, 0),
+  ]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.065, 4, false), mat(0x9a8a7a)));
+  // Crown shaft
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.15, 5), mat(0x55aa44));
+  shaft.position.set(0.04, 2.05, 0);
+  g.add(shaft);
+  // 10 wider fronds — single blade each but wider for coverage
+  const frondColors = [matDS(0x55bb44), matDS(0x66cc55), matDS(0x44aa33), matDS(0x77dd66)];
+  const topY = 2.1, topX = 0.04;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const fLen = 1.0 + Math.random() * 0.25;
+    const fWidth = 0.35;
+    const fGeo = new THREE.PlaneGeometry(fWidth, fLen, 1, 8);
+    const fPos = fGeo.attributes.position;
+    for (let vi = 0; vi < fPos.count; vi++) {
+      const origY = fPos.getY(vi);
+      const t = (origY + fLen / 2) / fLen;
+      fPos.setX(vi, fPos.getX(vi) * (1 - 0.65 * t));
+      fPos.setY(vi, t * 0.3 - t * t * t * fLen * 0.55);
+      fPos.setZ(vi, t * fLen * 0.8);
+    }
+    fGeo.computeVertexNormals();
+    const frond = new THREE.Mesh(fGeo, frondColors[i % frondColors.length]);
+    frond.position.set(topX, topY, 0);
+    frond.rotation.y = a;
+    g.add(frond);
+  }
+  return g;
+}
+
+function buildBirchLow(): THREE.Group {
+  const g = new THREE.Group();
+  addTrunk(g, 0, 0, 0, 0.06, 0.035, 0.9, 0xf8f4ee);
+  // Narrow tall crown — 7 spheres
+  const cc = [0x99dd44, 0xaaee55, 0xbbee66, 0x88cc33, 0xaadd44, 0x99dd44, 0xaaee55];
+  addCanopy(g, 0, 1.15, 0, 0.38, cc[0]);
+  addCanopy(g, 0, 0.95, 0, 0.35, cc[1]);
+  addCanopy(g, 0, 1.35, 0, 0.32, cc[2]);
+  addCanopy(g, 0, 1.55, 0, 0.28, cc[3]);
+  addCanopy(g, 0.15, 1.1, 0.1, 0.25, cc[4]);
+  addCanopy(g, -0.1, 1.0, -0.15, 0.25, cc[5]);
+  addCanopy(g, 0, 1.7, 0, 0.2, cc[6]);
+  return g;
+}
+
+function buildEvergreenShrubLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Opaque core
+  const coreGeo = new THREE.SphereGeometry(0.5, 10, 8);
+  coreGeo.scale(1.0, 0.65, 1.0);
+  const core = new THREE.Mesh(coreGeo, mat(0x2d6633));
+  core.position.set(0, 0.34, 0);
+  g.add(core);
+  // 7 canopy blobs forming wide flat dome
+  const cc = [0x55bb55, 0x77dd66, 0x4daa4d, 0x66cc66, 0x338833, 0x88ee77, 0x3a9944];
+  addCanopy(g, 0, 0.38, 0, 0.45, cc[0]);
+  addCanopy(g, 0.35, 0.32, 0, 0.3, cc[1]);
+  addCanopy(g, -0.35, 0.32, 0.1, 0.3, cc[2]);
+  addCanopy(g, 0, 0.32, 0.35, 0.3, cc[3]);
+  addCanopy(g, 0, 0.32, -0.35, 0.28, cc[4]);
+  addCanopy(g, 0, 0.55, 0, 0.32, cc[5]);
+  addCanopy(g, 0, 0.15, 0, 0.4, cc[6]);
+  return g;
+}
+
+function buildDeciduousShrubLow(): THREE.Group {
+  const g = new THREE.Group();
+  const stemMat = mat(0x7a6a55);
+  const leafColors = [0xbbff44, 0xccff55, 0xaaee33, 0xddff77];
+  // 4 arching stems — vase/fountain shape
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI * 2 / 4 + 0.2;
+    const h = 1.0 + i * 0.12;
+    const spread = 0.55 + Math.random() * 0.1;
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(a) * 0.04, 0, Math.sin(a) * 0.04),
+      new THREE.Vector3(Math.cos(a) * 0.18, h * 0.5, Math.sin(a) * 0.18),
+      new THREE.Vector3(Math.cos(a) * spread * 0.7, h * 0.85, Math.sin(a) * spread * 0.7),
+      new THREE.Vector3(Math.cos(a) * spread, h * 0.75, Math.sin(a) * spread),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.028, 4, false), stemMat));
+    // LARGE canopy blob at tip — 40% bigger, overlapping with neighbors
+    const tip = curve.getPoint(0.82);
+    addCanopy(g, tip.x, tip.y, tip.z, 0.30, leafColors[i]);
+  }
+  // Central fill canopy — hides interior branches
+  addCanopy(g, 0, 0.90, 0, 0.28, leafColors[0]);
+  addCanopy(g, 0, 1.0, 0, 0.22, leafColors[2]);
+  // 3 yellow forsythia flower clusters — defining feature
+  const flowerColors = [0xffdd33, 0xffcc22, 0xffee55];
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.7;
+    const fl = new THREE.Mesh(
+      jitter(new THREE.IcosahedronGeometry(0.10, 0), 0.012),
+      mat(flowerColors[i]),
+    );
+    fl.position.set(Math.cos(a) * 0.40, 0.82 + i * 0.1, Math.sin(a) * 0.40);
+    g.add(fl);
+  }
+  return g;
+}
+
+function buildMediterraneanLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Opaque flat core
+  const coreGeo = new THREE.SphereGeometry(0.55, 10, 8);
+  coreGeo.scale(1.0, 0.3, 1.0);
+  const core = new THREE.Mesh(coreGeo, mat(0x6a7a5a));
+  core.position.set(0, 0.20, 0);
+  g.add(core);
+  // 4 canopy blobs — flat cushion
+  const cc = [0x99aa88, 0xaabb99, 0x8a9a78, 0xbbccaa];
+  addCanopy(g, 0, 0.24, 0, 0.48, cc[0]);
+  addCanopy(g, 0.3, 0.20, 0.2, 0.3, cc[1]);
+  addCanopy(g, -0.3, 0.20, -0.2, 0.3, cc[2]);
+  addCanopy(g, 0, 0.32, 0, 0.3, cc[3]);
+  // 4 lavender spikes — defining feature
+  const lavColors = [0xcc88ee, 0xdd99ff, 0xbb77dd, 0xeeaaff];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.3;
+    const r = 0.3 + Math.random() * 0.1;
+    const spikeH = 0.28;
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, spikeH, 4), mat(lavColors[i]));
+    spike.position.set(Math.cos(a) * r, 0.30 + spikeH / 2, Math.sin(a) * r);
+    g.add(spike);
+  }
+  return g;
+}
+
+function buildThornyLow(): THREE.Group {
+  const g = new THREE.Group();
+  const woodMat = mat(0x7a5533);
+  const thornMat = mat(0xddeecc);
+  const flowerColors = [0xff66aa, 0xff5599, 0xee4488];
+  // 6 branches — wider spread to match high-mesh volume envelope
+  const branchData = [
+    { a: 0.0, h: 1.15, spread: 0.62 },
+    { a: 1.05, h: 0.65, spread: 0.58 },
+    { a: 2.10, h: 1.25, spread: 0.65 },
+    { a: 3.14, h: 1.05, spread: 0.60 },
+    { a: 4.20, h: 0.70, spread: 0.62 },
+    { a: 5.25, h: 1.20, spread: 0.58 },
+  ];
+  for (let i = 0; i < branchData.length; i++) {
+    const { a, h, spread } = branchData[i];
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(a) * 0.04, 0, Math.sin(a) * 0.04),
+      new THREE.Vector3(Math.cos(a) * 0.14, h * 0.35, Math.sin(a) * 0.14),
+      new THREE.Vector3(Math.cos(a) * spread * 0.6, h * 0.7, Math.sin(a) * spread * 0.6),
+      new THREE.Vector3(Math.cos(a) * spread, h * 0.6, Math.sin(a) * spread),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.032, 4, false), woodMat));
+    // Big visible thorn
+    const tPt = curve.getPoint(0.45);
+    const side = i % 2 === 0 ? 1 : -1;
+    const perpDir = a + side * Math.PI / 2;
+    const spine = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.25, 3), thornMat);
+    spine.position.set(tPt.x, tPt.y, tPt.z);
+    spine.lookAt(tPt.x + Math.cos(perpDir) * 0.4, tPt.y - 0.1, tPt.z + Math.sin(perpDir) * 0.4);
+    g.add(spine);
+    // Pink bract + small leaf on alternating branches
+    if (i % 2 === 0) {
+      const tip = curve.getPoint(0.8);
+      addCanopy(g, tip.x, tip.y, tip.z, 0.07, 0x55aa44);
+      const fl = new THREE.Mesh(
+        jitter(new THREE.IcosahedronGeometry(0.06, 0), 0.008),
+        mat(flowerColors[i % 3]),
+      );
+      fl.position.set(tip.x, tip.y + 0.06, tip.z);
+      g.add(fl);
+    }
+  }
+  return g;
+}
+
+function buildDesertShrubLow(): THREE.Group {
+  const g = new THREE.Group();
+  const stemMat = mat(0x8a7a66);
+  const leafMat = mat(0x99a888);
+  const flowerMat = mat(0xffdd44);
+  // 5 wiry stems with fork sub-branches
+  const stemData = [
+    { a: 0.0, h: 0.85, lean: 0.42, flower: true },
+    { a: 1.3, h: 0.60, lean: 0.50, flower: false },
+    { a: 2.5, h: 0.90, lean: 0.38, flower: true },
+    { a: 3.8, h: 0.65, lean: 0.48, flower: false },
+    { a: 5.1, h: 0.80, lean: 0.44, flower: true },
+  ];
+  for (const s of stemData) {
+    const spread = s.lean * s.h * 0.8;
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(s.a) * 0.03, 0, Math.sin(s.a) * 0.03),
+      new THREE.Vector3(Math.cos(s.a) * spread * 0.4, s.h * 0.45, Math.sin(s.a) * spread * 0.4),
+      new THREE.Vector3(Math.cos(s.a) * spread, s.h * 0.7, Math.sin(s.a) * spread),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.020, 3, false), stemMat));
+    // Tiny leaf tuft at tip
+    const tip = curve.getPoint(0.85);
+    const tuft = new THREE.Mesh(jitter(new THREE.IcosahedronGeometry(0.028, 0), 0.004), leafMat);
+    tuft.position.set(tip.x, tip.y, tip.z);
+    g.add(tuft);
+    // Yellow daisy at marked tips
+    if (s.flower) {
+      const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.04, 0), flowerMat);
+      fl.position.set(tip.x, tip.y + 0.04, tip.z);
+      g.add(fl);
+    }
+  }
+  return g;
+}
+
+function buildMangroveLow(): THREE.Group {
+  const g = new THREE.Group();
+  const rootMat = mat(0x7a4030);
+  // Trunk
+  addTrunk(g, 0, 0.40, 0, 0.07, 0.06, 0.20, 0x7a4030);
+  // 4 stilt roots
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI * 2 / 4 + 0.3;
+    const sp = 0.5;
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.48, 0),
+      new THREE.Vector3(Math.cos(a) * sp * 0.4, 0.25, Math.sin(a) * sp * 0.4),
+      new THREE.Vector3(Math.cos(a) * sp, -0.04, Math.sin(a) * sp),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 6, 0.026, 4, false), rootMat));
+  }
+  // Core + canopy
+  const coreGeo = new THREE.SphereGeometry(0.35, 8, 6);
+  coreGeo.scale(1.3, 0.7, 1.3);
+  const core = new THREE.Mesh(coreGeo, mat(0x2d6633));
+  core.position.set(0, 0.72, 0);
+  g.add(core);
+  addCanopy(g, 0, 0.78, 0, 0.36, 0x44aa44);
+  addCanopy(g, 0.2, 0.72, 0.15, 0.25, 0x55bb55);
+  addCanopy(g, -0.15, 0.7, -0.2, 0.25, 0x3d9d3d);
+  addCanopy(g, 0, 0.85, 0, 0.25, 0x66cc66);
+  return g;
+}
+
+function buildCaudiciformLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Big caudex — defining feature
+  const caudexGeo = new THREE.SphereGeometry(0.30, 8, 6);
+  caudexGeo.scale(1.0, 0.75, 0.9);
+  const caudex = new THREE.Mesh(jitter(caudexGeo, 0.02), mat(0x9a8870));
+  caudex.position.set(0, 0.20, 0);
+  g.add(caudex);
+  // 2 root flanges
+  for (let i = 0; i < 2; i++) {
+    const a = i * Math.PI;
+    const root = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.18, 3), mat(0x887766));
+    root.position.set(Math.cos(a) * 0.18, 0.02, Math.sin(a) * 0.18);
+    root.rotation.z = -Math.cos(a) * 0.5;
+    root.rotation.x = -Math.sin(a) * 0.5;
+    g.add(root);
+  }
+  // 3 short branches with leaf tips
+  const branchMat = mat(0x7a6a55);
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3 + 0.3;
+    const cx = Math.cos(a), cz = Math.sin(a);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(cx * 0.08, 0.35, cz * 0.08),
+      new THREE.Vector3(cx * 0.12, 0.65, cz * 0.12),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 4, 0.025, 3, false), branchMat));
+    const tip = curve.getPoint(0.9);
+    addCanopy(g, tip.x, tip.y, tip.z, 0.09, [0x5aaa44, 0x66bb55, 0x4d9d3d][i]);
+  }
+  // 2 pink flowers
+  const flowerMat = mat(0xff6699);
+  for (let i = 0; i < 2; i++) {
+    const a = i * Math.PI + 0.5;
+    const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 0), flowerMat);
+    fl.position.set(Math.cos(a) * 0.12, 0.72, Math.sin(a) * 0.12);
+    g.add(fl);
+  }
+  return g;
+}
+
+function buildEuphorbiaLow(): THREE.Group {
+  const g = new THREE.Group();
+  addTrunk(g, 0, 0, 0, 0.10, 0.08, 0.55, 0x6a5535);
+  // Central stem
+  const centerGeo = new THREE.CylinderGeometry(0.05, 0.065, 1.05, 5);
+  const center = new THREE.Mesh(centerGeo, mat(0x5a8a4a));
+  center.position.set(0, 0.55 + 0.525, 0);
+  g.add(center);
+  // 4 candelabra arms
+  const armData = [
+    { a: 0.5, startY: 0.50, spread: 0.28, topY: 1.35, thick: 0.046 },
+    { a: 2.1, startY: 0.55, spread: 0.26, topY: 1.20, thick: 0.042 },
+    { a: 3.7, startY: 0.48, spread: 0.30, topY: 1.45, thick: 0.048 },
+    { a: 5.3, startY: 0.58, spread: 0.25, topY: 1.25, thick: 0.042 },
+  ];
+  for (const arm of armData) {
+    const cx = Math.cos(arm.a), cz = Math.sin(arm.a);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(cx * 0.08, arm.startY, cz * 0.08),
+      new THREE.Vector3(cx * arm.spread * 0.9, arm.startY - 0.05, cz * arm.spread * 0.9),
+      new THREE.Vector3(cx * arm.spread, arm.startY + (arm.topY - arm.startY) * 0.5, cz * arm.spread),
+      new THREE.Vector3(cx * arm.spread * 0.95, arm.topY, cz * arm.spread * 0.95),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, arm.thick, 4, false), mat(0x5a8a4a)));
+    // Dome cap
+    const tip = curve.getPoint(1);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(arm.thick, 4, 3, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x6a9a55));
+    cap.position.copy(tip);
+    g.add(cap);
+  }
+  return g;
+}
+
+function buildIcePlantLow(): THREE.Group {
+  const g = new THREE.Group();
+  const leafMats = [mat(0x77bb55), mat(0x66aa44), mat(0x559933)];
+  // 9 large overlapping flattened blobs — continuous ground-hugging mat
+  // Packed tight to eliminate gaps, matching high-mesh coverage footprint
+  const blobs: [number, number, number][] = [
+    // Core coverage
+    [0.0, 0.0, 0.32], [-0.35, 0.0, 0.28], [0.35, 0.0, 0.28],
+    [0.0, 0.35, 0.28], [0.0, -0.35, 0.28],
+    // Diagonal fill — overlap with core
+    [-0.30, 0.30, 0.25], [0.30, -0.30, 0.25],
+    [-0.30, -0.28, 0.24], [0.28, 0.30, 0.24],
+  ];
+  for (let i = 0; i < blobs.length; i++) {
+    const [bx, bz, r] = blobs[i];
+    const blob = new THREE.Mesh(
+      jitter(new THREE.IcosahedronGeometry(r, 0), r * 0.06),
+      leafMats[i % 3],
+    );
+    blob.position.set(bx, 0.08, bz);
+    blob.scale.set(1.0, 0.35, 1.0); // low mound shape
+    g.add(blob);
+  }
+  // 3 daisy flowers — defining vivid magenta with yellow centers
+  const flowerPositions: [number, number][] = [[0.0, 0.0], [-0.35, 0.20], [0.25, 0.30]];
+  for (let i = 0; i < 3; i++) {
+    const [fx, fz] = flowerPositions[i];
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.045, 4, 3), mat(0xeeaa22));
+    center.position.set(fx, 0.20, fz);
+    g.add(center);
+    const petalMat = mat([0xff44aa, 0xff66bb, 0xee3399][i]);
+    const petal = new THREE.Mesh(jitter(new THREE.IcosahedronGeometry(0.08, 0), 0.006), petalMat);
+    petal.position.set(fx, 0.18, fz);
+    petal.scale.set(1.3, 0.3, 1.3);
+    g.add(petal);
+  }
+  return g;
+}
+
+function buildEpiphyticLow(): THREE.Group {
+  const g = new THREE.Group();
+  // Central base
+  const base = new THREE.Mesh(
+    jitter(new THREE.SphereGeometry(0.24, 6, 4), 0.02),
+    mat(0x338822),
+  );
+  base.position.y = 0.22;
+  base.scale.y = 0.65;
+  g.add(base);
+  // 7 arching stems — wider spread matching high-mesh volume
+  const segMats = [mat(0x55aa44), mat(0x449933), mat(0x338822)];
+  for (let i = 0; i < 7; i++) {
+    const a = i * Math.PI * 2 / 7 + 0.15;
+    const spread = 0.65 + Math.random() * 0.18;
+    const archH = 0.28 + Math.random() * 0.12;
+    const droop = 0.10 + Math.random() * 0.12;
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(a) * 0.10, 0.25, Math.sin(a) * 0.10),
+      new THREE.Vector3(Math.cos(a) * spread * 0.35, 0.28 + archH, Math.sin(a) * spread * 0.35),
+      new THREE.Vector3(Math.cos(a) * spread * 0.65, 0.25 + archH * 0.5, Math.sin(a) * spread * 0.65),
+      new THREE.Vector3(Math.cos(a) * spread, 0.15 - droop, Math.sin(a) * spread),
+    ]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.022, 3, false), mat(0x449933)));
+    // Leaf-segment blob at mid-point
+    const midPt = curve.getPoint(0.5);
+    const blob = new THREE.Mesh(
+      jitter(new THREE.IcosahedronGeometry(0.06, 0), 0.005),
+      segMats[i % 3],
+    );
+    blob.position.copy(midPt);
+    blob.scale.set(1.3, 0.6, 1.0);
+    g.add(blob);
+    // Flower at every 3rd stem tip
+    if (i % 3 === 0) {
+      const tip = curve.getPoint(0.9);
+      const fl = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.04, 0),
+        mat(i === 0 ? 0xee3355 : 0xff6688),
+      );
+      fl.position.set(tip.x, tip.y + 0.02, tip.z);
+      g.add(fl);
+    }
+  }
+  return g;
+}
+
 // ── Merge utility ──
 
 function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
@@ -1638,6 +2179,19 @@ export const BUILDERS: (() => THREE.Group)[] = [
   buildEvergreenShrub, buildDeciduousShrub, buildMediterranean, buildThorny, buildDesertShrub, buildMangrove,
   // Succulents (18-23)
   buildSaguaro, buildAloe, buildCaudiciform, buildEuphorbia, buildIcePlant, buildEpiphytic,
+];
+
+/** Low-mesh LOD builders — same indices as BUILDERS, 8-12 meshes each.
+ *  Grass placeholders (0-4), Saguaro (18), Aloe (19) reuse the full builder. */
+export const BUILDERS_LOW: (() => THREE.Group)[] = [
+  // Grasses (0-5) — placeholders same, sedge has low version
+  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedgeLow,
+  // Trees (6-11)
+  buildOakLow, buildMagnoliaLow, buildConiferLow, buildTropicalLow, buildPalmLow, buildBirchLow,
+  // Shrubs (12-17)
+  buildEvergreenShrubLow, buildDeciduousShrubLow, buildMediterraneanLow, buildThornyLow, buildDesertShrubLow, buildMangroveLow,
+  // Succulents (18-23) — Saguaro & Aloe reuse full builder
+  buildSaguaro, buildAloe, buildCaudiciformLow, buildEuphorbiaLow, buildIcePlantLow, buildEpiphyticLow,
 ];
 
 /**
