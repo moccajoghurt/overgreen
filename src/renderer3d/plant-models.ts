@@ -204,21 +204,17 @@ function buildSpreading(): THREE.Group {
   const bm1 = matDS(0x4a8a3a);
   const bm2 = matDS(0x3e7e32);
   const sm = mat(0x6a7a3a);
-  const half = 0.49;
-  // Stolon network — horizontal runners criss-crossing the cell floor
-  const stolonSpacing = 0.18;
-  for (let v = -half; v <= half; v += stolonSpacing) {
-    const jitter = (Math.random() - 0.5) * 0.04;
-    // X-direction runner
-    const sx = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, half * 2, 3), sm);
-    sx.position.set(0, 0.012, v + jitter);
-    sx.rotation.z = Math.PI / 2;
-    g.add(sx);
-    // Z-direction runner
-    const sz = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, half * 2, 3), sm);
-    sz.position.set(v + jitter, 0.012, 0);
-    sz.rotation.x = Math.PI / 2;
-    g.add(sz);
+  // Stolons as random-angle runners across the cell floor
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI;
+    const len = 0.5 + Math.random() * 0.4;
+    const ox = (Math.random() - 0.5) * 0.5;
+    const oz = (Math.random() - 0.5) * 0.5;
+    const stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 3), sm);
+    stolon.position.set(ox, 0.012, oz);
+    stolon.rotation.z = Math.PI / 2;
+    stolon.rotation.y = -a;
+    g.add(stolon);
   }
   // Short wiry blades with radial falloff
   const step = 0.14;
