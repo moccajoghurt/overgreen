@@ -120,16 +120,23 @@ function buildBunchgrass(): THREE.Group {
   const g = new THREE.Group();
   const bm1 = matDS(0x6a8a6a);
   const bm2 = matDS(0x5a7a5a);
-  for (let i = 0; i < 65; i++) {
-    const x = (Math.random() - 0.5) * 0.95;
-    const z = (Math.random() - 0.5) * 0.95;
-    const h = 0.5 + Math.random() * 0.4;
-    const bend = 0.2 + Math.random() * 0.3;
-    const geo = grassBlade(h, 0.06 + Math.random() * 0.03, bend);
-    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
-    m.position.set(x, h / 2, z);
-    m.rotation.y = Math.random() * Math.PI;
-    g.add(m);
+  const step = 0.15;
+  const half = 0.50;
+  let idx = 0;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.06;
+      const oz = gz + (Math.random() - 0.5) * 0.06;
+      const h = 0.5 + Math.random() * 0.4;
+      for (let cross = 0; cross < 2; cross++) {
+        const geo = grassBlade(h, 0.18, 0.02 * (Math.random() - 0.5));
+        const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
+        m.position.set(ox, h / 2, oz);
+        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        g.add(m);
+        idx++;
+      }
+    }
   }
   return g;
 }
