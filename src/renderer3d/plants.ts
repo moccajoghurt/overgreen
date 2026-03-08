@@ -510,12 +510,16 @@ function incrementalUpdate(
   // 7. Update counts and needsUpdate
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
     const count = animCounts[i];
+    const liveCount = subtypeLiveCounts[i];
     state.subtypeMeshes[i].count = count;
     state.subtypeMeshes[i].visible = count > 0;
     if (count > 0) {
-      // For incremental path, we used addUpdateRange for dirty instances.
-      // But dying/burning section is fully rewritten each frame, so we still
-      // need needsUpdate = true to flush the update ranges + dying region.
+      // Dying/burning section must be explicitly marked for GPU upload —
+      // needsUpdate alone only uploads addUpdateRange'd regions when ranges exist.
+      if (count > liveCount) {
+        state.subtypeMeshes[i].instanceMatrix.addUpdateRange(liveCount * 16, (count - liveCount) * 16);
+        state.subtypeMeshes[i].instanceColor!.addUpdateRange(liveCount * 3, (count - liveCount) * 3);
+      }
       state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
     }
@@ -580,9 +584,16 @@ function animationOnlyUpdate(
   // Update counts
   for (let i = 0; i < SUBTYPE_COUNT; i++) {
     const count = animCounts[i];
+    const liveCount = subtypeLiveCounts[i];
     state.subtypeMeshes[i].count = count;
     state.subtypeMeshes[i].visible = count > 0;
     if (count > 0) {
+      // Dying/burning section must be explicitly marked for GPU upload —
+      // needsUpdate alone only uploads addUpdateRange'd regions when ranges exist.
+      if (count > liveCount) {
+        state.subtypeMeshes[i].instanceMatrix.addUpdateRange(liveCount * 16, (count - liveCount) * 16);
+        state.subtypeMeshes[i].instanceColor!.addUpdateRange(liveCount * 3, (count - liveCount) * 3);
+      }
       state.subtypeMeshes[i].instanceMatrix.needsUpdate = true;
       state.subtypeMeshes[i].instanceColor!.needsUpdate = true;
     }

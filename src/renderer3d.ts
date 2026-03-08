@@ -293,7 +293,7 @@ export function createRenderer3D(
       let shadowDirty = isFirstFrame || world.tick % 30 === 0;
       if (!shadowDirty) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          if (subtypeMeshes[i].count !== state.lastShadowCounts[i]) {
+          if (state.subtypeLiveCounts[i] !== state.lastShadowCounts[i]) {
             shadowDirty = true;
             break;
           }
@@ -302,7 +302,7 @@ export function createRenderer3D(
       if (shadowDirty) {
         webgl.shadowMap.needsUpdate = true;
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          state.lastShadowCounts[i] = subtypeMeshes[i].count;
+          state.lastShadowCounts[i] = state.subtypeLiveCounts[i];
         }
       }
     }
