@@ -8,6 +8,7 @@ import {
 } from './state';
 import { buildSubtypeModels } from './plant-models';
 import { createRockFormations, RockFormations } from './rocks';
+import { createTerrainDetailTexture } from './terrain-detail-texture';
 
 // ── Terrain ──
 
@@ -33,7 +34,11 @@ export function createTerrain(world: World): TerrainResult {
   colorAttr.setUsage(THREE.DynamicDrawUsage);
   terrainGeo.setAttribute('color', colorAttr);
 
-  const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const detailMap = createTerrainDetailTexture();
+  const terrainMat = new THREE.MeshLambertMaterial({
+    vertexColors: true,
+    map: detailMap,
+  });
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
 
   // Rock formations (compute height overlay before terrain)
