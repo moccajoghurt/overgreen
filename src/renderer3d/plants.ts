@@ -180,6 +180,17 @@ export function updatePlants(state: RendererState): void {
       subtype,
     });
 
+    // Skip grass subtypes 0-4 — handled entirely by shader grass field
+    if (subtype <= 4) {
+      // Still advance growth animation so grass-layer reads correct growScale
+      const growing = growingPlants.get(plant.id);
+      if (growing) {
+        growing.progress += 1 / GROWTH_ANIM_FRAMES;
+        if (growing.progress >= 1) growingPlants.delete(plant.id);
+      }
+      continue;
+    }
+
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
     const baseY = getCellElevation(plant.x, plant.y);
@@ -245,6 +256,9 @@ export function updatePlants(state: RendererState): void {
     dp.progress += 1 / DEATH_ANIM_FRAMES;
     if (dp.progress >= 1) { toRemove.push(id); continue; }
 
+    // Skip grass subtypes 0-4 — death handled by shader field clearing
+    if (dp.subtype <= 4) continue;
+
     const wx = dp.x - HALF + 0.5;
     const wz = dp.y - HALF + 0.5;
     const shrink = 1 - dp.progress;
@@ -282,6 +296,9 @@ export function updatePlants(state: RendererState): void {
       dyingPlants.set(id, { ...bp, progress: 0 });
       continue;
     }
+
+    // Skip grass subtypes 0-4 — burn handled by shader field clearing
+    if (bp.subtype <= 4) continue;
 
     const wx = bp.x - HALF + 0.5;
     const wz = bp.y - HALF + 0.5;

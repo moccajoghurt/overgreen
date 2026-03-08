@@ -66,8 +66,9 @@ export function createRenderer3D(
   // ── Plants (24 subtype meshes + seeds) ──
   const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
   for (let i = 0; i < subtypeMeshes.length; i++) {
+    if (i <= 4) continue; // subtypes 0-4: handled entirely by shader grass field
     const mesh = subtypeMeshes[i];
-    mesh.castShadow = i >= 6; // skip shadow casting for grass (0-5)
+    mesh.castShadow = i >= 6; // skip shadow casting for sedge (5)
     scene.add(mesh);
   }
   const seeds = createSeedMesh();
@@ -268,7 +269,7 @@ export function createRenderer3D(
     waterSurface.update(env, sunDir, fogColor);
 
     // Update grass layer uniforms (per-frame wind animation)
-    grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor);
+    grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor, camera);
 
     // Only re-render shadow map when sim state changes
     if (world.tick !== state.lastProcessedTick || state.plantsDirty) {

@@ -6,9 +6,16 @@ import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 
 // ── Constants ──
 
-const BLADES_PER_CELL = 16;
+const BLADES_PER_CELL = 48;
 const TOTAL_BLADES = GRID * GRID * BLADES_PER_CELL;
-const TOTAL_VERTS = TOTAL_BLADES * 3;
+const VERTS_PER_BLADE = 4;               // quad: bottom-left, bottom-right, top-left, top-right
+const TRIS_PER_BLADE = 2;
+const INDICES_PER_BLADE = TRIS_PER_BLADE * 3;  // 6
+const TOTAL_VERTS = TOTAL_BLADES * VERTS_PER_BLADE;
+
+// Distance fade parameters (world units)
+const FADE_START = 35.0;
+const FADE_END = 50.0;
 
 // Per-subtype blade heights at full growth (world units)
 const SUBTYPE_BLADE_HEIGHT: number[] = [
@@ -23,7 +30,7 @@ const SUBTYPE_BLADE_HEIGHT: number[] = [
 export interface GrassLayer {
   mesh: THREE.Mesh;
   updateCellData: (state: RendererState) => void;
-  updateUniforms: (time: number, sunDir: THREE.Vector3, fogColor: THREE.Color) => void;
+  updateUniforms: (time: number, sunDir: THREE.Vector3, fogColor: THREE.Color, camera: THREE.Camera) => void;
   rebuildElevation: (getCellElevation: (cx: number, cy: number) => number) => void;
 }
 
@@ -34,6 +41,9 @@ const grassVertexShader = /* glsl */`
   uniform sampler2D uElevation;
   uniform float uTime;
   uniform float uWindStrength;
+  uniform vec3 uCameraPos;
+  uniform float uFadeStart;
+  uniform float uFadeEnd;
 
   attribute vec2 aCellCoord;
   attribute vec2 aLocalOffset;
@@ -47,10 +57,23 @@ const grassVertexShader = /* glsl */`
   varying vec3 vWorldPos;
 
   void main() {
-    // Cell UV for texture sampling (center of cell)
-    vec2 cellUV = (aCellCoord + 0.5) / ${GRID.toFixed(1)};
+    // World XZ position (grid → world coords) at the blade's actual position
+    float wx = aCellCoord.x + aLocalOffset.x - ${HALF.toFixed(1)} + 0.5;
+    float wz = aCellCoord.y + aLocalOffset.y - ${HALF.toFixed(1)} + 0.5;
 
-    // Sample cell data: R=bladeHeight, GBA=tintRGB
+    // Distance fade — cull distant blades early
+    float dist = length(vec2(wx, wz) - uCameraPos.xz);
+    if (dist > uFadeEnd) {
+      gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+      vHeight01 = 0.0;
+      vTint = vec3(0.0);
+      vWorldPos = vec3(0.0);
+      return;
+    }
+    float fadeFactor = 1.0 - smoothstep(uFadeStart, uFadeEnd, dist);
+
+    // Sample cell data at blade's actual world position (bilinear-filtered)
+    vec2 cellUV = (vec2(wx, wz) + ${HALF.toFixed(1)}) / ${GRID.toFixed(1)};
     vec4 cellData = texture2D(uCellData, cellUV);
     float bladeHeight = cellData.r;
     vTint = cellData.gba;
@@ -63,50 +86,47 @@ const grassVertexShader = /* glsl */`
       return;
     }
 
-    // Sample elevation
+    // Sample elevation at blade's actual world position (bilinear-filtered)
     float elev = texture2D(uElevation, cellUV).r;
 
-    // World XZ position (grid → world coords)
-    float wx = aCellCoord.x + aLocalOffset.x - ${HALF.toFixed(1)} + 0.5;
-    float wz = aCellCoord.y + aLocalOffset.y - ${HALF.toFixed(1)} + 0.5;
+    // Blade height with per-blade variation and distance fade
+    float h = bladeHeight * aHeightVar * fadeFactor;
 
-    // Blade height with per-blade variation
-    float h = bladeHeight * aHeightVar;
-
-    // Vertex ID: 0=bottom-left, 1=bottom-right, 2=tip
+    // Vertex ID: 0=bottom-left, 1=bottom-right, 2=top-left, 3=top-right (tip)
     float vid = aVertexId;
-    float isTip = step(1.5, vid); // 1.0 for tip, 0.0 for base verts
+    float isTop = step(1.5, vid); // 1.0 for top verts (2,3), 0.0 for bottom verts (0,1)
 
-    // Yaw direction vectors (perpendicular for width, forward for lean)
+    // Yaw direction vectors
     float cy = cos(aYaw);
     float sy = sin(aYaw);
-    // perpendicular to yaw direction
     float perpX = -sy;
     float perpZ = cy;
 
-    // Base offset for bottom verts (left/right of center)
-    float side = vid < 0.5 ? -1.0 : (vid < 1.5 ? 1.0 : 0.0);
-    float baseOffX = perpX * aBladeWidth * side;
-    float baseOffZ = perpZ * aBladeWidth * side;
+    // Side offset: 0=left(-1), 1=right(+1), 2=left(-1 tapered), 3=right(+1 tapered)
+    float isLeft = 1.0 - 2.0 * step(0.5, mod(vid, 2.0)); // -1 for even(left), +1 for odd(right)
+    // Taper: top verts are narrower (degenerate at very tip for natural look)
+    float taper = mix(1.0, 0.15, isTop);
+    float baseOffX = perpX * aBladeWidth * isLeft * taper;
+    float baseOffZ = perpZ * aBladeWidth * isLeft * taper;
 
     // Tip: slightly lean in yaw direction for natural look
     float tipLean = 0.03 * h;
-    float tipOffX = cy * tipLean * isTip;
-    float tipOffZ = sy * tipLean * isTip;
+    float tipOffX = cy * tipLean * isTop;
+    float tipOffZ = sy * tipLean * isTop;
 
-    // Wind: only affects tip vertex
+    // Wind: only affects top vertices
     float windPhase = wx * 1.5 + wz * 1.3 + uTime * 2.5;
-    float windBend = sin(windPhase) * uWindStrength * h * isTip;
-    float windBend2 = sin(wx * 0.7 - wz * 1.1 + uTime * 1.8) * uWindStrength * 0.3 * h * isTip;
+    float windBend = sin(windPhase) * uWindStrength * h * isTop;
+    float windBend2 = sin(wx * 0.7 - wz * 1.1 + uTime * 1.8) * uWindStrength * 0.3 * h * isTop;
 
     // Final position
     float finalX = wx + baseOffX + tipOffX + windBend * 0.7 + windBend2 * 0.3;
     float finalZ = wz + baseOffZ + tipOffZ + windBend * 0.3 + windBend2 * 0.7;
-    float finalY = elev + 0.005 + h * isTip; // small Y offset to prevent z-fighting
+    float finalY = elev + 0.005 + h * isTop;
 
     vec3 worldPos = vec3(finalX, finalY, finalZ);
     vWorldPos = worldPos;
-    vHeight01 = isTip;
+    vHeight01 = isTop;
 
     gl_Position = projectionMatrix * viewMatrix * vec4(worldPos, 1.0);
   }
@@ -151,39 +171,50 @@ const grassFragmentShader = /* glsl */`
 export function createGrassLayer(
   getCellElevation: (cx: number, cy: number) => number,
 ): GrassLayer {
-  // ── Build static geometry ──
-  const positions = new Float32Array(TOTAL_VERTS * 3);     // all zeros — shader computes world pos
+  // ── Build indexed geometry ──
+  const positions = new Float32Array(TOTAL_VERTS * 3);
   const cellCoords = new Float32Array(TOTAL_VERTS * 2);
   const localOffsets = new Float32Array(TOTAL_VERTS * 2);
   const yaws = new Float32Array(TOTAL_VERTS);
   const heightVars = new Float32Array(TOTAL_VERTS);
   const bladeWidths = new Float32Array(TOTAL_VERTS);
   const vertexIds = new Float32Array(TOTAL_VERTS);
+  const indices = new Uint32Array(TOTAL_BLADES * INDICES_PER_BLADE);
 
   let vi = 0; // vertex index
+  let ii = 0; // index index
   for (let cy = 0; cy < GRID; cy++) {
     for (let cx = 0; cx < GRID; cx++) {
       const cellIdx = cy * GRID + cx;
       for (let b = 0; b < BLADES_PER_CELL; b++) {
-        const ox = (plantHash(cellIdx, 100 + b) - 0.5) * 0.9;  // ±0.45
-        const oz = (plantHash(cellIdx, 200 + b) - 0.5) * 0.9;
+        const ox = (plantHash(cellIdx, 100 + b) - 0.5) * 1.6;  // ±0.8
+        const oz = (plantHash(cellIdx, 200 + b) - 0.5) * 1.6;
         const yaw = plantHash(cellIdx, 300 + b) * Math.PI * 2;
         const hv = 0.7 + plantHash(cellIdx, 400 + b) * 0.6;    // [0.7, 1.3]
-        const bw = 0.015 + plantHash(cellIdx, 500 + b) * 0.02;  // [0.015, 0.035]
+        const bw = 0.03 + plantHash(cellIdx, 500 + b) * 0.04;  // [0.03, 0.07]
 
-        // 3 vertices per blade
-        for (let v = 0; v < 3; v++) {
-          const idx = vi * 2;
-          cellCoords[idx] = cx;
-          cellCoords[idx + 1] = cy;
-          localOffsets[idx] = ox;
-          localOffsets[idx + 1] = oz;
+        const baseVert = vi;
+        // 4 vertices per blade quad
+        for (let v = 0; v < VERTS_PER_BLADE; v++) {
+          const idx2 = vi * 2;
+          cellCoords[idx2] = cx;
+          cellCoords[idx2 + 1] = cy;
+          localOffsets[idx2] = ox;
+          localOffsets[idx2 + 1] = oz;
           yaws[vi] = yaw;
           heightVars[vi] = hv;
           bladeWidths[vi] = bw;
-          vertexIds[vi] = v;  // 0=bottom-left, 1=bottom-right, 2=tip
+          vertexIds[vi] = v;  // 0=BL, 1=BR, 2=TL, 3=TR
           vi++;
         }
+
+        // Two triangles: BL-BR-TL, BR-TR-TL
+        indices[ii++] = baseVert + 0;
+        indices[ii++] = baseVert + 1;
+        indices[ii++] = baseVert + 2;
+        indices[ii++] = baseVert + 1;
+        indices[ii++] = baseVert + 3;
+        indices[ii++] = baseVert + 2;
       }
     }
   }
@@ -196,15 +227,16 @@ export function createGrassLayer(
   geometry.setAttribute('aHeightVar', new THREE.BufferAttribute(heightVars, 1));
   geometry.setAttribute('aBladeWidth', new THREE.BufferAttribute(bladeWidths, 1));
   geometry.setAttribute('aVertexId', new THREE.BufferAttribute(vertexIds, 1));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-  // ── DataTextures ──
+  // ── DataTextures (bilinear filtered for smooth cross-cell blending) ──
   const cellDataArray = new Float32Array(GRID * GRID * 4);
   const cellDataTex = new THREE.DataTexture(
     cellDataArray, GRID, GRID,
     THREE.RGBAFormat, THREE.FloatType,
   );
-  cellDataTex.minFilter = THREE.NearestFilter;
-  cellDataTex.magFilter = THREE.NearestFilter;
+  cellDataTex.minFilter = THREE.LinearFilter;
+  cellDataTex.magFilter = THREE.LinearFilter;
   cellDataTex.needsUpdate = true;
 
   const elevArray = new Float32Array(GRID * GRID * 4); // RGBA but we only use R
@@ -212,8 +244,8 @@ export function createGrassLayer(
     elevArray, GRID, GRID,
     THREE.RGBAFormat, THREE.FloatType,
   );
-  elevTex.minFilter = THREE.NearestFilter;
-  elevTex.magFilter = THREE.NearestFilter;
+  elevTex.minFilter = THREE.LinearFilter;
+  elevTex.magFilter = THREE.LinearFilter;
 
   // Fill initial elevation
   fillElevation(elevArray, getCellElevation);
@@ -229,6 +261,9 @@ export function createGrassLayer(
     uFogColor: { value: new THREE.Color(0x88aacc) },
     uFogNear: { value: 60 },
     uFogFar: { value: 140 },
+    uCameraPos: { value: new THREE.Vector3() },
+    uFadeStart: { value: FADE_START },
+    uFadeEnd: { value: FADE_END },
   };
 
   // ── Material ──
@@ -344,10 +379,11 @@ export function createGrassLayer(
   }
 
   // ── updateUniforms: per-frame ──
-  function updateUniforms(time: number, sunDir: THREE.Vector3, fogColor: THREE.Color): void {
+  function updateUniforms(time: number, sunDir: THREE.Vector3, fogColor: THREE.Color, camera: THREE.Camera): void {
     uniforms.uTime.value = time;
     uniforms.uSunDirection.value.copy(sunDir);
     uniforms.uFogColor.value.copy(fogColor);
+    uniforms.uCameraPos.value.copy(camera.position);
   }
 
   // ── rebuildElevation: on terrain rebuild ──
