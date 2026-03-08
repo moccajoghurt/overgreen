@@ -25,6 +25,15 @@ export function createRenderer3D(
   scene.add(ambientLight);
   const dirLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
   dirLight.position.set(30, 50, 20);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024, 1024);
+  dirLight.shadow.camera.near = 1;
+  dirLight.shadow.camera.far = 150;
+  dirLight.shadow.camera.left = -50;
+  dirLight.shadow.camera.right = 50;
+  dirLight.shadow.camera.top = 50;
+  dirLight.shadow.camera.bottom = -50;
+  dirLight.shadow.bias = -0.001;
   scene.add(dirLight);
 
   // ── Sky dome & fog ──
@@ -32,7 +41,10 @@ export function createRenderer3D(
 
   // ── Terrain ──
   const terrain = createTerrain(world);
+  terrain.terrainMesh.castShadow = true;
+  terrain.terrainMesh.receiveShadow = true;
   scene.add(terrain.terrainMesh);
+  terrain.groundMesh.receiveShadow = true;
   scene.add(terrain.groundMesh);
   const { colorArray, colorAttr, groundMat } = terrain;
   let getCellElevation = terrain.getCellElevation;
@@ -47,7 +59,10 @@ export function createRenderer3D(
 
   // ── Plants (24 subtype meshes + seeds) ──
   const { meshes: subtypeMeshes, maturityHeights, groundCover } = createSubtypeMeshes();
-  for (const mesh of subtypeMeshes) scene.add(mesh);
+  for (const mesh of subtypeMeshes) {
+    mesh.castShadow = true;
+    scene.add(mesh);
+  }
   const seeds = createSeedMesh();
   scene.add(seeds);
 
@@ -64,6 +79,7 @@ export function createRenderer3D(
 
   // ── Terrain decorations (static) ──
   const decor = createDecorMeshes();
+  decor.stones.castShadow = true;
   scene.add(decor.stones);
   scene.add(decor.reeds);
   scene.add(decor.dryBrush);
@@ -96,6 +112,9 @@ export function createRenderer3D(
   const webgl = new THREE.WebGLRenderer({ antialias: true });
   webgl.setSize(container.clientWidth, container.clientHeight);
   webgl.setPixelRatio(window.devicePixelRatio);
+  webgl.shadowMap.enabled = true;
+  webgl.shadowMap.type = THREE.PCFShadowMap;
+  webgl.shadowMap.autoUpdate = false;
   webgl.toneMapping = THREE.ACESFilmicToneMapping;
   webgl.toneMappingExposure = 1.8;
   webgl.domElement.style.display = 'block';
@@ -234,6 +253,11 @@ export function createRenderer3D(
 
     // Update water animation
     waterSurface.update(env, skyDome.getSunDirection(), skyDome.getFogColor());
+
+    // Only re-render shadow map when sim state changes
+    if (world.tick !== state.lastProcessedTick || state.plantsDirty) {
+      webgl.shadowMap.needsUpdate = true;
+    }
 
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
     hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
