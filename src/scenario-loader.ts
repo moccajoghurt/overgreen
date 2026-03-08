@@ -21,6 +21,8 @@ export function loadScenario(world: World, scenario: Scenario): void {
   world.speciesColors.clear();
   world.speciesNames.clear();
   world.speciesLineage.clear();
+  world.speciesSubtypes.clear();
+  world.subtypeSpecies.clear();
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
   world.fireDeathEvents.length = 0;
