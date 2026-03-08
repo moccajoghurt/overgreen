@@ -105,6 +105,7 @@ export interface RendererState {
   colorArray: Float32Array;
   colorAttr: THREE.BufferAttribute;
   getCellElevation: (cx: number, cy: number) => number;
+  getCellSlope: (cx: number, cy: number) => Float32Array;
 
   // Plant meshes (24 subtypes — one InstancedMesh per subtype)
   subtypeMeshes: THREE.InstancedMesh[];

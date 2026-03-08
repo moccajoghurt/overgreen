@@ -48,6 +48,7 @@ export function createRenderer3D(
   scene.add(terrain.groundMesh);
   const { colorArray, colorAttr, groundMat } = terrain;
   let getCellElevation = terrain.getCellElevation;
+  let getCellSlope = terrain.getCellSlope;
   let rockFormations = terrain.rockFormations;
 
   // ── Distant environment (hills + forest ring) ──
@@ -166,6 +167,7 @@ export function createRenderer3D(
     colorArray,
     colorAttr,
     getCellElevation,
+    getCellSlope,
     subtypeMeshes,
     maturityHeights,
     groundCover,
@@ -392,8 +394,10 @@ export function createRenderer3D(
   function rebuildTerrain(): void {
     const result = rebuildTerrainGeometry(world, terrain);
     getCellElevation = result.getCellElevation;
+    getCellSlope = result.getCellSlope;
     rockFormations = result.rockFormations;
     state.getCellElevation = getCellElevation;
+    state.getCellSlope = getCellSlope;
     state.rockFormations = rockFormations;
 
     // Clear all animation state

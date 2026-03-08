@@ -186,26 +186,39 @@ function buildSpreading(): THREE.Group {
   const bm1 = matDS(0x4a8a3a);
   const bm2 = matDS(0x3e7e32);
   const sm = mat(0x6a7a3a);
-  // Stolons radiating outward across the cell
-  for (let i = 0; i < 8; i++) {
-    const a = i * Math.PI / 4 + Math.random() * 0.3;
-    const len = 0.3 + Math.random() * 0.15;
-    const stolon = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 4), sm);
-    stolon.position.set(Math.cos(a) * len / 2, 0.015, Math.sin(a) * len / 2);
-    stolon.rotation.z = Math.PI / 2;
-    stolon.rotation.y = -a;
-    g.add(stolon);
+  const half = 0.49;
+  // Stolon network — horizontal runners criss-crossing the cell floor
+  const stolonSpacing = 0.18;
+  for (let v = -half; v <= half; v += stolonSpacing) {
+    const jitter = (Math.random() - 0.5) * 0.04;
+    // X-direction runner
+    const sx = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, half * 2, 3), sm);
+    sx.position.set(0, 0.012, v + jitter);
+    sx.rotation.z = Math.PI / 2;
+    g.add(sx);
+    // Z-direction runner
+    const sz = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, half * 2, 3), sm);
+    sz.position.set(v + jitter, 0.012, 0);
+    sz.rotation.x = Math.PI / 2;
+    g.add(sz);
   }
-  // Dense blade clusters spread across the full cell
-  for (let i = 0; i < 60; i++) {
-    const x = (Math.random() - 0.5) * 0.95;
-    const z = (Math.random() - 0.5) * 0.95;
-    const h = 0.14 + Math.random() * 0.1;
-    const geo = grassBlade(h, 0.07 + Math.random() * 0.03, 0.015 * (Math.random() - 0.5));
-    const m = new THREE.Mesh(geo, i % 3 === 0 ? bm2 : bm1);
-    m.position.set(x, h / 2, z);
-    m.rotation.y = Math.random() * Math.PI;
-    g.add(m);
+  // Short wiry blades growing from the stolon network
+  const step = 0.14;
+  let idx = 0;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      const ox = gx + (Math.random() - 0.5) * 0.05;
+      const oz = gz + (Math.random() - 0.5) * 0.05;
+      const h = 0.10 + Math.random() * 0.08;
+      for (let cross = 0; cross < 2; cross++) {
+        const geo = grassBlade(h, 0.15, 0.01 * (Math.random() - 0.5));
+        const m = new THREE.Mesh(geo, idx % 3 === 0 ? bm2 : bm1);
+        m.position.set(ox, h / 2, oz);
+        m.rotation.y = cross * Math.PI / 2 + Math.random() * 0.3;
+        g.add(m);
+        idx++;
+      }
+    }
   }
   return g;
 }
@@ -960,13 +973,13 @@ export function buildSubtypeModels(): SubtypeModel[] {
     const isGC = GROUND_COVER.has(i);
 
     if (isGC) {
-      // Ground cover: scale Y to target height, XZ to fill exactly 1.0 unit cell
+      // Ground cover: scale Y to target height, XZ to 1.2 units (20% overlap hides seams)
       group.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(group);
       const rawH = Math.max(0.01, box.max.y);
       const yScale = TARGET_MODEL_HEIGHTS[i] / rawH;
       const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
-      const xzScale = 1.0 / Math.max(0.01, rawXZ);
+      const xzScale = 1.2 / Math.max(0.01, rawXZ);
       group.scale.set(xzScale, yScale, xzScale);
     } else {
       scaleToTarget(group, i);

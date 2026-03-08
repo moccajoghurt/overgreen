@@ -1,6 +1,7 @@
+import * as THREE from 'three';
 import { GRID_WIDTH, WeatherOverlay } from '../types';
 import {
-  RendererState, HALF, MAX_SEEDS,
+  RendererState, GRID, HALF, MAX_SEEDS,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
   easeOutCubic, lerp, plantHash,
 } from './state';
@@ -8,6 +9,14 @@ import { computePlantTint } from './plant-colors';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 
 const SUBTYPE_COUNT = 24;
+
+// Pre-allocated temporaries for terrain-tilt quaternion math (zero allocation per frame)
+const _qSpin  = new THREE.Quaternion();
+const _qTiltX = new THREE.Quaternion();
+const _qTiltZ = new THREE.Quaternion();
+const _xAxis = new THREE.Vector3(1, 0, 0);
+const _yAxis = new THREE.Vector3(0, 1, 0);
+const _zAxis = new THREE.Vector3(0, 0, 1);
 
 /** Write one plant instance into the subtype's instance buffers. */
 function writePlantInstance(
@@ -27,10 +36,23 @@ function writePlantInstance(
   dummy.position.set(wx, baseY, wz);
   if (groundCover[subtype]) {
     dummy.scale.set(1, s, 1);
+
+    // Recover cell coords and look up terrain slope
+    const cx = Math.max(0, Math.min(GRID - 1, Math.round(wx + HALF - 0.5)));
+    const cy = Math.max(0, Math.min(GRID - 1, Math.round(wz + HALF - 0.5)));
+    const slope = state.getCellSlope(cx, cy);
+    const dYdX = slope[0];
+    const dYdZ = slope[1];
+
+    // Compose: Rz(tilt) * Rx(tilt) * Ry(spin) — spin first, then world-space tilts
+    _qSpin.setFromAxisAngle(_yAxis, ry);
+    _qTiltX.setFromAxisAngle(_xAxis, -Math.atan2(dYdZ, 1));
+    _qTiltZ.setFromAxisAngle(_zAxis, Math.atan2(dYdX, 1));
+    dummy.quaternion.copy(_qTiltZ).multiply(_qTiltX).multiply(_qSpin);
   } else {
     dummy.scale.setScalar(s);
+    dummy.quaternion.setFromAxisAngle(_yAxis, ry);
   }
-  dummy.rotation.set(0, ry, 0);
   dummy.updateMatrix();
   dummy.matrix.toArray(mtxArrays[subtype], idx * 16);
 

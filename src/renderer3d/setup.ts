@@ -10,6 +10,9 @@ import { buildSubtypeModels } from './plant-models';
 import { createRockFormations, RockFormations } from './rocks';
 import { createTerrainDetailTexture } from './terrain-detail-texture';
 
+/** Shared output buffer for getCellSlope — avoids per-call allocation. */
+const _slopeOut = new Float32Array(2); // [dYdX, dYdZ]
+
 // ── Terrain ──
 
 /**
@@ -69,6 +72,7 @@ export interface TerrainResult {
   colorArray: Float32Array;
   colorAttr: THREE.BufferAttribute;
   getCellElevation: (cx: number, cy: number) => number;
+  getCellSlope: (cx: number, cy: number) => Float32Array;
   groundMesh: THREE.Mesh;
   groundMat: THREE.MeshLambertMaterial;
   rockFormations: RockFormations;
@@ -146,6 +150,16 @@ export function createTerrain(world: World): TerrainResult {
     return (tl + tr + bl + br) * 0.25;
   }
 
+  function getCellSlope(cx: number, cy: number): Float32Array {
+    const tl = corners[cy * cornerSize + cx];
+    const tr = corners[cy * cornerSize + cx + 1];
+    const bl = corners[(cy + 1) * cornerSize + cx];
+    const br = corners[(cy + 1) * cornerSize + cx + 1];
+    _slopeOut[0] = ((tr + br) - (tl + bl)) * 0.5; // dY/dX
+    _slopeOut[1] = ((bl + br) - (tl + tr)) * 0.5; // dY/dZ
+    return _slopeOut;
+  }
+
   // Extended ground plane
   const groundGeo = new THREE.PlaneGeometry(256, 256);
   groundGeo.rotateX(-Math.PI / 2);
@@ -153,7 +167,7 @@ export function createTerrain(world: World): TerrainResult {
   const groundMesh = new THREE.Mesh(groundGeo, groundMat);
   groundMesh.position.y = -0.3;
 
-  return { terrainMesh, colorArray, colorAttr, getCellElevation, groundMesh, groundMat, rockFormations };
+  return { terrainMesh, colorArray, colorAttr, getCellElevation, getCellSlope, groundMesh, groundMat, rockFormations };
 }
 
 /**
@@ -163,7 +177,7 @@ export function createTerrain(world: World): TerrainResult {
 export function rebuildTerrainGeometry(
   world: World,
   terrain: TerrainResult,
-): { getCellElevation: (cx: number, cy: number) => number; rockFormations: RockFormations } {
+): { getCellElevation: (cx: number, cy: number) => number; getCellSlope: (cx: number, cy: number) => Float32Array; rockFormations: RockFormations } {
   const rockFormations = createRockFormations(world);
   const rockOverlay = rockFormations.heightOverlay;
 
@@ -214,7 +228,17 @@ export function rebuildTerrainGeometry(
     return (tl + tr + bl + br) * 0.25;
   }
 
-  return { getCellElevation, rockFormations };
+  function getCellSlope(cx: number, cy: number): Float32Array {
+    const tl = corners[cy * cornerSize + cx];
+    const tr = corners[cy * cornerSize + cx + 1];
+    const bl = corners[(cy + 1) * cornerSize + cx];
+    const br = corners[(cy + 1) * cornerSize + cx + 1];
+    _slopeOut[0] = ((tr + br) - (tl + bl)) * 0.5; // dY/dX
+    _slopeOut[1] = ((bl + br) - (tl + tr)) * 0.5; // dY/dZ
+    return _slopeOut;
+  }
+
+  return { getCellElevation, getCellSlope, rockFormations };
 }
 
 // ── Per-subtype instanced meshes (24 subtypes, one InstancedMesh each) ──
