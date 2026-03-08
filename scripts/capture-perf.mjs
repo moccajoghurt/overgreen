@@ -151,12 +151,18 @@ try {
   if (perfResults.length > 0) {
     console.log('\n── Performance Summary ──\n');
 
-    // Find interesting subsystem entries (non-zero, render-related)
-    const interestingLabels = ['plants', 'grass', 'glDraw', 'renderTotal', 'frame'];
+    // Collect all labels that have non-trivial time in any camera
+    const allLabels = perfResults[0].entries.map(e => e.label);
+    const visibleLabels = allLabels.filter(label =>
+      perfResults.some(r => {
+        const e = r.entries.find(e => e.label === label);
+        return e && e.avgMs >= 0.05;
+      })
+    );
 
     // Header
     const colW = { camera: 16, fps: 7, frame: 9 };
-    const subCols = interestingLabels.map(l => ({ label: l, width: Math.max(l.length + 2, 9) }));
+    const subCols = visibleLabels.map(l => ({ label: l, width: Math.max(l.length + 2, 9) }));
 
     let header = 'Camera'.padEnd(colW.camera) + 'FPS'.padStart(colW.fps) + 'Frame'.padStart(colW.frame);
     for (const sc of subCols) header += sc.label.padStart(sc.width);
