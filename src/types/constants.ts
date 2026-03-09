@@ -121,7 +121,7 @@ export const SIM = {
   WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
-  ARID_WATER_RECHARGE: 0.25,
+  ARID_WATER_RECHARGE: 0.20,
   ARID_NUTRIENT_MAX: 1.5,
   ARID_LIGHT_BONUS: 0.2,
   // Water table depth per terrain (depth to saturated zone — roots below this access groundwater)
@@ -136,6 +136,7 @@ export const SIM = {
   HILL_MAINT_HEIGHT_MULT: 2.0,   // wind stress on tall plants
   HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
 
+  SOIL_MAINT_HEIGHT_MULT: 0.7,     // deep soil supports tall growth cheaply
   SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
 
   WETLAND_MAINT_ROOT_MULT: 3.5,  // anoxic deep soil
@@ -146,6 +147,7 @@ export const SIM = {
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
   ARID_MAINT_HEIGHT_MULT: 1.5,   // heat stress on tall plants
   ARID_MAINT_LEAF_MULT: 2.5,     // transpiration water loss
+  ARID_MAINT_WSTORAGE_MULT: 0.5, // succulent tissue is advantageous in arid
 
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,
@@ -310,7 +312,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: SIM.SOIL_VIGOR_DAMPEN,
     nutrientMax: SIM.MAX_NUTRIENTS,
     maintRootMult: 1.0,
-    maintHeightMult: 1.0,
+    maintHeightMult: SIM.SOIL_MAINT_HEIGHT_MULT,
     maintLeafMult: 1.0,
     maintWStorageMult: SIM.SOIL_MAINT_WSTORAGE_MULT,
     heightBonusMult: 1.0,
@@ -382,7 +384,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     maintRootMult: SIM.ARID_MAINT_ROOT_MULT,
     maintHeightMult: SIM.ARID_MAINT_HEIGHT_MULT,
     maintLeafMult: SIM.ARID_MAINT_LEAF_MULT,
-    maintWStorageMult: 1.0,
+    maintWStorageMult: SIM.ARID_MAINT_WSTORAGE_MULT,
     heightBonusMult: 1.0,
     plantable: true,
     succulentGermination: true,
