@@ -108,8 +108,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Pampas: tall ornamental, feathery plumes
   scores[6] = g.heightPriority * 0.4 + g.seedInvestment * 0.25 + g.longevity * 0.2 + g.leafSize * 0.15;
 
-  // Desert Grass: arid-adapted tussock
-  scores[7] = g.rootPriority * 0.35 + (1 - g.waterStorage) * 0.3 + g.defense * 0.2 + (1 - g.leafSize) * 0.15;
+  // Desert Grass: arid-adapted perennial tussock
+  scores[7] = g.rootPriority * 0.35 + (1 - g.waterStorage) * 0.3 + g.longevity * 0.2 + (1 - g.leafSize) * 0.15;
 
   let best = 0;
   for (let i = 1; i < 8; i++) if (scores[i] > scores[best]) best = i;
@@ -124,8 +124,8 @@ function classifyTree(g: Genome): SubtypeId {
   // Oak: wide leafSize, balanced, long-lived
   scores[0] = g.leafSize * 0.45 + g.rootPriority * 0.15 + (1 - g.seedInvestment) * 0.15 + g.defense * 0.15 + g.longevity * 0.1;
 
-  // Magnolia: high defense (evergreen), moderate height
-  scores[1] = g.defense * 0.4 + (1 - g.seedInvestment) * 0.2 + g.leafSize * 0.2 + (1 - g.heightPriority) * 0.2;
+  // Magnolia: ancient long-lived broadleaf tree
+  scores[1] = g.longevity * 0.35 + g.leafSize * 0.25 + (1 - g.seedInvestment) * 0.2 + (1 - g.heightPriority) * 0.2;
 
   // Conifer: tall + narrow (high heightPriority, low leafSize), long-lived
   scores[2] = g.heightPriority * 0.45 + (1 - g.leafSize) * 0.25 + (1 - g.rootPriority) * 0.2 + g.longevity * 0.1;
@@ -139,8 +139,8 @@ function classifyTree(g: Genome): SubtypeId {
   // Birch: pioneer (high seedInvestment, thin), short-lived
   scores[5] = g.seedInvestment * 0.45 + (1 - g.rootPriority) * 0.15 + g.heightPriority * 0.15 + (1 - g.defense) * 0.15 + (1 - g.longevity) * 0.1;
 
-  // Cypress: tall columnar evergreen
-  scores[6] = g.heightPriority * 0.4 + (1 - g.leafSize) * 0.25 + g.longevity * 0.2 + g.defense * 0.15;
+  // Cypress: tall columnar evergreen, dense wood
+  scores[6] = g.heightPriority * 0.4 + (1 - g.leafSize) * 0.25 + g.longevity * 0.2 + g.woodiness * 0.15;
 
   // Acacia: wide flat-topped, thorny, arid-adapted
   scores[7] = g.defense * 0.3 + (1 - g.waterStorage) * 0.25 + g.leafSize * 0.25 + g.seedInvestment * 0.2;
@@ -245,8 +245,8 @@ function classifyForb(g: Genome): SubtypeId {
   // Tropical Herb: lush broadleaf, wet-adapted
   scores[6] = g.leafSize * 0.35 + g.waterStorage * 0.25 + g.heightPriority * 0.2 + g.rootPriority * 0.2;
 
-  // Desert Annual: ephemeral, high seed output
-  scores[7] = (1 - g.longevity) * 0.3 + g.seedInvestment * 0.25 + (1 - g.waterStorage) * 0.25 + g.defense * 0.2;
+  // Desert Annual: ephemeral, high seed output, shallow-rooted
+  scores[7] = (1 - g.longevity) * 0.3 + g.seedInvestment * 0.25 + (1 - g.waterStorage) * 0.25 + (1 - g.rootPriority) * 0.2;
 
   let best = 0;
   for (let i = 1; i < 8; i++) if (scores[i] > scores[best]) best = i;

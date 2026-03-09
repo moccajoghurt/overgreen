@@ -151,6 +151,15 @@ export const SIM = {
   DEFENSE_GRAZE_REDUCTION: 0.7,
   DEFENSE_HERBIVORE_DAMAGE: 0.3,
   DEFENSE_MAINTENANCE_RATE: 0.05,
+  DEFENSE_DISEASE_RESIST: 0.5,         // max 50% spread reduction at defense=1
+  DEFENSE_DISEASE_PHOTO_RECOVER: 0.15, // photo penalty: 0.70 → 0.85 at defense=1
+  DEFENSE_DISEASE_DRAIN_RESIST: 0.4,   // drain: 0.15 → 0.09/tick at defense=1
+
+  // Fire survival
+  FIRE_SURVIVAL_BARK_WEIGHT: 0.5,      // max 50% survival from woodiness²
+  FIRE_SURVIVAL_MOISTURE_WEIGHT: 0.3,  // max 30% survival from water reserves
+  FIRE_SURVIVAL_ENERGY_LOSS: 0.6,      // 60% energy lost when surviving
+  FIRE_SURVIVAL_LEAF_LOSS: 0.9,        // 90% leaves lost when surviving
 
   // Reproductive maintenance — ongoing cost for maintaining floral/fruiting structures
   REPRODUCTIVE_MAINTENANCE_RATE: 0.04,

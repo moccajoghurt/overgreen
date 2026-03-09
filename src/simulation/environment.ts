@@ -1,5 +1,5 @@
 import {
-  SIM, TerrainType, World, Plant,
+  SIM, TerrainType, World, Plant, Cell,
   Season, SEASON_LENGTH, YEAR_LENGTH, SEASON_NAMES,
   Environment, DiseaseEvent, WeatherOverlay,
   ClimateZone, CLIMATE_ZONE_COUNT,
@@ -108,6 +108,22 @@ function advanceDroughts(world: World): void {
   }
 }
 
+function fireSurvivalChance(plant: Plant): number {
+  const bark = plant.genome.woodiness * plant.genome.woodiness; // quadratic — only thick bark helps
+  const cap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
+  const moisture = cap > 0 ? (plant.storedWater / cap) * plant.genome.waterStorage : 0;
+  return SIM.FIRE_SURVIVAL_BARK_WEIGHT * bark + SIM.FIRE_SURVIVAL_MOISTURE_WEIGHT * moisture;
+}
+
+function burnCellSeeds(world: World, cell: Cell): void {
+  for (const seed of cell.seeds) {
+    const count = world.seedPopulations.get(seed.speciesId) ?? 1;
+    if (count <= 1) world.seedPopulations.delete(seed.speciesId);
+    else world.seedPopulations.set(seed.speciesId, count - 1);
+  }
+  cell.seeds.length = 0;
+}
+
 export function spawnFire(world: World): void {
   for (let attempt = 0; attempt < 20; attempt++) {
     const x = Math.floor(Math.random() * world.width);
@@ -119,7 +135,15 @@ export function spawnFire(world: World): void {
 
     const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: randomIntRange(8, 17) };
     world.environment.fires.push(fire);
-    killPlantByFire(world, x, y);
+    const ignitionPlant = world.plants.get(cell.plantId!);
+    if (ignitionPlant && Math.random() < fireSurvivalChance(ignitionPlant)) {
+      ignitionPlant.leafArea *= (1 - SIM.FIRE_SURVIVAL_LEAF_LOSS);
+      ignitionPlant.energy *= (1 - SIM.FIRE_SURVIVAL_ENERGY_LOSS);
+      ignitionPlant.storedWater = 0;
+      burnCellSeeds(world, cell);
+    } else {
+      killPlantByFire(world, x, y);
+    }
     world.environmentEvents.push({ type: 'fire_start', message: `Fire ignited near (${x}, ${y})` });
     return;
   }
@@ -152,13 +176,7 @@ function killPlantByFire(world: World, x: number, y: number): void {
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
   }
 
-  // Fire destroys dormant seeds
-  for (const seed of cell.seeds) {
-    const count = world.seedPopulations.get(seed.speciesId) ?? 1;
-    if (count <= 1) world.seedPopulations.delete(seed.speciesId);
-    else world.seedPopulations.set(seed.speciesId, count - 1);
-  }
-  cell.seeds.length = 0;
+  burnCellSeeds(world, cell);
 }
 
 function advanceFires(world: World): void {
@@ -199,7 +217,14 @@ function advanceFires(world: World): void {
           const spreadChance = 0.35 * (1 - waterResist * 0.7) * (0.4 + leafFuel * 0.6);
           if (Math.random() < spreadChance) {
             newFireCells.push([nKey, randomIntRange(3, 6)]);
-            killPlantByFire(world, nx, ny);
+            if (Math.random() < fireSurvivalChance(plant)) {
+              plant.leafArea *= (1 - SIM.FIRE_SURVIVAL_LEAF_LOSS);
+              plant.energy *= (1 - SIM.FIRE_SURVIVAL_ENERGY_LOSS);
+              plant.storedWater = 0;
+              burnCellSeeds(world, cell);
+            } else {
+              killPlantByFire(world, nx, ny);
+            }
           }
         }
       }
@@ -350,7 +375,8 @@ function advanceDiseases(world: World): void {
 
           const susceptibility = Math.max(0, 1 - dist / SIM.DISEASE_DISTANCE_THRESHOLD);
           const spreadChance = SIM.DISEASE_SPREAD_BASE * susceptibility * susceptibility;
-          if (Math.random() < spreadChance) {
+          const defenseResist = 1 - plant.genome.defense * SIM.DEFENSE_DISEASE_RESIST;
+          if (Math.random() < spreadChance * defenseResist) {
             const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
               Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));
             newCells.push([nKey, cellDur]);

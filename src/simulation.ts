@@ -220,7 +220,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
 
-  if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY;
+  if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY + plant.genome.defense * SIM.DEFENSE_DISEASE_PHOTO_RECOVER;
   return energyProduced;
 }
 
@@ -259,7 +259,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
       + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
       + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE
     );
-  if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK;
+  if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK * (1 - plant.genome.defense * SIM.DEFENSE_DISEASE_DRAIN_RESIST);
 
   // Senescence: maintenance scales up quadratically past onset fraction of maxAge
   const maxAge = pc.maxAge;
