@@ -9,7 +9,7 @@ import {
 // ============================================================
 // LAYOUT
 // ============================================================
-const COLS = 6, ROWS = 4;
+const COLS = 6, ROWS = 5;
 const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
 const TITLE_H = 80, PAD = 20;
 const W = PAD * 2 + COLS * CELL_W;
@@ -55,6 +55,14 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '4.5', name: 'Ice plant/Mesemb', species: 'Lithops' },
     { id: '4.6', name: 'Epiphytic succulent', species: 'Schlumbergera' },
   ]},
+  { name: 'FORBS', color: '#b45a8c', plants: [
+    { id: '5.1', name: 'Broadleaf wildflower', species: 'Taraxacum officinale' },
+    { id: '5.2', name: 'Tall herb', species: 'Solidago canadensis' },
+    { id: '5.3', name: 'Fern', species: 'Dryopteris filix-mas' },
+    { id: '5.4', name: 'Vine/Climber', species: 'Hedera helix' },
+    { id: '5.5', name: 'Ground cover', species: 'Trifolium repens' },
+    { id: '5.6', name: 'Moss', species: 'Polytrichum commune' },
+  ]},
 ];
 
 // ============================================================
@@ -86,6 +94,8 @@ const REAL_HEIGHTS_M: number[] = [
   1.5, 3.0, 1.0, 2.0, 2.0, 5.0,
   // Succulents (18-23)
   12.0, 0.5, 2.0, 6.0, 0.15, 0.3,
+  // Forbs (24-29)
+  0.20, 1.0, 0.60, 0.15, 0.10, 0.05,
 ];
 
 function formatHeight(m: number): string {
@@ -146,6 +156,7 @@ const ID_TO_INDEX: Record<string, number> = {
   '2.1': 6,  '2.2': 7,  '2.3': 8,  '2.4': 9,  '2.5': 10, '2.6': 11,
   '3.1': 12, '3.2': 13, '3.3': 14, '3.4': 15, '3.5': 16, '3.6': 17,
   '4.1': 18, '4.2': 19, '4.3': 20, '4.4': 21, '4.5': 22, '4.6': 23,
+  '5.1': 24, '5.2': 25, '5.3': 26, '5.4': 27, '5.5': 28, '5.6': 29,
 };
 
 // ============================================================
@@ -201,7 +212,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
-    const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]);
+    const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29]);
     if (GROUND_COVER.has(idx)) {
       // Ground cover: scale Y to target height, XZ to fill 1.0 unit cell
       plantGroup.updateMatrixWorld(true);

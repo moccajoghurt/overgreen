@@ -2162,6 +2162,677 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
   return indexed;
 }
 
+// ── Forb Builders (24-29) ──
+
+function buildWildflower(): THREE.Group {
+  const g = new THREE.Group();
+  // Dandelion-like — dense flat rosette of broad leaves + bold yellow composite flowers
+
+  const leafMats = [matDS(0x4a8a2a), matDS(0x558a30), matDS(0x3d7a22)];
+
+  // Dense rosette — leaves are horizontal PlaneGeometry on XZ plane
+  // PlaneGeometry(w, h) default is XY; rotate -PI/2 on X to lay flat, then
+  // displace Y (becomes height) for cupping. Visible from all camera angles.
+  for (let ring = 0; ring < 5; ring++) {
+    const ringR = 0.05 + ring * 0.10;
+    const count = 6 + ring * 4;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + ring * 0.37;
+      const ox = Math.cos(a) * ringR;
+      const oz = Math.sin(a) * ringR;
+      const leafLen = 0.22 + Math.random() * 0.06;
+      const leafW = 0.08 + Math.random() * 0.03;
+      // Build leaf in XZ plane directly for reliable horizontal orientation
+      const geo = new THREE.PlaneGeometry(leafW, leafLen, 3, 5);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const lx = pos.getX(vi);
+        const ly = pos.getY(vi); // becomes Z direction
+        const t = (ly + leafLen / 2) / leafLen;
+        // Taper tip
+        pos.setX(vi, lx * (1 - t * 0.5));
+        // Tooth waviness
+        pos.setX(vi, pos.getX(vi) + Math.sin(t * 6) * 0.005);
+        // Cupped midrib — Z becomes height after rotation
+        const xNorm = lx / (leafW / 2);
+        pos.setZ(vi, Math.abs(xNorm) * 0.02 + t * 0.015);
+      }
+      geo.computeVertexNormals();
+      const leaf = new THREE.Mesh(geo, leafMats[(i + ring) % 3]);
+      leaf.position.set(ox, 0.015 + ring * 0.003, oz);
+      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.z = -a; // Point outward radially
+      g.add(leaf);
+    }
+  }
+
+  // Edge + corner filler — same flat approach
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2 + Math.random() * 0.15;
+    const r = 0.35 + Math.random() * 0.18;
+    const ox = Math.cos(a) * r;
+    const oz = Math.sin(a) * r;
+    const leafLen = 0.16 + Math.random() * 0.06;
+    const leafW = 0.06 + Math.random() * 0.02;
+    const geo = new THREE.PlaneGeometry(leafW, leafLen, 2, 3);
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const lx = pos.getX(vi);
+      const ly = pos.getY(vi);
+      const t = (ly + leafLen / 2) / leafLen;
+      pos.setX(vi, lx * (1 - t * 0.5));
+      pos.setZ(vi, Math.abs(lx / (leafW / 2)) * 0.015 + t * 0.01);
+    }
+    geo.computeVertexNormals();
+    const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
+    leaf.position.set(ox, 0.01, oz);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = -a;
+    g.add(leaf);
+  }
+
+  // Bold yellow dandelion flowers on stems
+  const flowerMat = mat(0xffdd22);
+  const flowerBright = mat(0xffee44);
+  const stemMat = mat(0x5a8a30);
+  const flowers = [
+    { x: 0, z: 0, h: 0.30 },
+    { x: 0.15, z: 0.10, h: 0.25 },
+    { x: -0.12, z: 0.14, h: 0.28 },
+    { x: -0.10, z: -0.12, h: 0.22 },
+    { x: 0.18, z: -0.08, h: 0.20 },
+    { x: -0.20, z: -0.05, h: 0.18 },
+    { x: 0.06, z: -0.20, h: 0.24 },
+    { x: -0.05, z: 0.22, h: 0.19 },
+    { x: 0.22, z: 0.20, h: 0.16 },
+  ];
+  for (let fi = 0; fi < flowers.length; fi++) {
+    const fp = flowers[fi];
+    // Stem
+    const stemGeo = new THREE.CylinderGeometry(0.008, 0.012, fp.h, 4);
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.set(fp.x, fp.h / 2, fp.z);
+    g.add(stem);
+    // Flower head — flattened sphere with ray petals
+    const headGeo = jitter(new THREE.SphereGeometry(0.055, 6, 4), 0.008);
+    headGeo.scale(1, 0.35, 1);
+    const head = new THREE.Mesh(headGeo, fi % 2 === 0 ? flowerMat : flowerBright);
+    head.position.set(fp.x, fp.h + 0.01, fp.z);
+    g.add(head);
+  }
+
+  return g;
+}
+
+function buildWildflowerLow(): THREE.Group {
+  const g = new THREE.Group();
+  const leafMat = matDS(0x4a8a2a);
+  const flowerMat = mat(0xffdd22);
+  // 8 large flat rosette leaves covering the cell (8 meshes) + 4 flower heads (4 meshes) = 12
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const r = 0.18 + (i % 2) * 0.08;
+    const geo = new THREE.PlaneGeometry(0.22, 0.30, 1, 1);
+    const leaf = new THREE.Mesh(geo, leafMat);
+    leaf.position.set(Math.cos(a) * r, 0.015, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = -a;
+    g.add(leaf);
+  }
+  // 4 flower heads
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.05, 4, 2), flowerMat);
+    head.position.set(Math.cos(a) * 0.08, 0.22, Math.sin(a) * 0.08);
+    head.scale.y = 0.35;
+    g.add(head);
+  }
+  return g;
+}
+
+function buildTallHerb(): THREE.Group {
+  const g = new THREE.Group();
+  // Goldenrod — tall upright stems + dense flat basal rosette filling the cell
+
+  const stemMat = mat(0x6a8a40);
+  const leafMats = [matDS(0x558a35), matDS(0x4a7a2a), matDS(0x609040)];
+  const flowerMat = mat(0xeebb22);
+  const flowerBright = mat(0xffdd44);
+
+  // Dense flat basal rosette — 5 rings + heavy edge fill
+  for (let ring = 0; ring < 5; ring++) {
+    const ringR = 0.06 + ring * 0.10;
+    const count = 6 + ring * 5;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + ring * 0.37 + (Math.random() - 0.5) * 0.3;
+      const ox = Math.cos(a) * (ringR + (Math.random() - 0.5) * 0.04);
+      const oz = Math.sin(a) * (ringR + (Math.random() - 0.5) * 0.04);
+      const leafLen = 0.22 + Math.random() * 0.06;
+      const leafW = 0.07 + Math.random() * 0.03;
+      const geo = new THREE.PlaneGeometry(leafW, leafLen, 2, 3);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const lx = pos.getX(vi);
+        const ly = pos.getY(vi);
+        const t = (ly + leafLen / 2) / leafLen;
+        pos.setX(vi, lx * (1 - t * 0.6));
+        pos.setZ(vi, Math.abs(lx / (leafW / 2)) * 0.012 + t * 0.01);
+      }
+      geo.computeVertexNormals();
+      const leaf = new THREE.Mesh(geo, leafMats[(i + ring) % 3]);
+      leaf.position.set(ox, 0.015 + ring * 0.003, oz);
+      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.z = -a;
+      g.add(leaf);
+    }
+  }
+  // Heavy edge filler
+  for (let i = 0; i < 32; i++) {
+    const a = (i / 32) * Math.PI * 2 + Math.random() * 0.15;
+    const r = 0.34 + Math.random() * 0.18;
+    const leafLen = 0.16 + Math.random() * 0.06;
+    const leafW = 0.06 + Math.random() * 0.02;
+    const geo = new THREE.PlaneGeometry(leafW, leafLen, 1, 2);
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const t = (pos.getY(vi) + leafLen / 2) / leafLen;
+      pos.setX(vi, pos.getX(vi) * (1 - t * 0.5));
+    }
+    geo.computeVertexNormals();
+    const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
+    leaf.position.set(Math.cos(a) * r, 0.01, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = -a;
+    g.add(leaf);
+  }
+
+  // Dense upright flowering stems — thicker, more numerous
+  const stems = [
+    { x: 0.00, z: 0.00, h: 1.6 }, { x: -0.16, z: 0.12, h: 1.35 },
+    { x: 0.18, z: -0.08, h: 1.45 }, { x: -0.10, z: -0.18, h: 1.15 },
+    { x: 0.14, z: 0.16, h: 1.25 }, { x: -0.25, z: -0.02, h: 1.05 },
+    { x: 0.03, z: -0.25, h: 0.95 }, { x: 0.25, z: 0.03, h: 1.05 },
+    { x: -0.06, z: 0.25, h: 0.90 }, { x: -0.28, z: 0.20, h: 0.85 },
+    { x: 0.28, z: -0.20, h: 0.80 }, { x: 0.10, z: 0.28, h: 0.75 },
+    { x: -0.20, z: -0.25, h: 0.70 }, { x: 0.30, z: 0.15, h: 0.65 },
+  ];
+  for (const s of stems) {
+    // Thicker stem
+    const stemGeo = new THREE.CylinderGeometry(0.014, 0.020, s.h, 5);
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.set(s.x, s.h / 2, s.z);
+    g.add(stem);
+    // Stem leaves — larger, visible
+    for (let li = 0; li < 5; li++) {
+      const ly = 0.12 + (li / 5) * s.h * 0.55;
+      const side = li % 2 === 0 ? 1 : -1;
+      const lLen = 0.12 - li * 0.012;
+      const lGeo = new THREE.PlaneGeometry(0.035, lLen, 1, 2);
+      const leaf = new THREE.Mesh(lGeo, leafMats[li % 3]);
+      leaf.position.set(s.x + side * 0.018, ly, s.z);
+      leaf.rotation.z = side * 0.5;
+      leaf.rotation.y = Math.atan2(s.z, s.x) + side * 0.8;
+      g.add(leaf);
+    }
+    // Flower plume — larger, denser cone
+    const pBase = s.h * 0.70;
+    const pTop = s.h * 1.02;
+    for (let di = 0; di < 14; di++) {
+      const dt = di / 14;
+      const dy = pBase + dt * (pTop - pBase);
+      const da = Math.random() * Math.PI * 2;
+      const dr = 0.055 * (1 - dt * 0.7);
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.020 + Math.random() * 0.012, 4, 2),
+        di % 2 === 0 ? flowerMat : flowerBright,
+      );
+      dot.position.set(s.x + Math.cos(da) * dr, dy, s.z + Math.sin(da) * dr);
+      g.add(dot);
+    }
+  }
+
+  return g;
+}
+
+function buildTallHerbLow(): THREE.Group {
+  const g = new THREE.Group();
+  const stemMat = mat(0x6a8a40);
+  const leafMat = matDS(0x558a35);
+  const flowerMat = mat(0xeebb22);
+  // 4 large flat basal leaves + 4 stems + 4 flower heads = 12 meshes
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.3;
+    const r = 0.22;
+    const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.28, 1, 1), leafMat);
+    leaf.position.set(Math.cos(a) * r, 0.015, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = -a;
+    g.add(leaf);
+  }
+  // 4 flowering stems
+  const stemData = [
+    { x: 0, z: 0, h: 1.5 }, { x: 0.14, z: 0.10, h: 1.3 },
+    { x: -0.12, z: -0.08, h: 1.2 }, { x: -0.06, z: 0.16, h: 1.1 },
+  ];
+  for (const s of stemData) {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, s.h, 3), stemMat);
+    stem.position.set(s.x, s.h / 2, s.z);
+    g.add(stem);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 4, 2), flowerMat);
+    head.position.set(s.x, s.h * 0.9, s.z);
+    head.scale.y = 1.5;
+    g.add(head);
+  }
+  return g;
+}
+
+function buildFern(): THREE.Group {
+  const g = new THREE.Group();
+  // Fern — wide feathery fronds as single tapered planes, radiating flat from center
+
+  const frondMats = [matDS(0x3a7a2a), matDS(0x448a30), matDS(0x357020), matDS(0x508a38)];
+
+  // Central crown
+  const crownGeo = jitter(new THREE.SphereGeometry(0.06, 5, 4), 0.015);
+  const crown = new THREE.Mesh(crownGeo, mat(0x5a4a2a));
+  crown.position.y = 0.04;
+  crown.scale.y = 0.6;
+  g.add(crown);
+
+  // Each frond is a single wide plane with serrated edges, laid flat
+  const tiers = [
+    { count: 5, len: 0.28, w: 0.12, yBase: 0.06, offset: 0.3 },
+    { count: 7, len: 0.38, w: 0.15, yBase: 0.04, offset: 0.0 },
+    { count: 9, len: 0.48, w: 0.18, yBase: 0.025, offset: 0.15 },
+  ];
+
+  for (let ti = 0; ti < tiers.length; ti++) {
+    const tier = tiers[ti];
+    for (let fi = 0; fi < tier.count; fi++) {
+      const a = (fi / tier.count) * Math.PI * 2 + tier.offset;
+      const frondMat = frondMats[(fi + ti) % frondMats.length];
+      const len = tier.len + (Math.random() - 0.5) * 0.06;
+      const w = tier.w + (Math.random() - 0.5) * 0.03;
+
+      // Wide plane tapered to tip with serrated edges
+      const geo = new THREE.PlaneGeometry(w, len, 6, 8);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const lx = pos.getX(vi);
+        const ly = pos.getY(vi);
+        const t = (ly + len / 2) / len; // 0 at base, 1 at tip
+        // Diamond taper — widest at 30%
+        const widthMult = t < 0.3 ? t / 0.3 : Math.max(0, 1 - (t - 0.3) / 0.7);
+        pos.setX(vi, lx * widthMult);
+        // Serrated/pinnate edge — zigzag along length
+        const xNorm = Math.abs(lx) / (w / 2);
+        if (xNorm > 0.3) {
+          const serration = Math.sin(t * 14) * 0.012 * xNorm;
+          pos.setX(vi, pos.getX(vi) + serration);
+        }
+        // Slight midrib lift for 3D
+        pos.setZ(vi, (1 - xNorm) * 0.012 + t * 0.008);
+      }
+      geo.computeVertexNormals();
+
+      const frond = new THREE.Mesh(geo, frondMat);
+      // Position at center, lay flat on XZ, point outward
+      frond.position.set(0, 0, len / 2);
+      frond.rotation.x = -Math.PI / 2;
+
+      const frondGroup = new THREE.Group();
+      frondGroup.add(frond);
+      frondGroup.position.set(Math.cos(a) * 0.04, tier.yBase, Math.sin(a) * 0.04);
+      frondGroup.rotation.y = a;
+      g.add(frondGroup);
+    }
+  }
+
+  return g;
+}
+
+function buildFernLow(): THREE.Group {
+  const g = new THREE.Group();
+  const frondMat = matDS(0x3a7a2a);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const len = 0.42;
+    const w = 0.14;
+    const geo = new THREE.PlaneGeometry(w, len, 2, 4);
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const t = (pos.getY(vi) + len / 2) / len;
+      const widthMult = t < 0.3 ? t / 0.3 : Math.max(0, 1 - (t - 0.3) / 0.7);
+      pos.setX(vi, pos.getX(vi) * widthMult);
+    }
+    geo.computeVertexNormals();
+    const frond = new THREE.Mesh(geo, frondMat);
+    frond.position.set(0, 0, len / 2);
+    frond.rotation.x = -Math.PI / 2;
+    const fg = new THREE.Group();
+    fg.add(frond);
+    fg.position.set(Math.cos(a) * 0.04, 0.02, Math.sin(a) * 0.04);
+    fg.rotation.y = a;
+    g.add(fg);
+  }
+  return g;
+}
+
+function buildVine(): THREE.Group {
+  const g = new THREE.Group();
+  // English ivy — crawling stems with overlapping heart-shaped leaves flat on ground
+
+  const stemMat = mat(0x5a4a2a);
+  const leafMats = [matDS(0x2a6a1a), matDS(0x358020), matDS(0x3a7528)];
+
+  // 12 radiating vine arms with visible stems
+  const armCount = 12;
+  for (let ai = 0; ai < armCount; ai++) {
+    const baseA = (ai / armCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+    const armLen = 0.42 + Math.random() * 0.12;
+    const segments = 6;
+    let cx = 0, cz = 0;
+    let dir = baseA;
+    const stepLen = armLen / segments;
+
+    for (let si = 0; si < segments; si++) {
+      dir += (Math.random() - 0.5) * 0.25;
+      const nx = cx + Math.cos(dir) * stepLen;
+      const nz = cz + Math.sin(dir) * stepLen;
+
+      // Visible stem segment
+      const segLen = Math.sqrt((nx - cx) ** 2 + (nz - cz) ** 2);
+      const segGeo = new THREE.CylinderGeometry(0.008, 0.012, segLen, 4);
+      const seg = new THREE.Mesh(segGeo, stemMat);
+      seg.position.set((cx + nx) / 2, 0.012, (cz + nz) / 2);
+      seg.rotation.z = Math.PI / 2;
+      seg.rotation.y = Math.atan2(nz - cz, nx - cx);
+      g.add(seg);
+
+      // Leaf at each node — larger near center
+      const dist = Math.sqrt(nx * nx + nz * nz);
+      const sizeFactor = Math.max(0.7, 1.3 - dist * 0.8);
+      const leafSize = (0.07 + Math.random() * 0.03) * sizeFactor;
+      const lGeo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
+      const leaf = new THREE.Mesh(lGeo, leafMats[si % 3]);
+      const leafSide = si % 2 === 0 ? 1 : -1;
+      const off = leafSize * 0.3;
+      leaf.position.set(
+        nx + Math.cos(dir + leafSide * Math.PI / 2) * off,
+        0.020,
+        nz + Math.sin(dir + leafSide * Math.PI / 2) * off,
+      );
+      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.z = dir + leafSide * 0.4 + Math.random() * 0.3;
+      g.add(leaf);
+
+      // Second leaf on opposite side for denser coverage
+      if (si > 0 && si < segments - 1) {
+        const ls2 = leafSize * 0.8;
+        const geo2 = new THREE.PlaneGeometry(ls2, ls2 * 1.1);
+        const leaf2 = new THREE.Mesh(geo2, leafMats[(si + 1) % 3]);
+        leaf2.position.set(
+          nx + Math.cos(dir - leafSide * Math.PI / 2) * off * 0.6,
+          0.018,
+          nz + Math.sin(dir - leafSide * Math.PI / 2) * off * 0.6,
+        );
+        leaf2.rotation.x = -Math.PI / 2;
+        leaf2.rotation.z = dir - leafSide * 0.3 + Math.random() * 0.3;
+        g.add(leaf2);
+      }
+
+      cx = nx;
+      cz = nz;
+    }
+  }
+
+  // Dense center mound — large overlapping leaves
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    const r = 0.02 + Math.random() * 0.12;
+    const leafSize = 0.08 + Math.random() * 0.05;
+    const geo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
+    const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
+    leaf.position.set(Math.cos(a) * r, 0.025 + Math.random() * 0.01, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = a + Math.random() * 0.5;
+    g.add(leaf);
+  }
+
+  // Heavy gap fill — especially edges and corners
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 0.95;
+    const z = (Math.random() - 0.5) * 0.95;
+    const leafSize = 0.05 + Math.random() * 0.04;
+    const geo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
+    const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
+    leaf.position.set(x, 0.015, z);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = Math.random() * Math.PI * 2;
+    g.add(leaf);
+  }
+
+  return g;
+}
+
+function buildVineLow(): THREE.Group {
+  const g = new THREE.Group();
+  const leafMats = [matDS(0x2a6a1a), matDS(0x357a22)];
+  // 10 large overlapping heart-shaped leaves covering the cell = 10 meshes
+  const positions = [
+    [0, 0], [0.22, 0.18], [-0.20, 0.22], [0.25, -0.16], [-0.18, -0.22],
+    [0.38, 0.02], [-0.36, 0.05], [0.05, 0.36], [0.10, -0.35], [-0.30, -0.18],
+  ];
+  for (let i = 0; i < positions.length; i++) {
+    const [x, z] = positions[i];
+    const geo = new THREE.PlaneGeometry(0.18, 0.20, 1, 1);
+    const leaf = new THREE.Mesh(geo, leafMats[i % 2]);
+    leaf.position.set(x, 0.018 + i * 0.001, z);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = i * 0.7;
+    g.add(leaf);
+  }
+  return g;
+}
+
+function buildClover(): THREE.Group {
+  const g = new THREE.Group();
+  // White clover — dense trifoliate leaves flat on ground + white/pink globular flowers
+
+  const petioleMat = mat(0x5a8a35);
+  const leafMats = [matDS(0x3a7a25), matDS(0x448830), matDS(0x2d6a1a)];
+  const flowerMat = mat(0xffeedd);
+  const flowerPink = mat(0xffccdd);
+
+  // Dense grid of trifoliate clusters — large overlapping leaves
+  const step = 0.09;
+  const half = 0.48;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      if (Math.random() > 0.92) continue;
+      const cx = gx + (Math.random() - 0.5) * step * 0.7;
+      const cz = gz + (Math.random() - 0.5) * step * 0.7;
+      const petioleH = 0.04 + Math.random() * 0.03;
+
+      // Petiole
+      const pGeo = new THREE.CylinderGeometry(0.003, 0.004, petioleH, 3);
+      const petiole = new THREE.Mesh(pGeo, petioleMat);
+      petiole.position.set(cx, petioleH / 2, cz);
+      g.add(petiole);
+
+      // Three large flat leaflets — big enough to overlap with neighbors
+      const baseAngle = Math.random() * Math.PI * 2;
+      for (let li = 0; li < 3; li++) {
+        const la = baseAngle + (li / 3) * Math.PI * 2;
+        const leafR = 0.035 + Math.random() * 0.010;
+        const lGeo = new THREE.CircleGeometry(leafR, 6);
+        const leaf = new THREE.Mesh(lGeo, leafMats[(li + Math.floor((gx + gz) * 20)) % 3]);
+        leaf.position.set(
+          cx + Math.cos(la) * 0.022,
+          petioleH + 0.003,
+          cz + Math.sin(la) * 0.022,
+        );
+        leaf.rotation.x = -Math.PI / 2;
+        leaf.rotation.z = la;
+        g.add(leaf);
+      }
+    }
+  }
+
+  // White/pink flower heads on taller stems scattered across
+  const flowerSpots = [
+    { x: 0.05, z: 0.08 }, { x: -0.18, z: 0.22 }, { x: 0.25, z: -0.12 },
+    { x: -0.10, z: -0.25 }, { x: 0.32, z: 0.18 }, { x: -0.28, z: -0.08 },
+    { x: 0.12, z: 0.32 }, { x: -0.32, z: 0.32 }, { x: 0.08, z: -0.38 },
+    { x: -0.38, z: 0.10 }, { x: 0.38, z: -0.30 }, { x: 0.00, z: 0.00 },
+  ];
+  for (let fi = 0; fi < flowerSpots.length; fi++) {
+    const fp = flowerSpots[fi];
+    const stemH = 0.10 + Math.random() * 0.05;
+    const stemGeo = new THREE.CylinderGeometry(0.004, 0.005, stemH, 3);
+    const stem = new THREE.Mesh(stemGeo, petioleMat);
+    stem.position.set(fp.x, stemH / 2, fp.z);
+    g.add(stem);
+
+    const headGeo = jitter(new THREE.SphereGeometry(0.028, 5, 3), 0.005);
+    const head = new THREE.Mesh(headGeo, fi % 3 === 0 ? flowerPink : flowerMat);
+    head.position.set(fp.x, stemH + 0.015, fp.z);
+    g.add(head);
+  }
+
+  return g;
+}
+
+function buildCloverLow(): THREE.Group {
+  const g = new THREE.Group();
+  const leafMat = matDS(0x3a7a25);
+  const flowerMat = mat(0xffeedd);
+  // 8 large flat leaf circles covering the cell + 4 flower heads = 12 meshes
+  const leafPositions = [
+    [0, 0], [0.25, 0.20], [-0.22, 0.24], [0.28, -0.18],
+    [-0.20, -0.24], [0.40, 0.0], [-0.38, -0.04], [0.02, -0.38],
+  ];
+  for (let i = 0; i < leafPositions.length; i++) {
+    const [x, z] = leafPositions[i];
+    const leaf = new THREE.Mesh(new THREE.CircleGeometry(0.18, 6), leafMat);
+    leaf.position.set(x, 0.02 + i * 0.001, z);
+    leaf.rotation.x = -Math.PI / 2;
+    g.add(leaf);
+  }
+  // 4 white flower heads
+  const flowerPositions = [[0.12, 0.12], [-0.15, 0.10], [0.10, -0.16], [-0.20, -0.14]];
+  for (const [x, z] of flowerPositions) {
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.035, 4, 3), flowerMat);
+    head.position.set(x, 0.10, z);
+    g.add(head);
+  }
+  return g;
+}
+
+function buildMoss(): THREE.Group {
+  const g = new THREE.Group();
+  // Cushion moss — dense overlapping mounds covering entire cell
+
+  const mossMats = [mat(0x3a7a25), mat(0x4a8a30), mat(0x2d6a1a), mat(0x558a38), mat(0x3d8a2d)];
+
+  // Large overlapping cushion mounds — tall domed hemispheres
+  const mounds = [
+    { x: 0.00, z: 0.00, r: 0.20 }, { x: -0.25, z: 0.20, r: 0.17 },
+    { x: 0.28, z: -0.15, r: 0.16 }, { x: -0.15, z: -0.28, r: 0.18 },
+    { x: 0.20, z: 0.25, r: 0.15 }, { x: -0.35, z: -0.05, r: 0.14 },
+    { x: 0.35, z: 0.08, r: 0.15 }, { x: -0.05, z: 0.38, r: 0.14 },
+    { x: 0.10, z: -0.38, r: 0.15 }, { x: -0.38, z: 0.35, r: 0.13 },
+    { x: 0.38, z: -0.35, r: 0.13 }, { x: -0.30, z: -0.35, r: 0.12 },
+    { x: 0.30, z: 0.35, r: 0.12 }, { x: -0.42, z: 0.10, r: 0.11 },
+    { x: 0.42, z: -0.10, r: 0.11 }, { x: 0.00, z: -0.42, r: 0.11 },
+  ];
+
+  // Color variety — some yellower, some darker
+  const mossVariety = [mat(0x3a7a25), mat(0x4a8a30), mat(0x2d6a1a), mat(0x558a38), mat(0x3d8a2d),
+    mat(0x4a8528), mat(0x357a20), mat(0x488a35)];
+
+  for (let mi = 0; mi < mounds.length; mi++) {
+    const m = mounds[mi];
+    const geo = jitter(new THREE.SphereGeometry(m.r, 7, 5), m.r * 0.12);
+    // Dome shape — visible height, nearly flat bottom
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const y = pos.getY(vi);
+      if (y < 0) pos.setY(vi, y * 0.1); // Flat bottom
+      else pos.setY(vi, y * 0.65); // Taller dome — ~65% of radius
+    }
+    geo.computeVertexNormals();
+    const bump = new THREE.Mesh(geo, mossVariety[mi % mossVariety.length]);
+    bump.position.set(m.x, 0, m.z);
+    g.add(bump);
+  }
+
+  // Medium filler mounds between large ones
+  const fillerPositions = [
+    [-0.12, 0.10], [0.12, -0.10], [-0.08, -0.12], [0.08, 0.12],
+    [-0.30, 0.10], [0.30, -0.10], [0.15, 0.35], [-0.15, -0.35],
+    [0.42, 0.20], [-0.42, -0.20], [-0.20, 0.42], [0.20, -0.42],
+  ];
+  for (let fi = 0; fi < fillerPositions.length; fi++) {
+    const [fx, fz] = fillerPositions[fi];
+    const r = 0.08 + Math.random() * 0.04;
+    const geo = jitter(new THREE.SphereGeometry(r, 5, 4), r * 0.1);
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const y = pos.getY(vi);
+      if (y < 0) pos.setY(vi, y * 0.1);
+      else pos.setY(vi, y * 0.55);
+    }
+    geo.computeVertexNormals();
+    const bump = new THREE.Mesh(geo, mossVariety[(fi + 3) % mossVariety.length]);
+    bump.position.set(fx, 0, fz);
+    g.add(bump);
+  }
+
+  // Sporophyte stalks — thin reddish-brown stems with tiny capsules
+  const sporeMat = mat(0x8a5533);
+  const capMat = mat(0x6a4422);
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * 0.35;
+    const sx = Math.cos(a) * r;
+    const sz = Math.sin(a) * r;
+    const h = 0.10 + Math.random() * 0.08;
+    const stalk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.003, 0.004, h, 3),
+      sporeMat,
+    );
+    stalk.position.set(sx, h / 2, sz);
+    g.add(stalk);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.010, 3, 2), capMat);
+    cap.position.set(sx, h, sz);
+    cap.scale.y = 1.5;
+    g.add(cap);
+  }
+
+  return g;
+}
+
+function buildMossLow(): THREE.Group {
+  const g = new THREE.Group();
+  const mossMats = [mat(0x3a7a25), mat(0x4a8a30), mat(0x2d6a1a)];
+  // 10 large overlapping cushion domes = 10 meshes
+  const positions = [
+    [0, 0], [-0.22, 0.18], [0.24, -0.12], [-0.12, -0.24],
+    [0.18, 0.22], [-0.34, -0.06], [0.34, 0.10], [-0.06, 0.36],
+    [0.08, -0.34], [-0.28, 0.32],
+  ];
+  for (let i = 0; i < positions.length; i++) {
+    const [x, z] = positions[i];
+    const geo = new THREE.SphereGeometry(0.20, 5, 3);
+    geo.scale(1, 0.3, 1);
+    const bump = new THREE.Mesh(geo, mossMats[i % 3]);
+    bump.position.set(x, 0.01, z);
+    g.add(bump);
+  }
+  return g;
+}
+
 // ── Public API ──
 
 export interface SubtypeModel {
@@ -2179,6 +2850,8 @@ export const BUILDERS: (() => THREE.Group)[] = [
   buildEvergreenShrub, buildDeciduousShrub, buildMediterranean, buildThorny, buildDesertShrub, buildMangrove,
   // Succulents (18-23)
   buildSaguaro, buildAloe, buildCaudiciform, buildEuphorbia, buildIcePlant, buildEpiphytic,
+  // Forbs (24-29)
+  buildWildflower, buildTallHerb, buildFern, buildVine, buildClover, buildMoss,
 ];
 
 /** Low-mesh LOD builders — same indices as BUILDERS, 8-12 meshes each.
@@ -2192,6 +2865,8 @@ export const BUILDERS_LOW: (() => THREE.Group)[] = [
   buildEvergreenShrubLow, buildDeciduousShrubLow, buildMediterraneanLow, buildThornyLow, buildDesertShrubLow, buildMangroveLow,
   // Succulents (18-23) — Saguaro & Aloe reuse full builder
   buildSaguaro, buildAloe, buildCaudiciformLow, buildEuphorbiaLow, buildIcePlantLow, buildEpiphyticLow,
+  // Forbs (24-29)
+  buildWildflowerLow, buildTallHerbLow, buildFernLow, buildVineLow, buildCloverLow, buildMossLow,
 ];
 
 /**
@@ -2232,6 +2907,13 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   2.00,   // 21: Euphorbia    6.0m  → 2.0
   0.08,   // 22: Ice Plant    0.15m → 0.05 (floored)
   0.10,   // 23: Epiphytic    0.3m  → 0.10
+  // Forbs (24-29)
+  0.08,   // 24: Wildflower   0.20m → 0.067 (floored)
+  0.33,   // 25: Tall Herb    1.0m  → 0.33
+  0.20,   // 26: Fern         0.60m → 0.20
+  0.08,   // 27: Vine         0.15m → 0.05 (floored)
+  0.08,   // 28: Ground Cover 0.10m → 0.033 (floored)
+  0.08,   // 29: Moss         0.05m → 0.017 (floored)
 ];
 
 /** Scale a model group to its target game-world height using Box3 measurement. */
@@ -2281,10 +2963,17 @@ const MATURITY_HEIGHT: number[] = [
   9.0,   // 21: Euphorbia — candelabra
   1.0,   // 22: Ice Plant — ground-level
   1.5,   // 23: Epiphytic — trailing
+  // Forbs (24-29)
+  2.0,   // 24: Wildflower — low rosette
+  5.0,   // 25: Tall Herb — upright herb
+  3.0,   // 26: Fern — spreading fronds
+  1.5,   // 27: Vine — ground creeper
+  1.0,   // 28: Ground Cover — clover mat
+  1.0,   // 29: Moss — ultra-low cushion
 ];
 
 /** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
-const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]); // turfgrass, tallgrass, bunchgrass, bamboo, spreading, sedge
+const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29]); // grasses + forbs
 
 /** Accent-only grass types — geometry is authored at world-unit scale, no model scaling.
  *  Carpet provides base coverage; these provide per-type visual identity. */

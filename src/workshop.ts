@@ -32,6 +32,8 @@ const NAMES: Record<number, string> = {
   13: 'Deciduous Shrub', 14: 'Mediterranean', 15: 'Thorny', 16: 'Desert Shrub',
   17: 'Mangrove', 18: 'Stem Succulent', 19: 'Leaf Succulent', 20: 'Caudiciform',
   21: 'Euphorbia', 22: 'Ice Plant', 23: 'Epiphytic',
+  24: 'Wildflower', 25: 'Tall Herb', 26: 'Fern', 27: 'Vine',
+  28: 'Ground Cover', 29: 'Moss',
 };
 
 // ── Renderer ──
@@ -50,7 +52,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
 // ── Build the plant ──
-const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5]);
+const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29]);
 
 function scalePlant(plantGroup: THREE.Group): void {
   if (GROUND_COVER.has(subtypeIdx)) {
