@@ -1,5 +1,6 @@
 import { Scenario } from '../types';
 import { genesis } from './genesis';
+import { lindenvale } from './lindenvale';
 import { experimentMonoculture } from './experiment-monoculture';
 import { experimentWaterCompetition } from './experiment-water-competition';
 import { experimentLightCompetition } from './experiment-light-competition';
@@ -20,6 +21,7 @@ import { experimentSucculentGallery } from './experiment-succulent-gallery';
 
 export const SCENARIOS: Scenario[] = [
   genesis,
+  lindenvale,
   experimentMonoculture,
   experimentWaterCompetition,
   experimentLightCompetition,

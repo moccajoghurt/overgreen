@@ -148,7 +148,7 @@ btnSandbox.addEventListener('click', () => {
 // Map buttons — featured maps shown as full buttons, experiments in dev dropdown
 const mapButtonsContainer = document.getElementById('map-buttons')!;
 const mapButtons: HTMLButtonElement[] = [];
-const FEATURED_IDS = new Set(['genesis']); // add more map IDs here as they're created
+const FEATURED_IDS = new Set(['genesis', 'lindenvale']);
 
 function setActiveMapButton(activeId: string | null): void {
   for (const btn of mapButtons) {
@@ -222,6 +222,11 @@ function doLoadScenario(scenario: Scenario): void {
   controls.hoveredSpecies = null;
   loadScenario(world, scenario);
   resetAllState();
+  if (scenario.frozen) {
+    controls.paused = true;
+    btn.textContent = '\u23F8 PAUSED';
+    btn.classList.add('paused');
+  }
 }
 
 function doLoadRandom(): void {
