@@ -121,7 +121,7 @@ export const SIM = {
   WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
-  ARID_WATER_RECHARGE: 0.20,
+  ARID_WATER_RECHARGE: 0.25,
   ARID_NUTRIENT_MAX: 1.5,
   ARID_LIGHT_BONUS: 0.2,
   // Water table depth per terrain (depth to saturated zone — roots below this access groundwater)
@@ -147,7 +147,7 @@ export const SIM = {
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
   ARID_MAINT_HEIGHT_MULT: 1.5,   // heat stress on tall plants
   ARID_MAINT_LEAF_MULT: 2.5,     // transpiration water loss
-  ARID_MAINT_WSTORAGE_MULT: 0.5, // succulent tissue is advantageous in arid
+  ARID_MAINT_WSTORAGE_MULT: 0.3, // succulent tissue is strongly advantageous in arid
 
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,
