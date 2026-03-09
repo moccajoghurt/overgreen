@@ -90,6 +90,32 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
+  // ── Wet bank tint: darken cells adjacent to rivers to look like wet mud ──
+  const WET_BANK_R = 0.22, WET_BANK_G = 0.18, WET_BANK_B = 0.12;
+  const WET_BANK_BLEND = 0.6;
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cell = world.grid[y][x];
+      if (cell.terrainType === TerrainType.River) continue;
+      // Check if any 4-neighbor is a river cell
+      let nearRiver = false;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID &&
+            world.grid[ny][nx].terrainType === TerrainType.River) {
+          nearRiver = true;
+          break;
+        }
+      }
+      if (nearRiver) {
+        const idx = y * GRID + x;
+        cellBaseR[idx] = cellBaseR[idx] * (1 - WET_BANK_BLEND) + WET_BANK_R * WET_BANK_BLEND;
+        cellBaseG[idx] = cellBaseG[idx] * (1 - WET_BANK_BLEND) + WET_BANK_G * WET_BANK_BLEND;
+        cellBaseB[idx] = cellBaseB[idx] * (1 - WET_BANK_BLEND) + WET_BANK_B * WET_BANK_BLEND;
+      }
+    }
+  }
+
   // ── Vegetation tint pass ──
   // Per-archetype tint colors [R, G, B] and max blend strengths
   // Indexed by Archetype enum: Grass=0, Shrub=1, Succulent=2, Tree=3, Forb=4

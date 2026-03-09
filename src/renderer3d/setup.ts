@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { World } from '../types';
+import { World, TerrainType } from '../types';
 import {
   GRID, ELEV_SCALE, MAX_SEEDS, MAX_PER_SUBTYPE,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
@@ -23,7 +23,23 @@ function smoothTerrainNormals(
   geo: THREE.BufferGeometry,
   corners: Float32Array,
   cs: number, // cornerSize = GRID + 1
+  world: World,
 ): void {
+  // Mark corners adjacent to river cells
+  const nearRiver = new Uint8Array(cs * cs);
+  for (let cy = 0; cy < cs; cy++) {
+    for (let cx = 0; cx < cs; cx++) {
+      for (const [dx, dy] of CELL_OFFSETS) {
+        const gx = cx + dx, gy = cy + dy;
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID &&
+            world.grid[gy][gx].terrainType === TerrainType.River) {
+          nearRiver[cy * cs + cx] = 1;
+          break;
+        }
+      }
+    }
+  }
+
   // Compute per-corner normals from finite-difference height gradients
   const cornerNormals = new Float32Array(cs * cs * 3);
   for (let cy = 0; cy < cs; cy++) {
@@ -35,13 +51,15 @@ function smoothTerrainNormals(
       const hD = cy < cs - 1 ? corners[(cy + 1) * cs + cx] : h;
       const dx = cx > 0 && cx < cs - 1 ? 2 : 1;
       const dz = cy > 0 && cy < cs - 1 ? 2 : 1;
-      // normal = normalize(-dh/dx, 1, -dh/dz)
+      // normal = normalize(-dh/dx, upBias, -dh/dz)
+      // Near rivers, bias the Y component upward so steep bank faces get more light
+      const upBias = nearRiver[cy * cs + cx] ? 4.0 : 1.0;
       const nx = -(hR - hL) / dx;
       const nz = -(hD - hU) / dz;
-      const len = Math.sqrt(nx * nx + 1 + nz * nz);
+      const len = Math.sqrt(nx * nx + upBias * upBias + nz * nz);
       const i3 = (cy * cs + cx) * 3;
       cornerNormals[i3] = nx / len;
-      cornerNormals[i3 + 1] = 1 / len;
+      cornerNormals[i3 + 1] = upBias / len;
       cornerNormals[i3 + 2] = nz / len;
     }
   }
@@ -65,6 +83,34 @@ function smoothTerrainNormals(
     }
   }
   normAttr.needsUpdate = true;
+}
+
+const CELL_OFFSETS: [number, number][] = [[0, 0], [-1, 0], [0, -1], [-1, -1]];
+
+/** River depth in 3D units — how far below bank terrain the riverbed sits. */
+export const RIVER_DEPTH = 1.5;
+
+/**
+ * Depress terrain corners at/near river cells to carve a riverbed channel.
+ * Each corner is depressed proportionally to how many of its 4 adjacent cells
+ * are rivers, creating natural slopes at the bank edges.
+ */
+function depressRiverCorners(world: World, corners: Float32Array, cs: number): void {
+  for (let cy = 0; cy < cs; cy++) {
+    for (let cx = 0; cx < cs; cx++) {
+      let riverCount = 0, total = 0;
+      for (const [dx, dy] of CELL_OFFSETS) {
+        const gx = cx + dx, gy = cy + dy;
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          total++;
+          if (world.grid[gy][gx].terrainType === TerrainType.River) riverCount++;
+        }
+      }
+      if (riverCount > 0) {
+        corners[cy * cs + cx] -= RIVER_DEPTH * (riverCount / total);
+      }
+    }
+  }
 }
 
 export interface TerrainResult {
@@ -121,6 +167,9 @@ export function createTerrain(world: World): TerrainResult {
     }
   }
 
+  // Smooth terrain near rivers to create gentle bank slopes
+  depressRiverCorners(world, corners, cornerSize);
+
   const posAttr = terrainGeo.attributes.position;
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -139,7 +188,7 @@ export function createTerrain(world: World): TerrainResult {
     }
   }
   posAttr.needsUpdate = true;
-  smoothTerrainNormals(terrainGeo, corners, cornerSize);
+  smoothTerrainNormals(terrainGeo, corners, cornerSize, world);
 
   function getCellElevation(cx: number, cy: number): number {
     // Average the 4 corner heights to match the actual terrain mesh surface
@@ -200,6 +249,9 @@ export function rebuildTerrainGeometry(
     }
   }
 
+  // Smooth terrain near rivers to create gentle bank slopes
+  depressRiverCorners(world, corners, cornerSize);
+
   const posAttr = terrain.terrainMesh.geometry.attributes.position;
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -218,7 +270,7 @@ export function rebuildTerrainGeometry(
     }
   }
   posAttr.needsUpdate = true;
-  smoothTerrainNormals(terrain.terrainMesh.geometry, corners, cornerSize);
+  smoothTerrainNormals(terrain.terrainMesh.geometry, corners, cornerSize, world);
 
   function getCellElevation(cx: number, cy: number): number {
     const tl = corners[cy * cornerSize + cx];
