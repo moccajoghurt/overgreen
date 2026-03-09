@@ -80,33 +80,32 @@ perfTracker.register('glDraw', 'render');
 perfTracker.register('frame', 'frame');
 const perfPanel = createPerfPanel(container, perfTracker);
 
-const colorToggle = document.getElementById('color-mode-toggle') as HTMLInputElement;
-colorToggle.addEventListener('change', () => {
-  renderer.setColorMode(colorToggle.checked ? 'species' : 'natural');
+// --- View drawer expand/collapse ---
+const viewExpandBtn = document.getElementById('btn-view-expand') as HTMLButtonElement;
+const viewDrawer = document.getElementById('view-drawer')!;
+viewExpandBtn.addEventListener('click', () => {
+  const open = viewDrawer.classList.toggle('hidden') === false;
+  viewExpandBtn.textContent = open ? '−' : '+';
 });
+
+// --- View toggles ---
+function setupViewCheckbox(id: string, onToggle: (checked: boolean) => void) {
+  const el = document.getElementById(id) as HTMLInputElement;
+  el.addEventListener('change', () => onToggle(el.checked));
+  return el;
+}
 
 const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
-const labelsToggle = document.getElementById('labels-toggle') as HTMLInputElement;
-labelsToggle.addEventListener('change', () => {
-  speciesLabels.setVisible(labelsToggle.checked);
-});
-
-const lineageLabelsToggle = document.getElementById('lineage-labels-toggle') as HTMLInputElement;
-lineageLabelsToggle.addEventListener('change', () => {
-  speciesLabels.setLineageVisible(lineageLabelsToggle.checked);
-});
-
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
-const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInputElement;
-terrainToggle.addEventListener('change', () => {
-  terrainLabels.setVisible(terrainToggle.checked);
-});
-
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
-const zoneToggle = document.getElementById('zone-view-toggle') as HTMLInputElement;
-zoneToggle.addEventListener('change', () => {
-  zoneLabels.setVisible(zoneToggle.checked);
+
+setupViewCheckbox('toggle-species-colors', (on) => {
+  renderer.setColorMode(on ? 'species' : 'natural');
 });
+const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => speciesLabels.setVisible(on));
+const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));
+const climateToggle = setupViewCheckbox('toggle-climate', (on) => zoneLabels.setVisible(on));
+setupViewCheckbox('toggle-lineage-cards', (on) => speciesLabels.setLineageVisible(on));
 
 const ffOverlay = createFFOverlay(container);
 
@@ -383,13 +382,14 @@ function loop(now: number): void {
   if (warpActive && !wasWarpActive) {
     ffOverlay.show();
     speciesLabels.setVisible(false);
+    speciesLabels.setLineageVisible(false);
     terrainLabels.setVisible(false);
     zoneLabels.setVisible(false);
   } else if (!warpActive && wasWarpActive) {
     ffOverlay.hide();
-    speciesLabels.setVisible(labelsToggle.checked);
+    speciesLabels.setVisible(speciesCardsToggle.checked);
     terrainLabels.setVisible(terrainToggle.checked);
-    zoneLabels.setVisible(zoneToggle.checked);
+    zoneLabels.setVisible(climateToggle.checked);
     lastUITick = -1; // force full UI refresh
   }
   wasWarpActive = warpActive;

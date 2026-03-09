@@ -33,12 +33,27 @@
       min-height: 120px; max-height: 200px; overflow-y: auto;
       flex-shrink: 0;
     }
-    label { font-size: 12px; }
-
     /* Section groups */
     .section-group { display: flex; flex-direction: column; gap: 6px; }
     .section-group + .section-group { border-top: 1px solid #2a2a2a; padding-top: 8px; }
     .group-label { font-size: 10px; color: #555; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    /* View toggles */
+    .view-label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 4px; font-size: 12px; cursor: pointer;
+      border-radius: 3px;
+    }
+    .view-label:hover { background: rgba(255,255,255,0.03); }
+    .view-label input { accent-color: #5a9a5a; }
+    .view-expand-btn {
+      padding: 0 5px; font-size: 12px; line-height: 1;
+      background: transparent; color: #555; border: 1px solid transparent;
+      cursor: pointer; font-family: monospace;
+    }
+    .view-expand-btn:hover { color: #888; }
+    .view-drawer { display: flex; flex-direction: column; gap: 2px; }
+    .view-drawer.hidden { display: none; }
 
     /* Map buttons */
     .map-buttons { display: flex; flex-direction: column; gap: 3px; }
@@ -299,14 +314,19 @@
     </div>
 
     <div class="section-group">
-      <div class="group-label">View</div>
-      <label><input type="checkbox" id="color-mode-toggle" /> Species colors</label>
-      <label><input type="checkbox" id="labels-toggle" /> Species cards</label>
-      <label><input type="checkbox" id="terrain-view-toggle" /> Terrain overlay</label>
-      <label><input type="checkbox" id="zone-view-toggle" /> Climate overlay</label>
-      <label><input type="checkbox" id="hover-toggle" checked /> Hover species</label>
-      <label><input type="checkbox" id="lineage-labels-toggle" /> Lineage cards</label>
-      <label><input type="checkbox" id="hover-lineage-toggle" /> Hover lineage</label>
+      <div class="group-label" style="display:flex; align-items:center; justify-content:space-between;">
+        View
+        <button class="view-expand-btn" id="btn-view-expand">+</button>
+      </div>
+      <label class="view-label"><input type="checkbox" id="toggle-hover" checked /> Hover species</label>
+      <div class="view-drawer hidden" id="view-drawer">
+        <label class="view-label"><input type="checkbox" id="toggle-species-colors" /> Species colors</label>
+        <label class="view-label"><input type="checkbox" id="toggle-species-cards" /> Species cards</label>
+        <label class="view-label"><input type="checkbox" id="toggle-terrain" /> Terrain overlay</label>
+        <label class="view-label"><input type="checkbox" id="toggle-climate" /> Climate overlay</label>
+        <label class="view-label"><input type="checkbox" id="toggle-hover-lineage" /> Hover lineage</label>
+        <label class="view-label"><input type="checkbox" id="toggle-lineage-cards" /> Lineage cards</label>
+      </div>
     </div>
 
     <div class="section-group">

@@ -110,13 +110,13 @@ export function initControls(
     controls.hoveredPlantId = null;
   });
 
-  const hoverToggle = document.getElementById('hover-toggle') as HTMLInputElement;
+  const hoverToggle = document.getElementById('toggle-hover') as HTMLInputElement;
   hoverToggle.addEventListener('change', () => {
     controls.hoverEnabled = hoverToggle.checked;
     if (!controls.hoverEnabled) { controls.hoveredSpecies = null; controls.hoveredPlantId = null; }
   });
 
-  const hoverLineageToggle = document.getElementById('hover-lineage-toggle') as HTMLInputElement;
+  const hoverLineageToggle = document.getElementById('toggle-hover-lineage') as HTMLInputElement;
   hoverLineageToggle.addEventListener('change', () => {
     controls.hoverLineageEnabled = hoverLineageToggle.checked;
   });
