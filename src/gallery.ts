@@ -5,11 +5,13 @@ import {
   scaleToTarget,
   TARGET_MODEL_HEIGHTS,
 } from './renderer3d/plant-models';
+import { BUILDERS_STRESSED } from './renderer3d/plant-models-stressed';
+import { BUILDERS_DYING } from './renderer3d/plant-models-dying';
 
 // ============================================================
 // LAYOUT — fit to viewport width
 // ============================================================
-const COLS = 8, ROWS = 5;
+const COLS = 8, ROWS = 13;
 const PAD = 10;
 const W = window.innerWidth;
 const CELL_W = Math.floor((W - PAD * 2) / COLS);
@@ -24,59 +26,95 @@ const H = TITLE_H + ROWS * ROW_H + PAD;
 // PLANT DATA
 // ============================================================
 interface PlantEntry { id: string; name: string; species: string }
-interface ArchetypeRow { name: string; color: string; plants: PlantEntry[] }
+type HealthState = 'thriving' | 'stressed' | 'dying';
+interface DisplayRow { name: string; color: string; state: HealthState; plants: PlantEntry[] }
 
-const ARCHETYPES: ArchetypeRow[] = [
-  { name: 'GRASSES', color: '#4c8738', plants: [
-    { id: '1.1', name: 'Turfgrass', species: 'Poa pratensis' },
-    { id: '1.2', name: 'Tallgrass', species: 'Andropogon gerardii' },
-    { id: '1.3', name: 'Bunch grass', species: 'Festuca idahoensis' },
-    { id: '1.4', name: 'Bamboo', species: 'Phyllostachys edulis' },
-    { id: '1.5', name: 'Spreading grass', species: 'Cynodon dactylon' },
-    { id: '1.6', name: 'Sedge/Rush', species: 'Cyperus papyrus' },
-    { id: '1.7', name: 'Pampas grass', species: 'Cortaderia selloana' },
-    { id: '1.8', name: 'Desert grass', species: 'Stipagrostis plumosa' },
-  ]},
-  { name: 'TREES', color: '#654321', plants: [
-    { id: '2.1', name: 'Broadleaf deciduous', species: 'Quercus robur' },
-    { id: '2.2', name: 'Broadleaf evergreen', species: 'Magnolia grandiflora' },
-    { id: '2.3', name: 'Conifer', species: 'Pinus sylvestris' },
-    { id: '2.4', name: 'Tropical hardwood', species: 'Swietenia mahagoni' },
-    { id: '2.5', name: 'Palm', species: 'Cocos nucifera' },
-    { id: '2.6', name: 'Pioneer/fast-growth', species: 'Betula pendula' },
-    { id: '2.7', name: 'Cypress', species: 'Cupressus sempervirens' },
-    { id: '2.8', name: 'Acacia/Thorn tree', species: 'Vachellia tortilis' },
-  ]},
-  { name: 'SHRUBS', color: '#8c783c', plants: [
-    { id: '3.1', name: 'Evergreen shrub', species: 'Buxus sempervirens' },
-    { id: '3.2', name: 'Deciduous shrub', species: 'Sambucus nigra' },
-    { id: '3.3', name: 'Mediterranean', species: 'Rosmarinus officinalis' },
-    { id: '3.4', name: 'Thorny/Armed', species: 'Ulex europaeus' },
-    { id: '3.5', name: 'Desert shrub', species: 'Larrea tridentata' },
-    { id: '3.6', name: 'Mangrove', species: 'Rhizophora mangle' },
-    { id: '3.7', name: 'Flowering shrub', species: 'Hibiscus rosa-sinensis' },
-    { id: '3.8', name: 'Aromatic/Garrigue', species: 'Lavandula angustifolia' },
-  ]},
-  { name: 'SUCCULENTS', color: '#558c64', plants: [
-    { id: '4.1', name: 'Stem succulent', species: 'Carnegiea gigantea' },
-    { id: '4.2', name: 'Leaf succulent', species: 'Aloe vera' },
-    { id: '4.3', name: 'Caudiciform', species: 'Adenium obesum' },
-    { id: '4.4', name: 'Euphorbia', species: 'Euphorbia ingens' },
-    { id: '4.5', name: 'Ice plant/Mesemb', species: 'Lithops' },
-    { id: '4.6', name: 'Epiphytic succulent', species: 'Schlumbergera' },
-    { id: '4.7', name: 'Barrel cactus', species: 'Ferocactus wislizeni' },
-    { id: '4.8', name: 'Jade/Crassula', species: 'Crassula ovata' },
-  ]},
-  { name: 'FORBS', color: '#b45a8c', plants: [
-    { id: '5.1', name: 'Broadleaf wildflower', species: 'Taraxacum officinale' },
-    { id: '5.2', name: 'Tall herb', species: 'Solidago canadensis' },
-    { id: '5.3', name: 'Fern', species: 'Dryopteris filix-mas' },
-    { id: '5.4', name: 'Vine/Climber', species: 'Hedera helix' },
-    { id: '5.5', name: 'Ground cover', species: 'Trifolium repens' },
-    { id: '5.6', name: 'Moss', species: 'Polytrichum commune' },
-    { id: '5.7', name: 'Tropical herb', species: 'Heliconia rostrata' },
-    { id: '5.8', name: 'Desert annual', species: 'Eschscholzia californica' },
-  ]},
+const GRASSES: PlantEntry[] = [
+  { id: '1.1', name: 'Turfgrass', species: 'Poa pratensis' },
+  { id: '1.2', name: 'Tallgrass', species: 'Andropogon gerardii' },
+  { id: '1.3', name: 'Bunch grass', species: 'Festuca idahoensis' },
+  { id: '1.4', name: 'Bamboo', species: 'Phyllostachys edulis' },
+  { id: '1.5', name: 'Spreading grass', species: 'Cynodon dactylon' },
+  { id: '1.6', name: 'Sedge/Rush', species: 'Cyperus papyrus' },
+  { id: '1.7', name: 'Pampas grass', species: 'Cortaderia selloana' },
+  { id: '1.8', name: 'Desert grass', species: 'Stipagrostis plumosa' },
+];
+
+const TREES: PlantEntry[] = [
+  { id: '2.1', name: 'Broadleaf deciduous', species: 'Quercus robur' },
+  { id: '2.2', name: 'Broadleaf evergreen', species: 'Magnolia grandiflora' },
+  { id: '2.3', name: 'Conifer', species: 'Pinus sylvestris' },
+  { id: '2.4', name: 'Tropical hardwood', species: 'Swietenia mahagoni' },
+  { id: '2.5', name: 'Palm', species: 'Cocos nucifera' },
+  { id: '2.6', name: 'Pioneer/fast-growth', species: 'Betula pendula' },
+  { id: '2.7', name: 'Cypress', species: 'Cupressus sempervirens' },
+  { id: '2.8', name: 'Acacia/Thorn tree', species: 'Vachellia tortilis' },
+];
+
+const SHRUBS: PlantEntry[] = [
+  { id: '3.1', name: 'Evergreen shrub', species: 'Buxus sempervirens' },
+  { id: '3.2', name: 'Deciduous shrub', species: 'Sambucus nigra' },
+  { id: '3.3', name: 'Mediterranean', species: 'Rosmarinus officinalis' },
+  { id: '3.4', name: 'Thorny/Armed', species: 'Ulex europaeus' },
+  { id: '3.5', name: 'Desert shrub', species: 'Larrea tridentata' },
+  { id: '3.6', name: 'Mangrove', species: 'Rhizophora mangle' },
+  { id: '3.7', name: 'Flowering shrub', species: 'Hibiscus rosa-sinensis' },
+  { id: '3.8', name: 'Aromatic/Garrigue', species: 'Lavandula angustifolia' },
+];
+
+const SUCCULENTS: PlantEntry[] = [
+  { id: '4.1', name: 'Stem succulent', species: 'Carnegiea gigantea' },
+  { id: '4.2', name: 'Leaf succulent', species: 'Aloe vera' },
+  { id: '4.3', name: 'Caudiciform', species: 'Adenium obesum' },
+  { id: '4.4', name: 'Euphorbia', species: 'Euphorbia ingens' },
+  { id: '4.5', name: 'Ice plant/Mesemb', species: 'Lithops' },
+  { id: '4.6', name: 'Epiphytic succulent', species: 'Schlumbergera' },
+  { id: '4.7', name: 'Barrel cactus', species: 'Ferocactus wislizeni' },
+  { id: '4.8', name: 'Jade/Crassula', species: 'Crassula ovata' },
+];
+
+const FORBS: PlantEntry[] = [
+  { id: '5.1', name: 'Broadleaf wildflower', species: 'Taraxacum officinale' },
+  { id: '5.2', name: 'Tall herb', species: 'Solidago canadensis' },
+  { id: '5.3', name: 'Fern', species: 'Dryopteris filix-mas' },
+  { id: '5.4', name: 'Vine/Climber', species: 'Hedera helix' },
+  { id: '5.5', name: 'Ground cover', species: 'Trifolium repens' },
+  { id: '5.6', name: 'Moss', species: 'Polytrichum commune' },
+  { id: '5.7', name: 'Tropical herb', species: 'Heliconia rostrata' },
+  { id: '5.8', name: 'Desert annual', species: 'Eschscholzia californica' },
+];
+
+// Category base colors
+const CAT_COLORS: Record<string, string> = {
+  GRASSES: '#4c8738',
+  TREES: '#654321',
+  SHRUBS: '#8c783c',
+  SUCCULENTS: '#558c64',
+  FORBS: '#b45a8c',
+};
+
+// State-specific header colors
+const STATE_COLORS: Record<HealthState, (base: string) => string> = {
+  thriving: (base) => base,
+  stressed: () => '#b8a030',
+  dying: () => '#8a5a5a',
+};
+
+function makeRows(name: string, plants: PlantEntry[]): DisplayRow[] {
+  const base = CAT_COLORS[name];
+  return [
+    { name: `${name} — Thriving`, color: STATE_COLORS.thriving(base), state: 'thriving', plants },
+    { name: `${name} — Stressed`, color: STATE_COLORS.stressed(base), state: 'stressed', plants },
+    { name: `${name} — Dying`, color: STATE_COLORS.dying(base), state: 'dying', plants },
+  ];
+}
+
+const DISPLAY_ROWS: DisplayRow[] = [
+  { name: 'GRASSES', color: CAT_COLORS.GRASSES, state: 'thriving', plants: GRASSES },
+  ...makeRows('TREES', TREES),
+  ...makeRows('SHRUBS', SHRUBS),
+  ...makeRows('SUCCULENTS', SUCCULENTS),
+  ...makeRows('FORBS', FORBS),
 ];
 
 // ============================================================
@@ -164,7 +202,6 @@ function addRuler(scene: THREE.Scene, realH: number): void {
 // ============================================================
 const CAM_Y = 3.0;
 let camDist = 14.0;
-// Ground panels are 1×1 boxes matching sim cell size
 
 // Map string IDs to BUILDERS indices
 const ID_TO_INDEX: Record<string, number> = {
@@ -178,12 +215,13 @@ const ID_TO_INDEX: Record<string, number> = {
 };
 
 // ============================================================
-// BUILDER MAP
+// BUILDER MAP — select builders based on health state
 // ============================================================
-const builders: Record<string, () => THREE.Group> = {};
-
-for (const [id, idx] of Object.entries(ID_TO_INDEX)) {
-  builders[id] = BUILDERS[idx];
+function getBuilder(id: string, state: HealthState): () => THREE.Group {
+  const idx = ID_TO_INDEX[id];
+  if (state === 'stressed') return BUILDERS_STRESSED[idx];
+  if (state === 'dying') return BUILDERS_DYING[idx];
+  return BUILDERS[idx];
 }
 
 // ============================================================
@@ -222,17 +260,17 @@ interface Cell {
 
 const cells: Cell[] = [];
 
-for (let row = 0; row < ARCHETYPES.length; row++) {
-  const arch = ARCHETYPES[row];
-  for (let col = 0; col < arch.plants.length; col++) {
-    const plant = arch.plants[col];
-    const plantGroup = builders[plant.id]();
+for (let row = 0; row < DISPLAY_ROWS.length; row++) {
+  const drow = DISPLAY_ROWS[row];
+  for (let col = 0; col < drow.plants.length; col++) {
+    const plant = drow.plants[col];
+    const builder = getBuilder(plant.id, drow.state);
+    const plantGroup = builder();
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
     const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39]);
     if (GROUND_COVER.has(idx)) {
-      // Ground cover: scale Y to target height, XZ to fill 1.0 unit cell
       plantGroup.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(plantGroup);
       const rawH = Math.max(0.01, box.max.y);
@@ -248,7 +286,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     const group = new THREE.Group();
     group.add(plantGroup);
     if (idx === 17) {
-      addWaterDisc(group); // Mangrove
+      addWaterDisc(group);
     } else {
       addGround(group);
     }
@@ -263,15 +301,15 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x8a7a6a, 0.3));
     scene.add(group);
 
-    // Scale ruler (added to scene, not group, so it doesn't rotate)
+    // Scale ruler
     addRuler(scene, REAL_HEIGHTS_M[idx]);
 
-    // Camera (uniform for all cells)
+    // Camera
     const cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 500);
     cam.position.set(camDist * 0.7, CAM_Y + camDist * 0.35, camDist * 0.7);
     cam.lookAt(0, CAM_Y * 0.7, 0);
 
-    // Viewport (WebGL y=0 is bottom)
+    // Viewport
     const vx = PAD + col * CELL_W;
     const vyHtml = TITLE_H + row * ROW_H + HEADER_H;
     const vyGL = H - vyHtml - CELL_3D;
@@ -286,7 +324,6 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 const ctx = overlay.getContext('2d')!;
 ctx.scale(dpr, dpr);
 
-// Scale factor relative to the original 300px cell width
 const FS = CELL_W / 300;
 
 function drawLabels(): void {
@@ -298,12 +335,12 @@ function drawLabels(): void {
   ctx.textAlign = 'center';
   ctx.fillText('OVERGREEN \u2014 Plant Subtype Gallery', W / 2, TITLE_H / 2 + 10 * FS);
 
-  for (let row = 0; row < ARCHETYPES.length; row++) {
-    const arch = ARCHETYPES[row];
+  for (let row = 0; row < DISPLAY_ROWS.length; row++) {
+    const drow = DISPLAY_ROWS[row];
     const hy = TITLE_H + row * ROW_H;
 
     // Header bar
-    ctx.fillStyle = arch.color;
+    ctx.fillStyle = drow.color;
     const rx = PAD, rw = W - PAD * 2, rh = HEADER_H - 4;
     ctx.beginPath();
     ctx.roundRect(rx, hy, rw, rh, 6 * FS);
@@ -312,10 +349,10 @@ function drawLabels(): void {
     ctx.font = `bold ${Math.round(22 * FS)}px "Segoe UI", sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText((row + 1) + '. ' + arch.name, PAD + 12 * FS, hy + rh / 2 + 7 * FS);
+    ctx.fillText((row + 1) + '. ' + drow.name, PAD + 12 * FS, hy + rh / 2 + 7 * FS);
 
-    for (let col = 0; col < arch.plants.length; col++) {
-      const p = arch.plants[col];
+    for (let col = 0; col < drow.plants.length; col++) {
+      const p = drow.plants[col];
       const cx = PAD + col * CELL_W + CELL_W / 2;
       const labelY = hy + HEADER_H + CELL_3D;
 
@@ -323,7 +360,7 @@ function drawLabels(): void {
       const bx = PAD + col * CELL_W + 6 * FS;
       const by = hy + HEADER_H + 4 * FS;
       const badgeW = 36 * FS, badgeH = 20 * FS;
-      ctx.fillStyle = arch.color;
+      ctx.fillStyle = drow.color;
       ctx.beginPath();
       ctx.roundRect(bx, by, badgeW, badgeH, 4 * FS);
       ctx.fill();

@@ -3576,3 +3576,28 @@ export function buildSubtypeModels(): SubtypeModel[] {
 export function buildSubtypeModelsLow(): SubtypeModel[] {
   return buildModelsFromBuilders(BUILDERS_LOW);
 }
+
+// ── Stressed & Dying variant build functions ──
+// Consumers import BUILDERS_STRESSED etc. from './plant-models-stressed' and './plant-models-dying'.
+// These build functions use dynamic imports to avoid circular dependency
+// (assembler files import BUILDERS/BUILDERS_LOW from this file).
+
+export async function buildSubtypeModelsStressed(): Promise<SubtypeModel[]> {
+  const { BUILDERS_STRESSED } = await import('./plant-models-stressed');
+  return buildModelsFromBuilders(BUILDERS_STRESSED);
+}
+
+export async function buildSubtypeModelsStressedLow(): Promise<SubtypeModel[]> {
+  const { BUILDERS_STRESSED_LOW } = await import('./plant-models-stressed');
+  return buildModelsFromBuilders(BUILDERS_STRESSED_LOW);
+}
+
+export async function buildSubtypeModelsDying(): Promise<SubtypeModel[]> {
+  const { BUILDERS_DYING } = await import('./plant-models-dying');
+  return buildModelsFromBuilders(BUILDERS_DYING);
+}
+
+export async function buildSubtypeModelsDyingLow(): Promise<SubtypeModel[]> {
+  const { BUILDERS_DYING_LOW } = await import('./plant-models-dying');
+  return buildModelsFromBuilders(BUILDERS_DYING_LOW);
+}
