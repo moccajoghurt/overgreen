@@ -47,4 +47,4 @@ Read the contact sheet jpg first. For detail, read individual frames.
 
 ## Note
 
-Both capture scripts use shared utilities from `scripts/capture-utils.mjs`. For performance-focused benchmarking with camera presets, use `/perf-review` instead.
+Both capture scripts use shared utilities from `scripts/capture-utils.mjs`. For performance-focused benchmarking with camera presets, use `/capture` instead.

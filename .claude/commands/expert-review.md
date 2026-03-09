@@ -2,7 +2,7 @@ Spawn 6 expert consultants to review the hook phase UX. Each reviews independent
 
 ## Prerequisites
 
-Fresh hook screenshots must exist. If not, run `/hook-review hook` first.
+Fresh hook screenshots must exist. If not, run `/capture-hook hook` first.
 
 ## The Experts
 
