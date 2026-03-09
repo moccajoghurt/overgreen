@@ -1,5 +1,4 @@
 import { World, SEASON_NAMES } from './types';
-import { ERA_NAMES } from './simulation/eras';
 
 export interface FFOverlay {
   show(): void;
@@ -38,12 +37,8 @@ export function createFFOverlay(container: HTMLElement): FFOverlay {
   overlay.appendChild(tickEl);
 
   const seasonEl = document.createElement('div');
-  seasonEl.style.cssText = 'font-size:18px; color:#7d7; margin-bottom:2px;';
+  seasonEl.style.cssText = 'font-size:18px; color:#7d7; margin-bottom:14px;';
   overlay.appendChild(seasonEl);
-
-  const eraEl = document.createElement('div');
-  eraEl.style.cssText = 'font-size:14px; color:#d4a030; margin-bottom:14px;';
-  overlay.appendChild(eraEl);
 
   const tpsEl = document.createElement('div');
   tpsEl.style.cssText = 'font-size:16px; color:#999;';
@@ -75,7 +70,6 @@ export function createFFOverlay(container: HTMLElement): FFOverlay {
 
     tickEl.textContent = `Tick ${world.tick.toLocaleString()}`;
     seasonEl.textContent = `${SEASON_NAMES[world.environment.season]}  \u2014  Year ${world.environment.yearCount + 1}`;
-    eraEl.textContent = ERA_NAMES[world.environment.era.current];
     plantsEl.textContent = `${world.plants.size} plants`;
 
     if (sampleTime === 0) {

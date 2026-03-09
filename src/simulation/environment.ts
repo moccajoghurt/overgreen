@@ -5,7 +5,6 @@ import {
 } from '../types';
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
-import { advanceEra, getEffectiveEraMultipliers } from './eras';
 
 // Season target values: [water, light, leafMaint, growth, seed]
 const SEASON_TARGETS: Record<Season, [number, number, number, number, number]> = {
@@ -21,12 +20,10 @@ function computeSeasonModifiers(env: Environment): void {
   // Cosine interpolation for smooth transitions
   const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
 
-  const eraMults = getEffectiveEraMultipliers(env.era);
-
-  env.waterMult = (cur[0] + (next[0] - cur[0]) * t) * eraMults.waterMult;
-  env.lightMult = (cur[1] + (next[1] - cur[1]) * t) * eraMults.lightMult;
-  env.leafMaintenanceMult = (cur[2] + (next[2] - cur[2]) * t) * eraMults.leafMaintMult;
-  env.growthMult = (cur[3] + (next[3] - cur[3]) * t) * eraMults.growthMult;
+  env.waterMult = cur[0] + (next[0] - cur[0]) * t;
+  env.lightMult = cur[1] + (next[1] - cur[1]) * t;
+  env.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
+  env.growthMult = cur[3] + (next[3] - cur[3]) * t;
   env.seedMult = cur[4] + (next[4] - cur[4]) * t;
 }
 
@@ -407,9 +404,6 @@ function rebuildWeatherOverlay(world: World): void {
 export function phaseEnvironment(world: World): void {
   const env = world.environment;
 
-  // Advance climate era (before seasonal modifiers so era mults apply this tick)
-  advanceEra(world);
-
   const tickInYear = world.tick % YEAR_LENGTH;
   const newSeason = Math.floor(tickInYear / SEASON_LENGTH) as Season;
 
@@ -424,10 +418,8 @@ export function phaseEnvironment(world: World): void {
   env.seasonProgress = (tickInYear % SEASON_LENGTH) / SEASON_LENGTH;
   computeSeasonModifiers(env);
 
-  const eraMults = getEffectiveEraMultipliers(env.era);
-
-  // Drought spawning (summer only, scaled by era)
-  if (env.season === Season.Summer && Math.random() < 0.008 * eraMults.droughtMult) {
+  // Drought spawning (summer only)
+  if (env.season === Season.Summer && Math.random() < 0.008) {
     spawnDrought(world);
   }
 
@@ -445,14 +437,14 @@ export function phaseEnvironment(world: World): void {
     world.environmentEvents.push({ type: 'drought_start', message: 'Arid dry spell began' });
   }
 
-  // Fire spawning (summer, after 30% progress, scaled by era)
-  if (env.season === Season.Summer && env.seasonProgress > 0.3 && Math.random() < 0.005 * eraMults.fireMult) {
+  // Fire spawning (summer, after 30% progress)
+  if (env.season === Season.Summer && env.seasonProgress > 0.3 && Math.random() < 0.005) {
     spawnFire(world);
   }
 
-  // Disease spawning (not in winter, after min tick, max from era, scaled by era)
+  // Disease spawning (not in winter, after min tick)
   if (env.season !== Season.Winter && world.tick >= SIM.DISEASE_SPAWN_MIN_TICK
-      && env.diseases.length < eraMults.maxDiseases && Math.random() < SIM.DISEASE_SPAWN_CHANCE * eraMults.diseaseMult) {
+      && env.diseases.length < 2 && Math.random() < SIM.DISEASE_SPAWN_CHANCE) {
     spawnDisease(world);
   }
 

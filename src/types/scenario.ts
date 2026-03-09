@@ -1,5 +1,4 @@
 import { TerrainType, Genome, SpeciesColor } from './core';
-import { ClimateEra } from './environment';
 
 export interface ScenarioCell {
   x: number;
@@ -28,5 +27,4 @@ export interface Scenario {
   defaultElevation?: number;
   cells: ScenarioCell[];
   species: ScenarioSpecies[];
-  lockedEra?: ClimateEra;
 }

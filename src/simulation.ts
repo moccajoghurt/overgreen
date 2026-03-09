@@ -8,7 +8,6 @@ import {
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
 import { phaseEnvironment } from './simulation/environment';
-import { getEffectiveEraMultipliers } from './simulation/eras';
 import { phaseHerbivores } from './simulation/herbivores';
 import { classifySubtype } from './types/subtypes';
 
@@ -20,8 +19,7 @@ export { spawnFire, spawnDisease } from './simulation/environment';
 
 function phaseRechargeWater(world: World): void {
   const env = world.environment;
-  const eraMults = getEffectiveEraMultipliers(env.era);
-  const nutrientDecay = SIM.NUTRIENT_DECAY * eraMults.nutrientDecayMult;
+  const nutrientDecay = SIM.NUTRIENT_DECAY;
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
@@ -91,8 +89,6 @@ const _srGrid = new Float32Array(_gridSize);
 const _shsGrid = new Float32Array(_gridSize);
 
 function phaseCalculateLight(world: World): void {
-  const eraMults = getEffectiveEraMultipliers(world.environment.era);
-  const shadowMult = eraMults.shadowMult;
   const W = world.width;
   const H = world.height;
 
@@ -130,7 +126,7 @@ function phaseCalculateLight(world: World): void {
           // Only tall plants cast shade at distance 2 (canopy reach)
           if (dist > 1 && nHeight < 3.0) continue;
           const diff = nHeight - myHeight;
-          const nShadow = _srGrid[nIdx] * shadowMult / dist;
+          const nShadow = _srGrid[nIdx] / dist;
           shadeSum += nShadow * Math.min(1, diff / _shsGrid[nIdx]);
         }
       }
@@ -273,7 +269,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, eraMutationRate: number, eraSeedEnergyMult: number): void {
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): void {
   const env = world.environment;
   const pc = getPlantConstants(plant.genome);
   const growthEff = pc.growthEfficiency;
@@ -352,15 +348,15 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
     }
 
     const childGenome = mateGenome
-      ? mutateGenome(crossoverGenome(plant.genome, mateGenome), eraMutationRate)
-      : mutateGenome(plant.genome, eraMutationRate);
+      ? mutateGenome(crossoverGenome(plant.genome, mateGenome))
+      : mutateGenome(plant.genome);
 
     // Create dormant seed instead of a live plant
     const seed: Seed = {
       speciesId: plant.speciesId,
       lineageRoot: plant.lineageRoot,
       genome: childGenome,
-      energy: effectiveSeedEnergy * eraSeedEnergyMult,
+      energy: effectiveSeedEnergy,
       age: 0,
       generation: plant.generation + 1,
     };
@@ -383,10 +379,6 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, era
 }
 
 function phaseUpdatePlants(world: World): void {
-  const eraMults = getEffectiveEraMultipliers(world.environment.era);
-  const eraMutationRate = SIM.MUTATION_RATE * eraMults.mutationMult;
-  const eraSeedEnergyMult = eraMults.seedEnergyMult;
-
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
@@ -432,7 +424,7 @@ function phaseUpdatePlants(world: World): void {
     }
 
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, eraMutationRate, eraSeedEnergyMult);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world);
     }
 
     plant.age++;

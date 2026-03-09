@@ -1,5 +1,4 @@
 import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
-import { ERA_NAMES } from './simulation/eras';
 import { createWorld, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
@@ -286,7 +285,6 @@ const tickLabel = document.getElementById('tick-label')!;
 const plantCount = document.getElementById('plant-count')!;
 const seasonLabel = document.getElementById('season-label')!;
 const yearLabel = document.getElementById('year-label')!;
-const eraLabel = document.getElementById('era-label')!;
 const herbivoreCount = document.getElementById('herbivore-count')!;
 
 function updateUI(): void {
@@ -295,7 +293,6 @@ function updateUI(): void {
   herbivoreCount.textContent = String(world.herbivores.size);
   seasonLabel.textContent = SEASON_NAMES[world.environment.season];
   yearLabel.textContent = String(world.environment.yearCount + 1);
-  eraLabel.textContent = ERA_NAMES[world.environment.era.current];
   if (controls.selectedCell) {
     updateInspector(world, controls);
   }

@@ -11,7 +11,7 @@
  phaseEnvironment ──> phaseRechargeWater ──> phaseCalculateLight
          │                    │                       │
          v                    v                       v
-  seasons, eras,       water += recharge      light = base - shade
+  seasons,             water += recharge      light = base - shade
   drought/fire/          nutrients decay
   disease spawn
          │
@@ -233,13 +233,7 @@ Winter is genuinely lethal for young/weak plants. Root insulation reduces winter
 
 ---
 
-## 9. CLIMATE ERAS
-
-Long-term shifts (2500-5000 ticks) multiplying existing mechanics. Population-responsive selection prevents extinction or runaway growth. Harsh eras never follow each other.
-
----
-
-## 10. DISASTERS
+## 9. DISASTERS
 
 - **Drought:** Summer, local radius, reduces recharge + evaporates 0.3/tick (all terrains)
 - **Arid dry spell:** Summer, terrain-wide, zeroes recharge + evaporates 0.05/tick on all arid cells (15-35 ticks)
@@ -248,19 +242,19 @@ Long-term shifts (2500-5000 ticks) multiplying existing mechanics. Population-re
 
 ---
 
-## 11. DEFENSE
+## 10. DEFENSE
 
 **Defense:** Reduces grazing by up to 70%, cost = 0.05/tick. Value depends entirely on herbivore pressure.
 
 ---
 
-## 12. SEED BANK
+## 11. SEED BANK
 
 Seeds land as dormant objects, germinate when cell water exceeds threshold (interpolated by woodiness: 1.5-2.0). Seeds decay at 0.01 energy/tick with max age 150-200 ticks. Best-energy seed wins per cell. Creates boom/bust dynamics on harsh terrain.
 
 ---
 
-## 13. SEED MASS (seedSize genome)
+## 12. SEED MASS (seedSize genome)
 
 Seed mass (seedSize: 0.01-0.99) controls the tradeoff between many small seeds vs few large seeds.
 
@@ -307,7 +301,7 @@ Seed mass drifts downward on all terrains. The establishment delay (5 ticks) doe
 
 ---
 
-## 14. WATER STORAGE (waterStorage genome)
+## 13. WATER STORAGE (waterStorage genome)
 
 Internal water tank for drought tolerance + succulent transpiration reduction. Genome trait `waterStorage: 0.01-0.99`, plant field `storedWater`.
 
@@ -355,7 +349,7 @@ Water storage is heavily selected against on all non-arid terrains. On arid terr
        Senescence provides downward pressure at extreme ages.
 
   MODERATE:
-   10. Climate eras & disasters
+   10. Disasters
    11. Seed bank dynamics
    12. Water storage — critical on arid (0.79), dead trait on non-arid (~70% of map)
 
@@ -367,7 +361,7 @@ Water storage is heavily selected against on all non-arid terrains. On arid terr
 
 ---
 
-## 15. LONGEVITY (longevity genome)
+## 14. LONGEVITY (longevity genome)
 
 Longevity (0.01-0.99) creates the r/K selection tradeoff: live fast and grow fast, or live long and grow slow. Lifespan is independent of woodiness — an herbaceous perennial or a woody annual are both viable strategies.
 

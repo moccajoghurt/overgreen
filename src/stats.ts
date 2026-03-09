@@ -29,7 +29,6 @@ export interface Snapshot {
   tick: number;
   season: number;
   yearCount: number;
-  era: number;
 
   population: number;
   speciesCount: number;
@@ -351,7 +350,6 @@ export function computeSnapshot(
     tick: world.tick,
     season: world.environment.season,
     yearCount: world.environment.yearCount,
-    era: world.environment.era.current,
     population: totalAlive,
     speciesCount: speciesBuckets.size,
     birthsInPeriod: accum.births,

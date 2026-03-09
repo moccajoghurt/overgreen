@@ -15,7 +15,7 @@ function shouldShow(event: SimEvent): boolean {
     case 'drought_start': return true;
     case 'disease_start': return true;
     case 'season_change': return true;
-    case 'era_change': return true;
+
     case 'herbivore_spawn': return true;
     case 'herbivore_boom': return true;
     case 'herbivore_crash': return true;
@@ -34,7 +34,6 @@ function shouldShow(event: SimEvent): boolean {
 /** Is this a general (non-positioned) event? */
 function isGeneral(event: SimEvent): boolean {
   return event.type === 'season_change'
-    || event.type === 'era_change'
     || event.type === 'mass_extinction'
     || event.type === 'drought_end'
     || event.type === 'fire_end'
@@ -51,7 +50,6 @@ function parseMessageCoords(message: string): { x: number; y: number } | null {
 }
 
 function accentColor(event: SimEvent, speciesColors: Map<number, SpeciesColor>): string {
-  if (event.type === 'era_change') return '#d4a030';
   if (event.type === 'mass_extinction') return '#f44';
   if (event.type === 'fire_start' || event.type === 'fire_end') return '#f80';
   if (event.type === 'drought_start' || event.type === 'drought_end') return '#c90';

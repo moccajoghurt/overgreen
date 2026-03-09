@@ -1,5 +1,4 @@
 import { Scenario, ScenarioCell, TerrainType } from '../types';
-import { ClimateEra } from '../types/environment';
 
 // ── Deterministic noise ──
 
@@ -387,6 +386,5 @@ export const genesis: Scenario = (() => {
         placements: [{ x: 65, y: 52 }],
       },
     ],
-    lockedEra: ClimateEra.Temperate,
   };
 })();

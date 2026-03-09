@@ -2,7 +2,6 @@ import {
   Cell, SIM, TerrainType, World,
   Season, Environment, GRID_WIDTH, GRID_HEIGHT,
 } from '../types';
-import { initEraState } from './eras';
 
 // ── Terrain generation ──
 
@@ -251,7 +250,6 @@ export function createEnvironment(): Environment {
     leafMaintenanceMult: 1.0,
     growthMult: 1.3,
     seedMult: 1.0,
-    era: initEraState(),
     droughts: [],
     aridDrySpell: null,
     fires: [],

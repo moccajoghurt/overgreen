@@ -1,4 +1,4 @@
-import { Scenario, ScenarioCell, TerrainType, ClimateEra } from '../types';
+import { Scenario, ScenarioCell, TerrainType } from '../types';
 
 export const experimentTerrainIsolated: Scenario = (() => {
   const size = 80;
@@ -31,8 +31,7 @@ export const experimentTerrainIsolated: Scenario = (() => {
     id: 'experiment-terrain-isolated',
     name: '[Exp] Terrain Isolated',
     description:
-      'Same as Terrain Mosaic but with rock barriers between terrain bands. Tests whether gene flow (cross-terrain seed spread) is preventing local adaptation. If species diverge more here, gene flow is the culprit. Era locked to Temperate to isolate terrain effects.',
-    lockedEra: ClimateEra.Temperate,
+      'Same as Terrain Mosaic but with rock barriers between terrain bands. Tests whether gene flow (cross-terrain seed spread) is preventing local adaptation. If species diverge more here, gene flow is the culprit.',
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.5,
