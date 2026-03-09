@@ -17,7 +17,7 @@ export interface ScenarioSpecies {
   name: string;
   genome: Genome;
   color: SpeciesColor;
-  placements: { x: number; y: number }[];
+  placements: { x: number; y: number; height?: number; energy?: number; age?: number }[];
 }
 
 export interface Scenario {
@@ -28,6 +28,7 @@ export interface Scenario {
   defaultTerrain: TerrainType;
   defaultElevation?: number;
   defaultZone?: ClimateZone;
+  frozen?: boolean;
   cells: ScenarioCell[];
   species: ScenarioSpecies[];
 }

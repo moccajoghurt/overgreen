@@ -3773,7 +3773,7 @@ export function scaleToTarget(group: THREE.Group, subtypeIndex: number): void {
  * Example: Oak (model ~2.75 units) at sim h=8 → 2.75 × (8/10) = 2.2 world units
  *          Turfgrass (model ~0.2 units) at sim h=1 → 0.2 × (1/1.5) = 0.13 world units
  */
-const MATURITY_HEIGHT: number[] = [
+export const MATURITY_HEIGHT: number[] = [
   // Grasses (0-5)
   1.5,   // 0: Turfgrass — short lawn grass, full size at low sim height
   8.0,   // 1: Tallgrass — prairie grass

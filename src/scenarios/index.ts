@@ -18,6 +18,7 @@ import { experimentWoodinessEvolution } from './experiment-woodiness-evolution';
 import { experimentWoodinessSeedbank } from './experiment-woodiness-seedbank';
 import { experimentShrubGallery } from './experiment-shrub-gallery';
 import { experimentSucculentGallery } from './experiment-succulent-gallery';
+import { showcase } from './showcase';
 
 export const SCENARIOS: Scenario[] = [
   genesis,
@@ -39,4 +40,5 @@ export const SCENARIOS: Scenario[] = [
   experimentWoodinessSeedbank,
   experimentShrubGallery,
   experimentSucculentGallery,
+  showcase,
 ];
