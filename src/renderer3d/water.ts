@@ -8,7 +8,7 @@ export interface WaterSurface {
   update: (env: Environment, sunDirection: THREE.Vector3, fogColor: THREE.Color) => void;
 }
 
-const WATER_OFFSET = 0.45;     // sea: visible depth above seabed
+const WATER_OFFSET = 0.15;     // water surface sits just above riverbed
 const SEA_ELEV_THRESHOLD = 0.15;
 
 // Seasonal water body color + sky reflection color (HSL)
@@ -26,9 +26,11 @@ const waterVertexShader = /* glsl */`
   varying vec2 vUv;
   varying vec3 vWorldPos;
   varying vec3 vNormal;
+  varying float vEdgeAlpha;
 
   void main() {
     vUv = uv;
+    vEdgeAlpha = uv.x; // edge alpha encoded in UV.x
     vec3 pos = position;
 
     // Gentle wave displacement
@@ -58,6 +60,7 @@ const waterFragmentShader = /* glsl */`
   varying vec2 vUv;
   varying vec3 vWorldPos;
   varying vec3 vNormal;
+  varying float vEdgeAlpha;
 
   void main() {
     // Dual normal map sampling at different UV offsets/speeds
@@ -101,7 +104,7 @@ const waterFragmentShader = /* glsl */`
 
     vec3 finalColor = baseColor * diffuse + specColor;
 
-    float alpha = 0.75;
+    float alpha = 0.75 * vEdgeAlpha;
 
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
@@ -141,10 +144,41 @@ export function createWaterSurface(world: World): WaterSurface {
   const allNormals: number[] = [];
   const allUvs: number[] = [];
 
-  function pushVert(x: number, y: number, z: number): void {
+  function pushVert(x: number, y: number, z: number, edgeAlpha: number): void {
     allPositions.push(x, y, z);
     allNormals.push(0, 1, 0);
-    allUvs.push(0, 0);
+    allUvs.push(edgeAlpha, 0); // encode edge alpha in UV.x
+  }
+
+  // ── Elevation corner array for per-vertex Y ──
+  const csz = GRID + 1;
+  const elevCorners = new Float32Array(csz * csz);
+  for (let cy = 0; cy <= GRID; cy++) {
+    for (let cx = 0; cx <= GRID; cx++) {
+      let sum = 0, count = 0;
+      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+        const gx = cx + dx, gy = cy + dy;
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          sum += world.grid[gy][gx].elevation;
+          count++;
+        }
+      }
+      elevCorners[cy * csz + cx] = (sum / count) * ELEV_SCALE;
+    }
+  }
+
+  /** Bilinear interpolation of terrain elevation at any (col, row) fractional position */
+  function interpY(colF: number, rowF: number): number {
+    const c0 = Math.max(0, Math.min(GRID - 1, Math.floor(colF)));
+    const r0 = Math.max(0, Math.min(GRID - 1, Math.floor(rowF)));
+    const c1 = Math.min(GRID, c0 + 1);
+    const r1 = Math.min(GRID, r0 + 1);
+    const fx = colF - c0, fz = rowF - r0;
+    return elevCorners[r0 * csz + c0] * (1 - fx) * (1 - fz)
+         + elevCorners[r0 * csz + c1] * fx * (1 - fz)
+         + elevCorners[r1 * csz + c0] * (1 - fx) * fz
+         + elevCorners[r1 * csz + c1] * fx * fz
+         + WATER_OFFSET;
   }
 
   // ── Shared marching squares table + interpolation ──
@@ -177,18 +211,61 @@ export function createWaterSurface(world: World): WaterSurface {
 
   const CELL_OFFSETS: [number, number][] = [[0, 0], [-1, 0], [0, -1], [-1, -1]];
 
-  // ── Sea mesh: marching squares for smooth coastline ──
+  // ── Helper: emit marching-squares triangles for a scalar field ──
+  function emitMarchingSquares(
+    cornerField: Float32Array,
+    flatY?: number, // if defined, use flat Y; otherwise per-vertex terrain Y
+  ): void {
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const vTL = cornerField[r * csz + c];
+        const vTR = cornerField[r * csz + c + 1];
+        const vBR = cornerField[(r + 1) * csz + c + 1];
+        const vBL = cornerField[(r + 1) * csz + c];
+
+        const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
+                      | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
+        const tris = MS_TRI[caseIdx];
+        if (tris.length === 0) continue;
+
+        const tX = msLerp(c, c + 1, vTL, vTR);
+        const rZ = msLerp(r, r + 1, vTR, vBR);
+        const bX = msLerp(c, c + 1, vBL, vBR);
+        const lZ = msLerp(r, r + 1, vTL, vBL);
+
+        const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
+        const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
+
+        // Edge alpha: corners above threshold get full opacity, edge midpoints fade
+        const alphas = [
+          vTL >= TH ? 1.0 : 0.0,
+          vTR >= TH ? 1.0 : 0.0,
+          vBR >= TH ? 1.0 : 0.0,
+          vBL >= TH ? 1.0 : 0.0,
+          0.35, 0.35, 0.35, 0.35, // edge vertices: soft fade at boundary
+        ];
+
+        for (let i = 0; i < tris.length; i += 3) {
+          for (let k = 0; k < 3; k++) {
+            const vi = tris[i + k];
+            const px = vx[vi], pz = vz[vi];
+            const py = flatY !== undefined ? flatY : interpY(px, pz);
+            pushVert(px - HALF, py, pz - HALF, alphas[vi]);
+          }
+        }
+      }
+    }
+  }
+
+  // ── Sea mesh: marching squares for smooth coastline (flat Y) ──
   if (seaCells.length > 0) {
     let elevSum = 0;
     for (const [r, c] of seaCells) elevSum += world.grid[r][c].elevation;
     const seaY = (elevSum / seaCells.length) * ELEV_SCALE + WATER_OFFSET;
 
-    // Sea cell lookup
     const isSea = new Uint8Array(GRID * GRID);
     for (const [r, c] of seaCells) isSea[r * GRID + c] = 1;
 
-    // Corner scalar field: fraction of adjacent cells that are sea
-    const csz = GRID + 1;
     const seaCorner = new Float32Array(csz * csz);
     for (let cy = 0; cy <= GRID; cy++) {
       for (let cx = 0; cx <= GRID; cx++) {
@@ -204,34 +281,7 @@ export function createWaterSurface(world: World): WaterSurface {
       }
     }
 
-    for (let r = 0; r < GRID; r++) {
-      for (let c = 0; c < GRID; c++) {
-        const vTL = seaCorner[r * csz + c];
-        const vTR = seaCorner[r * csz + c + 1];
-        const vBR = seaCorner[(r + 1) * csz + c + 1];
-        const vBL = seaCorner[(r + 1) * csz + c];
-
-        const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
-                      | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
-        const tris = MS_TRI[caseIdx];
-        if (tris.length === 0) continue;
-
-        // 8 vertex positions in grid space [col, row]
-        const tX = msLerp(c, c + 1, vTL, vTR);
-        const rZ = msLerp(r, r + 1, vTR, vBR);
-        const bX = msLerp(c, c + 1, vBL, vBR);
-        const lZ = msLerp(r, r + 1, vTL, vBL);
-
-        const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
-        const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
-
-        for (let i = 0; i < tris.length; i += 3) {
-          pushVert(vx[tris[i]] - HALF, seaY, vz[tris[i]] - HALF);
-          pushVert(vx[tris[i + 1]] - HALF, seaY, vz[tris[i + 1]] - HALF);
-          pushVert(vx[tris[i + 2]] - HALF, seaY, vz[tris[i + 2]] - HALF);
-        }
-      }
-    }
+    emitMarchingSquares(seaCorner, seaY);
   }
 
   // ── River mesh: marching squares for smooth edges, flat Y per component ──
@@ -263,16 +313,12 @@ export function createWaterSurface(world: World): WaterSurface {
     }
 
     for (const comp of components) {
-      // Compute flat Y: set water level between riverbed and bank tops
-      const compSet = new Set<number>();
-      let riverElevSum = 0;
-      for (const [r, c] of comp) {
-        compSet.add(r * GRID + c);
-        riverElevSum += world.grid[r][c].elevation;
-      }
-      const riverY = (riverElevSum / comp.length) * ELEV_SCALE + WATER_OFFSET;
+      // Skip tiny isolated river patches (< 3 cells) — they produce geometric artifacts
+      if (comp.length < 3) continue;
 
-      const csz = GRID + 1;
+      const compSet = new Set<number>();
+      for (const [r, c] of comp) compSet.add(r * GRID + c);
+
       const riverCorner = new Float32Array(csz * csz);
       for (let cy = 0; cy <= GRID; cy++) {
         for (let cx = 0; cx <= GRID; cx++) {
@@ -288,33 +334,8 @@ export function createWaterSurface(world: World): WaterSurface {
         }
       }
 
-      for (let r = 0; r < GRID; r++) {
-        for (let c = 0; c < GRID; c++) {
-          const vTL = riverCorner[r * csz + c];
-          const vTR = riverCorner[r * csz + c + 1];
-          const vBR = riverCorner[(r + 1) * csz + c + 1];
-          const vBL = riverCorner[(r + 1) * csz + c];
-
-          const caseIdx = (vTL >= TH ? 8 : 0) | (vTR >= TH ? 4 : 0)
-                        | (vBR >= TH ? 2 : 0) | (vBL >= TH ? 1 : 0);
-          const tris = MS_TRI[caseIdx];
-          if (tris.length === 0) continue;
-
-          const tX = msLerp(c, c + 1, vTL, vTR);
-          const rZ = msLerp(r, r + 1, vTR, vBR);
-          const bX = msLerp(c, c + 1, vBL, vBR);
-          const lZ = msLerp(r, r + 1, vTL, vBL);
-
-          const vx = [c, c + 1, c + 1, c, tX, c + 1, bX, c];
-          const vz = [r, r, r + 1, r + 1, r, rZ, r + 1, lZ];
-
-          for (let i = 0; i < tris.length; i += 3) {
-            pushVert(vx[tris[i]] - HALF, riverY, vz[tris[i]] - HALF);
-            pushVert(vx[tris[i + 1]] - HALF, riverY, vz[tris[i + 1]] - HALF);
-            pushVert(vx[tris[i + 2]] - HALF, riverY, vz[tris[i + 2]] - HALF);
-          }
-        }
-      }
+      // Per-vertex Y follows terrain elevation (no flat Y)
+      emitMarchingSquares(riverCorner);
     }
   }
 
