@@ -163,7 +163,7 @@ Specialists get big in their niche — genome priorities directly determine morp
 
 ## 7. WOODINESS SPECTRUM
 
-Woodiness is a continuous genome trait (0.01-0.99). Most plant constants are linearly interpolated between herbaceous (w=0) and woody (w=1) endpoints via `getPlantConstants(genome)`. Two properties — maxAge and growthEfficiency — are driven by the `longevity` trait (see Section 15), not woodiness.
+Woodiness is a continuous genome trait (0.01-0.99). Most plant constants are linearly interpolated between herbaceous (w=0) and woody (w=1) endpoints via `getPlantConstants(genome)`. Two properties — maxAge and growthEfficiency — are driven by the `longevity` trait (see Section 14), not woodiness.
 
 ### Key endpoints:
 ```
@@ -198,17 +198,11 @@ Woodiness is a continuous genome trait (0.01-0.99). Most plant constants are lin
 - **High woodiness (woody):** Tall (h=10), deep roots (r=10), strong shading (+0.25), but expensive maintenance, expensive seeds (0.8), lower base growth efficiency (0.3)
 - **Mid woodiness (shrub):** Intermediate everything — moderate caps, costs, and advantages
 
-Lifespan and growth speed are controlled by `longevity` (Section 15), not woodiness.
+Lifespan and growth speed are controlled by `longevity` (Section 14), not woodiness.
 
-### Observed woodiness evolution by terrain:
+### Observed woodiness evolution by terrain × zone:
 
-| Terrain | Woodiness direction | Reason |
-|---------|-------------------|--------|
-| Soil | → 0.29-0.50 | Grass and trees coexist; woodiness converges to mid-range |
-| Hill | ↓ 0.17-0.51 | Cheap maintenance favored; some woody holdouts |
-| Arid | → 0.46 | Mid-woodiness; water storage matters more than height |
-| Wetland | ↑ 0.48 | Resources reward height advantage |
-| Mixed | varies 0.23-0.85 | Terrain-dependent; high speciation and niche differentiation |
+Pending — re-run with zone-controlled scenarios.
 
 ---
 
@@ -216,6 +210,8 @@ Lifespan and growth speed are controlled by `longevity` (Section 15), not woodin
 
 ```
   Year = 500 ticks. Cosine interpolation between seasons.
+  Seasonal multipliers vary by climate zone — Temperate baseline shown below.
+  See Section 15 for Tropical, Mediterranean, and Desert zone tables.
   ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
   │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
   ├─────────┼───────┼───────┼──────────┼────────┼──────┤
@@ -229,7 +225,7 @@ Lifespan and growth speed are controlled by `longevity` (Section 15), not woodin
   no growth, no seeds. Plants survive on stored energy.
 ```
 
-Winter is genuinely lethal for young/weak plants. Root insulation reduces winter leaf penalty.
+Temperate winter is the harshest (leafMaint 2.0×). Tropical winter is mild (1.2×). Desert (1.8×) and Mediterranean (1.6×) are intermediate. Root insulation (deep roots) reduces leaf maintenance penalty by up to 80%.
 
 ---
 
@@ -239,6 +235,17 @@ Winter is genuinely lethal for young/weak plants. Root insulation reduces winter
 - **Arid dry spell:** Summer, terrain-wide, zeroes recharge + evaporates 0.05/tick on all arid cells (15-35 ticks)
 - **Fire:** Summer, spreads via low-water high-leaf cells, kills instantly, rivers block
 - **Disease:** Targets genetic uniformity >50% — the monoculture punisher
+
+Zone-weighted spawn probabilities (relative to Temperate = 1.0):
+```
+  ┌───────────────┬──────┬──────────┬───────────────┬────────┐
+  │ Disaster      │ Temp │ Tropical │ Mediterranean │ Desert │
+  ├───────────────┼──────┼──────────┼───────────────┼────────┤
+  │ Fire          │ 1.0  │ 0.3      │ 2.0           │ 0.5    │
+  │ Disease       │ 1.0  │ 1.8      │ 0.5           │ 0.3    │
+  │ Drought       │ 1.0  │ 0.5      │ 1.5           │ 0.8    │
+  └───────────────┴──────┴──────────┴───────────────┴────────┘
+```
 
 ---
 
@@ -289,15 +296,9 @@ Seed mass (seedSize: 0.01-0.99) controls the tradeoff between many small seeds v
   Small seeds disperse further: seedRange += (1 - seedSize) × 3
 ```
 
-### Observed seed mass evolution by terrain:
-| Terrain | sz direction | Reason |
-|---------|-------------|--------|
-| Soil | ↓ 0.26-0.48 | Many cheap seeds; vigor advantage weak on easy terrain |
-| Hill | ↓ 0.31-0.41 | Many cheap seeds hedge bets in scarce environment |
-| Arid | → 0.46 | Slightly retained; harsh terrain benefits provisioned seedlings |
-| Mixed | ↓ 0.30-0.39 | Downward on all terrains in mosaic/isolated |
+### Observed seed mass evolution by terrain × zone:
 
-Seed mass drifts downward on all terrains. The establishment delay (5 ticks) does not create enough K-selection pressure to sustain large-seed strategies.
+Pending — re-run with zone-controlled scenarios.
 
 ---
 
@@ -318,16 +319,9 @@ Internal water tank for drought tolerance + succulent transpiration reduction. G
 
 The transpiration reduction is the key mechanic that makes waterStorage an active adaptation rather than just a passive buffer. Plants with full tanks need less water, creating a positive feedback loop: stored water → less demand → higher waterFraction → more photosynthesis. On non-arid terrains where tanks rarely fill (roots solve water needs cheaper), the reduction is negligible.
 
-### Observed waterStorage evolution by terrain:
-| Terrain | wst direction | Reason |
-|---------|--------------|--------|
-| Soil | ↓↓ 0.03-0.26 | Maintenance cost outweighs benefit; tanks rarely fill |
-| Hill | ↓ 0.29-0.41 | Some retention; roots alone insufficient for hill water |
-| Arid | ↑↑ 0.79 | Strongly selected; tank critical for desert survival |
-| Wetland | ↓↓ 0.05 | Water abundant; tank completely unnecessary |
-| Mixed | ↓↓ 0.05-0.15 | Collapses on most terrain types |
+### Observed waterStorage evolution by terrain × zone:
 
-Water storage is heavily selected against on all non-arid terrains. On arid terrain it provides critical value (0.79 in arid specialist). The 0.015/tick maintenance cost makes it expensive to maintain unused capacity on water-rich terrain.
+Pending — re-run with zone-controlled scenarios. Desert zone may create selection pressure for water storage beyond arid terrain.
 
 ---
 
@@ -337,26 +331,27 @@ Water storage is heavily selected against on all non-arid terrains. On arid terr
   CRITICAL:
     1. Energy budget (photosynthesis vs maintenance)
     2. Woodiness spectrum (determines most plant constants)
-    3. Water absorption & limitation
-    4. Growth allocation / genome priorities
-    5. Terrain maintenance multipliers
+    3. Climate zones (per-zone seasonal modifiers for water, light, growth, seeds, leaf maintenance)
+    4. Water absorption & limitation
+    5. Growth allocation / genome priorities
+    6. Terrain maintenance multipliers
 
   SIGNIFICANT:
-    6. Light & shadow competition (trees shade out grass on soil)
-    7. Seasons (winter lethality — can crash tree populations)
-    8. Reproduction / seedInvestment
-    9. Longevity — growth efficiency modifier has clear selective pressure.
+    7. Light & shadow competition (trees shade out grass on soil)
+    8. Seasons (winter lethality varies by zone — Temperate harshest, Tropical mildest)
+    9. Reproduction / seedInvestment
+   10. Longevity — growth efficiency modifier has clear selective pressure.
        Senescence provides downward pressure at extreme ages.
 
   MODERATE:
-   10. Disasters
-   11. Seed bank dynamics
-   12. Water storage — critical on arid (0.79), dead trait on non-arid (~70% of map)
+   11. Disasters (zone-weighted: fire 2× in Mediterranean, disease 1.8× in Tropical)
+   12. Seed bank dynamics
+   13. Water storage — expected critical on arid/desert, likely dead on tropical/wetland
 
-  WEAK / BROKEN:
-   13. Seed mass — always drifts down. No upward selection pressure exists.
-   14. Defense — context-dependent; converges to low values.
-   15. Root competition — 6% drain is noise.
+  WEAK / BROKEN (pending re-validation):
+   14. Seed mass — drifted down in pre-zone experiments. Zone stress may create upward pressure.
+   15. Defense — context-dependent; converges to low values.
+   16. Root competition — 6% drain is noise.
 ```
 
 ---
@@ -403,16 +398,77 @@ Longevity (0.01-0.99) creates the r/K selection tradeoff: live fast and grow fas
 - **High longevity (perennial):** Live long but grow slowly (0.7× efficiency). Can accumulate height/roots over time. Pairs naturally with competitive traits (height, shading).
 - **Interaction with woodiness:** Woodiness controls morphological potential (caps, costs, shadow); longevity controls tempo. A low-woodiness, low-longevity plant is an annual wildflower. A high-woodiness, high-longevity plant is an oak tree.
 
-### Observed longevity evolution by terrain:
-| Terrain | lon direction | Reason |
-|---------|--------------|--------|
-| Soil | ↑↑ 0.56-0.68 | Longer-lived plants hold territory and accumulate reproductive energy |
-| Hill | ↓ 0.42-0.50 | Rapid turnover matters more; slight downward pressure |
-| Wetland | ↑ 0.46-0.59 | Abundant resources reward persistence |
-| Arid | → 0.51 | Neutral; boom/bust dynamics make longevity irrelevant |
-| Mixed | ↑↑ 0.52-0.70 | Strong upward in long runs; dominant species converge to 0.6-0.7 |
+### Observed longevity evolution by terrain × zone:
 
-Longevity drifts upward in most environments but is now partially checked by senescence (maintenance multiplier that scales with age/maxAge). Short-lived plants avoid senescence costs entirely. The growth efficiency modifier remains the primary selective component; maxAge matters more now via senescence onset timing.
+Pending — re-run with zone-controlled scenarios.
+
+---
+
+## 15. CLIMATE ZONES
+
+Four climate zones provide spatial variation in seasonal regime. Each cell belongs to one zone, assigned via Voronoi partitioning (2-4 seed points) at world generation. Maps can specify fixed zone assignment for controlled experiments.
+
+### Zones:
+- **Temperate** — Strong seasonality: cold lethal winter (leafMaint 2.0×), wet spring, dry summer. The baseline regime.
+- **Tropical** — Mild winters (leafMaint 1.2×), high water year-round (0.9-1.4×), year-round growth (min 0.3×, never fully shuts down). High disease risk (1.8×).
+- **Mediterranean** — Inverted wet/dry: severe summer drought (water 0.3×) with bright light (1.25×), wet cold winters (water 1.4×, leafMaint 1.6×). Fire-prone (2.0×). Peak growth and seeding in spring.
+- **Desert** — Chronic aridity (water 0.15-0.70×), bright light year-round, harsh winter (leafMaint 1.8×). Low disaster rates.
+
+### Seasonal modifier tables:
+
+Temperate — see Section 8 baseline table.
+
+Tropical:
+```
+  ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
+  │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
+  ├─────────┼───────┼───────┼──────────┼────────┼──────┤
+  │ Spring  │ 1.30  │ 1.10  │  1.0     │ 1.20   │ 1.0  │
+  │ Summer  │ 1.40  │ 1.20  │  1.0     │ 1.10   │ 0.8  │
+  │ Autumn  │ 1.10  │ 0.95  │  1.1     │ 0.80   │ 0.5  │
+  │ Winter  │ 0.90  │ 0.85  │  1.2     │ 0.30   │ 0.1  │
+  └─────────┴───────┴───────┴──────────┴────────┴──────┘
+```
+
+Mediterranean:
+```
+  ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
+  │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
+  ├─────────┼───────┼───────┼──────────┼────────┼──────┤
+  │ Spring  │ 1.30  │ 1.10  │  1.0     │ 1.40   │ 1.2  │
+  │ Summer  │ 0.30  │ 1.25  │  1.0     │ 0.60   │ 0.5  │
+  │ Autumn  │ 0.70  │ 0.90  │  1.0     │ 0.40   │ 0.2  │
+  │ Winter  │ 1.40  │ 0.65  │  1.6     │ 0.00   │ 0.0  │
+  └─────────┴───────┴───────┴──────────┴────────┴──────┘
+```
+
+Desert:
+```
+  ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
+  │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
+  ├─────────┼───────┼───────┼──────────┼────────┼──────┤
+  │ Spring  │ 0.70  │ 1.05  │  1.0     │ 1.00   │ 0.8  │
+  │ Summer  │ 0.15  │ 1.30  │  1.2     │ 0.30   │ 0.1  │
+  │ Autumn  │ 0.30  │ 1.00  │  1.0     │ 0.30   │ 0.2  │
+  │ Winter  │ 0.50  │ 0.70  │  1.8     │ 0.00   │ 0.0  │
+  └─────────┴───────┴───────┴──────────┴────────┴──────┘
+```
+
+### Zone × terrain compound effects:
+
+Zone modifiers multiply terrain base recharge/light each tick:
+```
+  Arid terrain × Desert summer:      0.25 × 0.15 = 0.0375 water/tick (extreme)
+  Arid terrain × Tropical summer:    0.25 × 1.40 = 0.350 water/tick (mild)
+  Wetland × Mediterranean summer:    0.70 × 0.30 = 0.210 water/tick (drought stress)
+  Soil × Temperate spring:           0.40 × 1.20 = 0.480 water/tick (comfortable)
+```
+
+4 terrains × 4 zones = 16 distinct environments before accounting for microhabitat variation (river adjacency, hill exposure, etc.).
+
+### Observed climate zone evolution:
+
+Pending — no zone-controlled experiments run yet.
 
 ---
 
@@ -420,47 +476,30 @@ Longevity drifts upward in most environments but is now partially checked by sen
 
 Experiments run at 1000 ticks (short) or 5000 ticks (long-term dynamics), snapshot every 250 ticks.
 
-| # | Scenario | Ticks | Pop | Spp | Result | Key trait evolution |
-|---|----------|-------|-----|-----|--------|-------------------|
-| 1 | Monoculture | 3k | 6379 | 18 | Baseline Fern 46%, Shrub 42%. | w: 0.31, SI: 0.59, lon: pending, wst: 0.40, sz: 0.14 ↓↓, def: 0.18 ↑ |
-| 2 | Water Comp | 1k | 786 | 9 | Broad Leaf Fern 77%, Deep Root 14%. | w: 0.54 ↓, lon: 0.45-0.47, SI: 0.66-0.69 ↑, wst: 0.21-0.28 ↓ |
-| 3 | Light Comp | 1k | 136 | 3 | Spread Fern 60%, Tall Pine 36%. Low pop. | w: 0.76-0.84, lon: 0.46-0.52, wst: 0.19-0.25 ↓, sz: 0.38-0.40 ↓ |
-| 4 | Seed Tradeoff | 1k | 1665 | 13 | Birch 61%, Elm 37%. Low Seed extinct. | lon: 0.63-0.67 ↑↑, SI: 0.67-0.69 ↑, w: 0.60-0.77, wst: 0.27-0.28 ↓ |
-| 5 | Defense | 1k | 2679 | 10 | Soft Willow 48%, Thorny Holly 35%. | def converges: Holly 0.48 ↑, Willow 0.16 ↑. lon: 0.40-0.50, wst: 0.18-0.34 |
-| 6 | Hill | 1k | 2008 | 18 | Tall Spruce 27%, Broad Leaf Holly 25%, Deep Root Pine 24%. | w: 0.17-0.73, lon: 0.42-0.50, wst: 0.29-0.41, high speciation |
-| 7 | Arid | 1k | 1025 | 4 | Saguaro 78%, Turfgrass 22%. | wst: 0.50→0.79 ↑↑, w: 0.50→0.46, root: 0.50→0.44, height: ↓↓ 0.09, boom/bust cycles |
-| 8 | Shrub Gallery | 1k | 4263 | 21 | Berry Bush 65%, Heavy Turfgrass 13%. | lon: 0.52-0.58, SI: 0.56 ↑, def: 0.14-0.76, high speciation |
-| 9 | Succulent Gallery | 1k | 3390 | 18 | Normal Tree 31%, Desert Rose 21%, Jade Tree 17%. | lon: 0.50-0.57, wst: 0.26-0.55, def: 0.14-0.40, diverse |
-| 10 | Grass vs Trees | 3k | 6379 | 18 | Grass 61%, Oak 28%. Coexistence. | w: 0.29-0.50 (converging), SI: 0.55-0.57, wst: 0.41-0.54, def: 0.18-0.20 ↑, sz: 0.10 ↓↓ |
-| 11 | Nutrient Cycle | 1k | 149 | 4 | Deep Root Oak 74%, Shallow Fern 21%. Low pop. | lon: 0.47-0.50, SI: 0.50-0.62 ↑, niche differentiation preserved |
-| 12 | Terrain Isolated | 5k | 3588 | 20 | Beta Spruce 34%, Gamma Willow 32%, Alpha Fern 23%. | lon: 0.58-0.63 ↑↑, wst: 0.05-0.17 ↓↓, sz: 0.30-0.39 ↓, SI: 0.63-0.69 ↑ |
-| 13 | Terrain Mosaic | 5k | 5783 | 20 | Feathery Turfgrass 40%, Gamma Willow 22%, Alpha Fern 21%. | lon: 0.46-0.70 ↑↑, def: 0.03-0.21 ↑, wst: 0.05-0.15 ↓↓, SI: 0.59-0.70 ↑ |
-| 14 | Seed Bank | 1k | 4953 | 6 | Seedbank Grass 97%. | lon: 0.52-0.61 ↑, SI: 0.67-0.73 ↑, wst: 0.42-0.54, w: 0.15-0.23 |
-| 15 | Woodiness Evo | 5k | 0-2891 | 0-6 | Tree 93%, Shrub 5%. Herb extinct. Stochastic extinction risk (~50%). | w: 0.91-0.94 (stable), SI: 0.59-0.67, wst: 0.15-0.32, def: 0.15-0.22 ↑ |
-| 16 | Woodiness×Seed | 1k | 2862 | 4 | Arid Herb 97%. Tree extinct. | lon: 0.46-0.51, SI: 0.63-0.69 ↑, wst: 0.38 ↑ (arid), w: 0.17-0.46 |
+All scenarios should specify a fixed climate zone (typically Temperate) to isolate terrain effects, unless specifically testing zone interactions.
+
+| # | Scenario | Ticks | Status |
+|---|----------|-------|--------|
+| 1 | Monoculture | 3k | Pending |
+| 2 | Water Comp | 1k | Pending |
+| 3 | Light Comp | 1k | Pending |
+| 4 | Seed Tradeoff | 1k | Pending |
+| 5 | Defense | 1k | Pending |
+| 6 | Hill | 1k | Pending |
+| 7 | Arid | 1k | Pending |
+| 8 | Shrub Gallery | 1k | Pending |
+| 9 | Succulent Gallery | 1k | Pending |
+| 10 | Grass vs Trees | 3k | Pending |
+| 11 | Nutrient Cycle | 1k | Pending |
+| 12 | Terrain Isolated | 5k | Pending |
+| 13 | Terrain Mosaic | 5k | Pending |
+| 14 | Seed Bank | 1k | Pending |
+| 15 | Woodiness Evo | 5k | Pending |
+| 16 | Woodiness×Seed | 1k | Pending |
 
 ### Experiment details
 
-#### 7: Arid Specialist
-Healthy desert ecosystem with dramatic boom/bust cycles. Water storage strongly selected FOR (0.50→0.79), confirming it's the key arid adaptation. Height collapses to near-zero — plants stay low. Population oscillates 103-1271 with seasons. Tall Saguaro species (#2) dominates despite name — evolved into short, high-water-storage phenotype (w=0.46, wst=0.79). Desert Grass provides a fast-reproducing secondary strategy.
-
-#### 10: Grass vs Trees (3k ticks)
-Prairie Grass (61%) and Oak Tree (28%) coexist at 6379 total population with 18 species and Shannon diversity 0.99. Both species converge toward mid-woodiness (grass w=0.29, oak w=0.50). Maturity-scaled trait maintenance benefits r-strategists with many small seedlings, shifting balance toward grass. Defense evolves upward in both species (0.18-0.20). Seed mass collapses to 0.10 in both.
-
-#### 11: Nutrient Cycle (1k ticks)
-Low population (149 plants) with clear niche differentiation: Deep Root Oak (high root, low leaf) vs Shallow Leaf Fern (low root, high leaf). Both strategies coexist stably. Population is resource-limited, not competition-limited.
-
-#### 12: Terrain Isolated (5k ticks, all start w=0.5, sz=0.5, wst=0.3, lon=0.5)
-| Species | Terrain | Root | Height | Leaf | Wood | Seed Mass | Water Stor | Longevity |
-|---------|---------|------|--------|------|------|-----------|------------|-----------|
-| Alpha Fern | Hill | 0.55 | 0.28 | 0.28 | 0.25 ↓ | 0.30 ↓ | 0.17 ↓ | 0.63 ↑ |
-| Beta Spruce | Soil | 0.38 | 0.44 | 0.33 | 0.48 | 0.39 ↓ | 0.09 ↓↓ | 0.58 ↑ |
-| Gamma Willow | Wetland | 0.31 | 0.38 | 0.37 | 0.48 | 0.32 ↓ | 0.05 ↓↓ | 0.59 ↑ |
-
-All 3 originals survive with distinct adaptations. Shannon diversity remains high. Longevity drifts up on all terrains. Water storage collapses on soil/wetland but partially retained on hill. Delta Cactus (arid) extinct.
-
-#### 15: Woodiness Evolution (5k ticks, 2 trials)
-Tree species (w=0.80) now dominates when ecosystem survives: 93% at tick 5000 with w=0.91. Herb goes extinct early; Shrub persists as 5% minority (w=0.61). Defense drifts upward (0.03→0.20). However, ~50% stochastic extinction risk: trial 1 crashed to 0 at tick 4000 (tree monoculture fragility — no fast-reproducing safety net after bad winter), trial 2 thrived at 2891 plants.
+Pending — all experiments need re-running with zone-controlled scenarios.
 
 ---
 
@@ -468,39 +507,57 @@ Tree species (w=0.80) now dominates when ecosystem survives: 93% at tick 5000 wi
 
 ### URGENT — Broken / needs immediate fix
 
-1. **Seed mass always drifts downward** — sz decreases on all terrains (0.10-0.48). No experiment produces upward seed mass evolution. The establishment delay (5 ticks) doesn't create enough K-selection pressure to make large seeds viable.
+1. **Seed mass may always drift downward** — The establishment delay (5 ticks) may not create enough K-selection pressure to make large seeds viable. Desert/Mediterranean stress may create new upward pressure. Pending validation with zone-controlled scenarios.
 
 ### MODERATE — Concerning patterns
 
-2. **Water storage is selected against on non-arid terrain** — wst collapses to 0.03-0.26 on soil, 0.05 on wetland. The 0.04/tick maintenance cost (×2.5 on soil, ×8.0 on wetland) makes it a net negative when water is available via roots. Only retains value on arid terrain (0.79). This is a dead trait for ~70% of the map.
+2. **Water storage may be dead on non-arid terrain** — Maintenance cost makes water storage a net negative when water is available via roots. Desert zone may expand the useful niche beyond arid terrain alone. Pending validation.
 
-3. **Tree-dominated ecosystems are fragile** — In woodiness evolution (exp 15), tree monocultures have ~50% stochastic extinction risk. Once trees suppress herbs/shrubs, a bad winter can crash the population with no fast-reproducing safety net to recover.
+3. **Tree-dominated ecosystems may be fragile** — Tree monocultures risk stochastic extinction from bad winters with no fast-reproducing safety net. Tropical zone (mild winters) may mitigate. Pending validation.
 
-4. **Nutrient cycle low population (exp 11)** — Only 149 plants at tick 1000 on soil terrain. Nutrient-poor early conditions severely limit carrying capacity.
+4. **Nutrient cycle low population** — Nutrient-poor early conditions may severely limit carrying capacity on some terrain × zone combinations. Pending validation.
 
-### Observations (not necessarily bugs)
+### Observations (pending re-validation)
 
-- **Longevity has real selective pressure** — Clear upward drift, especially in long runs. Growth efficiency modifier is the active component; maxAge is irrelevant since starvation kills first. Senescence provides downward pressure at extreme ages.
-- **Grass and trees coexist on flat soil** — Maturity-scaled trait maintenance benefits r-strategists (many small seedlings pay less overhead). Grass edges out trees 61% vs 28% but both converge toward mid-woodiness (0.29-0.50). Shannon diversity 0.99 with 18 species.
-- **Arid terrain produces correct adaptations** — Water storage strongly selected FOR (0.50→0.79), height collapses, roots maintained. Boom/bust population cycles (100-1270) are ecologically realistic for desert.
-- **Defense converges to low values** — In exp 5, both defended and undefended species converge to def=0.16-0.48. Defense is context-dependent, not universally bad.
-- **Terrain isolation drives diversity** — Exp 12 (20 species) and exp 13 (20 species) have the highest speciation counts. Physical separation promotes niche differentiation.
-- **Hill speciation is highest per-terrain** — Exp 6 produces 18 species in 1k ticks on hill terrain alone.
+All observations need re-validation with zone-controlled scenarios.
 
-### Experiments to re-run after any major mechanic change
-Most experiments are STALE — maturity-scaled trait maintenance and raised herb maxAge affect all scenarios. Priority re-runs:
-- #1 Monoculture Baseline (re-run done: 6379 pop, healthy)
-- #4 Seed Tradeoff (seed mass health)
-- #7 Arid Specialist (arid viability — re-run done: 5592 pop, healthy)
-- #10 Grass vs Trees (re-run done: grass 61%, coexistence)
-- #12 Terrain Isolated (terrain differentiation health)
-- #14 Seed Bank (seed dynamics health)
-- #15 Woodiness Evolution (woodiness/longevity interaction)
+- **Longevity has real selective pressure** — Growth efficiency modifier is the active component; senescence provides downward pressure at extreme ages.
+- **Grass and trees coexist on flat soil** — Maturity-scaled trait maintenance benefits r-strategists. Specific ratios pending.
+- **Arid terrain produces correct adaptations** — Water storage expected to be strongly selected FOR, height to collapse. Zone effects may amplify or moderate.
+- **Defense converges to low values** — Defense is context-dependent, not universally bad.
+- **Terrain isolation drives diversity** — Physical separation promotes niche differentiation. Zone boundaries may add isolation effects.
+- **Hill speciation is high** — Expected to persist across zones.
+
+### Experiments to re-run
+All 16 experiments need re-running with zone-controlled maps (fixed Temperate zone) to establish baselines. Priority:
+- #1 Monoculture Baseline
+- #7 Arid Specialist
+- #10 Grass vs Trees
+- #12 Terrain Isolated
+- #15 Woodiness Evolution
 
 ### New experiments needed
-- **Longevity Tradeoff** — Low-longevity (0.2) vs high-longevity (0.8) on flat soil, identical genomes otherwise. Core r/K test.
-- **Longevity × Terrain** — Same species (lon=0.5) on isolated terrains. Track longevity evolution per biome.
-- **Longevity × Woodiness** — Herbaceous perennial vs woody annual vs natural combos. Verify traits are genuinely independent.
+- **Longevity Tradeoff** — Low-longevity (0.2) vs high-longevity (0.8) on flat soil (Temperate zone), identical genomes otherwise. Core r/K test.
+- **Longevity × Terrain** — Same species (lon=0.5) on isolated terrains (Temperate zone). Track longevity evolution per biome.
+- **Longevity × Woodiness** — Herbaceous perennial vs woody annual vs natural combos. Temperate zone. Verify traits are genuinely independent.
+- **Zone Isolation** — Same terrain (Soil), 4 runs with one zone each (Temperate/Tropical/Mediterranean/Desert). Track trait divergence driven purely by seasonal regime.
+- **Zone × Terrain Matrix** — Soil+Desert vs Arid+Temperate. Untangle terrain effects from zone effects on water storage, woodiness, longevity.
+- **Mediterranean Fire Ecology** — Mediterranean zone, mixed terrain. Test fire-adapted strategies (high defense, deep roots, low leaf area).
+- **Tropical Diversity** — Tropical zone, mixed terrain. Does year-round growth and mild winter produce higher diversity or competitive exclusion?
+- **Desert Survival** — Desert zone + Arid terrain. Extreme stress test for population viability.
+
+#### Subtype × Biome plausibility experiments
+
+These validate that the 40 plant subtypes emerge in and dominate ecologically appropriate environments.
+
+- **Subtype Emergence by Zone** — 4 runs: Soil terrain, one zone each (Temperate/Tropical/Mediterranean/Desert). Start identical mid-range genomes (all traits 0.5). Run 3k ticks. Track which subtypes emerge and dominate per zone. Expected: Tropical zone → Tropical Tree, Palm, Tropical Herb, Fern. Mediterranean → Mediterranean Shrub, Aromatic, Cypress. Desert → Saguaro, Barrel Cactus, Desert Shrub, Desert Grass, Desert Annual, Acacia. Temperate → Oak, Tallgrass, Holly, Wildflower (generalists).
+- **Subtype Emergence by Terrain** — 4 runs: Temperate zone, one terrain each (Soil/Hill/Wetland/Arid). Start identical mid-range genomes. Run 3k ticks. Track subtype emergence. Expected: Wetland → Mangrove, Sedge, Moss, Fern. Arid → Desert Shrub, Desert Grass, succulents. Hill → Conifer, Bunchgrass, Holly. Soil → mixed generalists.
+- **Specialist Home Advantage** — Place biome-specialist genomes in home biome vs wrong biomes. 3 groups, 1k ticks each:
+  - Tropical specialists (Tropical Tree, Palm, Tropical Herb, Mangrove) in Tropical+Soil vs Desert+Soil
+  - Desert specialists (Acacia, Desert Shrub, Saguaro, Desert Annual) in Desert+Arid vs Tropical+Wetland
+  - Mediterranean specialists (Mediterranean Shrub, Aromatic, Cypress) in Mediterranean+Soil vs Temperate+Soil
+  Specialists should have higher population / survival in home biome. If equally fit everywhere, classification is cosmetic not functional.
+- **Full Niche Matrix** — Single 80×80 map: 4 terrain strips (Soil/Hill/Wetland/Arid) × 4 zone bands (Temperate/Tropical/Mediterranean/Desert) = 16 niches. Seed diverse genomes uniformly. Run 5k ticks. Track dominant subtype per niche. Comprehensive validation that the full terrain×zone matrix produces ecologically plausible communities.
 
 ---
 
@@ -522,13 +579,3 @@ Every plant-plant interaction is competitive (shade, water stealing). Real ecosy
 
 **Litter mulch on death** — Dead plants leave a `mulch` value on the cell that decays over 30-50 ticks. Mulch reduces water evaporation during drought: `evaporation *= 1 / (1 + mulch)`. Pioneer species die, their litter makes the ground more hospitable for the next generation. Succession emerges naturally.
 
-### 3. Climate Zones (spatial climate variation)
-
-The entire 80×80 grid experiences identical seasons. No spatial variation in seasonality, winter severity, or growing season length. This is like simulating the whole planet at one latitude.
-
-Add 2-3 climate zones (e.g. Temperate, Tropical, Mediterranean) as a per-cell property that modifies seasonal multipliers:
-- **Tropical**: Mild winter (leafMaint 1.2× not 3×), no growth shutdown, year-round reproduction, higher base rainfall.
-- **Mediterranean**: Inverted wet/dry — wet winters, dry summers. Summer drought replaces winter cold as the stress period.
-- **Temperate**: Current behavior (default).
-
-Climate × terrain creates a niche matrix: Tropical+Wetland = mangrove swamp, Mediterranean+Hill = maquis/chaparral, Temperate+Soil = deciduous forest. This multiplies 4 terrain niches into 12+ without adding terrain types. Implementation: per-cell climateZone enum, different season target tables per zone (the seasonal system already handles interpolation).
