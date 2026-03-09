@@ -136,7 +136,7 @@ export const SIM = {
   HILL_MAINT_HEIGHT_MULT: 2.0,   // wind stress on tall plants
   HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
 
-  SOIL_MAINT_HEIGHT_MULT: 0.7,     // deep soil supports tall growth cheaply
+  SOIL_MAINT_HEIGHT_MULT: 1.0,     // no height advantage on soil — keeps grass/forb/shrub mix
   SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
 
   WETLAND_MAINT_ROOT_MULT: 3.5,  // anoxic deep soil

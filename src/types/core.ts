@@ -32,10 +32,11 @@ export const enum Archetype { Grass, Shrub, Succulent, Tree, Forb }
 
 /** Classify a genome into one of five archetypes. Pure function of genome. */
 export function archetype(genome: Genome): Archetype {
+  // Succulent gate first — high water storage overrides woodiness level
+  if (genome.waterStorage >= 0.55) return Archetype.Succulent;
   if (genome.woodiness < 0.4) {
     return genome.leafSize >= 0.5 ? Archetype.Forb : Archetype.Grass;
   }
-  if (genome.waterStorage >= 0.55) return Archetype.Succulent;
   if (genome.woodiness <= 0.7) return Archetype.Shrub;
   return Archetype.Tree;
 }

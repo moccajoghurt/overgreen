@@ -598,7 +598,31 @@ See Section 18 for the definitive subtype target matrix. Below are the ecologica
 
 ### 16.6 Results
 
-Pending — tuning in progress. Previous results invalidated by Soil height discount bug (see Section 17). Re-run after fixes.
+**Run 1** (after fixing Soil height discount → 1.0 and archetype gate → waterStorage-first):
+
+**Terrain Quad** (5000 ticks, all Temperate):
+
+| Terrain | Pop | Dominant Species | Subtype | Genome Signature | vs Target |
+|---------|-----|-----------------|---------|------------------|-----------|
+| Soil | 619 | Bulging Hazel (#8) | Shrub (Hazel) | w:0.55, l:0.49, h:0.22 | Partial — shrub present but no trees yet, drifting woody |
+| Hill | 744 | Bulbous Iceplant (#7) + Turfgrass (#6) | Succulent + Grass | wst:0.69, w:0.21 / w:0.16, r:0.49 | **WRONG** — Iceplant dominates hill (no wStorage penalty) |
+| Wetland | 787 | Fat Palm (#16) + Prolific Cypress (#30) | Tree (Palm, Cypress) | w:0.91, h:0.52 / w:0.94, h:0.61 | **CORRECT** — trees dominate wetland |
+| Arid | 227+ | Bulbous Iceplant (#7) | Succulent (Iceplant) | wst:0.69, w:0.21 | Correct archetype, but same species as Hill |
+
+**Zone Quad** (5000 ticks, all Soil):
+
+| Zone | Pop | Dominant Species | Subtype | Genome Signature | vs Target |
+|------|-----|-----------------|---------|------------------|-----------|
+| Temperate | 835 | Birch (#10) + Hazel (#6) + Cypress (#20) | Tree + Shrub | w:0.88 / w:0.52 / w:0.92 | **Close** — woody dominance matches forest target |
+| Tropical | 1059 | Soaring Cypress (#20) + Palm (#13) | Tree | w:0.92, d:0.60 / w:0.84 | Partially right — trees but wrong subtypes (Cypress not Tropical) |
+| Mediterranean | 1220 | Plump Hazel (#6) | Shrub (Hazel) | w:0.52, l:0.38 | **Partial** — shrub correct but should be Mediterranean/Aromatic subtype |
+| Desert | 1002 | Plump Hazel (#6) + Palm (#13) | Shrub + Tree | w:0.52 / w:0.84 | **WRONG** — should be Saltbush/Desert Grass/succulents |
+
+Key observations:
+- Woodiness drifts up everywhere (0.34 → 0.71 on Soil over 5000 ticks) — no cost to woodiness
+- Hill has no wStorage penalty → succulents thrive there incorrectly
+- Zone pressures too weak to differentiate Mediterranean from Temperate or push Desert toward succulents
+- Wetland fix confirmed working — trees reliably dominate
 
 ### 16.7 Diagnostics
 
@@ -619,9 +643,12 @@ Signals that indicate broken mechanics:
 ## 17. KNOWN ISSUES & TODO
 
 ### Tuning bugs (blocking accurate results)
-- **Soil height discount (0.7×) causes tree dominance on Soil** — Trees should NOT dominate Soil terrain. Only Wetland should reliably produce trees. `SOIL_MAINT_HEIGHT_MULT` needs to be ≥1.0 so Soil favors mixed grass/forb/shrub communities.
-- **Archetype gate order allows grass→succulent bypass** — `archetype()` checks `woodiness<0.4` before `waterStorage≥0.55`. Grasses evolving high waterStorage on Arid terrain remain classified as Grass instead of becoming Succulent. Gate needs reordering so waterStorage≥0.55 is checked first (or alongside woodiness).
-- **Wetland produces Forb instead of Tree** — Wetland's root penalty (3.5×) may be too harsh for trees despite the height light bonus (1.5×). Trees should dominate Wetland.
+- ~~**Soil height discount (0.7×)**~~ — FIXED: `SOIL_MAINT_HEIGHT_MULT` set to 1.0
+- ~~**Archetype gate order**~~ — FIXED: waterStorage≥0.55 checked before woodiness<0.4
+- ~~**Wetland produces Forb instead of Tree**~~ — RESOLVED: trees dominate Wetland after Soil height fix
+- **Hill has no wStorage penalty** — `maintWStorageMult` defaults to 1.0 on Hill, so succulents (Iceplant) dominate Hill instead of grasses. Needs `HILL_MAINT_WSTORAGE_MULT: ~2.0+`.
+- **Woodiness drifts up everywhere** — No maintenance cost for woodiness itself. Everything evolves toward trees/shrubs over time. May need a woodiness maintenance term or stronger zone differentiation.
+- **Zone pressures too weak** — Desert on Soil still produces Hazel (shrub), not succulents. Mediterranean indistinguishable from Temperate. Zone multipliers need strengthening.
 
 ### Trait drift issues
 - **seedSize drifts down** — Needs competitive establishment mortality (seedlings in shaded cells face survival pressure proportional to seedSizeVigor)
@@ -648,8 +675,8 @@ Signals that indicate broken mechanics:
 
 | Terrain | Target Archetype | Target Subtypes (dominant → secondary) | Ecological Rationale |
 |---------|-----------------|----------------------------------------|---------------------|
-| Soil | Grass/Forb mix | Tallgrass, Wildflower, Hazel | European meadow/pasture — grasses and wildflowers dominate, occasional shrubs |
-| Hill | Grass | Bunchgrass, Turfgrass, Wildflower | Alpine/rocky grassland — shallow roots, compact growth |
+| Soil | Tree > Shrub | Oak, Birch, Hazel | Temperate broadleaf forest — climax community on deep fertile soil |
+| Hill | Grass > Forb | Bunchgrass, Wildflower, Turfgrass | Alpine/rocky grassland — shallow soil limits trees, natural meadow |
 | Wetland | Tree > Forb | Birch, Sedge, Fern, Mangrove | Riparian forest — birch/alder-type trees, sedges and ferns underneath |
 | Arid | Succulent > Shrub | Saltbush, Saguaro, Aloe, Desert Grass | Scrubland — succulents and drought-hardy shrubs |
 
@@ -657,7 +684,7 @@ Signals that indicate broken mechanics:
 
 | Zone | Target Archetype | Target Subtypes (dominant → secondary) | Ecological Rationale |
 |------|-----------------|----------------------------------------|---------------------|
-| Temperate | Grass/Forb mix | Tallgrass, Wildflower, Hazel | European meadow |
+| Temperate | Tree > Shrub | Oak, Birch, Hazel | Temperate broadleaf forest — succession endpoint without disturbance |
 | Tropical | Forb > Tree | Tropical Herb, Fern, Tropical Tree | Lush broadleaf understory, some canopy trees |
 | Mediterranean | Shrub | Mediterranean, Aromatic, Wildflower | Garrigue/maquis — small-leaved drought-adapted shrubs |
 | Desert | Shrub > Grass | Saltbush, Desert Grass, Desert Annual | Sparse scrub, ephemeral grasses after rain |
@@ -666,11 +693,11 @@ Signals that indicate broken mechanics:
 
 | Niche | Primary Subtypes | Secondary Subtypes |
 |-------|------------------|--------------------|
-| **Soil+Temp** | Tallgrass, Wildflower | Hazel, Turfgrass |
+| **Soil+Temp** | Oak, Birch | Hazel, Wildflower |
 | **Soil+Trop** | Tropical Herb, Fern | Tropical Tree, Vine |
 | **Soil+Med** | Mediterranean, Aromatic | Wildflower, Cypress |
 | **Soil+Des** | Saltbush, Desert Grass | Desert Annual, Aromatic |
-| **Hill+Temp** | Bunchgrass, Wildflower | Turfgrass |
+| **Hill+Temp** | Bunchgrass, Wildflower | Turfgrass, Tallgrass |
 | **Hill+Trop** | Bunchgrass, Tropical Herb | Wildflower |
 | **Hill+Med** | Bunchgrass, Aromatic | Mediterranean, Barrel Cactus |
 | **Hill+Des** | Saguaro, Barrel Cactus | Desert Grass |
@@ -685,5 +712,12 @@ Signals that indicate broken mechanics:
 
 ### 18.4 Tuning Progress
 
-Pending — run experiments after fixing Section 17 bugs.
+**Round 1**: Fixed Soil height discount (0.7→1.0) and archetype gate order (waterStorage-first).
+- Wetland → Trees: **PASS**
+- Arid → Succulents: **PASS** (correct archetype)
+- Soil+Temp → Forest: **Partial** (Hazel shrub drifting woody, on track)
+- Hill → Grasses: **FAIL** (Iceplant dominates — needs Hill wStorage penalty)
+- Zone differentiation: **FAIL** (Mediterranean ≈ Temperate, Desert → Hazel not succulents)
+
+**Next**: Add Hill wStorage penalty, investigate woodiness drift, strengthen zone pressures.
 
