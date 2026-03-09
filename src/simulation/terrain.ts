@@ -221,31 +221,45 @@ function generateWetlands(
 
 
 export function assignClimateZones(grid: Cell[][], w: number, h: number): void {
-  const scale = 25;
-  const coarseW = Math.ceil(w / scale) + 2;
-  const coarseH = Math.ceil(h / scale) + 2;
-  const coarse: number[][] = Array.from({ length: coarseH }, () =>
-    Array.from({ length: coarseW }, () => Math.random()),
-  );
+  // Voronoi assignment: 2-4 seed points, each with a unique zone.
+  // Fewer seeds means some zone types don't appear at all.
+  const allZones = [
+    ClimateZone.Temperate,
+    ClimateZone.Tropical,
+    ClimateZone.Mediterranean,
+    ClimateZone.Desert,
+  ];
+  // Shuffle
+  for (let i = allZones.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allZones[i], allZones[j]] = [allZones[j], allZones[i]];
+  }
+  // Pick 2-4 seeds
+  const seedCount = 2 + Math.floor(Math.random() * 3); // 2, 3, or 4
+  const seeds: { x: number; y: number; zone: ClimateZone }[] = [];
+  for (let i = 0; i < seedCount; i++) {
+    seeds.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      zone: allZones[i],
+    });
+  }
 
+  // Assign each cell to nearest seed
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const gx = x / scale;
-      const gy = y / scale;
-      const ix = Math.floor(gx);
-      const iy = Math.floor(gy);
-      const fx = gx - ix;
-      const fy = gy - iy;
-      const sx = fx * fx * (3 - 2 * fx);
-      const sy = fy * fy * (3 - 2 * fy);
-      const top = coarse[iy][ix] + (coarse[iy][ix + 1] - coarse[iy][ix]) * sx;
-      const bot = coarse[iy + 1][ix] + (coarse[iy + 1][ix + 1] - coarse[iy + 1][ix]) * sx;
-      const v = top + (bot - top) * sy;
-
-      if (v < 0.25) grid[y][x].climateZone = ClimateZone.Desert;
-      else if (v < 0.45) grid[y][x].climateZone = ClimateZone.Mediterranean;
-      else if (v < 0.70) grid[y][x].climateZone = ClimateZone.Temperate;
-      else grid[y][x].climateZone = ClimateZone.Tropical;
+      let bestDist = Infinity;
+      let bestZone = ClimateZone.Temperate;
+      for (const seed of seeds) {
+        const dx = x - seed.x;
+        const dy = y - seed.y;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestZone = seed.zone;
+        }
+      }
+      grid[y][x].climateZone = bestZone;
     }
   }
 }
