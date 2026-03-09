@@ -1,4 +1,4 @@
-import { Scenario, ScenarioCell, TerrainType } from '../types';
+import { Scenario, ScenarioCell, TerrainType, ClimateZone } from '../types';
 
 // ── Deterministic noise ──
 
@@ -349,6 +349,7 @@ export const genesis: Scenario = (() => {
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.45,
+    defaultZone: ClimateZone.Desert,
     cells,
     species: [
       {
