@@ -10,12 +10,23 @@
  */
 import * as THREE from 'three';
 import { BUILDERS, BUILDERS_LOW, scaleToTarget, TARGET_MODEL_HEIGHTS } from './renderer3d/plant-models';
+import { BUILDERS_STRESSED, BUILDERS_STRESSED_LOW } from './renderer3d/plant-models-stressed';
+import { BUILDERS_DYING, BUILDERS_DYING_LOW } from './renderer3d/plant-models-dying';
 
 // ── Config from query params ──
 const params = new URLSearchParams(location.search);
 const subtypeIdx = parseInt(params.get('subtype') ?? '6', 10);
 const angleCount = parseInt(params.get('angles') ?? '4', 10);
 const compareMode = params.get('compare') === '1';
+const healthState = params.get('state') ?? 'healthy'; // 'healthy' | 'stressed' | 'dying'
+
+// Select builder arrays based on health state
+const HI_BUILDERS = healthState === 'stressed' ? BUILDERS_STRESSED
+  : healthState === 'dying' ? BUILDERS_DYING
+  : BUILDERS;
+const LO_BUILDERS = healthState === 'stressed' ? BUILDERS_STRESSED_LOW
+  : healthState === 'dying' ? BUILDERS_DYING_LOW
+  : BUILDERS_LOW;
 
 // ── Layout ──
 const CELL = 400;                       // px per view
@@ -103,8 +114,8 @@ function makeScene(builders: (() => THREE.Group)[]): { scene: THREE.Scene; cente
 }
 
 // Build scene(s)
-const hiScene = makeScene(BUILDERS);
-const loScene = compareMode ? makeScene(BUILDERS_LOW) : null;
+const hiScene = makeScene(HI_BUILDERS);
+const loScene = compareMode ? makeScene(LO_BUILDERS) : null;
 
 // Use the high-mesh framing for both so they're at the same scale
 const { centerY, camDist } = hiScene;
@@ -154,9 +165,10 @@ document.body.appendChild(overlay);
 const ctx = overlay.getContext('2d')!;
 ctx.scale(devicePixelRatio, devicePixelRatio);
 
-const label = `#${subtypeIdx} ${NAMES[subtypeIdx] ?? 'Unknown'}`;
+const stateLabel = healthState !== 'healthy' ? ` [${healthState.toUpperCase()}]` : '';
+const label = `#${subtypeIdx} ${NAMES[subtypeIdx] ?? 'Unknown'}${stateLabel}`;
 ctx.font = 'bold 16px monospace';
-ctx.fillStyle = '#fff';
+ctx.fillStyle = healthState === 'dying' ? '#f88' : healthState === 'stressed' ? '#ff8' : '#fff';
 ctx.fillText(label, 10, 24);
 
 if (compareMode) {
@@ -176,4 +188,4 @@ for (let i = 0; i < angleCount; i++) {
 
 // Signal ready for puppeteer
 (window as any).__workshopReady = true;
-console.log(`[workshop] Rendered subtype ${subtypeIdx} (${NAMES[subtypeIdx]}) from ${angleCount} angles${compareMode ? ' [COMPARE]' : ''}`);
+console.log(`[workshop] Rendered subtype ${subtypeIdx} (${NAMES[subtypeIdx]}) ${healthState} from ${angleCount} angles${compareMode ? ' [COMPARE]' : ''}`);
