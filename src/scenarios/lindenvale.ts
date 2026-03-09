@@ -96,7 +96,8 @@ const eastTrib = buildSegs([
   { x: 48, y: 33 },   // then back west
   { x: 44, y: 38 },
   { x: 42, y: 43 },
-  { x: 40, y: 48 },   // joins main brook in fen above lake
+  { x: 40, y: 48 },   // approaches fen
+  { x: 39, y: 51 },   // confluence — merges with main brook, enters lake
 ]);
 
 const allStreams = [mainBrook, outflow, eastTrib];
@@ -170,11 +171,11 @@ function isStreamCell(x: number, y: number): boolean {
   // Main brook — widens downstream
   const mainDist = distStream(x, y, mainBrook);
   const mainProg = Math.max(0, Math.min(1, y / 55));
-  const mainWidth = 0.5 + mainProg * 0.4; // narrow at spring, wider near lake
+  const mainWidth = 0.8 + mainProg * 0.3; // wide enough for 4-connectivity on diagonals
   if (mainDist <= mainWidth) return true;
 
-  if (distStream(x, y, outflow) <= 0.7) return true;
-  if (distStream(x, y, eastTrib) <= 0.5) return true;
+  if (distStream(x, y, outflow) <= 0.9) return true;
+  if (distStream(x, y, eastTrib) <= 0.8) return true;
   return false;
 }
 
@@ -236,17 +237,18 @@ function getTerrain(x: number, y: number): ScenarioCell {
     return { x, y, terrain: TerrainType.River, elevation: 0.18 };
   }
 
+  // ── Streams — with elevation gradient (checked before fringe so brooks
+  //    stay connected through the lake margin) ──
+  if (isStreamCell(x, y)) {
+    return { x, y, terrain: TerrainType.River, elevation: streamElevation(y) };
+  }
+
   // ── Lake wetland fringe (Verlandungszone) — reduced to prevent fen merge ──
   if (lakeDist(x, y) <= 2.5) {
     const fringeNoise = fbm(x + 100, y + 100, 5);
     if (fringeNoise > 0.28) {
       return { x, y, terrain: TerrainType.Wetland, elevation: 0.20, nutrients: 6.0 };
     }
-  }
-
-  // ── Streams — with elevation gradient ──
-  if (isStreamCell(x, y)) {
-    return { x, y, terrain: TerrainType.River, elevation: streamElevation(y) };
   }
 
   // ── The Hochmoor — raised bog, elliptical along the E-W saddle axis ──
@@ -436,7 +438,7 @@ export const lindenvale: Scenario = (() => {
           longevity: 0.65,
         },
         color: { r: 0.25, g: 0.55, b: 0.15 },
-        placements: [{ x: 30, y: 24 }],
+        placements: [{ x: 32, y: 24 }],
       },
       {
         id: 2,
@@ -453,7 +455,7 @@ export const lindenvale: Scenario = (() => {
           longevity: 0.30,
         },
         color: { r: 0.35, g: 0.70, b: 0.20 },
-        placements: [{ x: 40, y: 46 }],
+        placements: [{ x: 42, y: 46 }],
       },
     ],
   };
