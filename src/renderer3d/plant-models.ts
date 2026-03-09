@@ -2387,97 +2387,82 @@ function buildFernLow(): THREE.Group {
 
 function buildVine(): THREE.Group {
   const g = new THREE.Group();
-  // English ivy — crawling stems with overlapping heart-shaped leaves flat on ground
+  // Sparse creeping vine — thin tendrils with scattered leaves and small flower buds
+  // Pokes through grass with a few color accents for identification
 
   const stemMat = mat(0x5a4a2a);
   const leafMats = [matDS(0x2a6a1a), matDS(0x358020), matDS(0x3a7528)];
+  const budMat = mat(0x7755bb);      // small purple-blue flower buds
+  const berryMat = mat(0xcc5533);    // occasional orange-red berry
 
-  // 12 radiating vine arms with visible stems
-  const armCount = 12;
+  // 5 thin tendrils meandering outward
+  const armCount = 5;
   for (let ai = 0; ai < armCount; ai++) {
-    const baseA = (ai / armCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
-    const armLen = 0.42 + Math.random() * 0.12;
-    const segments = 6;
+    const baseA = (ai / armCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    const armLen = 0.35 + Math.random() * 0.18;
+    const segments = 4;
     let cx = 0, cz = 0;
     let dir = baseA;
     const stepLen = armLen / segments;
 
     for (let si = 0; si < segments; si++) {
-      dir += (Math.random() - 0.5) * 0.25;
+      dir += (Math.random() - 0.5) * 0.35;
       const nx = cx + Math.cos(dir) * stepLen;
       const nz = cz + Math.sin(dir) * stepLen;
 
-      // Visible stem segment
+      // Thin stem segment
       const segLen = Math.sqrt((nx - cx) ** 2 + (nz - cz) ** 2);
-      const segGeo = new THREE.CylinderGeometry(0.008, 0.012, segLen, 4);
+      const segGeo = new THREE.CylinderGeometry(0.008, 0.010, segLen, 3);
       const seg = new THREE.Mesh(segGeo, stemMat);
-      seg.position.set((cx + nx) / 2, 0.012, (cz + nz) / 2);
+      seg.position.set((cx + nx) / 2, 0.015, (cz + nz) / 2);
       seg.rotation.z = Math.PI / 2;
       seg.rotation.y = Math.atan2(nz - cz, nx - cx);
       g.add(seg);
 
-      // Leaf at each node — larger near center
-      const dist = Math.sqrt(nx * nx + nz * nz);
-      const sizeFactor = Math.max(0.7, 1.3 - dist * 0.8);
-      const leafSize = (0.07 + Math.random() * 0.03) * sizeFactor;
+      // Leaf at each node — some lifted above grass
+      const leafSize = 0.07 + Math.random() * 0.03;
       const lGeo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
       const leaf = new THREE.Mesh(lGeo, leafMats[si % 3]);
       const leafSide = si % 2 === 0 ? 1 : -1;
       const off = leafSize * 0.3;
+      const liftY = si >= 2 ? 0.04 + Math.random() * 0.02 : 0.020;
       leaf.position.set(
         nx + Math.cos(dir + leafSide * Math.PI / 2) * off,
-        0.020,
+        liftY,
         nz + Math.sin(dir + leafSide * Math.PI / 2) * off,
       );
-      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.x = -Math.PI / 2 + (liftY > 0.03 ? 0.45 : 0);
       leaf.rotation.z = dir + leafSide * 0.4 + Math.random() * 0.3;
       g.add(leaf);
-
-      // Second leaf on opposite side for denser coverage
-      if (si > 0 && si < segments - 1) {
-        const ls2 = leafSize * 0.8;
-        const geo2 = new THREE.PlaneGeometry(ls2, ls2 * 1.1);
-        const leaf2 = new THREE.Mesh(geo2, leafMats[(si + 1) % 3]);
-        leaf2.position.set(
-          nx + Math.cos(dir - leafSide * Math.PI / 2) * off * 0.6,
-          0.018,
-          nz + Math.sin(dir - leafSide * Math.PI / 2) * off * 0.6,
-        );
-        leaf2.rotation.x = -Math.PI / 2;
-        leaf2.rotation.z = dir - leafSide * 0.3 + Math.random() * 0.3;
-        g.add(leaf2);
-      }
 
       cx = nx;
       cz = nz;
     }
+
+    // Flower bud or berry at tendril tip (alternating)
+    const accentSize = 0.032;
+    const accentGeo = new THREE.SphereGeometry(accentSize, 4, 3);
+    const accent = new THREE.Mesh(accentGeo, ai % 2 === 0 ? budMat : berryMat);
+    accent.position.set(cx, 0.04, cz);
+    g.add(accent);
   }
 
-  // Dense center mound — large overlapping leaves
-  for (let i = 0; i < 22; i++) {
-    const a = (i / 22) * Math.PI * 2;
-    const r = 0.02 + Math.random() * 0.12;
-    const leafSize = 0.08 + Math.random() * 0.05;
+  // Small center cluster — a few leaves plus a bud to anchor
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const r = 0.02 + Math.random() * 0.06;
+    const leafSize = 0.06 + Math.random() * 0.03;
     const geo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
     const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
-    leaf.position.set(Math.cos(a) * r, 0.025 + Math.random() * 0.01, Math.sin(a) * r);
+    leaf.position.set(Math.cos(a) * r, 0.025, Math.sin(a) * r);
     leaf.rotation.x = -Math.PI / 2;
     leaf.rotation.z = a + Math.random() * 0.5;
     g.add(leaf);
   }
-
-  // Heavy gap fill — especially edges and corners
-  for (let i = 0; i < 30; i++) {
-    const x = (Math.random() - 0.5) * 0.95;
-    const z = (Math.random() - 0.5) * 0.95;
-    const leafSize = 0.05 + Math.random() * 0.04;
-    const geo = new THREE.PlaneGeometry(leafSize, leafSize * 1.1);
-    const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
-    leaf.position.set(x, 0.015, z);
-    leaf.rotation.x = -Math.PI / 2;
-    leaf.rotation.z = Math.random() * Math.PI * 2;
-    g.add(leaf);
-  }
+  // Center bud
+  const cBud = new THREE.Mesh(new THREE.SphereGeometry(0.022, 4, 3), budMat);
+  cBud.position.set(0, 0.035, 0);
+  g.add(cBud);
 
   return g;
 }
@@ -2485,20 +2470,28 @@ function buildVine(): THREE.Group {
 function buildVineLow(): THREE.Group {
   const g = new THREE.Group();
   const leafMats = [matDS(0x2a6a1a), matDS(0x357a22)];
-  // 10 large overlapping heart-shaped leaves covering the cell = 10 meshes
-  const positions = [
-    [0, 0], [0.22, 0.18], [-0.20, 0.22], [0.25, -0.16], [-0.18, -0.22],
-    [0.38, 0.02], [-0.36, 0.05], [0.05, 0.36], [0.10, -0.35], [-0.30, -0.18],
+  const budMat = mat(0x7755bb);
+  // Sparse leaves with a couple color accents
+  const positions: [number, number, number][] = [
+    [0, 0, 0.02], [0.22, 0.16, 0.02], [-0.18, 0.20, 0.04],
+    [0.24, -0.14, 0.04], [-0.16, -0.20, 0.02],
   ];
   for (let i = 0; i < positions.length; i++) {
-    const [x, z] = positions[i];
-    const geo = new THREE.PlaneGeometry(0.18, 0.20, 1, 1);
+    const [x, z, y] = positions[i];
+    const geo = new THREE.PlaneGeometry(0.09, 0.10, 1, 1);
     const leaf = new THREE.Mesh(geo, leafMats[i % 2]);
-    leaf.position.set(x, 0.018 + i * 0.001, z);
-    leaf.rotation.x = -Math.PI / 2;
-    leaf.rotation.z = i * 0.7;
+    leaf.position.set(x, y, z);
+    leaf.rotation.x = -Math.PI / 2 + (y > 0.03 ? 0.3 : 0);
+    leaf.rotation.z = i * 1.2;
     g.add(leaf);
   }
+  // Color accent dots
+  const bud1 = new THREE.Mesh(new THREE.SphereGeometry(0.032, 4, 3), budMat);
+  bud1.position.set(0.30, 0.04, 0.08);
+  g.add(bud1);
+  const bud2 = new THREE.Mesh(new THREE.SphereGeometry(0.032, 4, 3), mat(0xcc5533));
+  bud2.position.set(-0.25, 0.04, -0.12);
+  g.add(bud2);
   return g;
 }
 
