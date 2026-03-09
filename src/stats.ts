@@ -1,4 +1,4 @@
-import { SIM, TERRAIN_PROPS, TerrainType, World } from './types';
+import { SIM, TERRAIN_PROPS, TerrainType, ClimateZone, CLIMATE_ZONE_COUNT, World } from './types';
 
 // ── Types ──
 
@@ -90,6 +90,12 @@ export interface Snapshot {
     seedsGerminated: number;
   };
 
+  zonal: {
+    plantsByZone: { temperate: number; tropical: number; mediterranean: number; desert: number };
+    avgGenomeByZone: Record<string, { root: number; height: number; leaf: number; seed: number; sz: number; def: number; wood: number; wst: number; lon: number } | null>;
+    avgEnergyByZone: { temperate: number; tropical: number; mediterranean: number; desert: number };
+  };
+
   topSpecies: Array<{
     speciesId: number;
     name: string;
@@ -98,6 +104,7 @@ export interface Snapshot {
     avgEnergy: number;
     maxGeneration: number;
     terrain: { soil: number; hill: number; wetland: number; arid: number };
+    zone: { temperate: number; tropical: number; mediterranean: number; desert: number };
   }>;
 }
 
@@ -196,12 +203,20 @@ export function computeSnapshot(
   let energySoil = 0, energyHill = 0, energyWetland = 0, energyArid = 0;
   let countSoil = 0, countHill = 0, countWetland = 0, countArid = 0;
 
+  // Zone tracking
+  const zoneCounts = new Array(CLIMATE_ZONE_COUNT).fill(0);
+  const zoneEnergy = new Array(CLIMATE_ZONE_COUNT).fill(0);
+  const zoneGenomeSums = Array.from({ length: CLIMATE_ZONE_COUNT }, () => ({
+    root: 0, height: 0, leaf: 0, seed: 0, sz: 0, def: 0, wood: 0, wst: 0, lon: 0,
+  }));
+
   const speciesBuckets = new Map<number, {
     count: number; sumEnergy: number;
     sumRoot: number; sumHeight: number; sumLeaf: number; sumSeed: number;
     sumSz: number; sumDef: number; sumWood: number; sumWst: number; sumLon: number;
     maxGeneration: number;
     soil: number; hill: number; wetland: number; arid: number;
+    temperate: number; tropical: number; mediterranean: number; desert: number;
   }>();
   const strategySet = new Set<string>();
 
@@ -269,9 +284,18 @@ export function computeSnapshot(
     }
     if (nearRiver.has(plant.y * world.width + plant.x)) plantsNearRiver++;
 
+    // Zone tracking
+    const z = cell.climateZone;
+    zoneCounts[z]++;
+    zoneEnergy[z] += plant.energy;
+    const zg = zoneGenomeSums[z];
+    zg.root += r; zg.height += h; zg.leaf += l; zg.seed += s;
+    zg.sz += plant.genome.seedSize; zg.def += d; zg.wood += w;
+    zg.wst += plant.genome.waterStorage; zg.lon += plant.genome.longevity;
+
     let bucket = speciesBuckets.get(plant.speciesId);
     if (!bucket) {
-      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumSz: 0, sumDef: 0, sumWood: 0, sumWst: 0, sumLon: 0, maxGeneration: 0, soil: 0, hill: 0, wetland: 0, arid: 0 };
+      bucket = { count: 0, sumEnergy: 0, sumRoot: 0, sumHeight: 0, sumLeaf: 0, sumSeed: 0, sumSz: 0, sumDef: 0, sumWood: 0, sumWst: 0, sumLon: 0, maxGeneration: 0, soil: 0, hill: 0, wetland: 0, arid: 0, temperate: 0, tropical: 0, mediterranean: 0, desert: 0 };
       speciesBuckets.set(plant.speciesId, bucket);
     }
     bucket.count++;
@@ -283,6 +307,10 @@ export function computeSnapshot(
     else if (cell.terrainType === TerrainType.Hill) bucket.hill++;
     else if (cell.terrainType === TerrainType.Wetland) bucket.wetland++;
     else if (cell.terrainType === TerrainType.Arid) bucket.arid++;
+    if (z === ClimateZone.Temperate) bucket.temperate++;
+    else if (z === ClimateZone.Tropical) bucket.tropical++;
+    else if (z === ClimateZone.Mediterranean) bucket.mediterranean++;
+    else if (z === ClimateZone.Desert) bucket.desert++;
   }
 
   // PASS 2: Grid scan for resource state
@@ -342,6 +370,7 @@ export function computeSnapshot(
       avgEnergy: b.sumEnergy / b.count,
       maxGeneration: b.maxGeneration,
       terrain: { soil: b.soil, hill: b.hill, wetland: b.wetland, arid: b.arid },
+      zone: { temperate: b.temperate, tropical: b.tropical, mediterranean: b.mediterranean, desert: b.desert },
     }));
 
   const totalDeaths = accum.deathsByStarvation + accum.deathsByAge + accum.deathsByFire + accum.deathsByDisease;
@@ -404,6 +433,31 @@ export function computeSnapshot(
         hill: countHill > 0 ? energyHill / countHill : 0,
         wetland: countWetland > 0 ? energyWetland / countWetland : 0,
         arid: countArid > 0 ? energyArid / countArid : 0,
+      },
+    },
+    zonal: {
+      plantsByZone: {
+        temperate: zoneCounts[ClimateZone.Temperate],
+        tropical: zoneCounts[ClimateZone.Tropical],
+        mediterranean: zoneCounts[ClimateZone.Mediterranean],
+        desert: zoneCounts[ClimateZone.Desert],
+      },
+      avgGenomeByZone: Object.fromEntries(
+        (['temperate', 'tropical', 'mediterranean', 'desert'] as const).map((name, i) => {
+          const c = zoneCounts[i];
+          if (c === 0) return [name, null];
+          const g = zoneGenomeSums[i];
+          return [name, {
+            root: g.root / c, height: g.height / c, leaf: g.leaf / c, seed: g.seed / c,
+            sz: g.sz / c, def: g.def / c, wood: g.wood / c, wst: g.wst / c, lon: g.lon / c,
+          }];
+        })
+      ),
+      avgEnergyByZone: {
+        temperate: zoneCounts[ClimateZone.Temperate] > 0 ? zoneEnergy[ClimateZone.Temperate] / zoneCounts[ClimateZone.Temperate] : 0,
+        tropical: zoneCounts[ClimateZone.Tropical] > 0 ? zoneEnergy[ClimateZone.Tropical] / zoneCounts[ClimateZone.Tropical] : 0,
+        mediterranean: zoneCounts[ClimateZone.Mediterranean] > 0 ? zoneEnergy[ClimateZone.Mediterranean] / zoneCounts[ClimateZone.Mediterranean] : 0,
+        desert: zoneCounts[ClimateZone.Desert] > 0 ? zoneEnergy[ClimateZone.Desert] / zoneCounts[ClimateZone.Desert] : 0,
       },
     },
     reproduction: {

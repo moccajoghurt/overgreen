@@ -114,7 +114,8 @@ for (const tick of keyTicks) {
   for (const sp of snap.topSpecies.slice(0, 3)) {
     const g = sp.avgGenome;
     const terrain = Object.entries(sp.terrain).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ');
-    p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count} e=${sp.avgEnergy.toFixed(2)} [r:${g.root.toFixed(2)} h:${g.height.toFixed(2)} l:${g.leaf.toFixed(2)} s:${g.seed.toFixed(2)} sz:${(g.sz ?? 0.5).toFixed(2)} d:${g.def.toFixed(2)} w:${(g.wood ?? 0).toFixed(2)} wst:${(g.wst ?? 0).toFixed(2)}] {${terrain}}`);
+    const zone = sp.zone ? Object.entries(sp.zone).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ') : '';
+    p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count} e=${sp.avgEnergy.toFixed(2)} [r:${g.root.toFixed(2)} h:${g.height.toFixed(2)} l:${g.leaf.toFixed(2)} s:${g.seed.toFixed(2)} sz:${(g.sz ?? 0.5).toFixed(2)} d:${g.def.toFixed(2)} w:${(g.wood ?? 0).toFixed(2)} wst:${(g.wst ?? 0).toFixed(2)}] {${terrain}}${zone ? ' z{' + zone + '}' : ''}`);
   }
   p();
 }
@@ -212,6 +213,74 @@ if (lastSnapForLineage.lineageRoots && lastSnapForLineage.speciesDetail) {
     p(`Drift: ${drifts.join('  ')}`);
     p();
   }
+}
+
+// ── By Zone ──
+
+const lastSnapZonal = snaps[snaps.length - 1];
+if (lastSnapZonal.zonal) {
+  p(`## By Zone`);
+  const zoneNames = ['temperate', 'tropical', 'mediterranean', 'desert'];
+  const zb = lastSnapZonal.zonal.plantsByZone;
+  const ze = lastSnapZonal.zonal.avgEnergyByZone;
+  p(`Zone      | plants | avgEnergy`);
+  p(`----------|--------|----------`);
+  for (const zn of zoneNames) {
+    p(`${zn.padEnd(10)}| ${String(zb[zn] || 0).padStart(6)} | ${(ze[zn] || 0).toFixed(2)}`);
+  }
+  p();
+
+  // Genome by zone (evolution over time)
+  const zg = lastSnapZonal.avgGenomeByZone;
+  if (zg) {
+    p(`### Genome by Zone (final snapshot)`);
+    p(`zone         |  root |  hgt  |  leaf |  seed |  sz   |  def  |  wood |  wst  |  lon`);
+    p(`-------------|-------|-------|-------|-------|-------|-------|-------|-------|------`);
+    for (const zn of zoneNames) {
+      const g = zg[zn];
+      if (!g) { p(`${zn.padEnd(13)}| (no plants)`); continue; }
+      const f = v => v.toFixed(3).padStart(5);
+      p(`${zn.padEnd(13)}| ${f(g.root)} | ${f(g.height)} | ${f(g.leaf)} | ${f(g.seed)} | ${f(g.sz)} | ${f(g.def)} | ${f(g.wood)} | ${f(g.wst)} | ${f(g.lon)}`);
+    }
+    p();
+  }
+
+  // Species zone distribution
+  if (lastSnapZonal.zonal && lastSnapZonal.topSpecies.length > 0 && lastSnapZonal.topSpecies[0].zone) {
+    p(`### Top Species by Zone (final snapshot)`);
+    for (const sp of lastSnapZonal.topSpecies.slice(0, 5)) {
+      const z = sp.zone;
+      const zoneDist = zoneNames.filter(zn => (z[zn] || 0) > 0).map(zn => `${zn}:${z[zn]}`).join(' ');
+      p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count} {${zoneDist}}`);
+    }
+    p();
+  }
+}
+
+// ── By Terrain×Zone ──
+
+if (lastSnapZonal.zonal && lastSnapZonal.topSpecies.length > 0 && lastSnapZonal.topSpecies[0].zone) {
+  // Build terrain×zone matrix from species data
+  const terrainNames = ['soil', 'hill', 'wetland', 'arid'];
+  const zoneNames = ['temperate', 'tropical', 'mediterranean', 'desert'];
+  // For each species, estimate terrain×zone distribution using proportional allocation
+  // This is approximate — species with both terrain and zone distributions
+  p(`## By Terrain×Zone (species-based estimate)`);
+  p(`(Uses top-5 species terrain and zone distributions to estimate niche occupancy)`);
+  p();
+  for (const sp of lastSnapZonal.topSpecies.slice(0, 5)) {
+    const t = sp.terrain;
+    const z = sp.zone;
+    const tTotal = (t.soil||0) + (t.hill||0) + (t.wetland||0) + (t.arid||0);
+    const zTotal = (z.temperate||0) + (z.tropical||0) + (z.mediterranean||0) + (z.desert||0);
+    if (tTotal === 0 || zTotal === 0) continue;
+    const g = sp.avgGenome;
+    p(`  ${sp.name} (#${sp.speciesId}): n=${sp.count}`);
+    p(`    terrain: ${terrainNames.filter(tn => (t[tn]||0)>0).map(tn=>`${tn}:${t[tn]}`).join(' ')}`);
+    p(`    zone:    ${zoneNames.filter(zn => (z[zn]||0)>0).map(zn=>`${zn}:${z[zn]}`).join(' ')}`);
+    p(`    genome:  r:${g.root.toFixed(2)} h:${g.height.toFixed(2)} l:${g.leaf.toFixed(2)} s:${g.seed.toFixed(2)} sz:${(g.sz??0.5).toFixed(2)} d:${g.def.toFixed(2)} w:${(g.wood??0).toFixed(2)} wst:${(g.wst??0).toFixed(2)} lon:${(g.lon??0.5).toFixed(2)}`);
+  }
+  p();
 }
 
 // ── Key insights (auto-detected) ──

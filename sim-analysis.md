@@ -233,10 +233,18 @@ Temperate winter is the harshest (leafMaint 2.0×). Tropical winter is mild (1.2
 
 - **Drought:** Summer, local radius, reduces recharge + evaporates 0.3/tick (all terrains)
 - **Arid dry spell:** Summer, terrain-wide, zeroes recharge + evaporates 0.05/tick on all arid cells (15-35 ticks)
-- **Fire:** Summer, spreads via low-water high-leaf cells, kills instantly, rivers block
-- **Disease:** Targets genetic uniformity >50% — the monoculture punisher
+- **Fire:** Summer, spreads via low-water high-leaf cells. Survival chance = BARK_WEIGHT × woodiness² + MOISTURE_WEIGHT × (storedWater/capacity). Survivors lose 90% leaves and 60% energy. Dead plants are removed. Rivers block spread.
+- **Disease:** Targets genetic uniformity >50% — the monoculture punisher. Spread to neighbors reduced by defense × DEFENSE_DISEASE_RESIST (50%). Diseased plants suffer photosynthesis penalty (0.70 base, recoverable to 0.85 at defense=1) and energy drain (0.15/tick, resistible to 0.09/tick at defense=1).
 
-Zone-weighted spawn probabilities (relative to Temperate = 1.0):
+### Fire survival constants:
+```
+  FIRE_SURVIVAL_BARK_WEIGHT:    0.5   — max 50% survival from woodiness² (quadratic)
+  FIRE_SURVIVAL_MOISTURE_WEIGHT: 0.3  — max 30% survival from water reserves
+  FIRE_SURVIVAL_ENERGY_LOSS:    0.6   — 60% energy lost when surviving
+  FIRE_SURVIVAL_LEAF_LOSS:      0.9   — 90% leaves lost when surviving
+```
+
+### Zone-weighted spawn probabilities (relative to Temperate = 1.0):
 ```
   ┌───────────────┬──────┬──────────┬───────────────┬────────┐
   │ Disaster      │ Temp │ Tropical │ Mediterranean │ Desert │
@@ -251,7 +259,15 @@ Zone-weighted spawn probabilities (relative to Temperate = 1.0):
 
 ## 10. DEFENSE
 
-**Defense:** Reduces grazing by up to 70%, cost = 0.05/tick. Value depends entirely on herbivore pressure.
+**Defense** has two roles:
+
+1. **Anti-herbivore:** Reduces grazing damage by up to 70%, cost = 0.05/tick. Value depends on herbivore pressure.
+2. **Disease resistance:** Three independent effects:
+   - Spread reduction: disease spreads to neighbors × (1 - defense × 0.5)
+   - Photosynthesis recovery: diseased photo penalty 0.70 + defense × 0.15 → up to 0.85
+   - Drain resistance: disease drain 0.15 × (1 - defense × 0.4) → down to 0.09/tick
+
+Defense is context-dependent: near-zero cost in low-pressure environments, critical in Tropical zones (disease 1.8×).
 
 ---
 
@@ -347,10 +363,10 @@ Pending — re-run with zone-controlled scenarios. Desert zone may create select
    11. Disasters (zone-weighted: fire 2× in Mediterranean, disease 1.8× in Tropical)
    12. Seed bank dynamics
    13. Water storage — expected critical on arid/desert, likely dead on tropical/wetland
+   14. Defense — anti-herbivore + disease resistance (spread, photo, drain). Context-dependent: critical in Tropical, negligible in Desert.
 
   WEAK / BROKEN (pending re-validation):
-   14. Seed mass — drifted down in pre-zone experiments. Zone stress may create upward pressure.
-   15. Defense — context-dependent; converges to low values.
+   15. Seed mass — drifted down in pre-zone experiments. Zone stress may create upward pressure.
    16. Root competition — 6% drain is noise.
 ```
 
@@ -472,110 +488,110 @@ Pending — no zone-controlled experiments run yet.
 
 ---
 
-## TEST SCENARIOS
+## 16. EXPERIMENTAL VALIDATION
 
-Experiments run at 1000 ticks (short) or 5000 ticks (long-term dynamics), snapshot every 250 ticks.
+### 16.1 Goals
 
-All scenarios should specify a fixed climate zone (typically Temperate) to isolate terrain effects, unless specifically testing zone interactions.
+- **Niche differentiation:** 16 terrain×zone pockets produce distinct archetype/subtype communities
+- **Genome soundness:** all 9 traits show environment-dependent selection (no universal drift)
+- **System correctness:** energy budget, disasters, defense, water storage all function as designed
 
-| # | Scenario | Ticks | Status |
-|---|----------|-------|--------|
-| 1 | Monoculture | 3k | Pending |
-| 2 | Water Comp | 1k | Pending |
-| 3 | Light Comp | 1k | Pending |
-| 4 | Seed Tradeoff | 1k | Pending |
-| 5 | Defense | 1k | Pending |
-| 6 | Hill | 1k | Pending |
-| 7 | Arid | 1k | Pending |
-| 8 | Shrub Gallery | 1k | Pending |
-| 9 | Succulent Gallery | 1k | Pending |
-| 10 | Grass vs Trees | 3k | Pending |
-| 11 | Nutrient Cycle | 1k | Pending |
-| 12 | Terrain Isolated | 5k | Pending |
-| 13 | Terrain Mosaic | 5k | Pending |
-| 14 | Seed Bank | 1k | Pending |
-| 15 | Woodiness Evo | 5k | Pending |
-| 16 | Woodiness×Seed | 1k | Pending |
+### 16.2 Maps
 
-### Experiment details
+**Niche Matrix** (`experiment-niche-matrix`): 80×80 grid, 4×4 layout of isolated pockets. 9-cell-wide Rock barriers between all pockets (blocks max seed range). Each pocket = unique terrain + climate zone combination.
 
-Pending — all experiments need re-running with zone-controlled scenarios.
+```
+          Soil(13)  Rock(9)  Hill(13)  Rock(9) Wetland(13) Rock(9)  Arid(14)
+Temperate ┌───────┐         ┌───────┐          ┌────────┐          ┌────────┐
+y:0-12    │S+Temp │  Rock   │H+Temp │   Rock   │W+Temp  │   Rock   │A+Temp  │
+          └───────┘         └───────┘          └────────┘          └────────┘
+Rock y:13-21  ═══════════════════════════════════════════════════════════════
+Tropical  ┌───────┐         ┌───────┐          ┌────────┐          ┌────────┐
+y:22-34   │S+Trop │  Rock   │H+Trop │   Rock   │W+Trop  │   Rock   │A+Trop  │
+          └───────┘         └───────┘          └────────┘          └────────┘
+Rock y:35-43  ═══════════════════════════════════════════════════════════════
+Mediterr. ┌───────┐         ┌───────┐          ┌────────┐          ┌────────┐
+y:44-56   │S+Med  │  Rock   │H+Med  │   Rock   │W+Med   │   Rock   │A+Med   │
+          └───────┘         └───────┘          └────────┘          └────────┘
+Rock y:57-65  ═══════════════════════════════════════════════════════════════
+Desert    ┌───────┐         ┌───────┐          ┌────────┐          ┌────────┐
+y:66-79   │S+Des  │  Rock   │H+Des  │   Rock   │W+Des   │   Rock   │A+Des   │
+          └───────┘         └───────┘          └────────┘          └────────┘
+```
+
+**Neutral Baseline** (`experiment-neutral-baseline`): 80×80 grid, all Soil terrain, all Temperate zone. No barriers. Same 5 initial species scattered uniformly. Null hypothesis — trait drift here is competition-driven, not environmental.
+
+### 16.3 Initial Species
+
+| # | Name | Archetype | root | height | leaf | seedInv | seedSz | def | wood | wStor | lon |
+|---|------|-----------|------|--------|------|---------|--------|-----|------|-------|-----|
+| 1 | Starter Grass | Grass | 0.40 | 0.30 | 0.30 | 0.50 | 0.40 | 0.10 | 0.15 | 0.10 | 0.30 |
+| 2 | Starter Forb | Forb | 0.30 | 0.25 | 0.60 | 0.50 | 0.35 | 0.25 | 0.20 | 0.20 | 0.35 |
+| 3 | Starter Shrub | Shrub | 0.35 | 0.30 | 0.40 | 0.40 | 0.45 | 0.30 | 0.55 | 0.30 | 0.50 |
+| 4 | Starter Tree | Tree | 0.40 | 0.45 | 0.45 | 0.30 | 0.60 | 0.20 | 0.85 | 0.20 | 0.65 |
+| 5 | Starter Succulent | Succulent | 0.35 | 0.20 | 0.30 | 0.40 | 0.55 | 0.30 | 0.50 | 0.65 | 0.50 |
+
+Placement: 4 plants per species per Matrix pocket (20/pocket, 320 total). 50 per species on Baseline (250 total).
+
+Note: Succulents only germinate on Arid + Hill terrain. In Soil/Wetland pockets, initial succulents live but cannot reproduce.
+
+### 16.4 Experiments
+
+| ID | Map | Ticks | Interval | Purpose |
+|----|-----|-------|----------|---------|
+| 1 | `experiment-niche-matrix` | 5000 | 500 | Niche differentiation, subtype emergence, system correctness |
+| 2 | `experiment-neutral-baseline` | 5000 | 500 | Trait drift baseline, competition dynamics |
+
+Run via: `npx tsx scripts/run-experiment.ts <scenario-id> --ticks 5000 --interval 500`
+
+### 16.5 Niche Predictions
+
+| Niche | Key Pressure | Traits Favored (↑) / Penalized (↓) | Expected Archetype | Expected Subtypes |
+|-------|-------------|-------------------------------------|-------------------|-------------------|
+| Soil+Temp | Winter dormancy, baseline competition | height↑, lon↑, wStor↓ (2.5×) | Tree > Grass | Oak, Tallgrass |
+| Soil+Trop | Disease 1.8×, year-round growth | defense↑, leaf↑, wStor↓ | Tree > Forb | Tropical Tree, Fern |
+| Soil+Med | Fire 2.0×, summer drought 0.3× | wood↑ (fire bark), seedInv↑, leaf↓ | Shrub > Tree | Med Shrub, Cypress |
+| Soil+Des | Extreme drought 0.15×, winter 1.8× leafMaint | wStor↑ (but 2.5× cost), root↑ | Shrub > Grass | Desert Shrub, Desert Grass |
+| Hill+Temp | Root 3.0×, height 1.5×, seedSz amplified | root↓, height↓, seedSz↑ | Grass > Forb | Bunchgrass, Wildflower |
+| Hill+Trop | Root/height penalty + disease 1.8× | root↓, height↓, defense↑ | Grass/Forb | Bunchgrass, defended forbs |
+| Hill+Med | Root/height + fire + summer drought | wood↑ (fire), root↓, wStor moderate | Shrub > Succulent | Med Shrub, Barrel Cactus |
+| Hill+Des | Root/height + extreme drought | wStor↑ (no Hill penalty), root↓, seedSz↑ | Succulent | Saguaro, Barrel Cactus |
+| Wet+Temp | Root 2.5×, wStor 8.0×, leaf 0.85× | leaf↑, height↑ (1.5× bonus), root↓, wStor↓↓ | Tree/Forb | Sedge, Mangrove, Fern |
+| Wet+Trop | Root/wStor penalty + disease 1.8× | leaf↑, defense↑, wStor↓↓ | Tree > Forb | Tropical Tree, Mangrove |
+| Wet+Med | Root/wStor + fire + drought (0.7×0.3 water) | leaf↑, wood↑ (fire), wStor↓↓ | Shrub/Tree | Mangrove, Sedge |
+| Wet+Des | Oasis: wetland water buffers desert drought | leaf↑, height↑, root↓, wStor↓↓ | Tree/Forb | Palm, Sedge |
+| Arid+Temp | Leaf 2.0×, root cheap 0.8× | root↑, wStor↑, leaf↓, seedSz↑ | Succulent > Shrub | Desert Shrub, Saguaro |
+| Arid+Trop | Leaf penalty + disease, tropical water helps | root↑, wStor↑, defense↑ | Shrub > Succulent | Acacia, Desert Shrub |
+| Arid+Med | Leaf + fire + drought (0.25×0.3 = 0.075) | wood↑, root↑, wStor↑, leaf↓↓ | Succulent | Barrel Cactus, Saguaro |
+| Arid+Des | EXTREME (0.0375 summer water) | wStor MAX, root↑, leaf MIN | Succulent or **extinct** | Saguaro / extinction |
+
+### 16.6 Results
+
+Pending — run experiments and fill per-pocket results tables.
+
+### 16.7 Diagnostics
+
+Signals that indicate broken mechanics:
+
+| Signal | Diagnosis | Fix |
+|--------|-----------|-----|
+| seedSize → 0 everywhere (Matrix + Baseline) | No upward selection pressure | Add competitive establishment mortality |
+| longevity → 1 everywhere | Senescence too weak | Stronger/earlier senescence onset |
+| waterStorage → 0 even in Arid+Desert | Drought buffer not worth maintenance cost | Adjust capacity or costs |
+| defense → 0 even in Tropical pockets | Disease resistance too weak | Increase DEFENSE_DISEASE_RESIST |
+| No woodiness selection in Mediterranean | Fire survival too rare/weak | Increase FIRE_SURVIVAL_BARK_WEIGHT |
+| Mediterranean Shrub absent from Mediterranean pockets | Subtype scoring misaligned | Fix scoring formula |
+| All pockets converge to same genome | Environmental pressure too weak | Strengthen terrain multipliers or zone modifiers |
 
 ---
 
-## KNOWN ISSUES & PENDING WORK
+## 17. KNOWN ISSUES & TODO
 
-### URGENT — Broken / needs immediate fix
+### Trait drift issues
+- **seedSize drifts down** — Needs competitive establishment mortality (seedlings in shaded cells face survival pressure proportional to seedSizeVigor)
+- **longevity may drift up** — Senescence onset at 30% maxAge, 4× maintenance at maxAge, 0.08/tick scaled by maturity. May need stronger/earlier onset.
 
-1. **Seed mass may always drift downward** — The establishment delay (5 ticks) may not create enough K-selection pressure to make large seeds viable. Desert/Mediterranean stress may create new upward pressure. Pending validation with zone-controlled scenarios.
-
-### MODERATE — Concerning patterns
-
-2. **Water storage may be dead on non-arid terrain** — Maintenance cost makes water storage a net negative when water is available via roots. Desert zone may expand the useful niche beyond arid terrain alone. Pending validation.
-
-3. **Tree-dominated ecosystems may be fragile** — Tree monocultures risk stochastic extinction from bad winters with no fast-reproducing safety net. Tropical zone (mild winters) may mitigate. Pending validation.
-
-4. **Nutrient cycle low population** — Nutrient-poor early conditions may severely limit carrying capacity on some terrain × zone combinations. Pending validation.
-
-### Observations (pending re-validation)
-
-All observations need re-validation with zone-controlled scenarios.
-
-- **Longevity has real selective pressure** — Growth efficiency modifier is the active component; senescence provides downward pressure at extreme ages.
-- **Grass and trees coexist on flat soil** — Maturity-scaled trait maintenance benefits r-strategists. Specific ratios pending.
-- **Arid terrain produces correct adaptations** — Water storage expected to be strongly selected FOR, height to collapse. Zone effects may amplify or moderate.
-- **Defense converges to low values** — Defense is context-dependent, not universally bad.
-- **Terrain isolation drives diversity** — Physical separation promotes niche differentiation. Zone boundaries may add isolation effects.
-- **Hill speciation is high** — Expected to persist across zones.
-
-### Experiments to re-run
-All 16 experiments need re-running with zone-controlled maps (fixed Temperate zone) to establish baselines. Priority:
-- #1 Monoculture Baseline
-- #7 Arid Specialist
-- #10 Grass vs Trees
-- #12 Terrain Isolated
-- #15 Woodiness Evolution
-
-### New experiments needed
-- **Longevity Tradeoff** — Low-longevity (0.2) vs high-longevity (0.8) on flat soil (Temperate zone), identical genomes otherwise. Core r/K test.
-- **Longevity × Terrain** — Same species (lon=0.5) on isolated terrains (Temperate zone). Track longevity evolution per biome.
-- **Longevity × Woodiness** — Herbaceous perennial vs woody annual vs natural combos. Temperate zone. Verify traits are genuinely independent.
-- **Zone Isolation** — Same terrain (Soil), 4 runs with one zone each (Temperate/Tropical/Mediterranean/Desert). Track trait divergence driven purely by seasonal regime.
-- **Zone × Terrain Matrix** — Soil+Desert vs Arid+Temperate. Untangle terrain effects from zone effects on water storage, woodiness, longevity.
-- **Mediterranean Fire Ecology** — Mediterranean zone, mixed terrain. Test fire-adapted strategies (high defense, deep roots, low leaf area).
-- **Tropical Diversity** — Tropical zone, mixed terrain. Does year-round growth and mild winter produce higher diversity or competitive exclusion?
-- **Desert Survival** — Desert zone + Arid terrain. Extreme stress test for population viability.
-
-#### Subtype × Biome plausibility experiments
-
-These validate that the 40 plant subtypes emerge in and dominate ecologically appropriate environments.
-
-- **Subtype Emergence by Zone** — 4 runs: Soil terrain, one zone each (Temperate/Tropical/Mediterranean/Desert). Start identical mid-range genomes (all traits 0.5). Run 3k ticks. Track which subtypes emerge and dominate per zone. Expected: Tropical zone → Tropical Tree, Palm, Tropical Herb, Fern. Mediterranean → Mediterranean Shrub, Aromatic, Cypress. Desert → Saguaro, Barrel Cactus, Desert Shrub, Desert Grass, Desert Annual, Acacia. Temperate → Oak, Tallgrass, Holly, Wildflower (generalists).
-- **Subtype Emergence by Terrain** — 4 runs: Temperate zone, one terrain each (Soil/Hill/Wetland/Arid). Start identical mid-range genomes. Run 3k ticks. Track subtype emergence. Expected: Wetland → Mangrove, Sedge, Moss, Fern. Arid → Desert Shrub, Desert Grass, succulents. Hill → Conifer, Bunchgrass, Holly. Soil → mixed generalists.
-- **Specialist Home Advantage** — Place biome-specialist genomes in home biome vs wrong biomes. 3 groups, 1k ticks each:
-  - Tropical specialists (Tropical Tree, Palm, Tropical Herb, Mangrove) in Tropical+Soil vs Desert+Soil
-  - Desert specialists (Acacia, Desert Shrub, Saguaro, Desert Annual) in Desert+Arid vs Tropical+Wetland
-  - Mediterranean specialists (Mediterranean Shrub, Aromatic, Cypress) in Mediterranean+Soil vs Temperate+Soil
-  Specialists should have higher population / survival in home biome. If equally fit everywhere, classification is cosmetic not functional.
-- **Full Niche Matrix** — Single 80×80 map: 4 terrain strips (Soil/Hill/Wetland/Arid) × 4 zone bands (Temperate/Tropical/Mediterranean/Desert) = 16 niches. Seed diverse genomes uniformly. Run 5k ticks. Track dominant subtype per niche. Comprehensive validation that the full terrain×zone matrix produces ecologically plausible communities.
-
----
-
-## TODO — Fundamental Missing Mechanics
-
-### 1. Fix Broken Trait Tradeoffs (highest priority)
-
-Several genome traits drift in one direction regardless of environment, preventing evolutionary diversity. Each needs a specific counter-pressure.
-
-**longevity (always up)** — Senescence implemented (onset at 30% maxAge, 4× maintenance at maxAge, plus 0.08/tick longevity maintenance scaled by maturity). Drift is partially checked but still trends upward in long runs. May need stronger senescence or earlier onset.
-
-**seedSize (always down)** — Add competitive establishment mortality. During establishment, seedlings in cells with tall neighbors face survival pressure: `survivalChance = seedSizeVigor / (seedSizeVigor + neighborShade)`. In open ground (post-fire, gaps): shade ≈ 0, all seeds survive, small seeds win via quantity. In established vegetation: shade is high, only large vigorous seedlings survive. This is exactly how r/K selection works — r-strategists dominate disturbed ground, K-strategists dominate stable communities.
-
-### 2. Add Facilitation (currently all plant interactions are negative)
-
-Every plant-plant interaction is competitive (shade, water stealing). Real ecosystems depend on facilitation for species coexistence.
-
-**Shelter from shade** — When a tall neighbor shades you, also compute a shelter benefit (humidity, wind protection). Store a per-cell `shelterLevel` (0-1) computed during the existing neighbor scan in phaseCalculateLight. Shelter reduces leaf maintenance: `leafMaint *= (1 - shelterLevel × 0.3)`. This converts shade from pure negative into a tradeoff: less light but less water stress. Whether net positive or negative depends on genome — creates the understory niche. Also produces nurse-plant dynamics (desert shrubs sheltering cactus seedlings).
-
-**Litter mulch on death** — Dead plants leave a `mulch` value on the cell that decays over 30-50 ticks. Mulch reduces water evaporation during drought: `evaporation *= 1 / (1 + mulch)`. Pioneer species die, their litter makes the ground more hospitable for the next generation. Succession emerges naturally.
+### Missing mechanics
+- **Shelter from shade** — Tall neighbors shade + shelter. Shelter reduces leaf maintenance by up to 30%, creating understory niche and nurse-plant dynamics.
+- **Litter mulch on death** — Dead plants leave mulch reducing drought evaporation. Pioneer succession emerges naturally.
 

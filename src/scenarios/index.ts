@@ -1,44 +1,14 @@
 import { Scenario } from '../types';
 import { genesis } from './genesis';
 import { lindenvale } from './lindenvale';
-import { experimentMonoculture } from './experiment-monoculture';
-import { experimentWaterCompetition } from './experiment-water-competition';
-import { experimentLightCompetition } from './experiment-light-competition';
-import { experimentSeedTradeoff } from './experiment-seed-tradeoff';
-import { experimentDefense } from './experiment-defense';
-import { experimentHillSpecialist } from './experiment-hill-specialist';
-import { experimentAridSpecialist } from './experiment-arid-specialist';
-import { experimentWetlandSpecialist } from './experiment-wetland-specialist';
-import { experimentGrassVsTrees } from './experiment-grass-vs-trees';
-import { experimentNutrientCycle } from './experiment-nutrient-cycle';
-import { experimentTerrainMosaic } from './experiment-terrain-mosaic';
-import { experimentTerrainIsolated } from './experiment-terrain-isolated';
-import { experimentSeedBank } from './experiment-seed-bank';
-import { experimentWoodinessEvolution } from './experiment-woodiness-evolution';
-import { experimentWoodinessSeedbank } from './experiment-woodiness-seedbank';
-import { experimentShrubGallery } from './experiment-shrub-gallery';
-import { experimentSucculentGallery } from './experiment-succulent-gallery';
+import { experimentNicheMatrix } from './experiment-niche-matrix';
+import { experimentNeutralBaseline } from './experiment-neutral-baseline';
 import { showcase } from './showcase';
 
 export const SCENARIOS: Scenario[] = [
   genesis,
   lindenvale,
-  experimentMonoculture,
-  experimentWaterCompetition,
-  experimentLightCompetition,
-  experimentSeedTradeoff,
-  experimentDefense,
-  experimentHillSpecialist,
-  experimentAridSpecialist,
-  experimentWetlandSpecialist,
-  experimentGrassVsTrees,
-  experimentNutrientCycle,
-  experimentTerrainMosaic,
-  experimentTerrainIsolated,
-  experimentSeedBank,
-  experimentWoodinessEvolution,
-  experimentWoodinessSeedbank,
-  experimentShrubGallery,
-  experimentSucculentGallery,
+  experimentNicheMatrix,
+  experimentNeutralBaseline,
   showcase,
 ];
