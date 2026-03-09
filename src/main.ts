@@ -14,6 +14,7 @@ import { createDiagnosticLogger } from './diagnostic-logger';
 import { createSandboxPanel } from './sandbox-panel';
 import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
+import { createZoneLabelsOverlay } from './zone-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
@@ -99,6 +100,12 @@ const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const terrainToggle = document.getElementById('terrain-view-toggle') as HTMLInputElement;
 terrainToggle.addEventListener('change', () => {
   terrainLabels.setVisible(terrainToggle.checked);
+});
+
+const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
+const zoneToggle = document.getElementById('zone-view-toggle') as HTMLInputElement;
+zoneToggle.addEventListener('change', () => {
+  zoneLabels.setVisible(zoneToggle.checked);
 });
 
 const ffOverlay = createFFOverlay(container);
@@ -262,6 +269,7 @@ function resetAllState(): void {
   renderer.rebuildTerrain();
   renderer.rebuildWater();
   terrainLabels.rebuild(world);
+  zoneLabels.rebuild(world);
   updateZoneLabel();
   lastUITick = -1;
   updateUI();
@@ -365,10 +373,12 @@ function loop(now: number): void {
     ffOverlay.show();
     speciesLabels.setVisible(false);
     terrainLabels.setVisible(false);
+    zoneLabels.setVisible(false);
   } else if (!warpActive && wasWarpActive) {
     ffOverlay.hide();
     speciesLabels.setVisible(labelsToggle.checked);
     terrainLabels.setVisible(terrainToggle.checked);
+    zoneLabels.setVisible(zoneToggle.checked);
     lastUITick = -1; // force full UI refresh
   }
   wasWarpActive = warpActive;
@@ -433,6 +443,7 @@ function loop(now: number): void {
       );
       speciesLabels.updatePositions();
       terrainLabels.updatePositions();
+      zoneLabels.updatePositions();
     }
     perfTracker.end('renderTotal');
     // Smooth render time estimate for adaptive tick budgeting
