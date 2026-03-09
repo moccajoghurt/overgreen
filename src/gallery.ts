@@ -9,7 +9,7 @@ import {
 // ============================================================
 // LAYOUT
 // ============================================================
-const COLS = 6, ROWS = 5;
+const COLS = 8, ROWS = 5;
 const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
 const TITLE_H = 80, PAD = 20;
 const W = PAD * 2 + COLS * CELL_W;
@@ -30,6 +30,8 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '1.4', name: 'Bamboo', species: 'Phyllostachys edulis' },
     { id: '1.5', name: 'Spreading grass', species: 'Cynodon dactylon' },
     { id: '1.6', name: 'Sedge/Rush', species: 'Cyperus papyrus' },
+    { id: '1.7', name: 'Pampas grass', species: 'Cortaderia selloana' },
+    { id: '1.8', name: 'Desert grass', species: 'Stipagrostis plumosa' },
   ]},
   { name: 'TREES', color: '#654321', plants: [
     { id: '2.1', name: 'Broadleaf deciduous', species: 'Quercus robur' },
@@ -38,6 +40,8 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '2.4', name: 'Tropical hardwood', species: 'Swietenia mahagoni' },
     { id: '2.5', name: 'Palm', species: 'Cocos nucifera' },
     { id: '2.6', name: 'Pioneer/fast-growth', species: 'Betula pendula' },
+    { id: '2.7', name: 'Cypress', species: 'Cupressus sempervirens' },
+    { id: '2.8', name: 'Acacia/Thorn tree', species: 'Vachellia tortilis' },
   ]},
   { name: 'SHRUBS', color: '#8c783c', plants: [
     { id: '3.1', name: 'Evergreen shrub', species: 'Buxus sempervirens' },
@@ -46,6 +50,8 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '3.4', name: 'Thorny/Armed', species: 'Ulex europaeus' },
     { id: '3.5', name: 'Desert shrub', species: 'Larrea tridentata' },
     { id: '3.6', name: 'Mangrove', species: 'Rhizophora mangle' },
+    { id: '3.7', name: 'Flowering shrub', species: 'Hibiscus rosa-sinensis' },
+    { id: '3.8', name: 'Aromatic/Garrigue', species: 'Lavandula angustifolia' },
   ]},
   { name: 'SUCCULENTS', color: '#558c64', plants: [
     { id: '4.1', name: 'Stem succulent', species: 'Carnegiea gigantea' },
@@ -54,6 +60,8 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '4.4', name: 'Euphorbia', species: 'Euphorbia ingens' },
     { id: '4.5', name: 'Ice plant/Mesemb', species: 'Lithops' },
     { id: '4.6', name: 'Epiphytic succulent', species: 'Schlumbergera' },
+    { id: '4.7', name: 'Barrel cactus', species: 'Ferocactus wislizeni' },
+    { id: '4.8', name: 'Jade/Crassula', species: 'Crassula ovata' },
   ]},
   { name: 'FORBS', color: '#b45a8c', plants: [
     { id: '5.1', name: 'Broadleaf wildflower', species: 'Taraxacum officinale' },
@@ -62,6 +70,8 @@ const ARCHETYPES: ArchetypeRow[] = [
     { id: '5.4', name: 'Vine/Climber', species: 'Hedera helix' },
     { id: '5.5', name: 'Ground cover', species: 'Trifolium repens' },
     { id: '5.6', name: 'Moss', species: 'Polytrichum commune' },
+    { id: '5.7', name: 'Tropical herb', species: 'Heliconia rostrata' },
+    { id: '5.8', name: 'Desert annual', species: 'Eschscholzia californica' },
   ]},
 ];
 
@@ -96,6 +106,8 @@ const REAL_HEIGHTS_M: number[] = [
   12.0, 0.5, 2.0, 6.0, 0.15, 0.3,
   // Forbs (24-29)
   0.20, 1.0, 0.60, 0.15, 0.10, 0.05,
+  // New climate-zone subtypes (30-39)
+  2.0, 0.5, 20.0, 12.0, 3.0, 0.75, 1.5, 1.0, 1.0, 0.30,
 ];
 
 function formatHeight(m: number): string {
@@ -157,6 +169,8 @@ const ID_TO_INDEX: Record<string, number> = {
   '3.1': 12, '3.2': 13, '3.3': 14, '3.4': 15, '3.5': 16, '3.6': 17,
   '4.1': 18, '4.2': 19, '4.3': 20, '4.4': 21, '4.5': 22, '4.6': 23,
   '5.1': 24, '5.2': 25, '5.3': 26, '5.4': 27, '5.5': 28, '5.6': 29,
+  '1.7': 30, '1.8': 31, '2.7': 32, '2.8': 33, '3.7': 34, '3.8': 35,
+  '4.7': 36, '4.8': 37, '5.7': 38, '5.8': 39,
 };
 
 // ============================================================
@@ -212,7 +226,7 @@ for (let row = 0; row < ARCHETYPES.length; row++) {
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
-    const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29]);
+    const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39]);
     if (GROUND_COVER.has(idx)) {
       // Ground cover: scale Y to target height, XZ to fill 1.0 unit cell
       plantGroup.updateMatrixWorld(true);

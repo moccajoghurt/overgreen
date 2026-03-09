@@ -2833,6 +2833,822 @@ function buildMossLow(): THREE.Group {
   return g;
 }
 
+// ── New climate-zone subtypes (30-39) ──
+
+function buildPampasGrass(): THREE.Group { return buildGrassPlaceholder(); }
+function buildDesertGrass(): THREE.Group { return buildGrassPlaceholder(); }
+
+function buildCypress(): THREE.Group {
+  const g = new THREE.Group();
+  // Italian cypress — tall narrow columnar flame shape, bumpy organic surface
+
+  // Trunk — thin, barely visible behind foliage
+  addTrunk(g, 0, 0, 0, 0.07, 0.04, 0.5, 0x6a4a30);
+
+  // Dark-to-light green palette for depth
+  const darkColors = [0x2a5e2a, 0x2d6630, 0x275528];
+  const midColors = [0x336633, 0x3a7a3a, 0x357a35];
+  const lightColors = [0x4a8a4a, 0x55994a, 0x4d9040];
+  const dark = () => darkColors[Math.floor(Math.random() * darkColors.length)];
+  const mid = () => midColors[Math.floor(Math.random() * midColors.length)];
+  const light = () => lightColors[Math.floor(Math.random() * lightColors.length)];
+
+  // NO smooth cylinder core — build entirely from overlapping canopy blobs
+  // Vertical stack of 12 tiers with irregular radii to break the silhouette
+  for (let tier = 0; tier < 12; tier++) {
+    const t = tier / 11; // 0=bottom, 1=top
+    const y = 0.30 + tier * 0.20;
+    const baseR = 0.28 - t * 0.08; // taper toward top
+    // Color gradient: dark at bottom, lighter at top
+    const tierColor = t < 0.3 ? dark : t < 0.7 ? mid : light;
+
+    // 5 blobs per tier at irregular radii to create bumpy surface
+    for (let j = 0; j < 5; j++) {
+      const a = (j / 5) * Math.PI * 2 + tier * 0.63;
+      const rOff = baseR * (0.35 + Math.random() * 0.35);
+      const blobR = baseR * (0.45 + Math.random() * 0.15);
+      addCanopy(g, Math.cos(a) * rOff, y + (Math.random() - 0.5) * 0.06,
+        Math.sin(a) * rOff, blobR, tierColor());
+    }
+    // Center fill blob per tier
+    addCanopy(g, 0, y, 0, baseR * 0.5, tierColor());
+  }
+
+  // Pointed tip — flame shape
+  addCanopy(g, 0, 2.65, 0, 0.15, light());
+  const tipGeo = new THREE.ConeGeometry(0.12, 0.25, 5);
+  const tip = new THREE.Mesh(tipGeo, mat(0x4a8a4a));
+  tip.position.set(0, 2.80, 0);
+  g.add(tip);
+
+  // Bottom skirt — foliage touches ground
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    addCanopy(g, Math.cos(a) * 0.15, 0.25, Math.sin(a) * 0.15, 0.20, dark());
+  }
+
+  return g;
+}
+
+function buildAcacia(): THREE.Group {
+  const g = new THREE.Group();
+  // Umbrella thorn acacia — flat-topped wide spreading canopy, visible forking branches
+
+  const barkColor = 0x7a5a3a;
+  const barkDark = 0x5a3a1a;
+
+  // Root flare
+  const flareGeo = new THREE.CylinderGeometry(0.10, 0.18, 0.15, 7);
+  const flare = new THREE.Mesh(flareGeo, mat(barkDark));
+  flare.position.y = 0.075;
+  g.add(flare);
+
+  // Main trunk — leaning slightly, characteristic of acacia
+  addTrunk(g, 0, 0.15, 0, 0.10, 0.07, 0.6, barkColor);
+
+  // Major forking branches spreading wide and low
+  const branchMat = mat(barkColor);
+  const forks = [
+    { a: 0.3, tilt: 0.9, len: 0.55, rBot: 0.05, rTop: 0.025 },
+    { a: 1.8, tilt: 0.85, len: 0.50, rBot: 0.045, rTop: 0.022 },
+    { a: 3.2, tilt: 0.95, len: 0.58, rBot: 0.05, rTop: 0.025 },
+    { a: 4.6, tilt: 0.80, len: 0.48, rBot: 0.04, rTop: 0.020 },
+    { a: 5.8, tilt: 0.88, len: 0.52, rBot: 0.045, rTop: 0.022 },
+  ];
+  for (const f of forks) {
+    const geo = new THREE.CylinderGeometry(f.rTop, f.rBot, f.len, 5);
+    const m = new THREE.Mesh(geo, branchMat);
+    m.position.set(Math.cos(f.a) * 0.06, 0.7, Math.sin(f.a) * 0.06);
+    m.rotation.z = Math.cos(f.a) * f.tilt;
+    m.rotation.x = Math.sin(f.a) * f.tilt;
+    g.add(m);
+  }
+
+  // Flat umbrella canopy — WIDE and FLAT, defining silhouette
+  const canopyColors = [0x6aaa44, 0x5d9a3a, 0x78bb50, 0x55883a, 0x6ab848];
+  const cc = () => canopyColors[Math.floor(Math.random() * canopyColors.length)];
+
+  // Flat opaque disk as canopy base
+  const diskGeo = new THREE.CylinderGeometry(0.75, 0.80, 0.15, 12);
+  const disk = new THREE.Mesh(diskGeo, mat(0x3a6622));
+  disk.position.set(0, 0.92, 0);
+  g.add(disk);
+
+  // Wide ring of canopy blobs — flat crown
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const dist = 0.55 + Math.random() * 0.15;
+    addCanopy(g, Math.cos(a) * dist, 0.95 + Math.random() * 0.06, Math.sin(a) * dist,
+      0.25 + Math.random() * 0.06, cc());
+  }
+
+  // Inner fill — keep canopy opaque
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.3;
+    const dist = 0.25 + Math.random() * 0.2;
+    addCanopy(g, Math.cos(a) * dist, 0.95, Math.sin(a) * dist,
+      0.22 + Math.random() * 0.05, cc());
+  }
+
+  // Top cap — flat, not domed
+  addCanopy(g, 0, 1.02, 0, 0.35, cc());
+  addCanopy(g, 0.1, 1.0, -0.05, 0.28, cc());
+
+  return g;
+}
+
+function buildFloweringShrub(): THREE.Group {
+  const g = new THREE.Group();
+  // Hibiscus — dense green dome with large showy red/pink flowers
+
+  // Multi-stem base — 5 thin stems emerging from soil
+  const stemMat = mat(0x5a4a30);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const r = 0.04 + Math.random() * 0.02;
+    addTrunk(g, Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05, r, r * 0.7, 0.3, 0x5a4a30);
+  }
+
+  // Dense leafy dome
+  const leafColors = [0x44aa44, 0x55bb55, 0x3d9d3d, 0x4daa50, 0x66cc66];
+  const cc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
+
+  // Opaque core
+  const coreGeo = new THREE.SphereGeometry(0.35, 10, 8);
+  coreGeo.scale(1.2, 0.9, 1.2);
+  const core = new THREE.Mesh(coreGeo, mat(0x2d6633));
+  core.position.set(0, 0.55, 0);
+  g.add(core);
+
+  // Canopy dome layers
+  for (let tier = 0; tier < 3; tier++) {
+    const y = 0.40 + tier * 0.15;
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + tier * 0.3;
+      const dist = 0.25 + Math.random() * 0.10;
+      addCanopy(g, Math.cos(a) * dist, y, Math.sin(a) * dist,
+        0.20 + Math.random() * 0.05, cc());
+    }
+  }
+
+  // Top + bottom fill
+  addCanopy(g, 0, 0.72, 0, 0.30, cc());
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    addCanopy(g, Math.cos(a) * 0.20, 0.32, Math.sin(a) * 0.20, 0.18, cc());
+  }
+
+  // Large showy hibiscus flowers — big and prominent
+  const flowerColors = [0xff3344, 0xff5566, 0xee2255, 0xff4455, 0xcc1133];
+  const centerMat = mat(0xffee44);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + (i % 2) * 0.1;
+    const y = 0.38 + (i % 3) * 0.16;
+    const dist = 0.36 + Math.random() * 0.08;
+    const size = 0.12 + Math.random() * 0.04; // 2x bigger
+    // Flower head — flat disc shape
+    const flGeo = jitter(new THREE.SphereGeometry(size, 5, 3), size * 0.08);
+    flGeo.scale(1, 0.35, 1);
+    const fl = new THREE.Mesh(flGeo, mat(flowerColors[i % flowerColors.length]));
+    fl.position.set(Math.cos(a) * dist, y, Math.sin(a) * dist);
+    g.add(fl);
+    // Yellow center stamen
+    const ctr = new THREE.Mesh(new THREE.SphereGeometry(size * 0.3, 4, 2), centerMat);
+    ctr.position.set(Math.cos(a) * dist, y + size * 0.2, Math.sin(a) * dist);
+    g.add(ctr);
+  }
+
+  return g;
+}
+
+function buildAromatic(): THREE.Group {
+  const g = new THREE.Group();
+  // Lavender — low silver-green mound with purple flower spikes
+
+  // Dense silver-green foliage mound
+  const leafColors = [0x88aa77, 0x99bb88, 0x7a9a6a, 0x8aaa7a];
+  const cc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
+
+  // Opaque core mound — low and wide
+  const coreGeo = new THREE.SphereGeometry(0.35, 10, 6);
+  coreGeo.scale(1.3, 0.5, 1.3);
+  const core = new THREE.Mesh(coreGeo, mat(0x667755));
+  core.position.set(0, 0.18, 0);
+  g.add(core);
+
+  // Mound surface blobs
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const dist = 0.25 + Math.random() * 0.10;
+    addCanopy(g, Math.cos(a) * dist, 0.18 + Math.random() * 0.05, Math.sin(a) * dist,
+      0.18, cc());
+  }
+  // Inner fill
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.3;
+    addCanopy(g, Math.cos(a) * 0.12, 0.22, Math.sin(a) * 0.12, 0.15, cc());
+  }
+
+  // Purple flower spikes — short stems, tall dense spike heads
+  const spikeMats = [mat(0x8855bb), mat(0x9966cc), mat(0x7744aa), mat(0xaa77dd)];
+  const stemMat = mat(0x8a9a7a); // grey-green stems
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2 + Math.random() * 0.15;
+    const dist = 0.08 + Math.random() * 0.25;
+    const stemH = 0.18 + Math.random() * 0.08; // much shorter stems
+    // Short grey-green stem
+    const stemGeo = new THREE.CylinderGeometry(0.007, 0.009, stemH, 3);
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.set(Math.cos(a) * dist, stemH / 2 + 0.22, Math.sin(a) * dist);
+    stem.rotation.z = (Math.random() - 0.5) * 0.12;
+    stem.rotation.x = (Math.random() - 0.5) * 0.12;
+    g.add(stem);
+    // Tall flower spike head — elongated cylinder, 3x taller
+    const spikeH = 0.10 + Math.random() * 0.05;
+    const spikeGeo = new THREE.CylinderGeometry(0.025, 0.020, spikeH, 5);
+    const spike = new THREE.Mesh(spikeGeo, spikeMats[i % spikeMats.length]);
+    spike.position.set(Math.cos(a) * dist, stemH + 0.22 + spikeH / 2, Math.sin(a) * dist);
+    spike.rotation.z = (Math.random() - 0.5) * 0.12;
+    g.add(spike);
+  }
+
+  return g;
+}
+
+function buildBarrelCactus(): THREE.Group {
+  const g = new THREE.Group();
+  // Barrel cactus — squat globular body, prominent ribs, flower crown
+
+  const bodyGreen = mat(0x7aaa55); // lighter, more yellow-green
+  const darkGreen = mat(0x6a9a45);
+  const lightGreen = mat(0x8abb65);
+
+  // Squat barrel body — wider than tall
+  const bodyR = 0.40;
+  const bodyH = 0.50; // squashed: ratio ~1.25:1 (w:h)
+  const bodyGeo = new THREE.SphereGeometry(bodyR, 12, 8);
+  bodyGeo.scale(1, bodyH / bodyR, 1);
+  const body = new THREE.Mesh(bodyGeo, bodyGreen);
+  body.position.set(0, bodyH * 0.9, 0);
+  g.add(body);
+
+  // Vertical ribs — short ridges contained within the body sphere
+  const ribCount = 12;
+  const spineMat = mat(0xccbb77); // tan/yellow spines
+  for (let i = 0; i < ribCount; i++) {
+    const a = (i / ribCount) * Math.PI * 2;
+    // Rib as a thin box — shorter than body, no overhang
+    const ribH = bodyH * 0.9; // contained within sphere
+    const ribGeo = new THREE.BoxGeometry(0.025, ribH, 0.018);
+    const pos = ribGeo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const y = pos.getY(vi);
+      const t = (y + ribH / 2) / ribH;
+      const bulge = Math.sin(t * Math.PI) * bodyR * 0.10;
+      pos.setZ(vi, pos.getZ(vi) + bulge);
+    }
+    ribGeo.computeVertexNormals();
+    const rib = new THREE.Mesh(ribGeo, darkGreen);
+    rib.position.set(Math.cos(a) * bodyR * 0.88, bodyH * 0.9, Math.sin(a) * bodyR * 0.88);
+    rib.rotation.y = -a;
+    g.add(rib);
+
+    // Short spine nubs along each rib — 3 per rib, distributed across surface
+    for (let si = 0; si < 3; si++) {
+      const t = 0.25 + si * 0.25;
+      const sy = bodyH * 0.5 + t * bodyH * 0.8;
+      const sphereT = Math.sin(t * Math.PI);
+      const sr = bodyR * 0.95 + sphereT * 0.02;
+      const spineGeo = new THREE.CylinderGeometry(0.002, 0.004, 0.018, 3);
+      const spine = new THREE.Mesh(spineGeo, spineMat);
+      spine.position.set(Math.cos(a) * sr, sy, Math.sin(a) * sr);
+      spine.rotation.z = Math.cos(a) * 0.5;
+      spine.rotation.x = Math.sin(a) * 0.5;
+      g.add(spine);
+    }
+  }
+
+  // Dome cap — woolly top
+  const capGeo = new THREE.SphereGeometry(bodyR * 0.35, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cap = new THREE.Mesh(capGeo, lightGreen);
+  cap.position.set(0, bodyH * 1.7, 0);
+  g.add(cap);
+
+  // Crown ring of flowers — prominent yellow/orange/pink
+  const flowerMats = [mat(0xffcc22), mat(0xff8844), mat(0xffdd44), mat(0xff6688)];
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const fr = bodyR * 0.30;
+    const fl = new THREE.Mesh(
+      jitter(new THREE.IcosahedronGeometry(0.055, 0), 0.008),
+      flowerMats[i % flowerMats.length],
+    );
+    fl.position.set(Math.cos(a) * fr, bodyH * 1.65 + Math.random() * 0.03, Math.sin(a) * fr);
+    g.add(fl);
+  }
+
+  return g;
+}
+
+function buildJade(): THREE.Group {
+  const g = new THREE.Group();
+  // Jade plant / Crassula — thick stubby trunk forking into chunky branches, fleshy leaf pads
+
+  const barkColor = 0x9a8a7a; // grey-brown succulent bark
+  const barkMat = mat(barkColor);
+
+  // Thick stubby main trunk — nearly as wide as tall
+  addTrunk(g, 0, 0, 0, 0.12, 0.10, 0.22, barkColor);
+
+  // Glossy yellow-green for fleshy jade leaves
+  const leafColors = [0x6abb55, 0x78cc66, 0x5daa48, 0x88dd77, 0x6ab850];
+  const lc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
+
+  // 3 major forking branches — thick, almost as wide as trunk
+  const forks = [
+    { a: 0.5, tilt: 0.50, len: 0.20, thick: 0.07 },
+    { a: 2.6, tilt: 0.45, len: 0.18, thick: 0.065 },
+    { a: 4.5, tilt: 0.55, len: 0.22, thick: 0.07 },
+  ];
+
+  for (const f of forks) {
+    const cx = Math.cos(f.a), cz = Math.sin(f.a);
+    // Thick primary branch
+    const brGeo = new THREE.CylinderGeometry(f.thick * 0.75, f.thick, f.len, 6);
+    const br = new THREE.Mesh(brGeo, barkMat);
+    br.position.set(cx * 0.04, 0.22 + f.len * 0.3, cz * 0.04);
+    br.rotation.z = cx * f.tilt;
+    br.rotation.x = cz * f.tilt;
+    g.add(br);
+
+    // Tip of primary branch
+    const tipX = cx * (0.04 + Math.sin(f.tilt) * f.len);
+    const tipY = 0.22 + Math.cos(f.tilt) * f.len;
+    const tipZ = cz * (0.04 + Math.sin(f.tilt) * f.len);
+
+    // 2 secondary forks from each primary — also thick
+    for (let si = 0; si < 2; si++) {
+      const sa = f.a + (si === 0 ? -0.6 : 0.6);
+      const sTilt = 0.45 + Math.random() * 0.15;
+      const sLen = 0.12 + Math.random() * 0.04;
+      const sThick = f.thick * 0.6;
+      const scx = Math.cos(sa), scz = Math.sin(sa);
+
+      const sGeo = new THREE.CylinderGeometry(sThick * 0.7, sThick, sLen, 5);
+      const sBr = new THREE.Mesh(sGeo, barkMat);
+      sBr.position.set(tipX, tipY, tipZ);
+      sBr.rotation.z = scx * sTilt;
+      sBr.rotation.x = scz * sTilt;
+      g.add(sBr);
+
+      // Tight fleshy leaf pad at each sub-branch tip — small round clusters
+      const stX = tipX + scx * Math.sin(sTilt) * sLen;
+      const stY = tipY + Math.cos(sTilt) * sLen;
+      const stZ = tipZ + scz * Math.sin(sTilt) * sLen;
+
+      // Compact leaf cluster — 1 core + 3 small satellites
+      addCanopy(g, stX, stY, stZ, 0.08, lc());
+      for (let li = 0; li < 3; li++) {
+        const la = (li / 3) * Math.PI * 2 + sa;
+        addCanopy(g, stX + Math.cos(la) * 0.05, stY + (Math.random() - 0.3) * 0.03,
+          stZ + Math.sin(la) * 0.05, 0.06, lc());
+      }
+    }
+
+    // Leaf cluster at primary branch tip too
+    addCanopy(g, tipX, tipY + 0.02, tipZ, 0.07, lc());
+  }
+
+  // Central top crown — small cluster where branches meet
+  addCanopy(g, 0, 0.40, 0, 0.08, lc());
+  addCanopy(g, 0.03, 0.44, -0.02, 0.06, lc());
+
+  return g;
+}
+
+function buildTropicalHerb(): THREE.Group {
+  const g = new THREE.Group();
+  // Heliconia — large banana-like leaves + dramatic hanging flower bracts
+
+  const leafMats = [matDS(0x338833), matDS(0x3d9d3d), matDS(0x2d7a2d), matDS(0x449944)];
+  const stemMat = mat(0x557744);
+
+  // Dense cluster of large wide leaves — radiating from center, covering the cell
+  for (let ring = 0; ring < 3; ring++) {
+    const count = 6 + ring * 3;
+    const baseR = 0.03 + ring * 0.05;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + ring * 0.4;
+      const leafLen = 0.55 + Math.random() * 0.15 - ring * 0.03;
+      const leafW = 0.24 + Math.random() * 0.06; // wider leaves for better coverage
+
+      // Leaf: wide plane, tapered, with midrib curve
+      const geo = new THREE.PlaneGeometry(leafW, leafLen, 3, 6);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const lx = pos.getX(vi);
+        const ly = pos.getY(vi);
+        const t = (ly + leafLen / 2) / leafLen;
+        // Taper toward tip
+        pos.setX(vi, lx * (1 - t * 0.6));
+        // Midrib arch — lifts center, droops edges
+        const xNorm = Math.abs(lx) / (leafW / 2);
+        pos.setZ(vi, (1 - xNorm) * 0.03 - xNorm * t * 0.02);
+      }
+      geo.computeVertexNormals();
+
+      const leaf = new THREE.Mesh(geo, leafMats[(i + ring) % leafMats.length]);
+      // Place leaf flat, pointing outward radially
+      leaf.position.set(0, 0, leafLen / 2);
+      leaf.rotation.x = -Math.PI / 2;
+
+      const leafGroup = new THREE.Group();
+      leafGroup.add(leaf);
+      leafGroup.position.set(
+        Math.cos(a) * baseR, 0.04 + ring * 0.015,
+        Math.sin(a) * baseR,
+      );
+      leafGroup.rotation.y = a;
+      // Outer leaves lean more horizontal
+      leafGroup.rotation.x = ring * 0.08;
+      g.add(leafGroup);
+    }
+  }
+
+  // Edge filler leaves
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + 0.25;
+    const r = 0.30 + Math.random() * 0.12;
+    const leafLen = 0.25 + Math.random() * 0.10;
+    const leafW = 0.12 + Math.random() * 0.04;
+    const geo = new THREE.PlaneGeometry(leafW, leafLen, 2, 3);
+    const pos = geo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const t = (pos.getY(vi) + leafLen / 2) / leafLen;
+      pos.setX(vi, pos.getX(vi) * (1 - t * 0.5));
+    }
+    geo.computeVertexNormals();
+    const leaf = new THREE.Mesh(geo, leafMats[i % leafMats.length]);
+    leaf.position.set(Math.cos(a) * r, 0.01, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = -a;
+    g.add(leaf);
+  }
+
+  // Heliconia flower bracts — hanging lobster-claw inflorescences
+  const bractColors = [mat(0xff2211), mat(0xff4422), mat(0xee1100)];
+  const bractYellow = mat(0xffcc22);
+  const flowers = [
+    { x: 0.05, z: 0, h: 0.50 },
+    { x: -0.08, z: 0.10, h: 0.45 },
+    { x: 0.10, z: -0.08, h: 0.42 },
+    { x: -0.04, z: -0.08, h: 0.38 },
+  ];
+  for (const fp of flowers) {
+    // Stem
+    const sg = new THREE.CylinderGeometry(0.012, 0.015, fp.h, 4);
+    const sm = new THREE.Mesh(sg, stemMat);
+    sm.position.set(fp.x, fp.h / 2, fp.z);
+    g.add(sm);
+    // Hanging bracts — boat-shaped cones pointing DOWNWARD, alternating sides
+    for (let bi = 0; bi < 5; bi++) {
+      const by = fp.h - 0.02 - bi * 0.055;
+      const side = bi % 2 === 0 ? 1 : -1;
+      // Bract droops downward — cone inverted
+      const bractGeo = new THREE.ConeGeometry(0.04, 0.09, 4);
+      const bract = new THREE.Mesh(bractGeo, bractColors[bi % bractColors.length]);
+      bract.position.set(fp.x + side * 0.03, by, fp.z);
+      // Rotate so cone hangs down and outward
+      bract.rotation.z = side * 0.8;
+      bract.rotation.x = Math.PI; // flip upside-down
+      g.add(bract);
+      // Yellow tip peeking out from bottom of bract
+      const tipM = new THREE.Mesh(new THREE.SphereGeometry(0.015, 3, 2), bractYellow);
+      tipM.position.set(fp.x + side * 0.05, by - 0.04, fp.z);
+      g.add(tipM);
+    }
+  }
+
+  return g;
+}
+
+function buildDesertAnnual(): THREE.Group {
+  const g = new THREE.Group();
+  // California poppy — dense feathery blue-green foliage mat with bright orange flowers
+
+  const leafMats = [matDS(0x6a9a7a), matDS(0x7aaa8a), matDS(0x5a8a6a)];
+
+  // Base layer — wide overlapping leaves to prevent see-through
+  const half = 0.48;
+  const step = 0.12;
+  for (let gx = -half; gx <= half; gx += step) {
+    for (let gz = -half; gz <= half; gz += step) {
+      if (Math.random() > 0.92) continue;
+      const ox = gx + (Math.random() - 0.5) * step * 0.6;
+      const oz = gz + (Math.random() - 0.5) * step * 0.6;
+      const leafLen = 0.13 + Math.random() * 0.03; // more uniform size
+      const leafW = 0.08 + Math.random() * 0.02;
+      const a = Math.random() * Math.PI * 2; // random orientation
+      const geo = new THREE.PlaneGeometry(leafW, leafLen, 2, 3);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const t = (pos.getY(vi) + leafLen / 2) / leafLen;
+        pos.setX(vi, pos.getX(vi) * (1 - t * 0.5));
+        pos.setZ(vi, Math.abs(pos.getX(vi) / (leafW / 2)) * 0.006);
+      }
+      geo.computeVertexNormals();
+      const leaf = new THREE.Mesh(geo, leafMats[Math.floor(Math.random() * 3)]);
+      leaf.position.set(ox, 0.01 + Math.random() * 0.005, oz);
+      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.z = a;
+      g.add(leaf);
+    }
+  }
+
+  // Second layer — slightly taller rosette leaves radiating from clumps
+  const clumps = [
+    { x: 0, z: 0 }, { x: 0.20, z: 0.15 }, { x: -0.18, z: 0.20 },
+    { x: -0.15, z: -0.18 }, { x: 0.22, z: -0.12 }, { x: -0.30, z: 0.0 },
+    { x: 0.30, z: 0.05 }, { x: 0.0, z: -0.28 }, { x: 0.0, z: 0.30 },
+  ];
+  for (const cl of clumps) {
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
+      const leafLen = 0.12 + Math.random() * 0.05;
+      const leafW = 0.05 + Math.random() * 0.02;
+      const geo = new THREE.PlaneGeometry(leafW, leafLen, 2, 3);
+      const pos = geo.attributes.position;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const t = (pos.getY(vi) + leafLen / 2) / leafLen;
+        pos.setX(vi, pos.getX(vi) * (1 - t * 0.6) + Math.sin(t * 7) * 0.003);
+      }
+      geo.computeVertexNormals();
+      const leaf = new THREE.Mesh(geo, leafMats[i % 3]);
+      leaf.position.set(cl.x + Math.cos(a) * 0.04, 0.018, cl.z + Math.sin(a) * 0.04);
+      leaf.rotation.x = -Math.PI / 2;
+      leaf.rotation.z = -a;
+      g.add(leaf);
+    }
+  }
+
+  // Bright orange poppy flowers — larger, scattered across the whole mat
+  const flowerMat = mat(0xff8822);
+  const flowerBright = mat(0xffaa33);
+  const stemMat = mat(0x6a8a5a);
+  const centerMat = mat(0xffee44);
+
+  const poppies = [
+    { x: 0, z: 0, h: 0.22 },
+    { x: 0.15, z: 0.10, h: 0.20 },
+    { x: -0.12, z: 0.15, h: 0.18 },
+    { x: -0.10, z: -0.14, h: 0.21 },
+    { x: 0.18, z: -0.08, h: 0.17 },
+    { x: -0.22, z: -0.05, h: 0.15 },
+    { x: 0.06, z: -0.22, h: 0.19 },
+    { x: -0.05, z: 0.24, h: 0.16 },
+    { x: 0.25, z: 0.20, h: 0.14 },
+    { x: -0.20, z: 0.22, h: 0.17 },
+    { x: 0.28, z: -0.18, h: 0.13 },
+    { x: -0.28, z: -0.20, h: 0.15 },
+    { x: 0.10, z: 0.30, h: 0.12 },
+    { x: -0.08, z: -0.30, h: 0.14 },
+  ];
+  for (let fi = 0; fi < poppies.length; fi++) {
+    const fp = poppies[fi];
+    // Short thick stem
+    const stemH = fp.h * 0.5;
+    const sg = new THREE.CylinderGeometry(0.008, 0.010, stemH, 3);
+    const sm = new THREE.Mesh(sg, stemMat);
+    sm.position.set(fp.x, stemH / 2, fp.z);
+    g.add(sm);
+    // Flower head — flattened disc (reads clearly as bloom at game zoom)
+    const petalMat = fi % 2 === 0 ? flowerMat : flowerBright;
+    const flowerY = stemH;
+    const headGeo = jitter(new THREE.SphereGeometry(0.055, 5, 3), 0.006);
+    headGeo.scale(1, 0.3, 1); // flat disc
+    const head = new THREE.Mesh(headGeo, petalMat);
+    head.position.set(fp.x, flowerY + 0.01, fp.z);
+    g.add(head);
+    // Yellow center dot
+    const ctr = new THREE.Mesh(new THREE.SphereGeometry(0.018, 3, 2), centerMat);
+    ctr.position.set(fp.x, flowerY + 0.02, fp.z);
+    g.add(ctr);
+  }
+
+  return g;
+}
+
+// ── Low-mesh builders for new climate-zone subtypes (30-39) ──
+
+function buildCypressLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 8 meshes: trunk + 7 heavily overlapping canopy tiers for solid column
+  addTrunk(g, 0, 0, 0, 0.06, 0.04, 0.4, 0x6a4a30);
+  const colors = [0x2a5e2a, 0x336633, 0x3a7a3a, 0x4a8a4a, 0x55994a, 0x4d9040, 0x4a8a4a];
+  // Tight spacing (0.28) + large radii (0.36 base) = heavy overlap, no gaps
+  for (let i = 0; i < 7; i++) {
+    const y = 0.25 + i * 0.28;
+    const r = 0.36 - i * 0.025; // gentle taper
+    addCanopy(g, 0, y, 0, r, colors[i]);
+  }
+  return g;
+}
+
+function buildAcaciaLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 10 meshes: flare + trunk + 2 branches + 6 canopy blobs
+  const flare = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.18, 0.15, 6), mat(0x5a3a1a));
+  flare.position.y = 0.075;
+  g.add(flare);
+  addTrunk(g, 0, 0.15, 0, 0.10, 0.07, 0.6, 0x7a5a3a);
+  // 2 visible branches
+  for (const a of [1.0, 4.0]) {
+    const geo = new THREE.CylinderGeometry(0.02, 0.04, 0.45, 4);
+    const m = new THREE.Mesh(geo, mat(0x7a5a3a));
+    m.position.set(Math.cos(a) * 0.06, 0.7, Math.sin(a) * 0.06);
+    m.rotation.z = Math.cos(a) * 0.9;
+    m.rotation.x = Math.sin(a) * 0.9;
+    g.add(m);
+  }
+  // Flat canopy — 6 wide blobs
+  const cc = [0x6aaa44, 0x5d9a3a, 0x78bb50, 0x55883a, 0x6ab848, 0x6aaa44];
+  const lobes: [number, number, number, number][] = [
+    [0.50, 0.95, 0.15, 0.30], [-0.45, 0.95, -0.15, 0.28],
+    [0.10, 0.98, 0.45, 0.26], [-0.15, 0.95, -0.40, 0.25],
+    [0.0, 1.0, 0.0, 0.35], [0.0, 0.92, 0.0, 0.30],
+  ];
+  for (let i = 0; i < lobes.length; i++) {
+    const [x, y, z, r] = lobes[i];
+    addCanopy(g, x, y, z, r, cc[i]);
+  }
+  return g;
+}
+
+function buildFloweringShrubLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 12 meshes: 1 trunk + 5 canopy blobs + 6 flowers
+  addTrunk(g, 0, 0, 0, 0.05, 0.04, 0.25, 0x5a4a30);
+  const cc = [0x44aa44, 0x55bb55, 0x3d9d3d, 0x4daa50, 0x66cc66];
+  addCanopy(g, 0, 0.55, 0, 0.40, cc[0]);
+  addCanopy(g, 0.20, 0.50, 0.15, 0.28, cc[1]);
+  addCanopy(g, -0.18, 0.48, -0.12, 0.26, cc[2]);
+  addCanopy(g, 0.0, 0.68, 0.0, 0.30, cc[3]);
+  addCanopy(g, 0.0, 0.38, 0.0, 0.30, cc[4]);
+  // 6 large flowers
+  const fc = [0xff3344, 0xff5566, 0xee2255, 0xff4455, 0xcc1133, 0xff3344];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const flGeo = new THREE.SphereGeometry(0.10, 4, 2);
+    flGeo.scale(1, 0.35, 1);
+    const fl = new THREE.Mesh(flGeo, mat(fc[i]));
+    fl.position.set(Math.cos(a) * 0.35, 0.42 + (i % 3) * 0.14, Math.sin(a) * 0.35);
+    g.add(fl);
+  }
+  return g;
+}
+
+function buildAromaticLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 12 meshes: 2 mound blobs + 10 tall flower spikes
+  // Compact mound base
+  addCanopy(g, 0, 0.20, 0, 0.34, 0x88aa77);
+  addCanopy(g, 0.0, 0.24, 0.0, 0.28, 0x99bb88);
+  // 10 tall flower spikes — spread across mound, height matches high mesh
+  const sc = [0x8855bb, 0x9966cc, 0x7744aa, 0xaa77dd];
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.3;
+    const dist = 0.05 + (i % 3) * 0.06;
+    const h = 0.22 + (i % 2) * 0.04;
+    const spikeGeo = new THREE.CylinderGeometry(0.028, 0.022, h, 4);
+    const spike = new THREE.Mesh(spikeGeo, mat(sc[i % 4]));
+    spike.position.set(Math.cos(a) * dist, 0.36 + h / 2, Math.sin(a) * dist);
+    g.add(spike);
+  }
+  return g;
+}
+
+function buildBarrelCactusLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 10 meshes: body + cap + 8 flower ring
+  const bodyR = 0.40, bodyH = 0.50;
+  const bodyGeo = new THREE.SphereGeometry(bodyR, 10, 6);
+  bodyGeo.scale(1, bodyH / bodyR, 1);
+  const body = new THREE.Mesh(bodyGeo, mat(0x7aaa55));
+  body.position.set(0, bodyH * 0.9, 0);
+  g.add(body);
+  const capGeo = new THREE.SphereGeometry(bodyR * 0.35, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cap = new THREE.Mesh(capGeo, mat(0x8abb65));
+  cap.position.set(0, bodyH * 1.7, 0);
+  g.add(cap);
+  const fc = [0xffcc22, 0xff8844, 0xffdd44, 0xff6688];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.05, 0), mat(fc[i % 4]));
+    fl.position.set(Math.cos(a) * bodyR * 0.30, bodyH * 1.65, Math.sin(a) * bodyR * 0.30);
+    g.add(fl);
+  }
+  return g;
+}
+
+function buildJadeLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 11 meshes: trunk + 3 thick branches + 7 leaf clusters
+  addTrunk(g, 0, 0, 0, 0.12, 0.10, 0.22, 0x9a8a7a);
+  const lc = [0x6abb55, 0x78cc66, 0x5daa48, 0x88dd77, 0x6ab850, 0x78cc66, 0x5daa48];
+  const barkMat = mat(0x9a8a7a);
+  const branches = [
+    { a: 0.5, tilt: 0.50, tipX: 0.14, tipY: 0.38, tipZ: 0.10 },
+    { a: 2.6, tilt: 0.45, tipX: -0.12, tipY: 0.36, tipZ: -0.09 },
+    { a: 4.5, tilt: 0.55, tipX: 0.08, tipY: 0.40, tipZ: -0.14 },
+  ];
+  for (let i = 0; i < branches.length; i++) {
+    const b = branches[i];
+    const brGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.18, 5);
+    const br = new THREE.Mesh(brGeo, barkMat);
+    br.position.set(Math.cos(b.a) * 0.04, 0.28, Math.sin(b.a) * 0.04);
+    br.rotation.z = Math.cos(b.a) * b.tilt;
+    br.rotation.x = Math.sin(b.a) * b.tilt;
+    g.add(br);
+    // 2 leaf clusters per branch + 1 at tip
+    addCanopy(g, b.tipX, b.tipY, b.tipZ, 0.09, lc[i * 2]);
+    addCanopy(g, b.tipX + 0.05, b.tipY + 0.03, b.tipZ + 0.04, 0.07, lc[i * 2 + 1]);
+  }
+  addCanopy(g, 0, 0.42, 0, 0.08, lc[6]);
+  return g;
+}
+
+function buildTropicalHerbLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 9 meshes: 3 large coplanar leaf discs + 1 stem + 4 separated tall bracts + 1 central leaf fill
+  const lc = [0x338833, 0x2d7a2d, 0x3a9940, 0x2e8030];
+  // 3 large flat discs at same Y — forms a clean flat rosette pad
+  const leafPositions: [number, number, number][] = [
+    [0.15, 0.0, -0.10],  [-0.10, 0.0, 0.18],  [-0.08, 0.0, -0.15],
+  ];
+  for (let i = 0; i < 3; i++) {
+    const [x, , z] = leafPositions[i];
+    const geo = jitter(new THREE.IcosahedronGeometry(0.28, 1), 0.025);
+    geo.scale(1.4, 0.18, 1.4); // very flat, wide disc
+    const m = new THREE.Mesh(geo, mat(lc[i]));
+    m.position.set(x, 0.06, z);
+    g.add(m);
+  }
+  // Central fill disc
+  const fillGeo = jitter(new THREE.IcosahedronGeometry(0.22, 1), 0.02);
+  fillGeo.scale(1.3, 0.18, 1.3);
+  const fill = new THREE.Mesh(fillGeo, mat(lc[3]));
+  fill.position.set(0, 0.07, 0);
+  g.add(fill);
+  // Single central stem
+  const stemGeo = new THREE.CylinderGeometry(0.015, 0.018, 0.40, 3);
+  const stem = new THREE.Mesh(stemGeo, mat(0x557744));
+  stem.position.set(0, 0.24, 0);
+  g.add(stem);
+  // 4 bracts — taller, leaning outward for silhouette separation
+  const bractColors = [0xff2211, 0xff4422, 0xee1100, 0xff3322];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    const dist = 0.04;
+    const bract = new THREE.Mesh(new THREE.ConeGeometry(0.038, 0.11, 4), mat(bractColors[i]));
+    bract.position.set(Math.cos(a) * dist, 0.42 + (i % 2) * 0.03, Math.sin(a) * dist);
+    bract.rotation.z = Math.cos(a) * 0.5;
+    bract.rotation.x = Math.PI + Math.sin(a) * 0.5;
+    g.add(bract);
+  }
+  return g;
+}
+
+function buildDesertAnnualLow(): THREE.Group {
+  const g = new THREE.Group();
+  // 12 meshes: 6 large foliage planes + 6 flower discs
+  const leafMat = matDS(0x6a9a7a);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    const r = 0.12 + (i % 2) * 0.10;
+    const geo = new THREE.PlaneGeometry(0.25, 0.25, 1, 1);
+    const leaf = new THREE.Mesh(geo, leafMat);
+    leaf.position.set(Math.cos(a) * r, 0.01, Math.sin(a) * r);
+    leaf.rotation.x = -Math.PI / 2;
+    leaf.rotation.z = a;
+    g.add(leaf);
+  }
+  // 6 flower disc heads
+  const fMats = [mat(0xff8822), mat(0xffaa33)];
+  const positions: [number, number][] = [
+    [0, 0], [0.15, 0.12], [-0.12, 0.15], [-0.10, -0.12], [0.18, -0.08], [-0.18, -0.05],
+  ];
+  for (let i = 0; i < 6; i++) {
+    const [x, z] = positions[i];
+    const headGeo = new THREE.SphereGeometry(0.05, 4, 2);
+    headGeo.scale(1, 0.3, 1);
+    const head = new THREE.Mesh(headGeo, fMats[i % 2]);
+    head.position.set(x, 0.08, z);
+    g.add(head);
+  }
+  return g;
+}
+
 // ── Public API ──
 
 export interface SubtypeModel {
@@ -2852,6 +3668,12 @@ export const BUILDERS: (() => THREE.Group)[] = [
   buildSaguaro, buildAloe, buildCaudiciform, buildEuphorbia, buildIcePlant, buildEpiphytic,
   // Forbs (24-29)
   buildWildflower, buildTallHerb, buildFern, buildVine, buildClover, buildMoss,
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,         // Grasses 30-31
+  buildCypress, buildAcacia,                   // Trees 32-33
+  buildFloweringShrub, buildAromatic,          // Shrubs 34-35
+  buildBarrelCactus, buildJade,                // Succulents 36-37
+  buildTropicalHerb, buildDesertAnnual,        // Forbs 38-39
 ];
 
 /** Low-mesh LOD builders — same indices as BUILDERS, 8-12 meshes each.
@@ -2867,6 +3689,12 @@ export const BUILDERS_LOW: (() => THREE.Group)[] = [
   buildSaguaro, buildAloe, buildCaudiciformLow, buildEuphorbiaLow, buildIcePlantLow, buildEpiphyticLow,
   // Forbs (24-29)
   buildWildflowerLow, buildTallHerbLow, buildFernLow, buildVineLow, buildCloverLow, buildMossLow,
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,
+  buildCypressLow, buildAcaciaLow,
+  buildFloweringShrubLow, buildAromaticLow,
+  buildBarrelCactusLow, buildJadeLow,
+  buildTropicalHerbLow, buildDesertAnnualLow,
 ];
 
 /**
@@ -2914,6 +3742,17 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   0.08,   // 27: Vine         0.15m → 0.05 (floored)
   0.08,   // 28: Ground Cover 0.10m → 0.033 (floored)
   0.08,   // 29: Moss         0.05m → 0.017 (floored)
+  // New climate-zone subtypes (30-39)
+  0.67,   // 30: Pampas       2.0m  → 0.67
+  0.17,   // 31: Desert Grass 0.5m  → 0.17
+  6.67,   // 32: Cypress      20m   → 6.67
+  4.00,   // 33: Acacia       12m   → 4.0
+  1.00,   // 34: Flowering    3.0m  → 1.0
+  0.25,   // 35: Aromatic     0.75m → 0.25
+  0.50,   // 36: Barrel       1.5m  → 0.5
+  0.33,   // 37: Jade         1.0m  → 0.33
+  0.33,   // 38: Tropical Herb 1.0m → 0.33
+  0.08,   // 39: Desert Annual 0.30m→ 0.10 (floored)
 ];
 
 /** Scale a model group to its target game-world height using Box3 measurement. */
@@ -2970,14 +3809,25 @@ const MATURITY_HEIGHT: number[] = [
   1.5,   // 27: Vine — ground creeper
   1.0,   // 28: Ground Cover — clover mat
   1.0,   // 29: Moss — ultra-low cushion
+  // New climate-zone subtypes (30-39)
+  8.0,   // 30: Pampas — tall ornamental grass
+  4.0,   // 31: Desert Grass — tussock
+  10.0,  // 32: Cypress — tall columnar
+  10.0,  // 33: Acacia — wide flat-topped tree
+  6.0,   // 34: Flowering Shrub — hibiscus
+  4.0,   // 35: Aromatic — lavender
+  4.0,   // 36: Barrel Cactus — squat
+  3.0,   // 37: Jade — compact succulent tree
+  3.0,   // 38: Tropical Herb — heliconia
+  1.5,   // 39: Desert Annual — poppy
 ];
 
 /** Subtypes that act as ground cover — XZ always fills the cell, only Y scales. */
-const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29]); // grasses + forbs
+const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39]); // grasses + forbs
 
 /** Accent-only grass types — geometry is authored at world-unit scale, no model scaling.
  *  Carpet provides base coverage; these provide per-type visual identity. */
-const GRASS_ACCENT = new Set([0, 1, 2, 4]); // turf, tall, bunch, spreading
+const GRASS_ACCENT = new Set([0, 1, 2, 4, 30, 31]); // turf, tall, bunch, spreading, pampas, desert grass
 
 function buildModelsFromBuilders(builders: (() => THREE.Group)[]): SubtypeModel[] {
   return builders.map((build, i) => {
