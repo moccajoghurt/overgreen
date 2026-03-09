@@ -195,6 +195,42 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
+  // ── Per-cell snow coverage (for corner-averaging) ──
+  const cellSnowArr = new Float32Array(cellCount);
+  if (snowCov > 0) {
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const cell = world.grid[y][x];
+        let boost = 1.0;
+        if (cell.terrainType === TerrainType.Rock) boost = 1.2;
+        else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
+        else if (cell.terrainType === TerrainType.River) boost = 0.4;
+        else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
+        cellSnowArr[y * GRID + x] = Math.min(1, snowCov * boost);
+      }
+    }
+  }
+
+  // Corner-averaged snow
+  const cornerSnow = new Float32Array(cornerSize * cornerSize);
+  if (snowCov > 0) {
+    for (let cy = 0; cy <= GRID; cy++) {
+      for (let cx = 0; cx <= GRID; cx++) {
+        let sum = 0, count = 0;
+        for (let dy = -1; dy <= 0; dy++) {
+          for (let dx = -1; dx <= 0; dx++) {
+            const gx = cx + dx, gy = cy + dy;
+            if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+              sum += cellSnowArr[gy * GRID + gx];
+              count++;
+            }
+          }
+        }
+        cornerSnow[cy * cornerSize + cx] = sum / count;
+      }
+    }
+  }
+
   // ── Per-cell vertex writing ──
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
@@ -205,17 +241,6 @@ export function updateTerrainColors(state: RendererState): void {
       const cTR = row * cornerSize + col + 1;
       const cBL = (row + 1) * cornerSize + col;
       const cBR = (row + 1) * cornerSize + col + 1;
-
-      // Snow
-      let cellSnow = 0;
-      if (snowCov > 0) {
-        let boost = 1.0;
-        if (cell.terrainType === TerrainType.Rock) boost = 1.2;
-        else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
-        else if (cell.terrainType === TerrainType.River) boost = 0.4;
-        else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
-        cellSnow = Math.min(1, snowCov * boost);
-      }
 
       // Weather overlay
       let wxR = 0, wxG = 0, wxB = 0, wxBlend = 0;
@@ -249,10 +274,11 @@ export function updateTerrainColors(state: RendererState): void {
         const ci = corners[v];
         let vr = cornerBaseR[ci], vg = cornerBaseG[ci], vb = cornerBaseB[ci];
 
-        if (cellSnow > 0) {
-          vr = lerp(vr, 0.82, cellSnow);
-          vg = lerp(vg, 0.85, cellSnow);
-          vb = lerp(vb, 0.92, cellSnow);
+        const vSnow = cornerSnow[ci];
+        if (vSnow > 0) {
+          vr = lerp(vr, 0.82, vSnow);
+          vg = lerp(vg, 0.85, vSnow);
+          vb = lerp(vb, 0.92, vSnow);
         }
 
         if (wxBlend > 0) {
