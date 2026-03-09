@@ -437,7 +437,7 @@ export const showcase: Scenario = {
     },
     {
       id: 36, name: 'Vine',
-      genome: { rootPriority: 0.01, heightPriority: 0.60, leafSize: 0.50, seedInvestment: 0.80, seedSize: 0.50, defense: 0.01, woodiness: 0.10, waterStorage: 0.01, longevity: 0.20 },
+      genome: { rootPriority: 0.01, heightPriority: 0.60, leafSize: 0.50, seedInvestment: 0.80, seedSize: 0.50, defense: 0.01, woodiness: 0.10, waterStorage: 0.01, longevity: 0.60 },
       color: { r: 0.30, g: 0.50, b: 0.30 },
       placements: [...flat[3].forb, ...(hill.forbs.get(27) ?? []), ...(wet.forbs.get(27) ?? [])],
     },

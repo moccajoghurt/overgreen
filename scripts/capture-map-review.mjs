@@ -74,6 +74,23 @@ try {
   // Wait for models to build
   await new Promise(r => setTimeout(r, 2000));
 
+  // Enable species labels if --labels flag is set
+  if (args.includes('--labels')) {
+    await page.evaluate(() => {
+      const cb = document.getElementById('labels-toggle');
+      if (cb && !cb.checked) cb.click();
+    });
+    await new Promise(r => setTimeout(r, 500));
+  }
+  // Enable species colors if --colors flag is set
+  if (args.includes('--colors')) {
+    await page.evaluate(() => {
+      const cb = document.getElementById('color-mode-toggle');
+      if (cb && !cb.checked) cb.click();
+    });
+    await new Promise(r => setTimeout(r, 500));
+  }
+
   const framePaths = [];
 
   for (const cam of cameraList) {
