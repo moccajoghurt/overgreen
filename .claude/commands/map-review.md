@@ -7,15 +7,15 @@ Capture screenshots of all 40 plant subtypes on the Genesis terrain for visual r
 npx vite --port 5173
 ```
 
-2. Run the capture script:
+2. Run the capture script. If `$ARGUMENTS` specifies camera presets, pass them with `--cameras`. Otherwise capture all presets:
 ```bash
-node scripts/capture-map-review.mjs --port 5173 $ARGUMENTS
+node scripts/capture-map-review.mjs --port 5173 --cameras <preset1,preset2,...>
 ```
 
-The `$ARGUMENTS` are passed as the `--cameras` flag. Examples:
-- Empty: captures all showcase presets (overview + 5 archetype close-ups)
-- `showcaseGrasses`: captures just the grasses close-up
-- `showcaseOverview,showcaseTrees`: captures overview and trees
+Examples:
+- No cameras specified: `node scripts/capture-map-review.mjs --port 5173` (captures all showcase presets)
+- Specific cameras: `node scripts/capture-map-review.mjs --port 5173 --cameras showcaseGrasses`
+- Multiple cameras: `node scripts/capture-map-review.mjs --port 5173 --cameras showcaseOverview,showcaseTrees`
 
 3. Read the contact sheet to view all camera angles in a single image:
 ```

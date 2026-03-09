@@ -27,9 +27,15 @@ import { PRESETS, SHOWCASE_PRESETS } from './camera-presets.mjs';
 
 const args = process.argv.slice(2);
 const PORT = getArg(args, '--port', '5173');
-const CAMERAS_ARG = getArg(args, '--cameras', '');
 const WIDTH = parseInt(getArg(args, '--width', '1280'), 10);
 const HEIGHT = parseInt(getArg(args, '--height', '960'), 10);
+
+// Accept cameras via --cameras flag or as first positional arg (not starting with --)
+let CAMERAS_ARG = getArg(args, '--cameras', '');
+if (!CAMERAS_ARG) {
+  const positional = args.filter((a, i) => !a.startsWith('--') && (i === 0 || !args[i - 1].startsWith('--')));
+  if (positional.length) CAMERAS_ARG = positional[0];
+}
 const WARMUP = 30;
 const OUT = 'screenshots';
 
