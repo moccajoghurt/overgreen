@@ -390,3 +390,19 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     succulentGermination: true,
   },
 };
+
+// ── Zone maintenance multipliers (compound with terrain multipliers) ──
+
+import { ClimateZone } from './environment';
+
+export interface ZoneMaintProperties {
+  defenseMult: number;
+  wStorageMult: number;
+}
+
+export const ZONE_MAINT_PROPS: Record<ClimateZone, ZoneMaintProperties> = {
+  [ClimateZone.Temperate]:     { defenseMult: 1.0, wStorageMult: 1.0 },
+  [ClimateZone.Tropical]:      { defenseMult: 0.2, wStorageMult: 1.0 },  // disease-rich → defense nearly free
+  [ClimateZone.Mediterranean]: { defenseMult: 1.0, wStorageMult: 1.0 },
+  [ClimateZone.Desert]:        { defenseMult: 1.0, wStorageMult: 0.4 },  // extreme drought → cheap water storage
+};

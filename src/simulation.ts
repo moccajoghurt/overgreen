@@ -1,4 +1,4 @@
-import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -241,6 +241,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
 
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const zm = world.environment.zoneModifiers[cell.climateZone];
+  const zmp = ZONE_MAINT_PROPS[cell.climateZone];
   let leafMaint = effectiveLeaf * mLeaf * leafMult * zm.leafMaintenanceMult;
   if (zm.leafMaintenanceMult > 1.01) {
     const rootInsulation = Math.min(0.8, plant.rootDepth / maxRoot * 0.8);
@@ -254,8 +255,8 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
     + maturity * (
-        plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
-      + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult
+        plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE * zmp.defenseMult
+      + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult * zmp.wStorageMult
       + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
       + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE
     );

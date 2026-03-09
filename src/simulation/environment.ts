@@ -16,21 +16,21 @@ const ZONE_SEASON_TARGETS: Record<ClimateZone, Record<Season, [number,number,num
     [Season.Winter]: [0.7, 0.6, 2.0, 0.0, 0.0],
   },
   [ClimateZone.Tropical]: {
-    [Season.Spring]: [1.3, 1.1, 1.0, 1.2, 1.0],
-    [Season.Summer]: [1.4, 1.2, 1.0, 1.1, 0.8],
-    [Season.Autumn]: [1.1, 0.95, 1.1, 0.8, 0.5],
-    [Season.Winter]: [0.9, 0.85, 1.2, 0.3, 0.1],
+    [Season.Spring]: [1.3, 1.1, 0.9, 1.2, 1.0],   // leafMaint 1.0→0.9: humid air protects leaves
+    [Season.Summer]: [1.4, 1.2, 0.9, 1.1, 0.8],   // leafMaint 1.0→0.9: lush growth season
+    [Season.Autumn]: [1.1, 0.95, 0.95, 0.8, 0.5],  // leafMaint 1.1→0.95: still humid
+    [Season.Winter]: [0.9, 0.85, 1.0, 0.3, 0.1],   // leafMaint 1.2→1.0: mild dry season
   },
   [ClimateZone.Mediterranean]: {
     [Season.Spring]: [1.3, 1.1, 1.0, 1.4, 1.2],
-    [Season.Summer]: [0.3, 1.25, 1.0, 0.6, 0.5],
-    [Season.Autumn]: [0.7, 0.9, 1.0, 0.4, 0.2],
+    [Season.Summer]: [0.3, 1.25, 2.0, 0.6, 0.5],   // leafMaint 1.0→2.0: dry summer stresses leaves
+    [Season.Autumn]: [0.7, 0.9, 1.2, 0.4, 0.2],     // leafMaint 1.0→1.2: lingering heat
     [Season.Winter]: [1.4, 0.65, 1.6, 0.0, 0.0],
   },
   [ClimateZone.Desert]: {
-    [Season.Spring]: [0.7, 1.05, 1.0, 1.0, 0.8],
-    [Season.Summer]: [0.15, 1.3, 1.2, 0.3, 0.1],
-    [Season.Autumn]: [0.3, 1.0, 1.0, 0.3, 0.2],
+    [Season.Spring]: [0.7, 1.05, 1.3, 1.0, 0.8],    // leafMaint 1.0→1.3: already hot
+    [Season.Summer]: [0.15, 1.3, 2.5, 0.3, 0.1],    // leafMaint 1.2→2.5: extreme heat desiccation
+    [Season.Autumn]: [0.3, 1.0, 1.3, 0.3, 0.2],     // leafMaint 1.0→1.3: still hot
     [Season.Winter]: [0.5, 0.7, 1.8, 0.0, 0.0],
   },
 };
