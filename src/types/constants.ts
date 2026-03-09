@@ -133,7 +133,7 @@ export const SIM = {
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
   HILL_MAINT_ROOT_MULT: 4.0,     // rock is hard to dig
-  HILL_MAINT_HEIGHT_MULT: 2.0,   // wind stress on tall plants
+  HILL_MAINT_HEIGHT_MULT: 1.3,   // wind stress on tall plants (moderate — allows shrubs)
   HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
 
   SOIL_MAINT_HEIGHT_MULT: 1.0,     // no height advantage on soil — keeps grass/forb/shrub mix
@@ -401,8 +401,8 @@ export interface ZoneMaintProperties {
 }
 
 export const ZONE_MAINT_PROPS: Record<ClimateZone, ZoneMaintProperties> = {
-  [ClimateZone.Temperate]:     { defenseMult: 1.0, wStorageMult: 1.0 },
-  [ClimateZone.Tropical]:      { defenseMult: 0.2, wStorageMult: 1.0 },  // disease-rich → defense nearly free
-  [ClimateZone.Mediterranean]: { defenseMult: 1.0, wStorageMult: 1.0 },
-  [ClimateZone.Desert]:        { defenseMult: 1.0, wStorageMult: 0.4 },  // extreme drought → cheap water storage
+  [ClimateZone.Temperate]:     { defenseMult: 1.0, wStorageMult: 2.0 },  // reliable rain → succulence costly (germination restriction handles gating)
+  [ClimateZone.Tropical]:      { defenseMult: 0.2, wStorageMult: 1.5 },  // disease-rich → defense nearly free; wet → succulence costly
+  [ClimateZone.Mediterranean]: { defenseMult: 1.0, wStorageMult: 0.7 },  // dry summers reward some water storage
+  [ClimateZone.Desert]:        { defenseMult: 1.0, wStorageMult: 0.3 },  // extreme drought → cheap water storage
 };

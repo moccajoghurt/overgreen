@@ -1,4 +1,4 @@
-import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -210,7 +210,17 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   heightLightBonus *= TERRAIN_PROPS[cell.terrainType].heightBonusMult;
 
-  const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
+  // Shade tolerance: short plants are adapted to capture diffuse understory light.
+  // Scales inversely with actual height — groundcover & forbs benefit most, trees get nothing.
+  const isShaded = cell.lightLevel < SIM.BASE_LIGHT * 0.8;
+  const heightFactor = Math.max(0, 1 - plant.height / 5.0);
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 1.5 : 1.0;
+
+  // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
+  // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
+  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 0.5 : 1.0;
+
+  const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
   // Root-gated nutrient access: absolute depth determines access (not relative to archetype max)
   const rootAccess = SIM.NUTRIENT_ROOT_ACCESS_MIN
@@ -293,7 +303,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
   const hFrac = total > 0 ? plant.genome.heightPriority / total : 0;
   const lFrac = total > 0 ? plant.genome.leafSize / total : 0;
 
-  // Growth allocation
+  // Growth allocation — track actual usage so unused budget can redirect to seeds
+  let usedGrowthBudget = growthBudget;
   if (total > 0) {
     const rootGrowth = growthBudget * rFrac * growthEff;
     const heightGrowth = growthBudget * hFrac * growthEff;
@@ -303,6 +314,10 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
     const maxHeight = capHeight * (0.3 + 0.7 * hFrac);
     const maxLeaf = capLeaf * (0.3 + 0.7 * lFrac);
 
+    const oldRoot = plant.rootDepth;
+    const oldHeight = plant.height;
+    const oldLeaf = plant.leafArea;
+
     plant.rootDepth = Math.min(maxRoot, plant.rootDepth + rootGrowth);
     const newHeight = Math.min(maxHeight, plant.height + heightGrowth);
     if (newHeight !== plant.height) {
@@ -310,7 +325,17 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
       world.heightChangedIds.add(plant.id);
     }
     plant.leafArea = Math.min(maxLeaf, plant.leafArea + leafGrowth);
+
+    // Compute actual growth consumed (reverse efficiency to get budget units)
+    const actualRoot = (plant.rootDepth - oldRoot) / growthEff;
+    const actualHeight = (plant.height - oldHeight) / growthEff;
+    const actualLeaf = (plant.leafArea - oldLeaf) / growthEff;
+    usedGrowthBudget = actualRoot + actualHeight + actualLeaf;
   }
+
+  // Redirect unused growth budget to seed production at 50% efficiency
+  const unusedGrowth = Math.max(0, growthBudget - usedGrowthBudget);
+  const totalSeedBudget = seedBudget + unusedGrowth * 0.5;
 
   // Seed size scaling — small seeds: cheap & far, large seeds: expensive & close
   const seedSizeMult = SIM.SEED_SIZE_MULT_MIN + plant.genome.seedSize * SIM.SEED_SIZE_MULT_RANGE;
@@ -320,7 +345,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
 
   // Seed spawning — taller plants disperse further
   const seedRange = Math.round(seedRangeMax) + Math.floor(plant.height / seedRangeDiv) + dispersalBonus;
-  const seedsToSpawn = Math.floor(seedBudget / effectiveSeedCost);
+  const seedsToSpawn = Math.floor(totalSeedBudget / effectiveSeedCost);
   for (let i = 0; i < seedsToSpawn; i++) {
     world.seedsAttempted++;
     const dx = Math.floor(Math.random() * (seedRange * 2 + 1)) - seedRange;
@@ -406,7 +431,28 @@ function phaseUpdatePlants(world: World): void {
     const establishing = plant.age < estTicks;
 
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
-    const energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
+    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
+
+    // Facilitation: DIFFERENT archetypes in neighborhood boost photosynthesis.
+    // Excludes own archetype — minority archetypes in a pocket benefit most.
+    // Models complementary resource use (different root depths, nutrient cycling).
+    if (!establishing) {
+      let archetypeSet = 0;
+      for (const [dx, dy] of NEIGHBORS) {
+        const nx = plant.x + dx, ny = plant.y + dy;
+        if (!inBounds(nx, ny, world.width, world.height)) continue;
+        const nc = world.grid[ny][nx];
+        if (nc.plantId === null) continue;
+        const n = world.plants.get(nc.plantId);
+        if (n && n.alive) archetypeSet |= (1 << archetype(n.genome));
+      }
+      // Exclude self-archetype: trees among trees get 0 bonus, forbs among trees get bonus
+      archetypeSet &= ~(1 << archetype(plant.genome));
+      const archetypeCount = (archetypeSet & 1) + ((archetypeSet >> 1) & 1)
+        + ((archetypeSet >> 2) & 1) + ((archetypeSet >> 3) & 1) + ((archetypeSet >> 4) & 1);
+      energyProduced *= 1.0 + archetypeCount * 0.20;
+    }
+
     const maintenance = calculateMaintenance(plant, world, isDiseased);
 
     plant.lastEnergyProduced = energyProduced;
@@ -496,9 +542,14 @@ function phaseGermination(world: World): void {
       const qualifying: number[] = [];
       for (let i = 0; i < cell.seeds.length; i++) {
         const seed = cell.seeds[i];
-        // Succulent seeds rot in wet soil — only germinate on arid/hill
-        if (archetype(seed.genome) === Archetype.Succulent
-          && !TERRAIN_PROPS[cell.terrainType].succulentGermination) continue;
+        // Succulent germination restrictions:
+        // - Only on terrains marked succulentGermination (Hill, Arid)
+        // - In wet climates (Temperate, Tropical), further restricted to Arid only
+        if (archetype(seed.genome) === Archetype.Succulent) {
+          if (!TERRAIN_PROPS[cell.terrainType].succulentGermination) continue;
+          if ((cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)
+            && cell.terrainType !== TerrainType.Arid) continue;
+        }
         const waterThreshold = getPlantConstants(seed.genome).seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
@@ -533,9 +584,30 @@ function phaseGermination(world: World): void {
       const dampen = TERRAIN_PROPS[cell.terrainType].vigorDampen;
       const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
+      // Janzen-Connell effect: seeds near same-subtype adults face establishment failure
+      const childSubtype = classifySubtype(winner.genome);
+      let conspecificCount = 0;
+      for (let jy = y - 2; jy <= y + 2; jy++) {
+        for (let jx = x - 2; jx <= x + 2; jx++) {
+          if (jx === x && jy === y) continue;
+          if (!inBounds(jx, jy, world.width, world.height)) continue;
+          const jc = world.grid[jy][jx];
+          if (jc.plantId === null) continue;
+          const jn = world.plants.get(jc.plantId);
+          if (jn && jn.alive && classifySubtype(jn.genome) === childSubtype) {
+            conspecificCount++;
+          }
+        }
+      }
+      if (conspecificCount > 0 && Math.random() > 1.0 / (1.0 + conspecificCount * 1.0)) {
+        cell.seeds.push(winner);
+        world.seedPopulations.set(winner.speciesId,
+          (world.seedPopulations.get(winner.speciesId) ?? 0) + 1);
+        continue;
+      }
+
       // Speciation check: subtype-based
       let finalSpeciesId = winner.speciesId;
-      const childSubtype = classifySubtype(winner.genome);
       const parentSubtype = world.speciesSubtypes.get(winner.speciesId);
       if (childSubtype !== parentSubtype) {
         const existingSpeciesForSubtype = world.subtypeSpecies.get(childSubtype);
