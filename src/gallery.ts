@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {
   BUILDERS,
+  BUILDERS_STRESSED,
+  BUILDERS_DYING,
   mat,
   scaleToTarget,
   TARGET_MODEL_HEIGHTS,
@@ -9,12 +11,14 @@ import {
 // ============================================================
 // LAYOUT
 // ============================================================
-const COLS = 8, ROWS = 5;
+const COLS = 8;
+// 1 grass row + 4 archetypes × 3 states (thriving, stressed, dying) = 13 rows
+const TOTAL_ROWS = 13;
 const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
 const TITLE_H = 80, PAD = 20;
 const W = PAD * 2 + COLS * CELL_W;
 const ROW_H = HEADER_H + CELL_3D + LABEL_H;
-const H = TITLE_H + ROWS * ROW_H + PAD;
+const H = TITLE_H + TOTAL_ROWS * ROW_H + PAD;
 
 // ============================================================
 // PLANT DATA
@@ -174,12 +178,41 @@ const ID_TO_INDEX: Record<string, number> = {
 };
 
 // ============================================================
-// BUILDER MAP
+// BUILDER MAP — one per health state
 // ============================================================
-const builders: Record<string, () => THREE.Group> = {};
+type HealthState = 'thriving' | 'stressed' | 'dying';
+const BUILDER_ARRAYS: Record<HealthState, (() => THREE.Group)[]> = {
+  thriving: BUILDERS,
+  stressed: BUILDERS_STRESSED,
+  dying: BUILDERS_DYING,
+};
 
-for (const [id, idx] of Object.entries(ID_TO_INDEX)) {
-  builders[id] = BUILDERS[idx];
+function getBuilder(id: string, state: HealthState): () => THREE.Group {
+  const idx = ID_TO_INDEX[id];
+  return BUILDER_ARRAYS[state][idx];
+}
+
+// ============================================================
+// DISPLAY ROWS — grass only thriving; others get all 3 states
+// ============================================================
+interface DisplayRow {
+  archIdx: number;    // index into ARCHETYPES
+  state: HealthState;
+  headerSuffix: string;
+  headerColor: string;
+}
+
+const DISPLAY_ROWS: DisplayRow[] = [];
+
+for (let i = 0; i < ARCHETYPES.length; i++) {
+  const arch = ARCHETYPES[i];
+  if (arch.name === 'GRASSES') {
+    DISPLAY_ROWS.push({ archIdx: i, state: 'thriving', headerSuffix: '', headerColor: arch.color });
+  } else {
+    DISPLAY_ROWS.push({ archIdx: i, state: 'thriving', headerSuffix: ' — Thriving', headerColor: arch.color });
+    DISPLAY_ROWS.push({ archIdx: i, state: 'stressed', headerSuffix: ' — Stressed', headerColor: '#b8a030' });
+    DISPLAY_ROWS.push({ archIdx: i, state: 'dying', headerSuffix: ' — Dying', headerColor: '#8a5a5a' });
+  }
 }
 
 // ============================================================
@@ -218,11 +251,12 @@ interface Cell {
 
 const cells: Cell[] = [];
 
-for (let row = 0; row < ARCHETYPES.length; row++) {
-  const arch = ARCHETYPES[row];
+for (let row = 0; row < DISPLAY_ROWS.length; row++) {
+  const dr = DISPLAY_ROWS[row];
+  const arch = ARCHETYPES[dr.archIdx];
   for (let col = 0; col < arch.plants.length; col++) {
     const plant = arch.plants[col];
-    const plantGroup = builders[plant.id]();
+    const plantGroup = getBuilder(plant.id, dr.state)();
 
     // Scale plant to correct game-world proportions
     const idx = ID_TO_INDEX[plant.id];
@@ -291,12 +325,13 @@ function drawLabels(): void {
   ctx.textAlign = 'center';
   ctx.fillText('OVERGREEN \u2014 Plant Subtype Gallery', W / 2, TITLE_H / 2 + 10);
 
-  for (let row = 0; row < ARCHETYPES.length; row++) {
-    const arch = ARCHETYPES[row];
+  for (let row = 0; row < DISPLAY_ROWS.length; row++) {
+    const dr = DISPLAY_ROWS[row];
+    const arch = ARCHETYPES[dr.archIdx];
     const hy = TITLE_H + row * ROW_H;
 
     // Header bar
-    ctx.fillStyle = arch.color;
+    ctx.fillStyle = dr.headerColor;
     const rx = PAD, ry = hy, rw = W - PAD * 2, rh = HEADER_H - 6;
     ctx.beginPath();
     ctx.roundRect(rx, ry, rw, rh, 8);
@@ -305,7 +340,7 @@ function drawLabels(): void {
     ctx.font = 'bold 22px "Segoe UI", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText((row + 1) + '. ' + arch.name, PAD + 18, hy + rh / 2 + 7);
+    ctx.fillText((dr.archIdx + 1) + '. ' + arch.name + dr.headerSuffix, PAD + 18, hy + rh / 2 + 7);
 
     for (let col = 0; col < arch.plants.length; col++) {
       const p = arch.plants[col];
@@ -315,7 +350,7 @@ function drawLabels(): void {
       // Index badge
       const bx = PAD + col * CELL_W + 8;
       const by = hy + HEADER_H + 6;
-      ctx.fillStyle = arch.color;
+      ctx.fillStyle = dr.headerColor;
       ctx.beginPath();
       ctx.roundRect(bx, by, 40, 24, 5);
       ctx.fill();
@@ -353,6 +388,9 @@ canvas.addEventListener('wheel', (e) => {
 // ============================================================
 // ANIMATION LOOP
 // ============================================================
+// Signal readiness for headless capture after first render
+let galleryReady = false;
+
 function animate(time: number): void {
   requestAnimationFrame(animate);
   const t = time * 0.001;
@@ -364,6 +402,11 @@ function animate(time: number): void {
     renderer.setViewport(c.vx, c.vyGL, CELL_W, CELL_3D);
     renderer.setScissor(c.vx, c.vyGL, CELL_W, CELL_3D);
     renderer.render(c.scene, c.camera);
+  }
+
+  if (!galleryReady) {
+    galleryReady = true;
+    (window as unknown as Record<string, boolean>).__galleryReady = true;
   }
 }
 requestAnimationFrame(animate);

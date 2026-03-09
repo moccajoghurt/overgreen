@@ -61,6 +61,204 @@ export function addTrunk(group: THREE.Group, x: number, y: number, z: number, rB
   return m;
 }
 
+// ── Health-state transforms (stressed / dying variants) ──
+
+/** Classify a mesh's material color as foliage-like (greenish) vs structural (brown/gray). */
+function isFoliageColor(c: THREE.Color): boolean {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  if (hsl.s < 0.1 && hsl.l > 0.7) return false; // near-white → structural
+  if (hsl.h >= 0.02 && hsl.h <= 0.47 && hsl.s > 0.15) return true; // green-yellow range
+  if (hsl.h >= 0.75 || hsl.h <= 0.05) {
+    if (hsl.s > 0.2 && hsl.l > 0.5) return true; // pinks/reds — flowers
+  }
+  return false;
+}
+
+function isFlowerColor(c: THREE.Color): boolean {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  if (hsl.l > 0.7 && hsl.s > 0.05) return true;
+  if ((hsl.h >= 0.75 || hsl.h <= 0.1) && hsl.s > 0.25) return true;
+  if (hsl.h >= 0.1 && hsl.h <= 0.18 && hsl.s > 0.4) return true; // golden yellow
+  return false;
+}
+
+/** Shift a color toward yellow-brown for stressed plants.
+ *  Dark source greens get a stronger shift to ensure visibility. */
+function stressColor(c: THREE.Color): THREE.Color {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  // Dark greens (l < 0.35) need stronger shift
+  const darkBoost = hsl.l < 0.35 ? 0.7 : 0.6;
+  hsl.h = hsl.h * (1 - darkBoost) + 0.15 * darkBoost;
+  hsl.s *= 0.55;
+  hsl.l = Math.max(hsl.l * 0.85, hsl.l < 0.35 ? 0.25 : hsl.l * 0.85);
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+/** Shift a color toward brown/gray for dying plants.
+ *  Dark source greens get extra push to brown. */
+function dyingColor(c: THREE.Color): THREE.Color {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  const darkBoost = hsl.l < 0.35 ? 0.85 : 0.8;
+  hsl.h = hsl.h * (1 - darkBoost) + 0.08 * darkBoost;
+  hsl.s *= 0.2;
+  hsl.l = Math.max(hsl.l * 0.65, 0.15);
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+/** Shift trunk/bark color slightly for stressed plants — subtle aging. */
+function stressBarkColor(c: THREE.Color): THREE.Color {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  hsl.s *= 0.7;
+  hsl.l *= 0.85;
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+/** Shift trunk/bark color for dying plants — grayed out. */
+function dyingBarkColor(c: THREE.Color): THREE.Color {
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  hsl.s *= 0.3;
+  hsl.l *= 0.7;
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+/** Estimate mesh volume from bounding box — large meshes are "structural body" not removable. */
+function meshVolume(mesh: THREE.Mesh): number {
+  mesh.geometry.computeBoundingBox();
+  const bb = mesh.geometry.boundingBox!;
+  const s = bb.getSize(new THREE.Vector3());
+  return s.x * s.y * s.z;
+}
+
+/**
+ * Apply a health-state transform to an existing plant group.
+ * mode: 'stressed' — yellow-green, ~30% foliage thinning, slight droop
+ * mode: 'dying' — brown/gray, ~60% foliage thinning, heavy droop, no flowers
+ *
+ * Handles edge cases:
+ * - Large monolithic foliage meshes (cacti bodies) → recolor + shrink, never remove
+ * - Ground-level meshes (y < 0.1) → scale down instead of droop
+ * - Small/compact plants → cap removal at mesh-count-aware ratio
+ */
+function applyHealthTransform(group: THREE.Group, mode: 'stressed' | 'dying'): THREE.Group {
+  const baseRemoveChance = mode === 'stressed' ? 0.3 : 0.6;
+  const flowerRemoveChance = mode === 'stressed' ? 0.5 : 0.95;
+  const droopAmount = mode === 'stressed' ? 0.06 : 0.15;
+  const shrinkFactor = mode === 'stressed' ? 0.85 : 0.7;
+  const colorFn = mode === 'stressed' ? stressColor : dyingColor;
+  const barkColorFn = mode === 'stressed' ? stressBarkColor : dyingBarkColor;
+
+  // First pass: count foliage meshes and find large ones
+  const foliageMeshes: THREE.Mesh[] = [];
+  const flowerMeshes: THREE.Mesh[] = [];
+  const barkMeshes: THREE.Mesh[] = [];
+  let maxFoliageVol = 0;
+
+  group.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const m = child.material;
+    if (!(m instanceof THREE.MeshStandardMaterial)) return;
+
+    const origColor = m.color.clone();
+    if (isFlowerColor(origColor)) {
+      flowerMeshes.push(child);
+    } else if (isFoliageColor(origColor)) {
+      foliageMeshes.push(child);
+      const vol = meshVolume(child);
+      if (vol > maxFoliageVol) maxFoliageVol = vol;
+    } else {
+      barkMeshes.push(child);
+    }
+  });
+
+  // Volume threshold: meshes with > 40% of max volume are "body" — never remove
+  const bodyThreshold = maxFoliageVol * 0.4;
+
+  // Adaptive removal: fewer meshes → lower removal chance to avoid plant vanishing
+  const meshCount = foliageMeshes.length;
+  const adaptiveRemove = meshCount <= 3
+    ? baseRemoveChance * 0.2  // very few meshes — barely remove any
+    : meshCount <= 6
+      ? baseRemoveChance * 0.5
+      : meshCount <= 10
+        ? baseRemoveChance * 0.7
+        : baseRemoveChance;
+
+  const toRemove: THREE.Object3D[] = [];
+
+  // Process flowers
+  for (const child of flowerMeshes) {
+    const m = child.material as THREE.MeshStandardMaterial;
+    if (Math.random() < flowerRemoveChance) {
+      toRemove.push(child);
+    } else {
+      m.color.copy(colorFn(m.color.clone()));
+    }
+  }
+
+  // Process foliage
+  for (const child of foliageMeshes) {
+    const m = child.material as THREE.MeshStandardMaterial;
+    const vol = meshVolume(child);
+    const isBody = vol >= bodyThreshold && meshCount <= 6;
+    const isGroundLevel = child.position.y < 0.1;
+
+    if (isBody) {
+      // Large body mesh (cactus body, etc.) — recolor + shrink, never remove
+      m.color.copy(colorFn(m.color.clone()));
+      child.scale.x *= shrinkFactor;
+      child.scale.z *= shrinkFactor;
+      child.scale.y *= (shrinkFactor + 1) / 2; // less Y shrink
+    } else if (Math.random() < adaptiveRemove) {
+      toRemove.push(child);
+    } else {
+      // Recolor surviving foliage
+      m.color.copy(colorFn(m.color.clone()));
+
+      if (isGroundLevel) {
+        // Ground-level mesh: scale down instead of drooping below ground
+        const s = mode === 'stressed' ? 0.85 : 0.65;
+        child.scale.multiplyScalar(s);
+      } else {
+        // Above-ground mesh: apply droop
+        child.position.y -= droopAmount * (0.5 + Math.random());
+      }
+    }
+  }
+
+  // Process bark/structural
+  for (const child of barkMeshes) {
+    const m = child.material as THREE.MeshStandardMaterial;
+    m.color.copy(barkColorFn(m.color.clone()));
+  }
+
+  // Remove marked meshes
+  for (const obj of toRemove) {
+    obj.parent?.remove(obj);
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose();
+      if (obj.material instanceof THREE.Material) obj.material.dispose();
+    }
+  }
+
+  return group;
+}
+
+/** Create a stressed variant of a builder. */
+function stressedVariant(builder: () => THREE.Group): () => THREE.Group {
+  return () => applyHealthTransform(builder(), 'stressed');
+}
+
+/** Create a dying variant of a builder. */
+function dyingVariant(builder: () => THREE.Group): () => THREE.Group {
+  return () => applyHealthTransform(builder(), 'dying');
+}
+
 // ── Builders (24 subtypes) ──
 
 /** Placeholder for grass subtypes 0-4: tiny invisible quad.
@@ -3399,6 +3597,114 @@ export const BUILDERS_LOW: (() => THREE.Group)[] = [
   buildFloweringShrubLow, buildAromaticLow,
   buildBarrelCactusLow, buildJadeLow,
   buildTropicalHerbLow, buildDesertAnnualLow,
+];
+
+/** Stressed hi-mesh builders — same indices as BUILDERS. Grasses unchanged. */
+export const BUILDERS_STRESSED: (() => THREE.Group)[] = [
+  // Grasses (0-5) — unchanged
+  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedge,
+  // Trees (6-11)
+  stressedVariant(buildOak), stressedVariant(buildMagnolia), stressedVariant(buildConifer),
+  stressedVariant(buildTropical), stressedVariant(buildPalm), stressedVariant(buildBirch),
+  // Shrubs (12-17)
+  stressedVariant(buildEvergreenShrub), stressedVariant(buildDeciduousShrub),
+  stressedVariant(buildMediterranean), stressedVariant(buildThorny),
+  stressedVariant(buildDesertShrub), stressedVariant(buildMangrove),
+  // Succulents (18-23)
+  stressedVariant(buildSaguaro), stressedVariant(buildAloe),
+  stressedVariant(buildCaudiciform), stressedVariant(buildEuphorbia),
+  stressedVariant(buildIcePlant), stressedVariant(buildEpiphytic),
+  // Forbs (24-29)
+  stressedVariant(buildWildflower), stressedVariant(buildTallHerb),
+  stressedVariant(buildFern), stressedVariant(buildVine),
+  stressedVariant(buildClover), stressedVariant(buildMoss),
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,
+  stressedVariant(buildCypress), stressedVariant(buildAcacia),
+  stressedVariant(buildFloweringShrub), stressedVariant(buildAromatic),
+  stressedVariant(buildBarrelCactus), stressedVariant(buildJade),
+  stressedVariant(buildTropicalHerb), stressedVariant(buildDesertAnnual),
+];
+
+/** Dying hi-mesh builders — same indices as BUILDERS. Grasses unchanged. */
+export const BUILDERS_DYING: (() => THREE.Group)[] = [
+  // Grasses (0-5) — unchanged
+  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedge,
+  // Trees (6-11)
+  dyingVariant(buildOak), dyingVariant(buildMagnolia), dyingVariant(buildConifer),
+  dyingVariant(buildTropical), dyingVariant(buildPalm), dyingVariant(buildBirch),
+  // Shrubs (12-17)
+  dyingVariant(buildEvergreenShrub), dyingVariant(buildDeciduousShrub),
+  dyingVariant(buildMediterranean), dyingVariant(buildThorny),
+  dyingVariant(buildDesertShrub), dyingVariant(buildMangrove),
+  // Succulents (18-23)
+  dyingVariant(buildSaguaro), dyingVariant(buildAloe),
+  dyingVariant(buildCaudiciform), dyingVariant(buildEuphorbia),
+  dyingVariant(buildIcePlant), dyingVariant(buildEpiphytic),
+  // Forbs (24-29)
+  dyingVariant(buildWildflower), dyingVariant(buildTallHerb),
+  dyingVariant(buildFern), dyingVariant(buildVine),
+  dyingVariant(buildClover), dyingVariant(buildMoss),
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,
+  dyingVariant(buildCypress), dyingVariant(buildAcacia),
+  dyingVariant(buildFloweringShrub), dyingVariant(buildAromatic),
+  dyingVariant(buildBarrelCactus), dyingVariant(buildJade),
+  dyingVariant(buildTropicalHerb), dyingVariant(buildDesertAnnual),
+];
+
+/** Stressed low-mesh builders — same indices as BUILDERS_LOW. Grasses unchanged. */
+export const BUILDERS_STRESSED_LOW: (() => THREE.Group)[] = [
+  // Grasses (0-5)
+  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedgeLow,
+  // Trees (6-11)
+  stressedVariant(buildOakLow), stressedVariant(buildMagnoliaLow), stressedVariant(buildConiferLow),
+  stressedVariant(buildTropicalLow), stressedVariant(buildPalmLow), stressedVariant(buildBirchLow),
+  // Shrubs (12-17)
+  stressedVariant(buildEvergreenShrubLow), stressedVariant(buildDeciduousShrubLow),
+  stressedVariant(buildMediterraneanLow), stressedVariant(buildThornyLow),
+  stressedVariant(buildDesertShrubLow), stressedVariant(buildMangroveLow),
+  // Succulents (18-23)
+  stressedVariant(buildSaguaro), stressedVariant(buildAloe),
+  stressedVariant(buildCaudiciformLow), stressedVariant(buildEuphorbiaLow),
+  stressedVariant(buildIcePlantLow), stressedVariant(buildEpiphyticLow),
+  // Forbs (24-29)
+  stressedVariant(buildWildflowerLow), stressedVariant(buildTallHerbLow),
+  stressedVariant(buildFernLow), stressedVariant(buildVineLow),
+  stressedVariant(buildCloverLow), stressedVariant(buildMossLow),
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,
+  stressedVariant(buildCypressLow), stressedVariant(buildAcaciaLow),
+  stressedVariant(buildFloweringShrubLow), stressedVariant(buildAromaticLow),
+  stressedVariant(buildBarrelCactusLow), stressedVariant(buildJadeLow),
+  stressedVariant(buildTropicalHerbLow), stressedVariant(buildDesertAnnualLow),
+];
+
+/** Dying low-mesh builders — same indices as BUILDERS_LOW. Grasses unchanged. */
+export const BUILDERS_DYING_LOW: (() => THREE.Group)[] = [
+  // Grasses (0-5)
+  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedgeLow,
+  // Trees (6-11)
+  dyingVariant(buildOakLow), dyingVariant(buildMagnoliaLow), dyingVariant(buildConiferLow),
+  dyingVariant(buildTropicalLow), dyingVariant(buildPalmLow), dyingVariant(buildBirchLow),
+  // Shrubs (12-17)
+  dyingVariant(buildEvergreenShrubLow), dyingVariant(buildDeciduousShrubLow),
+  dyingVariant(buildMediterraneanLow), dyingVariant(buildThornyLow),
+  dyingVariant(buildDesertShrubLow), dyingVariant(buildMangroveLow),
+  // Succulents (18-23)
+  dyingVariant(buildSaguaro), dyingVariant(buildAloe),
+  dyingVariant(buildCaudiciformLow), dyingVariant(buildEuphorbiaLow),
+  dyingVariant(buildIcePlantLow), dyingVariant(buildEpiphyticLow),
+  // Forbs (24-29)
+  dyingVariant(buildWildflowerLow), dyingVariant(buildTallHerbLow),
+  dyingVariant(buildFernLow), dyingVariant(buildVineLow),
+  dyingVariant(buildCloverLow), dyingVariant(buildMossLow),
+  // New climate-zone subtypes (30-39)
+  buildPampasGrass, buildDesertGrass,
+  dyingVariant(buildCypressLow), dyingVariant(buildAcaciaLow),
+  dyingVariant(buildFloweringShrubLow), dyingVariant(buildAromaticLow),
+  dyingVariant(buildBarrelCactusLow), dyingVariant(buildJadeLow),
+  dyingVariant(buildTropicalHerbLow), dyingVariant(buildDesertAnnualLow),
 ];
 
 /**
