@@ -9,14 +9,18 @@ import {
 } from './renderer3d/plant-models';
 
 // ============================================================
-// LAYOUT
+// LAYOUT — fit to viewport width
 // ============================================================
 const COLS = 8;
 // 1 grass row + 4 archetypes × 3 states (thriving, stressed, dying) = 13 rows
 const TOTAL_ROWS = 13;
-const CELL_W = 300, CELL_3D = 280, LABEL_H = 70, HEADER_H = 50;
-const TITLE_H = 80, PAD = 20;
-const W = PAD * 2 + COLS * CELL_W;
+const PAD = 10;
+const W = window.innerWidth;
+const CELL_W = Math.floor((W - PAD * 2) / COLS);
+const CELL_3D = Math.floor(CELL_W * 0.93);
+const LABEL_H = Math.floor(CELL_W * 0.23);
+const HEADER_H = Math.floor(CELL_W * 0.17);
+const TITLE_H = Math.floor(CELL_W * 0.27);
 const ROW_H = HEADER_H + CELL_3D + LABEL_H;
 const H = TITLE_H + TOTAL_ROWS * ROW_H + PAD;
 
@@ -316,14 +320,17 @@ for (let row = 0; row < DISPLAY_ROWS.length; row++) {
 const ctx = overlay.getContext('2d')!;
 ctx.scale(dpr, dpr);
 
+// Scale factor relative to the original 300px cell width
+const FS = CELL_W / 300;
+
 function drawLabels(): void {
   ctx.clearRect(0, 0, W, H);
 
   // Title
-  ctx.font = 'bold 28px "Segoe UI", sans-serif';
+  ctx.font = `bold ${Math.round(28 * FS)}px "Segoe UI", sans-serif`;
   ctx.fillStyle = '#1e1e1e';
   ctx.textAlign = 'center';
-  ctx.fillText('OVERGREEN \u2014 Plant Subtype Gallery', W / 2, TITLE_H / 2 + 10);
+  ctx.fillText('OVERGREEN \u2014 Plant Subtype Gallery', W / 2, TITLE_H / 2 + 10 * FS);
 
   for (let row = 0; row < DISPLAY_ROWS.length; row++) {
     const dr = DISPLAY_ROWS[row];
@@ -332,15 +339,15 @@ function drawLabels(): void {
 
     // Header bar
     ctx.fillStyle = dr.headerColor;
-    const rx = PAD, ry = hy, rw = W - PAD * 2, rh = HEADER_H - 6;
+    const rx = PAD, rw = W - PAD * 2, rh = HEADER_H - 4;
     ctx.beginPath();
-    ctx.roundRect(rx, ry, rw, rh, 8);
+    ctx.roundRect(rx, hy, rw, rh, 6 * FS);
     ctx.fill();
 
-    ctx.font = 'bold 22px "Segoe UI", sans-serif';
+    ctx.font = `bold ${Math.round(22 * FS)}px "Segoe UI", sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText((dr.archIdx + 1) + '. ' + arch.name + dr.headerSuffix, PAD + 18, hy + rh / 2 + 7);
+    ctx.fillText((dr.archIdx + 1) + '. ' + arch.name + dr.headerSuffix, PAD + 12 * FS, hy + rh / 2 + 7 * FS);
 
     for (let col = 0; col < arch.plants.length; col++) {
       const p = arch.plants[col];
@@ -348,29 +355,30 @@ function drawLabels(): void {
       const labelY = hy + HEADER_H + CELL_3D;
 
       // Index badge
-      const bx = PAD + col * CELL_W + 8;
-      const by = hy + HEADER_H + 6;
+      const bx = PAD + col * CELL_W + 6 * FS;
+      const by = hy + HEADER_H + 4 * FS;
+      const badgeW = 36 * FS, badgeH = 20 * FS;
       ctx.fillStyle = dr.headerColor;
       ctx.beginPath();
-      ctx.roundRect(bx, by, 40, 24, 5);
+      ctx.roundRect(bx, by, badgeW, badgeH, 4 * FS);
       ctx.fill();
-      ctx.font = 'bold 15px "Segoe UI", sans-serif';
+      ctx.font = `bold ${Math.round(13 * FS)}px "Segoe UI", sans-serif`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.fillText(p.id, bx + 20, by + 17);
+      ctx.fillText(p.id, bx + badgeW / 2, by + badgeH * 0.73);
 
       // Name + species + real-world height
-      ctx.font = 'bold 13px "Segoe UI", sans-serif';
+      ctx.font = `bold ${Math.round(12 * FS)}px "Segoe UI", sans-serif`;
       ctx.fillStyle = '#1e1e1e';
       ctx.textAlign = 'center';
-      ctx.fillText(p.name, cx, labelY + 18);
-      ctx.font = 'italic 11px "Segoe UI", sans-serif';
+      ctx.fillText(p.name, cx, labelY + LABEL_H * 0.28);
+      ctx.font = `italic ${Math.round(10 * FS)}px "Segoe UI", sans-serif`;
       ctx.fillStyle = '#5a5a5a';
-      ctx.fillText(p.species, cx, labelY + 34);
+      ctx.fillText(p.species, cx, labelY + LABEL_H * 0.52);
       const idx2 = ID_TO_INDEX[p.id];
-      ctx.font = 'bold 11px "Segoe UI", sans-serif';
+      ctx.font = `bold ${Math.round(10 * FS)}px "Segoe UI", sans-serif`;
       ctx.fillStyle = '#aa6633';
-      ctx.fillText(formatHeight(REAL_HEIGHTS_M[idx2]), cx, labelY + 50);
+      ctx.fillText(formatHeight(REAL_HEIGHTS_M[idx2]), cx, labelY + LABEL_H * 0.76);
     }
   }
 }
