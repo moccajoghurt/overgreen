@@ -28,11 +28,13 @@ export interface Genome {
   longevity: number;     // 0.01-0.99 — short-lived annual (low) to long-lived perennial (high)
 }
 
-export const enum Archetype { Grass, Shrub, Succulent, Tree }
+export const enum Archetype { Grass, Shrub, Succulent, Tree, Forb }
 
-/** Classify a genome into one of four archetypes. Pure function of genome. */
+/** Classify a genome into one of five archetypes. Pure function of genome. */
 export function archetype(genome: Genome): Archetype {
-  if (genome.woodiness < 0.4) return Archetype.Grass;
+  if (genome.woodiness < 0.4) {
+    return genome.leafSize >= 0.5 ? Archetype.Forb : Archetype.Grass;
+  }
   if (genome.waterStorage >= 0.55) return Archetype.Succulent;
   if (genome.woodiness <= 0.7) return Archetype.Shrub;
   return Archetype.Tree;

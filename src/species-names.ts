@@ -64,6 +64,21 @@ const SUCCULENT_ADJECTIVES: string[][] = [
   ['Spiny', 'Thorny', 'Armored', 'Barbed', 'Bristling', 'Hooked'],
 ];
 
+const FORB_ADJECTIVES: string[][] = [
+  // rootPriority
+  ['Creeping', 'Trailing', 'Sprawling', 'Carpeting', 'Low', 'Hugging'],
+  // heightPriority
+  ['Upright', 'Erect', 'Standing', 'Spiring', 'Reaching', 'Poised'],
+  // leafSize
+  ['Broad', 'Lush', 'Frondose', 'Verdant', 'Leafy', 'Fanned'],
+  // seedInvestment
+  ['Blooming', 'Flowering', 'Drifting', 'Scattering', 'Windborne', 'Fruiting'],
+  // seedSize
+  ['Heavy', 'Laden', 'Plump', 'Bulging', 'Swollen', 'Full'],
+  // defense
+  ['Prickly', 'Bitter', 'Stinging', 'Hairy', 'Rough', 'Bristled'],
+];
+
 
 export function generateSpeciesName(genome: Genome, speciesId: number, subtypeId: number): string {
   const traits = [
@@ -81,7 +96,7 @@ export function generateSpeciesName(genome: Genome, speciesId: number, subtypeId
     if (traits[i] > traits[first]) first = i;
   }
 
-  // Four-way vocabulary for adjectives
+  // Five-way vocabulary for adjectives
   let adjs: string[][];
   const arch = archetype(genome);
   if (arch === Archetype.Grass) {
@@ -90,6 +105,8 @@ export function generateSpeciesName(genome: Genome, speciesId: number, subtypeId
     adjs = SUCCULENT_ADJECTIVES;
   } else if (arch === Archetype.Shrub) {
     adjs = SHRUB_ADJECTIVES;
+  } else if (arch === Archetype.Forb) {
+    adjs = FORB_ADJECTIVES;
   } else {
     adjs = ADJECTIVES;
   }

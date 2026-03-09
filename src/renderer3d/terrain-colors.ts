@@ -1,4 +1,5 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
+import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
 
@@ -91,13 +92,16 @@ export function updateTerrainColors(state: RendererState): void {
 
   // ── Vegetation tint pass ──
   // Per-archetype tint colors [R, G, B] and max blend strengths
+  // Indexed by Archetype enum: Grass=0, Shrub=1, Succulent=2, Tree=3, Forb=4
   const VEG_TINT: [number, number, number][] = [
-    [0.22, 0.48, 0.12],  // Grass — bright natural green (primary grass visual)
-    [0.12, 0.20, 0.06],  // Tree — dark understory
-    [0.16, 0.32, 0.08],  // Shrub — medium green
+    [0.22, 0.48, 0.12],  // 0: Grass — bright natural green
+    [0.16, 0.32, 0.08],  // 1: Shrub — medium green
+    [0.00, 0.00, 0.00],  // 2: Succulent — placeholder (skipped)
+    [0.12, 0.20, 0.06],  // 3: Tree — dark understory
+    [0.20, 0.45, 0.14],  // 4: Forb — bright herb green
   ];
-  const VEG_MAX_BLEND = [0.92, 0.50, 0.70];
-  const VEG_REF_HEIGHT = [0.4, 3.0, 1.2];
+  const VEG_MAX_BLEND = [0.92, 0.70, 0.0, 0.50, 0.85];
+  const VEG_REF_HEIGHT = [0.4, 1.2, 0.0, 3.0, 0.6];
   const snowSuppression = 1 - Math.min(1, snowCov);
 
   const vegR = new Float32Array(cellCount);
@@ -115,7 +119,7 @@ export function updateTerrainColors(state: RendererState): void {
       const subtype = world.speciesSubtypes.get(plant.speciesId)
         ?? classifySubtype(plant.genome);
       const arch = subtypeArchetype(subtype);
-      if (arch === 3) continue; // skip succulents
+      if (arch === Archetype.Succulent) continue;
       const idx = y * GRID + x;
       const blend = VEG_MAX_BLEND[arch]
         * Math.min(1, plant.height / VEG_REF_HEIGHT[arch])

@@ -6,9 +6,9 @@ import {
   easeOutCubic, lerp, plantHash,
 } from './state';
 import { computePlantTint } from './plant-colors';
-import { classifySubtype } from '../types/subtypes';
+import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 
-const SUBTYPE_COUNT = 24;
+const SUBTYPE_COUNT = 40;
 
 // Pre-allocated temporaries for terrain-tilt quaternion math (zero allocation per frame)
 const _qSpin  = new THREE.Quaternion();
@@ -197,8 +197,8 @@ function renderDyingBurning(
     dp.progress += state.animSpeed / DEATH_ANIM_FRAMES;
     if (dp.progress >= 1) { toRemove.push(id); continue; }
 
-    // Skip grass subtypes 0-4 — death handled by shader field clearing
-    if (dp.subtype <= 4) continue;
+    // Skip shader-grass subtypes — death handled by shader field clearing
+    if (SHADER_GRASS_SUBTYPES.has(dp.subtype)) continue;
 
     const wx = dp.x - HALF + 0.5;
     const wz = dp.y - HALF + 0.5;
@@ -238,8 +238,8 @@ function renderDyingBurning(
       continue;
     }
 
-    // Skip grass subtypes 0-4 — burn handled by shader field clearing
-    if (bp.subtype <= 4) continue;
+    // Skip shader-grass subtypes — burn handled by shader field clearing
+    if (SHADER_GRASS_SUBTYPES.has(bp.subtype)) continue;
 
     const wx = bp.x - HALF + 0.5;
     const wz = bp.y - HALF + 0.5;
@@ -302,8 +302,8 @@ function fullRebuild(
       subtype,
     });
 
-    // Skip grass subtypes 0-4 — handled entirely by shader grass field
-    if (subtype <= 4) {
+    // Skip shader-grass subtypes — handled entirely by shader grass field
+    if (SHADER_GRASS_SUBTYPES.has(subtype)) {
       // Still advance growth animation so grass-layer reads correct growScale
       const growing = growingPlants.get(plant.id);
       if (growing) {
@@ -439,7 +439,7 @@ function incrementalUpdate(
     const plant = world.plants.get(evt.plantId);
     if (!plant?.alive) continue;
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
-    if (subtype <= 4) continue; // grass handled by shader
+    if (SHADER_GRASS_SUBTYPES.has(subtype)) continue; // grass handled by shader
 
     const wx = plant.x - HALF + 0.5;
     const wz = plant.y - HALF + 0.5;
@@ -478,7 +478,7 @@ function incrementalUpdate(
       subtype,
     });
 
-    if (subtype <= 4) {
+    if (SHADER_GRASS_SUBTYPES.has(subtype)) {
       // Still advance growth animation for grass
       const growing = growingPlants.get(plant.id);
       if (growing) {
@@ -594,7 +594,7 @@ function animationOnlyUpdate(
     const plant = world.plants.get(pid);
     if (!plant?.alive) { growingPlants.delete(pid); continue; }
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
-    if (subtype <= 4) {
+    if (SHADER_GRASS_SUBTYPES.has(subtype)) {
       growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) growingPlants.delete(pid);
       continue;

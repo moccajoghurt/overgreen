@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GRID_WIDTH, WeatherOverlay } from '../types';
 import { RendererState, GRID, HALF, plantHash, easeOutCubic, lerp } from './state';
 import { computePlantTint } from './plant-colors';
-import { classifySubtype, subtypeArchetype } from '../types/subtypes';
+import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 
 // ── Constants ──
 
@@ -338,10 +338,10 @@ export function createGrassLayer(
     for (const plant of world.plants.values()) {
       if (!plant.alive) continue;
 
-      // Only grass archetype (subtypes 0-5)
+      // Only shader-grass subtypes (0-4)
       const subtype = world.speciesSubtypes?.get(plant.speciesId)
         ?? classifySubtype(plant.genome);
-      if (subtypeArchetype(subtype) !== 0) continue;
+      if (!SHADER_GRASS_SUBTYPES.has(subtype)) continue;
 
       const matH = maturityHeights[subtype];
 
