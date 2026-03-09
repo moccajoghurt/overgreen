@@ -1,16 +1,27 @@
 /**
- * Render the Genesis scenario as a top-down terrain map image.
- * Usage: npx tsx scripts/render-topdown.ts
- * Output: screenshots/genesis-topdown.png
+ * Render a scenario as a top-down terrain map image.
+ * Usage: npx tsx scripts/render-topdown.ts [scenario-id]
+ * Default: genesis
+ * Output: screenshots/<scenario-id>-topdown.png
  */
 
 import sharp from 'sharp';
 import { mkdir } from 'fs/promises';
 import { genesis } from '../src/scenarios/genesis';
+import { lindenvale } from '../src/scenarios/lindenvale';
 import { TerrainType } from '../src/types';
+import type { Scenario } from '../src/types';
+
+const SCENARIOS: Record<string, Scenario> = { genesis, lindenvale };
+const scenarioId = process.argv[2] ?? 'genesis';
+const scenario = SCENARIOS[scenarioId];
+if (!scenario) {
+  console.error(`Unknown scenario "${scenarioId}". Available: ${Object.keys(SCENARIOS).join(', ')}`);
+  process.exit(1);
+}
 
 const CELL_PX = 10; // pixels per cell
-const size = genesis.size;
+const size = scenario.size;
 const imgW = size * CELL_PX;
 const imgH = size * CELL_PX;
 
@@ -30,25 +41,25 @@ for (let y = 0; y < size; y++) {
   const row = [];
   for (let x = 0; x < size; x++) {
     row.push({
-      terrain: genesis.defaultTerrain,
-      elevation: genesis.defaultElevation ?? 0.5,
+      terrain: scenario.defaultTerrain,
+      elevation: scenario.defaultElevation ?? 0.5,
     });
   }
   grid.push(row);
 }
 
-for (const cell of genesis.cells) {
+for (const cell of scenario.cells) {
   if (cell.x >= 0 && cell.x < size && cell.y >= 0 && cell.y < size) {
     grid[cell.y][cell.x] = {
       terrain: cell.terrain,
-      elevation: cell.elevation ?? genesis.defaultElevation ?? 0.5,
+      elevation: cell.elevation ?? scenario.defaultElevation ?? 0.5,
     };
   }
 }
 
 // Collect seed positions with species color
 const seeds: { x: number; y: number; name: string; color: [number, number, number] }[] = [];
-for (const sp of genesis.species) {
+for (const sp of scenario.species) {
   const c: [number, number, number] = [
     Math.round(sp.color.r * 255),
     Math.round(sp.color.g * 255),
@@ -131,9 +142,12 @@ const legendSvg = Buffer.from(`
   <circle cx="310" cy="20" r="6" fill="rgb(160,140,100)"/><text x="322" y="25" font-family="monospace" font-size="13" fill="white">Hill</text>
   <circle cx="385" cy="20" r="6" fill="rgb(72,130,100)"/><text x="397" y="25" font-family="monospace" font-size="13" fill="white">Wetland</text>
   <circle cx="490" cy="20" r="6" fill="rgb(194,170,120)"/><text x="502" y="25" font-family="monospace" font-size="13" fill="white">Arid</text>
-  <circle cx="570" cy="20" r="6" fill="rgb(89,166,51)"/><text x="582" y="25" font-family="monospace" font-size="13" fill="white">Shrub</text>
-  <circle cx="660" cy="20" r="6" fill="rgb(179,140,38)"/><text x="672" y="25" font-family="monospace" font-size="13" fill="white">Survivor</text>
-  <text x="20" y="48" font-family="monospace" font-size="12" fill="#888">Genesis v2 ${size}x${size} | Grid lines every 20 cells | N=top</text>
+  ${scenario.species.map((sp, i) => {
+    const cx = 570 + i * 120;
+    const cr = Math.round(sp.color.r * 255), cg = Math.round(sp.color.g * 255), cb = Math.round(sp.color.b * 255);
+    return `<circle cx="${cx}" cy="20" r="6" fill="rgb(${cr},${cg},${cb})"/><text x="${cx + 12}" y="25" font-family="monospace" font-size="13" fill="white">${sp.name}</text>`;
+  }).join('\n  ')}
+  <text x="20" y="48" font-family="monospace" font-size="12" fill="#888">${scenario.name} ${size}x${size} | Grid lines every 20 cells | N=top</text>
 </svg>
 `);
 
@@ -151,5 +165,6 @@ const finalImg = sharp({
   ])
   .png();
 
-await finalImg.toFile('screenshots/genesis-topdown.png');
-console.log(`Saved screenshots/genesis-topdown.png (${imgW}x${imgH + legendH})`);
+const outFile = `screenshots/${scenarioId}-topdown.png`;
+await finalImg.toFile(outFile);
+console.log(`Saved ${outFile} (${imgW}x${imgH + legendH})`);
