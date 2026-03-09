@@ -73,8 +73,8 @@ export const SIM = {
 
   // Age & Senescence
   MAX_AGE: 2500,
-  SENESCENCE_ONSET: 0.3,       // fraction of maxAge when senescence begins
-  SENESCENCE_MAX_MULT: 4.0,    // maintenance multiplier at maxAge
+  SENESCENCE_ONSET: 0.2,       // fraction of maxAge when senescence begins
+  SENESCENCE_MAX_MULT: 6.0,    // maintenance multiplier at maxAge
   LONGEVITY_MAINTENANCE_RATE: 0.08, // ongoing cost of long-lived tissue
 
   // Disease / Blight
@@ -132,20 +132,20 @@ export const SIM = {
   GROUNDWATER_ABSORPTION_RATE: 0.3,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
-  HILL_MAINT_ROOT_MULT: 3.0,     // rock is hard to dig
-  HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants
-  HILL_MAINT_LEAF_MULT: 1.0,
+  HILL_MAINT_ROOT_MULT: 4.0,     // rock is hard to dig
+  HILL_MAINT_HEIGHT_MULT: 2.0,   // wind stress on tall plants
+  HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
 
   SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
 
-  WETLAND_MAINT_ROOT_MULT: 2.5,  // anoxic deep soil
+  WETLAND_MAINT_ROOT_MULT: 3.5,  // anoxic deep soil
   WETLAND_MAINT_HEIGHT_MULT: 1.0,
   WETLAND_MAINT_LEAF_MULT: 0.85, // humidity protects leaves
   WETLAND_MAINT_WSTORAGE_MULT: 8.0, // succulent tissue rots in waterlogged soil
 
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
-  ARID_MAINT_HEIGHT_MULT: 1.2,   // heat stress
-  ARID_MAINT_LEAF_MULT: 2.0,     // transpiration water loss
+  ARID_MAINT_HEIGHT_MULT: 1.5,   // heat stress on tall plants
+  ARID_MAINT_LEAF_MULT: 2.5,     // transpiration water loss
 
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,
