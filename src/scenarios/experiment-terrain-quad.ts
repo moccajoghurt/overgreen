@@ -10,7 +10,7 @@ import { Scenario, ScenarioCell, ScenarioSpecies, TerrainType, ClimateZone } fro
  * y:35-44  Rock          Rock          Rock
  * y:45-79  Wetland       Rock          Arid
  *
- * Each pocket seeded with 5 starter species (one per archetype), 4 plants each.
+ * Each pocket seeded with 5 starter species (one per archetype), 9 plants each.
  * Larger pockets than Niche Matrix (1,225 vs 169 cells) for reliable subtype emergence.
  */
 export const experimentTerrainQuad: Scenario = (() => {
@@ -74,12 +74,13 @@ export const experimentTerrainQuad: Scenario = (() => {
       const pw = pocket.x1 - pocket.x0 + 1;
       const ph = pocket.y1 - pocket.y0 + 1;
       const pts: { x: number; y: number }[] = [];
-      const ox = 2 + (i % 3) * 3;
-      const oy = 2 + Math.floor(i / 3) * 3;
-      for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 2; c++) {
-          const px = pocket.x0 + ((ox + c * 4) % pw);
-          const py = pocket.y0 + ((oy + r * 4) % ph);
+      // 3×3 grid per species (9 plants), offset by species index to avoid overlap
+      const ox = 2 + (i % 3) * 2;
+      const oy = 2 + Math.floor(i / 3) * 2;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const px = pocket.x0 + ((ox + c * Math.floor(pw / 3)) % pw);
+          const py = pocket.y0 + ((oy + r * Math.floor(ph / 3)) % ph);
           pts.push({ x: px, y: py });
         }
       }
