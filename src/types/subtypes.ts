@@ -93,8 +93,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Tallgrass: high heightPriority, perennial
   scores[1] = g.heightPriority * 0.6 + g.leafSize * 0.2 + g.seedInvestment * 0.1 + g.longevity * 0.1;
 
-  // Bunchgrass: high leafSize × rootPriority, tight cluster
-  scores[2] = g.leafSize * 0.4 + g.rootPriority * 0.4 + (1 - g.seedInvestment) * 0.2;
+  // Bunchgrass: hill-adapted tussock — big seeds, persistent, compact
+  scores[2] = g.seedSize * 0.3 + g.longevity * 0.25 + (1 - g.rootPriority) * 0.25 + (1 - g.heightPriority) * 0.2;
 
   // Bamboo: high woodiness (within grass range)
   scores[3] = g.woodiness * 0.6 + g.heightPriority * 0.3 + (1 - g.leafSize) * 0.1;
@@ -102,8 +102,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Spreading: high seedInvestment (stolons), short-lived colonizer
   scores[4] = g.seedInvestment * 0.45 + g.leafSize * 0.15 + (1 - g.heightPriority) * 0.3 + (1 - g.longevity) * 0.1;
 
-  // Sedge: high waterStorage, perennial
-  scores[5] = g.waterStorage * 0.45 + g.heightPriority * 0.15 + g.rootPriority * 0.3 + g.longevity * 0.1;
+  // Sedge: wetland grass — shallow roots, efficient leaves
+  scores[5] = (1 - g.rootPriority) * 0.35 + g.leafSize * 0.3 + g.heightPriority * 0.2 + (1 - g.waterStorage) * 0.15;
 
   // Pampas: tall ornamental, feathery plumes
   scores[6] = g.heightPriority * 0.4 + g.seedInvestment * 0.25 + g.longevity * 0.2 + g.leafSize * 0.15;
@@ -130,8 +130,8 @@ function classifyTree(g: Genome): SubtypeId {
   // Conifer: tall + narrow (high heightPriority, low leafSize), long-lived
   scores[2] = g.heightPriority * 0.45 + (1 - g.leafSize) * 0.25 + (1 - g.rootPriority) * 0.2 + g.longevity * 0.1;
 
-  // Tropical: high rootPriority (buttress roots)
-  scores[3] = g.rootPriority * 0.5 + g.leafSize * 0.2 + g.heightPriority * 0.15 + g.waterStorage * 0.15;
+  // Tropical: disease-resistant canopy tree — tall, broad-leaved
+  scores[3] = g.defense * 0.3 + g.heightPriority * 0.3 + g.leafSize * 0.25 + (1 - g.rootPriority) * 0.15;
 
   // Palm: tall, unbranched feel (high height, low root, low defense)
   scores[4] = g.heightPriority * 0.35 + (1 - g.rootPriority) * 0.25 + (1 - g.defense) * 0.2 + (1 - g.leafSize) * 0.2;
@@ -162,8 +162,8 @@ function classifyShrub(g: Genome): SubtypeId {
   scores[1] = (1 - Math.abs(g.leafSize - 0.5)) * 0.25 + (1 - Math.abs(g.heightPriority - 0.5)) * 0.25
     + g.seedInvestment * 0.2 + (1 - g.defense) * 0.2 + (1 - g.longevity) * 0.1;
 
-  // Mediterranean: moderate height, dense foliage
-  scores[2] = g.leafSize * 0.4 + (1 - g.heightPriority) * 0.2 + g.heightPriority * 0.2 + (1 - g.waterStorage) * 0.2;
+  // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy
+  scores[2] = g.woodiness * 0.3 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.25 + g.longevity * 0.2;
 
   // Thorny: high defense
   scores[3] = g.defense * 0.6 + (1 - g.leafSize) * 0.2 + g.rootPriority * 0.2;
@@ -171,8 +171,8 @@ function classifyShrub(g: Genome): SubtypeId {
   // Desert: high waterStorage (within shrub range), sparse
   scores[4] = g.waterStorage * 0.4 + (1 - g.leafSize) * 0.3 + g.rootPriority * 0.15 + (1 - g.defense) * 0.15;
 
-  // Mangrove: high rootPriority (prop roots)
-  scores[5] = g.rootPriority * 0.5 + g.waterStorage * 0.2 + (1 - g.heightPriority) * 0.15 + g.defense * 0.15;
+  // Mangrove: wetland shrub — shallow roots, tall, lush
+  scores[5] = (1 - g.rootPriority) * 0.3 + g.heightPriority * 0.3 + g.leafSize * 0.2 + (1 - g.waterStorage) * 0.2;
 
   // Flowering Shrub: ornamental, high reproductive investment
   scores[6] = g.seedInvestment * 0.4 + g.leafSize * 0.25 + (1 - g.defense) * 0.2 + g.longevity * 0.15;
