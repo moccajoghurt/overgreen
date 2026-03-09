@@ -45,11 +45,25 @@
     .map-btn {
       width: 100%; display: block; padding: 0; cursor: pointer;
       background: #2a2a2a; border: 2px solid #444; border-radius: 3px;
-      overflow: hidden;
+      overflow: hidden; position: relative;
       transition: border-color 150ms;
     }
-    .map-btn:hover { border-color: #666; }
-    .map-btn.active { border-color: #4a7a4a; }
+    .map-btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.45);
+      transition: background 150ms;
+    }
+    .map-btn:hover::after { background: rgba(0,0,0,0.25); }
+    .map-btn.active { border-color: #5a9a5a; }
+    .map-btn.active::after { background: transparent; }
+    .map-btn-random .map-btn-badge {
+      position: absolute; bottom: 3px; right: 4px; z-index: 1;
+      font-size: 15px; line-height: 1; color: rgba(255,255,255,0.7);
+      pointer-events: none;
+      transition: transform 300ms ease;
+    }
+    .map-btn-random:hover .map-btn-badge { transform: rotate(180deg); }
+    .map-btn-random.active .map-btn-badge { color: rgba(255,255,255,0.9); }
     .map-btn-img {
       width: 100%; height: 44px; display: block;
       object-fit: cover;

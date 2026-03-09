@@ -188,6 +188,12 @@ for (const s of SCENARIOS) {
 // Random button (always last in featured)
 {
   const btn = createMapButton('__random__', 'Random', () => doLoadRandom());
+  btn.querySelector('img')!.src = 'maps/random.png';
+  btn.classList.add('map-btn-random');
+  const badge = document.createElement('span');
+  badge.className = 'map-btn-badge';
+  badge.textContent = '\u{1F3B2}';
+  btn.appendChild(badge);
   mapButtonsContainer.appendChild(btn);
   mapButtons.push(btn);
 }
