@@ -146,7 +146,7 @@ Nutrients amplify energy but don't hard-gate like water. Decomposition creates l
   └──────────┴───────┴────────┴──────┴──────────┘
 ```
 
-- **Soil** height 0.7× — deep soil supports tall growth cheaply → selects for trees
+- **Soil** height 0.7× — ⚠️ BUG: incorrectly favors trees on Soil. Needs ≥1.0 (see Section 17)
 - **Soil** wStorage 2.5× — no advantage to succulence in reliable rain
 - **Hill** root 4.0× — rock is hard to dig → selects against deep roots
 - **Wetland** wStorage 8.0× — succulent tissue rots in waterlogged soil
@@ -521,7 +521,7 @@ Pending — need comprehensive per-pocket analysis.
 
 ### 16.2 Maps
 
-**Niche Matrix** (`experiment-niche-matrix`): 80×80 grid, 4×4 layout of isolated pockets. 9-cell-wide Rock barriers between all pockets (blocks max seed range). Each pocket = unique terrain + climate zone combination.
+**Niche Matrix** (`experiment-niche-matrix`): 80×80 grid, 4×4 layout of isolated pockets. 9-cell-wide Rock barriers between all pockets (blocks max seed range). Each pocket = unique terrain + climate zone combination. Pockets are 13×13 cells — adequate for archetype-level testing but marginal for reliable subtype emergence.
 
 ```
           Soil(13)  Rock(9)  Hill(13)  Rock(9) Wetland(13) Rock(9)  Arid(14)
@@ -541,6 +541,10 @@ Desert    ┌───────┐         ┌───────┐       
 y:66-79   │S+Des  │  Rock   │H+Des  │   Rock   │W+Des   │   Rock   │A+Des   │
           └───────┘         └───────┘          └────────┘          └────────┘
 ```
+
+**Terrain Quad** (`experiment-terrain-quad`): 80×80 grid, 2×2 layout of 4 terrain types (Soil, Hill, Wetland, Arid) all under Temperate climate. 35×35 pockets (1,225 cells each) separated by 10-cell Rock barriers. 9 plants per species per pocket (45 total). For isolating terrain effects without zone confounds.
+
+**Zone Quad** (`experiment-zone-quad`): 80×80 grid, 2×2 layout of 4 climate zones (Temperate, Tropical, Mediterranean, Desert) all on Soil terrain. Same pocket size and seeding as Terrain Quad. For isolating zone effects without terrain confounds.
 
 **Neutral Baseline** (`experiment-neutral-baseline`): 80×80 grid, all Soil terrain, all Temperate zone. No barriers. Same 5 initial species scattered uniformly. Null hypothesis — trait drift here is competition-driven, not environmental.
 
@@ -564,53 +568,37 @@ Note: Succulents only germinate on Arid + Hill terrain. In Soil/Wetland pockets,
 |----|-----|-------|----------|---------|
 | 1 | `experiment-niche-matrix` | 5000 | 500 | Niche differentiation, subtype emergence, system correctness |
 | 2 | `experiment-neutral-baseline` | 5000 | 500 | Trait drift baseline, competition dynamics |
+| 3 | `experiment-terrain-quad` | 5000 | 500 | Terrain archetype/subtype validation (larger pockets) |
+| 4 | `experiment-zone-quad` | 5000 | 500 | Zone archetype/subtype validation (larger pockets) |
 
 Run via: `npx tsx scripts/run-experiment.ts <scenario-id> --ticks 5000 --interval 500`
 
 ### 16.5 Niche Predictions
 
-| Niche | Key Pressure | Traits Favored (↑) / Penalized (↓) | Expected Archetype | Expected Subtypes |
-|-------|-------------|-------------------------------------|-------------------|-------------------|
-| Soil+Temp | Winter dormancy, baseline competition | height↑, lon↑, wStor↓ (2.5×) | Tree > Grass | Oak, Tallgrass |
-| Soil+Trop | Disease 1.8×, year-round growth | defense↑, leaf↑, wStor↓ | Tree > Forb | Tropical Tree, Fern |
-| Soil+Med | Fire 2.0×, summer drought 0.3× | wood↑ (fire bark), seedInv↑, leaf↓ | Shrub > Tree | Med Shrub, Cypress |
-| Soil+Des | Extreme drought 0.15×, winter 1.8× leafMaint | wStor↑ (but 2.5× cost), root↑ | Shrub > Grass | Desert Shrub, Desert Grass |
-| Hill+Temp | Root 4.0×, height 2.0×, seedSz amplified | root↓, height↓, seedSz↑ | Grass > Forb | Bunchgrass, Wildflower |
-| Hill+Trop | Root 4.0×/height 2.0× + disease 1.8× | root↓, height↓, defense↑ | Grass/Forb | Bunchgrass, defended forbs |
-| Hill+Med | Root 4.0×/height 2.0× + fire + summer drought | wood↑ (fire), root↓, wStor moderate | Shrub > Succulent | Med Shrub, Barrel Cactus |
-| Hill+Des | Root 4.0×/height 2.0× + extreme drought | wStor↑ (no Hill penalty), root↓, seedSz↑ | Succulent | Saguaro, Barrel Cactus |
-| Wet+Temp | Root 3.5×, wStor 8.0×, leaf 0.85× | leaf↑, height↑ (1.5× bonus), root↓, wStor↓↓ | Tree/Forb | Sedge, Mangrove, Fern |
-| Wet+Trop | Root/wStor penalty + disease 1.8× | leaf↑, defense↑, wStor↓↓ | Tree > Forb | Tropical Tree, Mangrove |
-| Wet+Med | Root/wStor + fire + drought (0.7×0.3 water) | leaf↑, wood↑ (fire), wStor↓↓ | Shrub/Tree | Mangrove, Sedge |
-| Wet+Des | Oasis: wetland water buffers desert drought | leaf↑, height↑, root↓, wStor↓↓ | Tree/Forb | Palm, Sedge |
-| Arid+Temp | Leaf 2.5×, root cheap 0.8× | root↑, wStor↑, leaf↓, seedSz↑ | Succulent > Shrub | Desert Shrub, Saguaro |
-| Arid+Trop | Leaf penalty + disease, tropical water helps | root↑, wStor↑, defense↑ | Shrub > Succulent | Acacia, Desert Shrub |
-| Arid+Med | Leaf + fire + drought (0.25×0.3 = 0.075) | wood↑, root↑, wStor↑, leaf↓↓ | Succulent | Barrel Cactus, Saguaro |
-| Arid+Des | EXTREME (0.0375 summer water) | wStor MAX, root↑, leaf MIN | Succulent or **extinct** | Saguaro / extinction |
+See Section 18 for the definitive subtype target matrix. Below are the ecological pressures per niche.
+
+| Niche | Key Pressure | Traits Favored (↑) / Penalized (↓) | Expected Archetype |
+|-------|-------------|-------------------------------------|--------------------|
+| Soil+Temp | Winter dormancy, mixed competition | leaf↑, seedInv↑, wStor↓ (2.5×) | Grass/Forb/Shrub mix |
+| Soil+Trop | Disease 1.8×, year-round growth | defense↑, leaf↑, wStor↓ | Forb > Shrub |
+| Soil+Med | Fire 2.0×, summer drought 0.3× | wood↑ (fire bark), seedInv↑, leaf↓ | Shrub |
+| Soil+Des | Extreme drought 0.15×, winter 1.8× leafMaint | wStor↑ (but 2.5× cost), root↑ | Shrub > Grass |
+| Hill+Temp | Root 4.0×, height 2.0× | root↓, height↓, seedSz↑ | Grass > Forb |
+| Hill+Trop | Root 4.0×/height 2.0× + disease 1.8× | root↓, height↓, defense↑ | Grass/Forb |
+| Hill+Med | Root 4.0×/height 2.0× + fire + drought | wood↑ (fire), root↓, wStor moderate | Shrub > Succulent |
+| Hill+Des | Root 4.0×/height 2.0× + extreme drought | wStor↑ (no Hill penalty), root↓, seedSz↑ | Succulent |
+| Wet+Temp | Root 3.5×, wStor 8.0×, leaf 0.85×, height bonus 1.5× | leaf↑, height↑, root↓, wStor↓↓ | Tree > Forb |
+| Wet+Trop | Root/wStor penalty + disease 1.8× | leaf↑, defense↑, wStor↓↓ | Tree > Forb |
+| Wet+Med | Root/wStor + fire + drought (0.7×0.3 water) | leaf↑, wood↑ (fire), wStor↓↓ | Shrub/Tree |
+| Wet+Des | Oasis: wetland water buffers desert drought | leaf↑, height↑, root↓, wStor↓↓ | Tree/Forb |
+| Arid+Temp | Leaf 2.5×, root cheap 0.8× | root↑, wStor↑, leaf↓, seedSz↑ | Succulent > Shrub |
+| Arid+Trop | Leaf penalty + disease, tropical water helps | root↑, wStor↑, defense↑ | Shrub > Succulent |
+| Arid+Med | Leaf + fire + drought (0.25×0.3 = 0.075) | wood↑, root↑, wStor↑, leaf↓↓ | Succulent |
+| Arid+Des | EXTREME (0.0375 summer water) | wStor MAX, root↑, leaf MIN | Succulent or **extinct** |
 
 ### 16.6 Results
 
-**Terrain differentiation** (verified, 8000-tick niche matrix runs):
-
-| Terrain | Dominant Archetype | Notes |
-|---------|-------------------|-------|
-| Soil | Tree | Height discount (0.7×) drives toward tall woody plants. Shading competition reinforces. |
-| Hill | Grass | Root penalty (4.0×) and height penalty (2.0×) select for small herbaceous plants. |
-| Wetland | Forb | Root penalty (3.5×) + leaf discount (0.85×) favor leafy low-root plants. |
-| Arid | Succulent | wStorage discount (0.3×) + leaf penalty (2.5×) reliably push waterStorage above 0.55 gate. |
-
-**Zone differentiation** (verified, partial — zone effects weaker than terrain):
-
-| Zone | Observed Effect | Key Mechanism |
-|------|----------------|---------------|
-| Tropical | Defended trees (defense >0.5), exclusive to tropical pockets | Defense maintenance 0.2× makes defense trait nearly free |
-| Mediterranean | Shrubs and forbs; summer leaf stress (2.0×) penalizes large leaves | Leaf maintenance spike + fire pressure |
-| Desert | Shrubs and forbs with moderate water storage | wStorage maintenance 0.4× + high leaf maintenance year-round |
-| Temperate | Baseline — trees on soil, grass on hill | No special zone pressure |
-
-**Known gaps**: Zone differentiation is weaker than terrain differentiation. Some species span 2-3 zones. Fire deaths <2% — insufficient to select for woodiness in Mediterranean. Disease too rare outside Tropical to select for defense.
-
-Pending — detailed per-pocket subtype tables (need longer runs and repeated trials).
+Pending — tuning in progress. Previous results invalidated by Soil height discount bug (see Section 17). Re-run after fixes.
 
 ### 16.7 Diagnostics
 
@@ -630,6 +618,11 @@ Signals that indicate broken mechanics:
 
 ## 17. KNOWN ISSUES & TODO
 
+### Tuning bugs (blocking accurate results)
+- **Soil height discount (0.7×) causes tree dominance on Soil** — Trees should NOT dominate Soil terrain. Only Wetland should reliably produce trees. `SOIL_MAINT_HEIGHT_MULT` needs to be ≥1.0 so Soil favors mixed grass/forb/shrub communities.
+- **Archetype gate order allows grass→succulent bypass** — `archetype()` checks `woodiness<0.4` before `waterStorage≥0.55`. Grasses evolving high waterStorage on Arid terrain remain classified as Grass instead of becoming Succulent. Gate needs reordering so waterStorage≥0.55 is checked first (or alongside woodiness).
+- **Wetland produces Forb instead of Tree** — Wetland's root penalty (3.5×) may be too harsh for trees despite the height light bonus (1.5×). Trees should dominate Wetland.
+
 ### Trait drift issues
 - **seedSize drifts down** — Needs competitive establishment mortality (seedlings in shaded cells face survival pressure proportional to seedSizeVigor)
 - **longevity may drift up** — Senescence onset at 30% maxAge, 4× maintenance at maxAge, 0.08/tick scaled by maturity. May need stronger/earlier onset.
@@ -637,4 +630,60 @@ Signals that indicate broken mechanics:
 ### Missing mechanics
 - **Shelter from shade** — Tall neighbors shade + shelter. Shelter reduces leaf maintenance by up to 30%, creating understory niche and nurse-plant dynamics.
 - **Litter mulch on death** — Dead plants leave mulch reducing drought evaporation. Pioneer succession emerges naturally.
+
+---
+
+## 18. SUBTYPE TARGET MATRIX
+
+**Goal:** Define which subtypes should appear in each terrain×zone niche. Run experiments, compare results to targets, adjust simulation constants until results match. Iterate until realistic.
+
+**Process:**
+1. Define target subtypes per niche (this section)
+2. Run quad experiments (`experiment-terrain-quad`, `experiment-zone-quad`)
+3. Compare dominant subtypes in each pocket against targets
+4. Adjust simulation values (terrain multipliers, zone modifiers, archetype gate, subtype scoring)
+5. Re-run and repeat until targets are met
+
+### 18.1 Terrain × Temperate (isolated terrain effects)
+
+| Terrain | Target Archetype | Target Subtypes (dominant → secondary) | Ecological Rationale |
+|---------|-----------------|----------------------------------------|---------------------|
+| Soil | Grass/Forb mix | Tallgrass, Wildflower, Hazel | European meadow/pasture — grasses and wildflowers dominate, occasional shrubs |
+| Hill | Grass | Bunchgrass, Turfgrass, Wildflower | Alpine/rocky grassland — shallow roots, compact growth |
+| Wetland | Tree > Forb | Birch, Sedge, Fern, Mangrove | Riparian forest — birch/alder-type trees, sedges and ferns underneath |
+| Arid | Succulent > Shrub | Saltbush, Saguaro, Aloe, Desert Grass | Scrubland — succulents and drought-hardy shrubs |
+
+### 18.2 Soil × Zone (isolated zone effects)
+
+| Zone | Target Archetype | Target Subtypes (dominant → secondary) | Ecological Rationale |
+|------|-----------------|----------------------------------------|---------------------|
+| Temperate | Grass/Forb mix | Tallgrass, Wildflower, Hazel | European meadow |
+| Tropical | Forb > Tree | Tropical Herb, Fern, Tropical Tree | Lush broadleaf understory, some canopy trees |
+| Mediterranean | Shrub | Mediterranean, Aromatic, Wildflower | Garrigue/maquis — small-leaved drought-adapted shrubs |
+| Desert | Shrub > Grass | Saltbush, Desert Grass, Desert Annual | Sparse scrub, ephemeral grasses after rain |
+
+### 18.3 Full 16-niche targets
+
+| Niche | Primary Subtypes | Secondary Subtypes |
+|-------|------------------|--------------------|
+| **Soil+Temp** | Tallgrass, Wildflower | Hazel, Turfgrass |
+| **Soil+Trop** | Tropical Herb, Fern | Tropical Tree, Vine |
+| **Soil+Med** | Mediterranean, Aromatic | Wildflower, Cypress |
+| **Soil+Des** | Saltbush, Desert Grass | Desert Annual, Aromatic |
+| **Hill+Temp** | Bunchgrass, Wildflower | Turfgrass |
+| **Hill+Trop** | Bunchgrass, Tropical Herb | Wildflower |
+| **Hill+Med** | Bunchgrass, Aromatic | Mediterranean, Barrel Cactus |
+| **Hill+Des** | Saguaro, Barrel Cactus | Desert Grass |
+| **Wet+Temp** | Birch, Sedge | Fern, Mangrove |
+| **Wet+Trop** | Tropical Tree, Mangrove | Fern, Palm |
+| **Wet+Med** | Mangrove, Sedge | Fern |
+| **Wet+Des** | Palm, Sedge | Fern |
+| **Arid+Temp** | Saltbush, Saguaro | Aloe, Desert Grass |
+| **Arid+Trop** | Acacia, Aloe | Saltbush |
+| **Arid+Med** | Barrel Cactus, Saguaro | Aromatic |
+| **Arid+Des** | Saguaro, Barrel Cactus | (sparse / near-extinction) |
+
+### 18.4 Tuning Progress
+
+Pending — run experiments after fixing Section 17 bugs.
 
