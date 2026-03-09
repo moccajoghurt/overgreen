@@ -1,4 +1,4 @@
-import { World, ClimateZone, Renderer } from './types';
+import { World, ClimateZone, TerrainType, Renderer } from './types';
 
 const MIN_REGION_SIZE = 15;
 
@@ -39,7 +39,10 @@ function findZoneRegions(world: World): ZoneRegion[] {
     for (let x = 0; x < W; x++) {
       const idx = y * W + x;
       if (visited[idx]) continue;
-      const zone = world.grid[y][x].climateZone;
+      const cell = world.grid[y][x];
+      // Skip Rock cells — they're barriers, not meaningful zone regions
+      if (cell.terrainType === TerrainType.Rock) { visited[idx] = 1; continue; }
+      const zone = cell.climateZone;
 
       // BFS
       const queue: number[] = [idx];
@@ -61,7 +64,9 @@ function findZoneRegions(world: World): ZoneRegion[] {
           if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
           const ni = ny * W + nx;
           if (visited[ni]) continue;
-          if (world.grid[ny][nx].climateZone !== zone) continue;
+          const nb = world.grid[ny][nx];
+          if (nb.terrainType === TerrainType.Rock) continue;
+          if (nb.climateZone !== zone) continue;
           visited[ni] = 1;
           queue.push(ni);
         }
