@@ -8,7 +8,7 @@ export interface WaterSurface {
   update: (env: Environment, sunDirection: THREE.Vector3, fogColor: THREE.Color) => void;
 }
 
-const WATER_OFFSET = -0.3;     // water surface sits below bank terrain level
+const WATER_OFFSET = -0.15;    // water surface sits below bank terrain level
 const SEA_ELEV_THRESHOLD = 0.15;
 
 // Seasonal water body color + sky reflection color (HSL)
@@ -325,21 +325,24 @@ export function createWaterSurface(world: World): WaterSurface {
       for (const [r, c] of comp) compSet.add(r * GRID + c);
 
       // River-only elevation corners: each corner's Y is the average of adjacent
-      // RIVER cells only. This gives a water surface that slopes downstream
-      // but is flat across the river width (bank terrain doesn't pull water up).
+      // RIVER cells only, capped against the overall terrain corner elevation.
+      // This prevents water from floating above bank terrain when river cells
+      // are at higher elevation than neighboring land cells.
       const riverYCorners = new Float32Array(csz * csz).fill(-1);
       for (let cy = 0; cy <= GRID; cy++) {
         for (let cx = 0; cx <= GRID; cx++) {
-          let maxElev = -Infinity, count = 0;
+          let sumElev = 0, count = 0;
           for (const [dr, dc] of CELL_OFFSETS) {
             const gr = cy + dr, gc = cx + dc;
             if (gr >= 0 && gr < GRID && gc >= 0 && gc < GRID && compSet.has(gr * GRID + gc)) {
-              maxElev = Math.max(maxElev, world.grid[gr][gc].elevation);
+              sumElev += world.grid[gr][gc].elevation;
               count++;
             }
           }
           if (count > 0) {
-            riverYCorners[cy * csz + cx] = maxElev * ELEV_SCALE + WATER_OFFSET;
+            const riverY = (sumElev / count) * ELEV_SCALE;
+            const terrainY = elevCorners[cy * csz + cx]; // avg of ALL adjacent cells
+            riverYCorners[cy * csz + cx] = Math.min(riverY, terrainY) + WATER_OFFSET;
           }
         }
       }

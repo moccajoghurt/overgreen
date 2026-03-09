@@ -76,6 +76,13 @@ export function updateTerrainColors(state: RendererState): void {
     for (let x = 0; x < GRID; x++) {
       const cell = world.grid[y][x];
       const idx = y * GRID + x;
+      // River cells get a dark underwater tint so depressed riverbed looks submerged
+      if (cell.terrainType === TerrainType.River) {
+        cellBaseR[idx] = 0.08;
+        cellBaseG[idx] = 0.12;
+        cellBaseB[idx] = 0.14;
+        continue;
+      }
       const rgb = TERRAIN_RGB[cell.terrainType] ?? TERRAIN_RGB[TerrainType.Soil];
       if (cell.terrainType === TerrainType.Rock) {
         const e = cell.elevation;

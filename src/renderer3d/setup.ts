@@ -88,7 +88,7 @@ function smoothTerrainNormals(
 const CELL_OFFSETS: [number, number][] = [[0, 0], [-1, 0], [0, -1], [-1, -1]];
 
 /** River depth in 3D units — how far below bank terrain the riverbed sits. */
-export const RIVER_DEPTH = 1.5;
+export const RIVER_DEPTH = 0.8;
 
 /**
  * Depress terrain corners at/near river cells to carve a riverbed channel.
