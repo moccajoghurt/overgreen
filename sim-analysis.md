@@ -62,11 +62,11 @@
 ### Maintenance:
 ```
   structuralCost = base + height×perHeight + rootDepth×perRoot + effectiveLeaf×perLeaf
-  traitCost = defense×0.05 + waterStorage×0.04×wStorageMult
+  traitCost = defense×0.05×zoneDefMult + waterStorage×0.04×terrWStorMult×zoneWStorMult
             + seedInvestment×0.04 + longevity×0.08
   maturity = min(1, height / maxHeight)
   cost = structuralCost + maturity × traitCost
-  (terrain multipliers applied per-trait, see Section 5)
+  (terrain multipliers per-trait: Section 5; zone multipliers: Section 15)
 ```
 
 Trait maintenance scales with maturity — seedlings haven't built defense structures, water storage tissue, reproductive organs, or longevity adaptations yet. Small seedlings pay near-zero trait overhead, ramping up as they grow. Structural costs (height/root/leaf) scale naturally with plant size.
@@ -134,16 +134,24 @@ Nutrients amplify energy but don't hard-gate like water. Decomposition creates l
 
 ## 5. TERRAIN SPECIALIZATION
 
-### Maintenance cost multipliers (Soil = 1.0):
+### Maintenance cost multipliers by terrain:
 ```
-  ┌──────────┬───────┬────────┬──────┐
-  │ Terrain  │ Root  │ Height │ Leaf │
-  ├──────────┼───────┼────────┼──────┤
-  │ Hill     │ 3.0   │ 1.5    │ 1.0  │
-  │ Wetland  │ 2.5   │ 1.0    │ 0.85 │
-  │ Arid     │ 0.8   │ 1.2    │ 2.0  │
-  └──────────┴───────┴────────┴──────┘
+  ┌──────────┬───────┬────────┬──────┬──────────┐
+  │ Terrain  │ Root  │ Height │ Leaf │ wStorage │
+  ├──────────┼───────┼────────┼──────┼──────────┤
+  │ Soil     │ 1.0   │ 0.7    │ 1.0  │ 2.5      │
+  │ Hill     │ 4.0   │ 2.0    │ 1.2  │ 1.0      │
+  │ Wetland  │ 3.5   │ 1.0    │ 0.85 │ 8.0      │
+  │ Arid     │ 0.8   │ 1.5    │ 2.5  │ 0.3      │
+  └──────────┴───────┴────────┴──────┴──────────┘
 ```
+
+- **Soil** height 0.7× — deep soil supports tall growth cheaply → selects for trees
+- **Soil** wStorage 2.5× — no advantage to succulence in reliable rain
+- **Hill** root 4.0× — rock is hard to dig → selects against deep roots
+- **Wetland** wStorage 8.0× — succulent tissue rots in waterlogged soil
+- **Arid** wStorage 0.3× — succulent tissue strongly advantageous → selects for succulents
+- **Arid** leaf 2.5× — transpiration water loss penalizes large leaves
 
 ---
 
@@ -225,7 +233,7 @@ Pending — re-run with zone-controlled scenarios.
   no growth, no seeds. Plants survive on stored energy.
 ```
 
-Temperate winter is the harshest (leafMaint 2.0×). Tropical winter is mild (1.2×). Desert (1.8×) and Mediterranean (1.6×) are intermediate. Root insulation (deep roots) reduces leaf maintenance penalty by up to 80%.
+Peak leaf stress by zone: Desert summer (2.5×), Temperate winter and Med summer (2.0×), Desert winter (1.8×), Med winter (1.6×). Tropical never exceeds 1.0×. Root insulation (deep roots) reduces leaf maintenance penalty by up to 80%.
 
 ---
 
@@ -326,7 +334,7 @@ Internal water tank for drought tolerance + succulent transpiration reduction. G
 ```
   Capacity: waterStorage × 5.0
   Fill rate: rootDepth × 0.5 (from cell water, only when transpiration fully met)
-  Maintenance: waterStorage × 0.015/tick
+  Maintenance: waterStorage × 0.04/tick (×terrain wStorageMult ×zone wStorageMult)
   Draw: when waterFraction < 1, draw deficit from tank before scaling photosynthesis
   Transpiration reduction: (storedWater/capacity) × 0.3 → up to 30% less water needed
     Only active when tank has water — empty tank = no benefit
@@ -426,9 +434,9 @@ Four climate zones provide spatial variation in seasonal regime. Each cell belon
 
 ### Zones:
 - **Temperate** — Strong seasonality: cold lethal winter (leafMaint 2.0×), wet spring, dry summer. The baseline regime.
-- **Tropical** — Mild winters (leafMaint 1.2×), high water year-round (0.9-1.4×), year-round growth (min 0.3×, never fully shuts down). High disease risk (1.8×).
-- **Mediterranean** — Inverted wet/dry: severe summer drought (water 0.3×) with bright light (1.25×), wet cold winters (water 1.4×, leafMaint 1.6×). Fire-prone (2.0×). Peak growth and seeding in spring.
-- **Desert** — Chronic aridity (water 0.15-0.70×), bright light year-round, harsh winter (leafMaint 1.8×). Low disaster rates.
+- **Tropical** — Mild year-round (leafMaint never exceeds 1.0×), high water (0.9-1.4×), year-round growth (min 0.3×, never fully shuts down). High disease risk (1.8×). Defense maintenance 0.2× (nearly free).
+- **Mediterranean** — Inverted wet/dry: severe summer drought (water 0.3×) with scorching leaf stress (leafMaint 2.0×), wet cold winters (water 1.4×, leafMaint 1.6×). Fire-prone (2.0×). Peak growth and seeding in spring.
+- **Desert** — Chronic aridity (water 0.15-0.70×), bright light year-round, extreme summer leaf stress (2.5×), harsh winter (leafMaint 1.8×). Water storage maintenance 0.4× (cheap). Low disaster rates.
 
 ### Seasonal modifier tables:
 
@@ -439,10 +447,10 @@ Tropical:
   ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
   │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
   ├─────────┼───────┼───────┼──────────┼────────┼──────┤
-  │ Spring  │ 1.30  │ 1.10  │  1.0     │ 1.20   │ 1.0  │
-  │ Summer  │ 1.40  │ 1.20  │  1.0     │ 1.10   │ 0.8  │
-  │ Autumn  │ 1.10  │ 0.95  │  1.1     │ 0.80   │ 0.5  │
-  │ Winter  │ 0.90  │ 0.85  │  1.2     │ 0.30   │ 0.1  │
+  │ Spring  │ 1.30  │ 1.10  │  0.9     │ 1.20   │ 1.0  │
+  │ Summer  │ 1.40  │ 1.20  │  0.9     │ 1.10   │ 0.8  │
+  │ Autumn  │ 1.10  │ 0.95  │  0.95    │ 0.80   │ 0.5  │
+  │ Winter  │ 0.90  │ 0.85  │  1.0     │ 0.30   │ 0.1  │
   └─────────┴───────┴───────┴──────────┴────────┴──────┘
 ```
 
@@ -452,8 +460,8 @@ Mediterranean:
   │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
   ├─────────┼───────┼───────┼──────────┼────────┼──────┤
   │ Spring  │ 1.30  │ 1.10  │  1.0     │ 1.40   │ 1.2  │
-  │ Summer  │ 0.30  │ 1.25  │  1.0     │ 0.60   │ 0.5  │
-  │ Autumn  │ 0.70  │ 0.90  │  1.0     │ 0.40   │ 0.2  │
+  │ Summer  │ 0.30  │ 1.25  │  2.0     │ 0.60   │ 0.5  │
+  │ Autumn  │ 0.70  │ 0.90  │  1.2     │ 0.40   │ 0.2  │
   │ Winter  │ 1.40  │ 0.65  │  1.6     │ 0.00   │ 0.0  │
   └─────────┴───────┴───────┴──────────┴────────┴──────┘
 ```
@@ -463,9 +471,9 @@ Desert:
   ┌─────────┬───────┬───────┬──────────┬────────┬──────┐
   │ Season  │ Water │ Light │ LeafMaint│ Growth │ Seed │
   ├─────────┼───────┼───────┼──────────┼────────┼──────┤
-  │ Spring  │ 0.70  │ 1.05  │  1.0     │ 1.00   │ 0.8  │
-  │ Summer  │ 0.15  │ 1.30  │  1.2     │ 0.30   │ 0.1  │
-  │ Autumn  │ 0.30  │ 1.00  │  1.0     │ 0.30   │ 0.2  │
+  │ Spring  │ 0.70  │ 1.05  │  1.3     │ 1.00   │ 0.8  │
+  │ Summer  │ 0.15  │ 1.30  │  2.5     │ 0.30   │ 0.1  │
+  │ Autumn  │ 0.30  │ 1.00  │  1.3     │ 0.30   │ 0.2  │
   │ Winter  │ 0.50  │ 0.70  │  1.8     │ 0.00   │ 0.0  │
   └─────────┴───────┴───────┴──────────┴────────┴──────┘
 ```
@@ -482,9 +490,24 @@ Zone modifiers multiply terrain base recharge/light each tick:
 
 4 terrains × 4 zones = 16 distinct environments before accounting for microhabitat variation (river adjacency, hill exposure, etc.).
 
+### Zone maintenance multipliers (compound with terrain multipliers):
+```
+  ┌───────────────┬─────────────┬──────────────┐
+  │ Zone          │ defenseMult │ wStorageMult │
+  ├───────────────┼─────────────┼──────────────┤
+  │ Temperate     │ 1.0         │ 1.0          │
+  │ Tropical      │ 0.2         │ 1.0          │
+  │ Mediterranean │ 1.0         │ 1.0          │
+  │ Desert        │ 1.0         │ 0.4          │
+  └───────────────┴─────────────┴──────────────┘
+```
+
+- **Tropical** defense 0.2× — disease-rich environment makes defense tissue nearly free to maintain. Plants reliably evolve high defense (d>0.5).
+- **Desert** wStorage 0.4× — extreme drought makes water storage tissue cheap. Compounds with Arid terrain's 0.3× for an effective 0.12× on Arid+Desert.
+
 ### Observed climate zone evolution:
 
-Pending — no zone-controlled experiments run yet.
+Pending — need comprehensive per-pocket analysis.
 
 ---
 
@@ -552,22 +575,42 @@ Run via: `npx tsx scripts/run-experiment.ts <scenario-id> --ticks 5000 --interva
 | Soil+Trop | Disease 1.8×, year-round growth | defense↑, leaf↑, wStor↓ | Tree > Forb | Tropical Tree, Fern |
 | Soil+Med | Fire 2.0×, summer drought 0.3× | wood↑ (fire bark), seedInv↑, leaf↓ | Shrub > Tree | Med Shrub, Cypress |
 | Soil+Des | Extreme drought 0.15×, winter 1.8× leafMaint | wStor↑ (but 2.5× cost), root↑ | Shrub > Grass | Desert Shrub, Desert Grass |
-| Hill+Temp | Root 3.0×, height 1.5×, seedSz amplified | root↓, height↓, seedSz↑ | Grass > Forb | Bunchgrass, Wildflower |
-| Hill+Trop | Root/height penalty + disease 1.8× | root↓, height↓, defense↑ | Grass/Forb | Bunchgrass, defended forbs |
-| Hill+Med | Root/height + fire + summer drought | wood↑ (fire), root↓, wStor moderate | Shrub > Succulent | Med Shrub, Barrel Cactus |
-| Hill+Des | Root/height + extreme drought | wStor↑ (no Hill penalty), root↓, seedSz↑ | Succulent | Saguaro, Barrel Cactus |
-| Wet+Temp | Root 2.5×, wStor 8.0×, leaf 0.85× | leaf↑, height↑ (1.5× bonus), root↓, wStor↓↓ | Tree/Forb | Sedge, Mangrove, Fern |
+| Hill+Temp | Root 4.0×, height 2.0×, seedSz amplified | root↓, height↓, seedSz↑ | Grass > Forb | Bunchgrass, Wildflower |
+| Hill+Trop | Root 4.0×/height 2.0× + disease 1.8× | root↓, height↓, defense↑ | Grass/Forb | Bunchgrass, defended forbs |
+| Hill+Med | Root 4.0×/height 2.0× + fire + summer drought | wood↑ (fire), root↓, wStor moderate | Shrub > Succulent | Med Shrub, Barrel Cactus |
+| Hill+Des | Root 4.0×/height 2.0× + extreme drought | wStor↑ (no Hill penalty), root↓, seedSz↑ | Succulent | Saguaro, Barrel Cactus |
+| Wet+Temp | Root 3.5×, wStor 8.0×, leaf 0.85× | leaf↑, height↑ (1.5× bonus), root↓, wStor↓↓ | Tree/Forb | Sedge, Mangrove, Fern |
 | Wet+Trop | Root/wStor penalty + disease 1.8× | leaf↑, defense↑, wStor↓↓ | Tree > Forb | Tropical Tree, Mangrove |
 | Wet+Med | Root/wStor + fire + drought (0.7×0.3 water) | leaf↑, wood↑ (fire), wStor↓↓ | Shrub/Tree | Mangrove, Sedge |
 | Wet+Des | Oasis: wetland water buffers desert drought | leaf↑, height↑, root↓, wStor↓↓ | Tree/Forb | Palm, Sedge |
-| Arid+Temp | Leaf 2.0×, root cheap 0.8× | root↑, wStor↑, leaf↓, seedSz↑ | Succulent > Shrub | Desert Shrub, Saguaro |
+| Arid+Temp | Leaf 2.5×, root cheap 0.8× | root↑, wStor↑, leaf↓, seedSz↑ | Succulent > Shrub | Desert Shrub, Saguaro |
 | Arid+Trop | Leaf penalty + disease, tropical water helps | root↑, wStor↑, defense↑ | Shrub > Succulent | Acacia, Desert Shrub |
 | Arid+Med | Leaf + fire + drought (0.25×0.3 = 0.075) | wood↑, root↑, wStor↑, leaf↓↓ | Succulent | Barrel Cactus, Saguaro |
 | Arid+Des | EXTREME (0.0375 summer water) | wStor MAX, root↑, leaf MIN | Succulent or **extinct** | Saguaro / extinction |
 
 ### 16.6 Results
 
-Pending — run experiments and fill per-pocket results tables.
+**Terrain differentiation** (verified, 8000-tick niche matrix runs):
+
+| Terrain | Dominant Archetype | Notes |
+|---------|-------------------|-------|
+| Soil | Tree | Height discount (0.7×) drives toward tall woody plants. Shading competition reinforces. |
+| Hill | Grass | Root penalty (4.0×) and height penalty (2.0×) select for small herbaceous plants. |
+| Wetland | Forb | Root penalty (3.5×) + leaf discount (0.85×) favor leafy low-root plants. |
+| Arid | Succulent | wStorage discount (0.3×) + leaf penalty (2.5×) reliably push waterStorage above 0.55 gate. |
+
+**Zone differentiation** (verified, partial — zone effects weaker than terrain):
+
+| Zone | Observed Effect | Key Mechanism |
+|------|----------------|---------------|
+| Tropical | Defended trees (defense >0.5), exclusive to tropical pockets | Defense maintenance 0.2× makes defense trait nearly free |
+| Mediterranean | Shrubs and forbs; summer leaf stress (2.0×) penalizes large leaves | Leaf maintenance spike + fire pressure |
+| Desert | Shrubs and forbs with moderate water storage | wStorage maintenance 0.4× + high leaf maintenance year-round |
+| Temperate | Baseline — trees on soil, grass on hill | No special zone pressure |
+
+**Known gaps**: Zone differentiation is weaker than terrain differentiation. Some species span 2-3 zones. Fire deaths <2% — insufficient to select for woodiness in Mediterranean. Disease too rare outside Tropical to select for defense.
+
+Pending — detailed per-pocket subtype tables (need longer runs and repeated trials).
 
 ### 16.7 Diagnostics
 
