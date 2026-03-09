@@ -19,6 +19,30 @@ export enum Season {
   Winter = 3,
 }
 
+export enum ClimateZone {
+  Temperate = 0,
+  Tropical = 1,
+  Mediterranean = 2,
+  Desert = 3,
+}
+
+export const CLIMATE_ZONE_COUNT = 4;
+
+export const ZONE_NAMES: Record<ClimateZone, string> = {
+  [ClimateZone.Temperate]: 'Temperate',
+  [ClimateZone.Tropical]: 'Tropical',
+  [ClimateZone.Mediterranean]: 'Mediterranean',
+  [ClimateZone.Desert]: 'Desert',
+};
+
+export interface ZoneModifiers {
+  waterMult: number;
+  lightMult: number;
+  leafMaintenanceMult: number;
+  growthMult: number;
+  seedMult: number;
+}
+
 export const SEASON_LENGTH = 125;
 export const YEAR_LENGTH = 500;
 
@@ -61,6 +85,7 @@ export interface Environment {
   leafMaintenanceMult: number;
   growthMult: number;
   seedMult: number;
+  zoneModifiers: ZoneModifiers[]; // indexed by ClimateZone
   droughts: DroughtPatch[];
   aridDrySpell: { ticksRemaining: number } | null;
   fires: FireEvent[];

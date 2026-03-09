@@ -1,6 +1,7 @@
 import {
   Cell, SIM, TerrainType, World,
   Season, Environment, GRID_WIDTH, GRID_HEIGHT,
+  ClimateZone, CLIMATE_ZONE_COUNT, ZoneModifiers,
 } from '../types';
 
 // ── Terrain generation ──
@@ -219,6 +220,36 @@ function generateWetlands(
 }
 
 
+export function assignClimateZones(grid: Cell[][], w: number, h: number): void {
+  const scale = 25;
+  const coarseW = Math.ceil(w / scale) + 2;
+  const coarseH = Math.ceil(h / scale) + 2;
+  const coarse: number[][] = Array.from({ length: coarseH }, () =>
+    Array.from({ length: coarseW }, () => Math.random()),
+  );
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const gx = x / scale;
+      const gy = y / scale;
+      const ix = Math.floor(gx);
+      const iy = Math.floor(gy);
+      const fx = gx - ix;
+      const fy = gy - iy;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const top = coarse[iy][ix] + (coarse[iy][ix + 1] - coarse[iy][ix]) * sx;
+      const bot = coarse[iy + 1][ix] + (coarse[iy + 1][ix + 1] - coarse[iy + 1][ix]) * sx;
+      const v = top + (bot - top) * sy;
+
+      if (v < 0.25) grid[y][x].climateZone = ClimateZone.Desert;
+      else if (v < 0.45) grid[y][x].climateZone = ClimateZone.Mediterranean;
+      else if (v < 0.70) grid[y][x].climateZone = ClimateZone.Temperate;
+      else grid[y][x].climateZone = ClimateZone.Tropical;
+    }
+  }
+}
+
 function assignTerrainProperties(
   grid: Cell[][], elevation: number[][], w: number, h: number,
 ): void {
@@ -240,6 +271,10 @@ function assignTerrainProperties(
   }
 }
 
+function defaultZoneModifiers(): ZoneModifiers {
+  return { waterMult: 1.2, lightMult: 1.0, leafMaintenanceMult: 1.0, growthMult: 1.3, seedMult: 1.0 };
+}
+
 export function createEnvironment(): Environment {
   return {
     season: Season.Spring,
@@ -250,6 +285,7 @@ export function createEnvironment(): Environment {
     leafMaintenanceMult: 1.0,
     growthMult: 1.3,
     seedMult: 1.0,
+    zoneModifiers: Array.from({ length: CLIMATE_ZONE_COUNT }, () => defaultZoneModifiers()),
     droughts: [],
     aridDrySpell: null,
     fires: [],
@@ -271,6 +307,7 @@ export function createWorld(width: number, height: number): World {
         y,
         elevation: 0.5,
         terrainType: TerrainType.Soil,
+        climateZone: ClimateZone.Temperate,
         waterLevel: 3 + Math.random() * 4,
         waterRechargeRate: SIM.BASE_WATER_RECHARGE * (0.7 + Math.random() * 0.6),
         nutrients: 1 + Math.random() * 3,
@@ -291,6 +328,7 @@ export function createWorld(width: number, height: number): World {
   }
   generateRocks(grid, width, height);
   generateBiomes(grid, elevation, width, height);
+  assignClimateZones(grid, width, height);
   generateWetlands(grid, elevation, width, height);
   assignTerrainProperties(grid, elevation, width, height);
 

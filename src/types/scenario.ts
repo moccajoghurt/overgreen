@@ -1,4 +1,5 @@
 import { TerrainType, Genome, SpeciesColor } from './core';
+import { ClimateZone } from './environment';
 
 export interface ScenarioCell {
   x: number;
@@ -8,6 +9,7 @@ export interface ScenarioCell {
   water?: number;
   waterRecharge?: number;
   nutrients?: number;
+  climateZone?: ClimateZone;
 }
 
 export interface ScenarioSpecies {
@@ -25,6 +27,7 @@ export interface Scenario {
   size: number;
   defaultTerrain: TerrainType;
   defaultElevation?: number;
+  defaultZone?: ClimateZone;
   cells: ScenarioCell[];
   species: ScenarioSpecies[];
 }

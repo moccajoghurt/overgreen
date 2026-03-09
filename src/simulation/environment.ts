@@ -2,34 +2,72 @@ import {
   SIM, TerrainType, World, Plant,
   Season, SEASON_LENGTH, YEAR_LENGTH, SEASON_NAMES,
   Environment, DiseaseEvent, WeatherOverlay,
+  ClimateZone, CLIMATE_ZONE_COUNT,
 } from '../types';
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
 
-// Season target values: [water, light, leafMaint, growth, seed]
-const SEASON_TARGETS: Record<Season, [number, number, number, number, number]> = {
-  [Season.Spring]: [1.2, 1.0, 1.0, 1.3, 1.0],
-  [Season.Summer]: [0.8, 1.15, 1.0, 1.0, 1.0],
-  [Season.Autumn]: [1.0, 0.85, 1.0, 0.5, 0.3],
-  [Season.Winter]: [0.7, 0.6, 2.0, 0.0, 0.0],
+// [water, light, leafMaint, growth, seed]
+const ZONE_SEASON_TARGETS: Record<ClimateZone, Record<Season, [number,number,number,number,number]>> = {
+  [ClimateZone.Temperate]: {
+    [Season.Spring]: [1.2, 1.0, 1.0, 1.3, 1.0],
+    [Season.Summer]: [0.8, 1.15, 1.0, 1.0, 1.0],
+    [Season.Autumn]: [1.0, 0.85, 1.0, 0.5, 0.3],
+    [Season.Winter]: [0.7, 0.6, 2.0, 0.0, 0.0],
+  },
+  [ClimateZone.Tropical]: {
+    [Season.Spring]: [1.3, 1.1, 1.0, 1.2, 1.0],
+    [Season.Summer]: [1.4, 1.2, 1.0, 1.1, 0.8],
+    [Season.Autumn]: [1.1, 0.95, 1.1, 0.8, 0.5],
+    [Season.Winter]: [0.9, 0.85, 1.2, 0.3, 0.1],
+  },
+  [ClimateZone.Mediterranean]: {
+    [Season.Spring]: [1.3, 1.1, 1.0, 1.4, 1.2],
+    [Season.Summer]: [0.3, 1.25, 1.0, 0.6, 0.5],
+    [Season.Autumn]: [0.7, 0.9, 1.0, 0.4, 0.2],
+    [Season.Winter]: [1.4, 0.65, 1.6, 0.0, 0.0],
+  },
+  [ClimateZone.Desert]: {
+    [Season.Spring]: [0.7, 1.05, 1.0, 1.0, 0.8],
+    [Season.Summer]: [0.15, 1.3, 1.2, 0.3, 0.1],
+    [Season.Autumn]: [0.3, 1.0, 1.0, 0.3, 0.2],
+    [Season.Winter]: [0.5, 0.7, 1.8, 0.0, 0.0],
+  },
 };
 
-function computeSeasonModifiers(env: Environment): void {
-  const cur = SEASON_TARGETS[env.season];
-  const next = SEASON_TARGETS[((env.season + 1) % 4) as Season];
-  // Cosine interpolation for smooth transitions
-  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+// Zone disaster weight constants: [Temperate, Tropical, Mediterranean, Desert]
+const ZONE_FIRE_WEIGHT: number[] = [1.0, 0.3, 2.0, 0.5];
+const ZONE_DISEASE_WEIGHT: number[] = [1.0, 1.8, 0.5, 0.3];
+const ZONE_DROUGHT_WEIGHT: number[] = [1.0, 0.5, 1.5, 0.8];
 
-  env.waterMult = cur[0] + (next[0] - cur[0]) * t;
-  env.lightMult = cur[1] + (next[1] - cur[1]) * t;
-  env.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
-  env.growthMult = cur[3] + (next[3] - cur[3]) * t;
-  env.seedMult = cur[4] + (next[4] - cur[4]) * t;
+function computeSeasonModifiers(env: Environment): void {
+  const t = (1 - Math.cos(env.seasonProgress * Math.PI)) / 2;
+  const nextSeason = ((env.season + 1) % 4) as Season;
+
+  for (let zone = 0; zone < CLIMATE_ZONE_COUNT; zone++) {
+    const cur = ZONE_SEASON_TARGETS[zone as ClimateZone][env.season];
+    const next = ZONE_SEASON_TARGETS[zone as ClimateZone][nextSeason];
+    const zm = env.zoneModifiers[zone];
+    zm.waterMult = cur[0] + (next[0] - cur[0]) * t;
+    zm.lightMult = cur[1] + (next[1] - cur[1]) * t;
+    zm.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
+    zm.growthMult = cur[3] + (next[3] - cur[3]) * t;
+    zm.seedMult = cur[4] + (next[4] - cur[4]) * t;
+  }
+
+  // Set global fields to Temperate values for backward compat
+  const temperate = env.zoneModifiers[ClimateZone.Temperate];
+  env.waterMult = temperate.waterMult;
+  env.lightMult = temperate.lightMult;
+  env.leafMaintenanceMult = temperate.leafMaintenanceMult;
+  env.growthMult = temperate.growthMult;
+  env.seedMult = temperate.seedMult;
 }
 
 function spawnDrought(world: World): void {
   const centerX = Math.floor(Math.random() * world.width);
   const centerY = Math.floor(Math.random() * world.height);
+  if (Math.random() > ZONE_DROUGHT_WEIGHT[world.grid[centerY][centerX].climateZone]) return;
   const radius = randomIntRange(8, 21); // 8-20
   const duration = randomIntRange(30, 71); // 30-70 ticks
   const intensity = 0.6 + Math.random() * 0.35; // 0.6-0.95
@@ -77,6 +115,7 @@ export function spawnFire(world: World): void {
     const cell = world.grid[y][x];
     if (cell.plantId === null || cell.waterLevel > 2.0) continue;
     if (cell.terrainType === TerrainType.River) continue;
+    if (Math.random() > ZONE_FIRE_WEIGHT[cell.climateZone]) continue;
 
     const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: randomIntRange(8, 17) };
     world.environment.fires.push(fire);
@@ -261,6 +300,7 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
   }
 
   if (bestUniformity < SIM.DISEASE_MIN_UNIFORMITY || bestPlantId < 0) return;
+  if (Math.random() > ZONE_DISEASE_WEIGHT[world.grid[bestY][bestX].climateZone]) return;
 
   const patient = world.plants.get(bestPlantId)!;
   emitDisease(world, patient, bestX, bestY);

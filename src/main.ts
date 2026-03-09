@@ -1,4 +1,4 @@
-import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario } from './types';
+import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario, CLIMATE_ZONE_COUNT, ZONE_NAMES, ClimateZone } from './types';
 import { createWorld, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
@@ -262,6 +262,7 @@ function resetAllState(): void {
   renderer.rebuildTerrain();
   renderer.rebuildWater();
   terrainLabels.rebuild(world);
+  updateZoneLabel();
   lastUITick = -1;
   updateUI();
   renderer.moveTo(world.width / 2, world.height / 2);
@@ -286,6 +287,27 @@ const plantCount = document.getElementById('plant-count')!;
 const seasonLabel = document.getElementById('season-label')!;
 const yearLabel = document.getElementById('year-label')!;
 const herbivoreCount = document.getElementById('herbivore-count')!;
+const zoneLabel = document.getElementById('zone-label')!;
+
+function updateZoneLabel(): void {
+  const counts = new Array(CLIMATE_ZONE_COUNT).fill(0);
+  let total = 0;
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      counts[world.grid[y][x].climateZone]++;
+      total++;
+    }
+  }
+  const parts: string[] = [];
+  for (let z = 0; z < CLIMATE_ZONE_COUNT; z++) {
+    if (counts[z] > 0) {
+      const pct = Math.round(100 * counts[z] / total);
+      parts.push(`${ZONE_NAMES[z as ClimateZone]} ${pct}%`);
+    }
+  }
+  zoneLabel.textContent = parts.join(' · ');
+}
+updateZoneLabel();
 
 function updateUI(): void {
   tickLabel.textContent = String(world.tick);

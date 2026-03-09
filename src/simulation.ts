@@ -1,4 +1,4 @@
-import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants } from './types';
+import { Cell, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -23,7 +23,8 @@ function phaseRechargeWater(world: World): void {
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.grid[y][x];
-      let recharge = cell.waterRechargeRate * env.waterMult;
+      const zm = env.zoneModifiers[cell.climateZone];
+      let recharge = cell.waterRechargeRate * zm.waterMult;
 
       // Drought: reduce recharge + evaporate water
       for (const d of env.droughts) {
@@ -133,7 +134,8 @@ function phaseCalculateLight(world: World): void {
 
       const cell = world.grid[y][x];
       const rawBase = SIM.BASE_LIGHT + TERRAIN_PROPS[cell.terrainType].lightBonus;
-      const baseLight = rawBase * world.environment.lightMult;
+      const zm = world.environment.zoneModifiers[cell.climateZone];
+      const baseLight = rawBase * zm.lightMult;
       cell.lightLevel = Math.max(SIM.MIN_LIGHT, baseLight - shadeSum);
     }
   }
@@ -238,8 +240,9 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   const wStorageMult = tp.maintWStorageMult;
 
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  let leafMaint = effectiveLeaf * mLeaf * leafMult * world.environment.leafMaintenanceMult;
-  if (world.environment.leafMaintenanceMult > 1.01) {
+  const zm = world.environment.zoneModifiers[cell.climateZone];
+  let leafMaint = effectiveLeaf * mLeaf * leafMult * zm.leafMaintenanceMult;
+  if (zm.leafMaintenanceMult > 1.01) {
     const rootInsulation = Math.min(0.8, plant.rootDepth / maxRoot * 0.8);
     const penalty = leafMaint - effectiveLeaf * mLeaf * leafMult;
     leafMaint -= penalty * rootInsulation;
@@ -269,8 +272,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): void {
-  const env = world.environment;
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers): void {
   const pc = getPlantConstants(plant.genome);
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
@@ -281,8 +283,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World): vo
   const seedRangeDiv = pc.seedRangeHeightDivisor;
   const seedEnergy = pc.seedInitialEnergy;
 
-  const seedBudget = surplus * plant.genome.seedInvestment * env.seedMult;
-  const growthBudget = surplus * (1 - plant.genome.seedInvestment) * env.growthMult;
+  const seedBudget = surplus * plant.genome.seedInvestment * zm.seedMult;
+  const growthBudget = surplus * (1 - plant.genome.seedInvestment) * zm.growthMult;
 
   // Normalize genome priorities for growth allocation
   const total = plant.genome.rootPriority + plant.genome.heightPriority + plant.genome.leafSize;
@@ -419,12 +421,13 @@ function phaseUpdatePlants(world: World): void {
     }
 
     // Energy-based leaf drop: plant sheds leaves when losing energy in harsh conditions
-    if (energyProduced < maintenance && world.environment.leafMaintenanceMult > 1.0) {
+    const zmPlant = world.environment.zoneModifiers[cell.climateZone];
+    if (energyProduced < maintenance && zmPlant.leafMaintenanceMult > 1.0) {
       plant.leafArea = 0.1;
     }
 
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant);
     }
 
     plant.age++;

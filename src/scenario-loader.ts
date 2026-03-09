@@ -1,5 +1,5 @@
-import { World, Scenario, TerrainType, SIM } from './types';
-import { createEnvironment } from './simulation/terrain';
+import { World, Scenario, TerrainType, SIM, ClimateZone } from './types';
+import { createEnvironment, assignClimateZones } from './simulation/terrain';
 import { createPlant } from './simulation/plants';
 import { applyTerrainDefaults } from './simulation/terrain-defaults';
 
@@ -47,6 +47,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
         x, y,
         elevation: defaultElev,
         terrainType: scenario.defaultTerrain,
+        climateZone: ClimateZone.Temperate as ClimateZone,
         waterLevel: 3 + Math.random() * 4,
         waterRechargeRate: SIM.BASE_WATER_RECHARGE,
         nutrients: 1 + Math.random() * 3,
@@ -71,6 +72,21 @@ export function loadScenario(world: World, scenario: Scenario): void {
     if (sc.water !== undefined) cell.waterLevel = sc.water;
     if (sc.waterRecharge !== undefined) cell.waterRechargeRate = sc.waterRecharge;
     if (sc.nutrients !== undefined) cell.nutrients = sc.nutrients;
+  }
+
+  // 4b. Assign climate zones
+  if (scenario.defaultZone !== undefined) {
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        world.grid[y][x].climateZone = scenario.defaultZone;
+  } else {
+    assignClimateZones(world.grid, w, h);
+  }
+  // Per-cell zone overrides (applied after bulk assignment)
+  for (const sc of scenario.cells) {
+    if (sc.climateZone !== undefined && sc.x >= 0 && sc.x < w && sc.y >= 0 && sc.y < h) {
+      world.grid[sc.y][sc.x].climateZone = sc.climateZone;
+    }
   }
 
   // 5. Place species

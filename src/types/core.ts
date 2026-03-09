@@ -1,4 +1,4 @@
-import { Environment, EnvironmentEvent } from './environment';
+import { Environment, EnvironmentEvent, ClimateZone } from './environment';
 import { Herbivore, HerbivoreDeathEvent, HerbivoreBirthEvent } from './herbivore';
 
 export enum TerrainType {
@@ -68,6 +68,7 @@ export interface Cell {
   y: number;
   elevation: number;
   terrainType: TerrainType;
+  climateZone: ClimateZone;
   waterLevel: number;
   waterRechargeRate: number;
   nutrients: number;
