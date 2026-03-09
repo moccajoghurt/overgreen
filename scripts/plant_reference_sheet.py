@@ -18,24 +18,30 @@ ARCHETYPES = {
         ("1.2", "Tallgrass",       "Andropogon gerardii"),  # Big bluestem
         ("1.3", "Bunch grass",     "Festuca idahoensis"),   # Idaho fescue
         ("1.4", "Bamboo",          "Phyllostachys edulis"), # Moso bamboo
-        ("1.5", "Spreading grass",  "Cynodon dactylon"),     # Bermuda grass
+        ("1.5", "Spreading grass", "Cynodon dactylon"),     # Bermuda grass
         ("1.6", "Sedge/Rush",      "Cyperus papyrus"),      # Papyrus
+        ("1.7", "Pampas grass",    "Cortaderia selloana"),  # Pampas grass
+        ("1.8", "Desert grass",    "Stipagrostis plumosa"), # Desert plume grass
     ],
     "TREES": [
-        ("2.1", "Broadleaf deciduous", "Quercus robur"),       # English oak
-        ("2.2", "Broadleaf evergreen", "Magnolia grandiflora"), # Southern magnolia
-        ("2.3", "Conifer",             "Pinus sylvestris"),     # Scots pine
-        ("2.4", "Tropical hardwood",   "Swietenia mahagoni"),   # Mahogany
-        ("2.5", "Palm",                "Cocos nucifera"),       # Coconut palm
-        ("2.6", "Pioneer/fast-growth", "Betula pendula"),       # Silver birch
+        ("2.1", "Broadleaf deciduous", "Quercus robur"),         # English oak
+        ("2.2", "Broadleaf evergreen", "Magnolia grandiflora"),   # Southern magnolia
+        ("2.3", "Conifer",             "Pinus sylvestris"),       # Scots pine
+        ("2.4", "Tropical hardwood",   "Swietenia mahagoni"),     # Mahogany
+        ("2.5", "Palm",                "Cocos nucifera"),         # Coconut palm
+        ("2.6", "Pioneer/fast-growth", "Betula pendula"),         # Silver birch
+        ("2.7", "Cypress",             "Cupressus sempervirens"), # Italian cypress
+        ("2.8", "Acacia/Thorn tree",   "Vachellia tortilis"),     # Umbrella thorn
     ],
     "SHRUBS": [
-        ("3.1", "Evergreen shrub",  "Buxus sempervirens"),    # Boxwood
-        ("3.2", "Deciduous shrub",  "Sambucus nigra"),        # Elderberry
-        ("3.3", "Mediterranean",    "Rosmarinus officinalis"), # Rosemary
-        ("3.4", "Thorny/Armed",     "Ulex europaeus"),        # Gorse
-        ("3.5", "Desert shrub",     "Larrea tridentata"),     # Creosote bush
-        ("3.6", "Mangrove",         "Rhizophora mangle"),     # Red mangrove
+        ("3.1", "Evergreen shrub",   "Buxus sempervirens"),    # Boxwood
+        ("3.2", "Deciduous shrub",   "Sambucus nigra"),        # Elderberry
+        ("3.3", "Mediterranean",     "Rosmarinus officinalis"), # Rosemary
+        ("3.4", "Thorny/Armed",      "Ulex europaeus"),        # Gorse
+        ("3.5", "Desert shrub",      "Larrea tridentata"),     # Creosote bush
+        ("3.6", "Mangrove",          "Rhizophora mangle"),     # Red mangrove
+        ("3.7", "Flowering shrub",   "Hibiscus rosa-sinensis"),# Hibiscus
+        ("3.8", "Aromatic/Garrigue", "Lavandula angustifolia"),# Lavender
     ],
     "SUCCULENTS": [
         ("4.1", "Stem succulent (Cactus)", "Carnegiea gigantea"),  # Saguaro
@@ -44,14 +50,18 @@ ARCHETYPES = {
         ("4.4", "Euphorbia",               "Euphorbia ingens"),    # Candelabra tree
         ("4.5", "Ice plant/Mesemb",        "Lithops"),             # Living stones
         ("4.6", "Epiphytic succulent",     "Schlumbergera"),       # Christmas cactus
+        ("4.7", "Barrel cactus",           "Ferocactus wislizeni"),# Barrel cactus
+        ("4.8", "Jade/Crassula",           "Crassula ovata"),      # Jade plant
     ],
     "FORBS": [
-        ("5.1", "Broadleaf wildflower",  "Taraxacum officinale"),   # Dandelion
-        ("5.2", "Tall herb",             "Solidago canadensis"),    # Goldenrod
-        ("5.3", "Fern",                  "Dryopteris filix-mas"),   # Male fern
-        ("5.4", "Vine/Climber",          "Hedera helix"),           # English ivy
-        ("5.5", "Ground cover",          "Trifolium repens"),       # White clover
-        ("5.6", "Aquatic herb",          "Nymphaea alba"),          # White water lily
+        ("5.1", "Broadleaf wildflower", "Taraxacum officinale"),    # Dandelion
+        ("5.2", "Tall herb",            "Solidago canadensis"),     # Goldenrod
+        ("5.3", "Fern",                 "Dryopteris filix-mas"),    # Male fern
+        ("5.4", "Vine/Climber",         "Hedera helix"),            # English ivy
+        ("5.5", "Ground cover",         "Trifolium repens"),        # White clover
+        ("5.6", "Moss",                 "Polytrichum commune"),     # Common haircap moss
+        ("5.7", "Tropical herb",        "Heliconia rostrata"),      # Lobster claw
+        ("5.8", "Desert annual",        "Eschscholzia californica"),# California poppy
     ],
 }
 
@@ -82,7 +92,8 @@ EXACT_FILES: dict[str, str] = {
     "5.1": "File:Paardenbloem Taraxacum officinale.JPG",             # Dandelion whole rosette with flowers
     "5.3": "File:Dryopteris filix-mas 0001.JPG",                     # Male fern whole plant photo
     "5.5": "File:White clover (Trifolium repens) 001.jpg",             # White clover ground cover patch
-    "5.6": "File:Nymphaea alba 1.JPG",                               # Water lily with pads in pond
+    "5.6": "File:Moss Polytrichum commune.JPG",                       # Common haircap moss clump
+    "5.7": "File:Heliconia rostrata1.jpg",                              # Lobster claw whole plant
 }
 
 # Override search queries to get whole-plant silhouettes instead of fruit/seed closeups.
@@ -98,7 +109,17 @@ SEARCH_OVERRIDES: dict[str, list[str]] = {
     "5.1": ["Taraxacum officinale plant flower", "dandelion whole plant"],
     "5.4": ["Hedera helix climbing wall", "english ivy plant"],
     "5.5": ["Trifolium repens clover field", "white clover ground cover"],
-    "5.6": ["Nymphaea alba water lily pond", "white water lily flower"],
+    "5.6": ["Polytrichum commune moss", "haircap moss clump"],
+    "1.7": ["Cortaderia selloana pampas grass", "pampas grass plume"],
+    "1.8": ["Stipagrostis plumosa desert grass", "desert plume grass"],
+    "2.7": ["Cupressus sempervirens cypress tree", "Italian cypress"],
+    "2.8": ["Vachellia tortilis tree", "umbrella thorn acacia tree"],
+    "3.7": ["Hibiscus rosa-sinensis bush", "hibiscus shrub flower"],
+    "3.8": ["Lavandula angustifolia bush field", "lavender bush"],
+    "4.7": ["Ferocactus wislizeni barrel cactus", "barrel cactus plant"],
+    "4.8": ["Crassula ovata jade plant", "jade plant succulent"],
+    "5.7": ["Heliconia rostrata plant", "lobster claw heliconia"],
+    "5.8": ["Eschscholzia californica field", "california poppy wildflower"],
 }
 
 # Words in filenames that indicate fruit/seed/closeup — skip these
@@ -257,7 +278,7 @@ THUMB_H = 280
 PADDING = 16
 LABEL_H = 60    # Space for text below each image
 HEADER_H = 70   # Space for archetype header row
-COLS = 6        # Subtypes per archetype
+COLS = 8        # Subtypes per archetype
 ROWS = 5        # Archetypes
 
 # Colors
