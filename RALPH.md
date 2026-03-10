@@ -36,8 +36,14 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 
 4 experiments, each 80×80 with 35×35 pockets (1,225 cells). Run at 10,000 ticks, snapshot every 1000.
 
-```
-npx tsx scripts/run-experiment.ts <id> --ticks 10000 --interval 1000
+**Run all 4 in parallel** to save time (use `--out` and `&` + `wait`):
+
+```bash
+npx tsx scripts/run-experiment.ts experiment-terrain-quad --ticks 10000 --interval 1000 --out results/quad.json &
+npx tsx scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 10000 --interval 1000 --out results/tropical.json &
+npx tsx scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 10000 --interval 1000 --out results/mediterranean.json &
+npx tsx scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 10000 --interval 1000 --out results/desert.json &
+wait
 ```
 
 | Experiment                              | Climate       | Niches                        |
