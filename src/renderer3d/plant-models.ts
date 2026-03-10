@@ -3821,7 +3821,7 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   0.08,   // 29: Moss         0.05m → 0.017 (floored)
   // New climate-zone subtypes (30-39)
   0.67,   // 30: Pampas       2.0m  → 0.67
-  0.80,   // 31: Desert Grass 0.5m  → 0.80
+  0.45,   // 31: Desert Grass 0.5m  → 0.45
   6.67,   // 32: Cypress      20m   → 6.67
   4.00,   // 33: Acacia       12m   → 4.0
   1.50,   // 34: Flowering    3.0m  → 1.50
@@ -3904,7 +3904,7 @@ const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 
 
 /** Accent-only grass types — geometry is authored at world-unit scale, no model scaling.
  *  Carpet provides base coverage; these provide per-type visual identity. */
-const GRASS_ACCENT = new Set([0, 1, 4, 30, 31]); // turf, tall, spreading, pampas, desert grass
+const GRASS_ACCENT = new Set([0, 1, 4, 30]); // turf, tall, spreading, pampas
 
 function buildModelsFromBuilders(builders: (() => THREE.Group)[]): SubtypeModel[] {
   return builders.map((build, i) => {
