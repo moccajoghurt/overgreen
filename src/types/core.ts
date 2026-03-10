@@ -134,6 +134,8 @@ export interface Seed {
   energy: number;
   age: number;
   generation: number;
+  seedMaxAge: number;
+  seedGerminationWater: number;
 }
 
 export interface SeedLandingEvent {

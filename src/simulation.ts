@@ -414,6 +414,7 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
       : mutateGenome(plant.genome);
 
     // Create dormant seed instead of a live plant
+    const childConstants = getPlantConstants(childGenome);
     const seed: Seed = {
       speciesId: plant.speciesId,
       lineageRoot: plant.lineageRoot,
@@ -421,6 +422,8 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
       energy: effectiveSeedEnergy,
       age: 0,
       generation: plant.generation + 1,
+      seedMaxAge: childConstants.seedMaxAge,
+      seedGerminationWater: childConstants.seedGerminationWater,
     };
     plant.offspringCount++;
     targetCell.seeds.push(seed);
@@ -588,13 +591,14 @@ function phaseGermination(world: World): void {
         const seed = cell.seeds[i];
         seed.age++;
         seed.energy -= SIM.SEED_DECAY_RATE;
-        const maxAge = getPlantConstants(seed.genome).seedMaxAge;
+        const maxAge = seed.seedMaxAge;
         if (seed.energy <= 0 || seed.age >= maxAge) {
           // Decrement seed population tracking
           const count = world.seedPopulations.get(seed.speciesId) ?? 1;
           if (count <= 1) world.seedPopulations.delete(seed.speciesId);
           else world.seedPopulations.set(seed.speciesId, count - 1);
-          cell.seeds.splice(i, 1);
+          cell.seeds[i] = cell.seeds[cell.seeds.length - 1];
+          cell.seeds.pop();
         }
       }
 
@@ -614,7 +618,7 @@ function phaseGermination(world: World): void {
           if ((cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)
             && cell.terrainType !== TerrainType.Arid) continue;
         }
-        const waterThreshold = getPlantConstants(seed.genome).seedGerminationWater;
+        const waterThreshold = seed.seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
           totalEnergy += seed.energy;
@@ -634,7 +638,8 @@ function phaseGermination(world: World): void {
 
       if (bestIdx < 0) continue;
       const winner = cell.seeds[bestIdx];
-      cell.seeds.splice(bestIdx, 1);
+      cell.seeds[bestIdx] = cell.seeds[cell.seeds.length - 1];
+      cell.seeds.pop();
 
       // Decrement seed population tracking
       const count = world.seedPopulations.get(winner.speciesId) ?? 1;
