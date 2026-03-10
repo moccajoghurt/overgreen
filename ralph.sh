@@ -8,16 +8,14 @@
 
 set -uo pipefail
 
-MAX_ITERATIONS="${1:-50}"
-
-# ── Parse --resume flag ──────────────────────────────────
+# ── Parse arguments ──────────────────────────────────────
+MAX_ITERATIONS=50
 RESUME=""
-for arg in "$@"; do
-  if [ "$arg" = "--resume" ]; then
-    RESUME="next"
-  elif [ "$RESUME" = "next" ]; then
-    RESUME="$arg"
-  fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --resume) RESUME="$2"; shift 2 ;;
+    *) MAX_ITERATIONS="$1"; shift ;;
+  esac
 done
 
 if [ -n "$RESUME" ] && [ "$RESUME" != "next" ]; then
