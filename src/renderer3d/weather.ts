@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { Season, Environment } from '../types';
+import { Season, Environment, ClimateZone } from '../types';
 import {
   RendererState, WeatherParticle, WeatherType,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
-  WEATHER_SPREAD,
+  WEATHER_SPREAD, GRID, HALF,
 } from './state';
 
 function getSeasonIntensity(targetSeason: Season, env: Environment): number {
@@ -128,11 +128,27 @@ function updateOneEffect(
   }
 }
 
+/** Snow multiplier per climate zone (matches terrain-colors.ts) */
+const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
+  [ClimateZone.Temperate]: 1.0,
+  [ClimateZone.Tropical]: 0.0,
+  [ClimateZone.Mediterranean]: 0.15,
+  [ClimateZone.Desert]: 0.0,
+};
+
 export function updateWeatherParticles(state: RendererState): void {
   const env = state.world.environment;
   const camTarget = state.controls.target;
 
-  updateOneEffect(state, state.snowParticles, state.snowMesh, getSeasonIntensity(Season.Winter, env), SNOW_PARTICLE_COUNT, camTarget, 'snow');
+  // Scale snow particle intensity by the climate zone under the camera
+  let snowZoneMult = 1.0;
+  const gx = Math.floor(camTarget.x + HALF);
+  const gy = Math.floor(camTarget.z + HALF);
+  if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+    snowZoneMult = ZONE_SNOW_MULT[state.world.grid[gy][gx].climateZone];
+  }
+
+  updateOneEffect(state, state.snowParticles, state.snowMesh, getSeasonIntensity(Season.Winter, env) * snowZoneMult, SNOW_PARTICLE_COUNT, camTarget, 'snow');
   updateOneEffect(state, state.rainParticles, state.rainMesh, getSeasonIntensity(Season.Spring, env), RAIN_PARTICLE_COUNT, camTarget, 'rain');
   updateOneEffect(state, state.moteParticles, state.moteMesh, getSeasonIntensity(Season.Summer, env), MOTE_PARTICLE_COUNT, camTarget, 'mote');
   updateOneEffect(state, state.leafParticles, state.leafMesh, getSeasonIntensity(Season.Autumn, env), LEAF_PARTICLE_COUNT, camTarget, 'leaf');

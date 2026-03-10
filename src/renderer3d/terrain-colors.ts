@@ -1,7 +1,15 @@
-import { SIM, TerrainType, WeatherOverlay, Environment, Season } from '../types';
+import { SIM, TerrainType, WeatherOverlay, Environment, Season, ClimateZone } from '../types';
 import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
+
+/** Snow multiplier per climate zone: 0 = no snow, 1 = full snow */
+const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
+  [ClimateZone.Temperate]: 1.0,
+  [ClimateZone.Tropical]: 0.0,
+  [ClimateZone.Mediterranean]: 0.15,
+  [ClimateZone.Desert]: 0.0,
+};
 
 // Pre-computed terrain base colors (RGB, from HSL constants)
 const TERRAIN_RGB: Record<number, [number, number, number]> = {
@@ -135,8 +143,6 @@ export function updateTerrainColors(state: RendererState): void {
   ];
   const VEG_MAX_BLEND = [0.92, 0.70, 0.0, 0.50, 0.85];
   const VEG_REF_HEIGHT = [0.4, 1.2, 0.0, 3.0, 0.6];
-  const snowSuppression = 1 - Math.min(1, snowCov);
-
   const vegR = new Float32Array(cellCount);
   const vegG = new Float32Array(cellCount);
   const vegB = new Float32Array(cellCount);
@@ -154,9 +160,10 @@ export function updateTerrainColors(state: RendererState): void {
       const arch = subtypeArchetype(subtype);
       if (arch === Archetype.Succulent) continue;
       const idx = y * GRID + x;
+      const cellSnow = snowCov * ZONE_SNOW_MULT[cell.climateZone];
       const blend = VEG_MAX_BLEND[arch]
         * Math.min(1, plant.height / VEG_REF_HEIGHT[arch])
-        * snowSuppression;
+        * (1 - Math.min(1, cellSnow));
       vegR[idx] = VEG_TINT[arch][0];
       vegG[idx] = VEG_TINT[arch][1];
       vegB[idx] = VEG_TINT[arch][2];
@@ -234,12 +241,14 @@ export function updateTerrainColors(state: RendererState): void {
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const cell = world.grid[y][x];
+        const zoneMult = ZONE_SNOW_MULT[cell.climateZone];
+        if (zoneMult === 0) continue;
         let boost = 1.0;
         if (cell.terrainType === TerrainType.Rock) boost = 1.2;
         else if (cell.terrainType === TerrainType.Wetland) boost = 0.4;
         else if (cell.terrainType === TerrainType.River) boost = 0.4;
         else if (cell.terrainType === TerrainType.Arid) boost = 0.8;
-        cellSnowArr[y * GRID + x] = Math.min(1, snowCov * boost);
+        cellSnowArr[y * GRID + x] = Math.min(1, snowCov * boost * zoneMult);
       }
     }
   }
