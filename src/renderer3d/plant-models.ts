@@ -80,7 +80,60 @@ function buildTurfgrass(): THREE.Group { return buildGrassPlaceholder(); }
 
 function buildTallgrass(): THREE.Group { return buildGrassPlaceholder(); }
 
-function buildBunchgrass(): THREE.Group { return buildGrassPlaceholder(); }
+function buildBunchgrass(): THREE.Group {
+  const g = new THREE.Group();
+  const bladeColors = [matDS(0x6aaa44), matDS(0x5d9938), matDS(0x78bb50), matDS(0x508830), matDS(0x8acc55)];
+  const bc = () => bladeColors[Math.floor(Math.random() * bladeColors.length)];
+
+  // Dense tussock — packed dome from tight crown
+  // 3 concentric rings: inner (tall, upright), mid (medium), outer (shorter, more sweep)
+  const crownR = 0.03;
+  const rings = [
+    { count: 20, hMin: 0.50, hVar: 0.12, sweep: 0.03, sweepVar: 0.02 }, // inner — nearly vertical
+    { count: 25, hMin: 0.38, hVar: 0.10, sweep: 0.08, sweepVar: 0.04 }, // mid
+    { count: 25, hMin: 0.26, hVar: 0.08, sweep: 0.14, sweepVar: 0.05 }, // outer — moderate arc
+  ];
+  for (const ring of rings) {
+    for (let i = 0; i < ring.count; i++) {
+      const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const bx = Math.cos(angle) * crownR * (0.3 + Math.random() * 0.7);
+      const bz = Math.sin(angle) * crownR * (0.3 + Math.random() * 0.7);
+
+      const h = ring.hMin + Math.random() * ring.hVar;
+      const w = 0.04 + Math.random() * 0.02;
+      const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 5);
+
+      const pos = bladeGeo.attributes.position;
+      const sweep = ring.sweep + Math.random() * ring.sweepVar;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const vy = pos.getY(vi);
+        const t = (vy + h / 2) / h;
+        // Gentle outward arch — stays mostly upright
+        pos.setZ(vi, sweep * t * t);
+        // Taper toward tip
+        if (t > 0.5) {
+          const sx = pos.getX(vi);
+          pos.setX(vi, sx * (1.0 - (t - 0.5) * 0.8));
+        }
+      }
+      bladeGeo.computeVertexNormals();
+
+      const blade = new THREE.Mesh(bladeGeo, bc());
+      blade.position.set(bx, 0, bz);
+      blade.rotation.y = angle + (Math.random() - 0.5) * 0.3;
+      g.add(blade);
+    }
+  }
+
+  // Tiny crown anchor
+  const coreGeo = new THREE.SphereGeometry(0.04, 4, 3);
+  coreGeo.scale(1, 0.3, 1);
+  const core = new THREE.Mesh(coreGeo, mat(0x4a7a2a));
+  core.position.y = 0.01;
+  g.add(core);
+
+  return g;
+}
 function buildBamboo(): THREE.Group { return buildGrassPlaceholder(); }
 function buildSpreading(): THREE.Group { return buildGrassPlaceholder(); }
 
@@ -2125,8 +2178,13 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
   const positions: number[] = [];
   const normals: number[] = [];
   const colors: number[] = [];
+  const swayWeights: number[] = [];
 
   group.updateMatrixWorld(true);
+
+  // Compute model height for normalizing swayWeight (0 at base, 1 at top)
+  const box = new THREE.Box3().setFromObject(group);
+  const maxY = Math.max(box.max.y, 0.01);
 
   group.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return;
@@ -2145,6 +2203,7 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
       positions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
       normals.push(nor.getX(i), nor.getY(i), nor.getZ(i));
       colors.push(c.r, c.g, c.b);
+      swayWeights.push(Math.max(0, Math.min(1, pos.getY(i) / maxY)));
     }
 
     if (nonIndexed !== geo) nonIndexed.dispose();
@@ -2155,6 +2214,7 @@ function mergeGroupGeometry(group: THREE.Group): THREE.BufferGeometry {
   merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   merged.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  merged.setAttribute('swayWeight', new THREE.Float32BufferAttribute(swayWeights, 1));
 
   // Re-index to restore vertex sharing — cuts GPU vertex processing significantly
   const indexed = mergeVertices(merged, 1e-4);
@@ -2660,7 +2720,232 @@ function buildMossLow(): THREE.Group {
 
 // ── New climate-zone subtypes (30-39) ──
 
-function buildPampasGrass(): THREE.Group { return buildGrassPlaceholder(); }
+function buildPampasGrass(): THREE.Group {
+  const g = new THREE.Group();
+
+  // Leaf palette — silvery blue-green, double-sided
+  const leafColors = [matDS(0x6aaa55), matDS(0x5d9948), matDS(0x78bb60), matDS(0x608a40)];
+  const lc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
+
+  // Plume palette — creamy white to warm ivory, double-sided
+  const plumeColors = [matDS(0xede5d8), matDS(0xf2ece4), matDS(0xe5ddd0), matDS(0xe8e0d5)];
+  const pc = () => plumeColors[Math.floor(Math.random() * plumeColors.length)];
+
+  // Dense fountain of arching leaves from tight base
+  const leafCount = 55;
+  const crownR = 0.06;
+  for (let i = 0; i < leafCount; i++) {
+    const angle = (i / leafCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const dist = Math.random() * crownR;
+    const bx = Math.cos(angle) * dist;
+    const bz = Math.sin(angle) * dist;
+
+    const h = 0.45 + Math.random() * 0.35;
+    const w = 0.035 + Math.random() * 0.018;
+    const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 5);
+
+    // Graceful fountain — sweep outward then droop at tips
+    const pos = bladeGeo.attributes.position;
+    const sweep = 0.18 + Math.random() * 0.18;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const vy = pos.getY(vi);
+      const t = (vy + h / 2) / h;
+      pos.setZ(vi, sweep * t * t - sweep * 0.25 * t * t * t);
+      if (t > 0.5) {
+        const sx = pos.getX(vi);
+        pos.setX(vi, sx * (1.0 - (t - 0.5) * 0.9));
+      }
+    }
+    bladeGeo.computeVertexNormals();
+
+    const blade = new THREE.Mesh(bladeGeo, lc());
+    blade.position.set(bx, 0, bz);
+    blade.rotation.y = angle + (Math.random() - 0.5) * 0.3;
+    g.add(blade);
+  }
+
+  // Tall feathery plumes — signature pampas feature, ~35% of total height
+  // Plume material with slight emissive to stay light even in shadow
+  const plumeMats = [0xede5d8, 0xf2ece4, 0xe5ddd0, 0xe8e0d5].map(c =>
+    new THREE.MeshStandardMaterial({
+      color: c, roughness: 0.9, flatShading: true,
+      emissive: c, emissiveIntensity: 0.12,
+    }),
+  );
+  const pm = () => plumeMats[Math.floor(Math.random() * plumeMats.length)];
+
+  const plumeCount = 6 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < plumeCount; i++) {
+    const angle = (i / plumeCount) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = Math.random() * 0.04;
+    const px = Math.cos(angle) * dist;
+    const pz = Math.sin(angle) * dist;
+
+    // Slender stalk with gentle arch
+    const stalkH = 0.95 + Math.random() * 0.25;
+    const stalkGeo = new THREE.CylinderGeometry(0.003, 0.006, stalkH, 3, 4);
+    const spos = stalkGeo.attributes.position;
+    const archAmt = 0.04 + Math.random() * 0.05;
+    for (let vi = 0; vi < spos.count; vi++) {
+      const sy = spos.getY(vi);
+      const t = (sy + stalkH / 2) / stalkH;
+      spos.setZ(vi, spos.getZ(vi) + archAmt * t * t);
+    }
+    stalkGeo.computeVertexNormals();
+    const stalk = new THREE.Mesh(stalkGeo, mat(0x7a9a45));
+    stalk.position.set(px, stalkH / 2, pz);
+    stalk.rotation.y = angle;
+    g.add(stalk);
+
+    // Feathery plume — displaced cone for puffy teardrop volume
+    const plumeH = 0.55 + Math.random() * 0.15;
+    const plumeBaseY = stalkH * 0.88;
+    const plumeR = 0.05 + Math.random() * 0.015;
+
+    // Main plume body — cone with vertex displacement for fuzzy silhouette
+    const coneGeo = new THREE.ConeGeometry(plumeR, plumeH, 7, 4);
+    const cp = coneGeo.attributes.position;
+    for (let vi = 0; vi < cp.count; vi++) {
+      const cy = cp.getY(vi);
+      const t = (cy + plumeH / 2) / plumeH; // 0=base, 1=tip
+      // Teardrop: widen at ~0.4, taper to sharp point at top
+      const bulge = t < 0.4 ? (0.6 + t * 1.0) : Math.max(0.05, 1.0 - (t - 0.4) * 1.3);
+      const fuzz = 1.0 + (Math.random() - 0.5) * 0.4;
+      cp.setX(vi, cp.getX(vi) * bulge * fuzz);
+      cp.setZ(vi, cp.getZ(vi) * bulge * fuzz);
+    }
+    coneGeo.computeVertexNormals();
+    const cone = new THREE.Mesh(coneGeo, pm());
+    cone.position.set(px, plumeBaseY + plumeH * 0.45, pz);
+    cone.rotation.y = angle;
+    g.add(cone);
+
+    // Outer fuzzy halo — small displaced spheres for fluffiness
+    for (let s = 0; s < 3; s++) {
+      const sa = (s / 3) * Math.PI * 2 + Math.random() * 0.6;
+      const sr = plumeR * (0.4 + Math.random() * 0.25);
+      const sy = plumeBaseY + plumeH * (0.25 + Math.random() * 0.35);
+      const haloGeo = new THREE.SphereGeometry(sr, 4, 3);
+      haloGeo.scale(1, 1.5 + Math.random() * 0.5, 1);
+      const hp = haloGeo.attributes.position;
+      for (let vi = 0; vi < hp.count; vi++) {
+        const fuzz = 1.0 + (Math.random() - 0.5) * 0.35;
+        hp.setX(vi, hp.getX(vi) * fuzz);
+        hp.setZ(vi, hp.getZ(vi) * fuzz);
+      }
+      haloGeo.computeVertexNormals();
+      const halo = new THREE.Mesh(haloGeo, pm());
+      halo.position.set(
+        px + Math.cos(sa) * plumeR * 0.6,
+        sy,
+        pz + Math.sin(sa) * plumeR * 0.6,
+      );
+      g.add(halo);
+    }
+  }
+
+  return g;
+}
+function buildBunchgrassLow(): THREE.Group {
+  const g = new THREE.Group();
+  const bladeColors = [matDS(0x6aaa44), matDS(0x5d9938), matDS(0x78bb50)];
+  const bc = () => bladeColors[Math.floor(Math.random() * bladeColors.length)];
+
+  const crownR = 0.03;
+  // 3 rings matching hi-LOD dome shape, but fewer blades per ring
+  const rings = [
+    { count: 8, hMin: 0.50, hVar: 0.12, sweep: 0.03, sweepVar: 0.02 }, // inner — upright
+    { count: 8, hMin: 0.38, hVar: 0.08, sweep: 0.08, sweepVar: 0.03 }, // mid
+    { count: 8, hMin: 0.26, hVar: 0.06, sweep: 0.12, sweepVar: 0.04 }, // outer — moderate
+  ];
+  for (const ring of rings) {
+    for (let i = 0; i < ring.count; i++) {
+      const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const bx = Math.cos(angle) * crownR * Math.random();
+      const bz = Math.sin(angle) * crownR * Math.random();
+      const h = ring.hMin + Math.random() * ring.hVar;
+      const w = 0.055 + Math.random() * 0.025;
+      const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 3);
+      const pos = bladeGeo.attributes.position;
+      const sweep = ring.sweep + Math.random() * ring.sweepVar;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const vy = pos.getY(vi);
+        const t = (vy + h / 2) / h;
+        pos.setZ(vi, sweep * t * t);
+        if (t > 0.5) pos.setX(vi, pos.getX(vi) * (1 - (t - 0.5) * 0.7));
+      }
+      bladeGeo.computeVertexNormals();
+      const blade = new THREE.Mesh(bladeGeo, bc());
+      blade.position.set(bx, 0, bz);
+      blade.rotation.y = angle;
+      g.add(blade);
+    }
+  }
+  return g;
+}
+
+function buildPampasGrassLow(): THREE.Group {
+  const g = new THREE.Group();
+  const leafColors = [matDS(0x6aaa55), matDS(0x5d9948), matDS(0x78bb60)];
+  const lc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
+  const plumeMat = new THREE.MeshStandardMaterial({
+    color: 0xede5d8, roughness: 0.9, flatShading: true,
+    emissive: 0xede5d8, emissiveIntensity: 0.12,
+  });
+
+  // Simplified leaves
+  const crownR = 0.06;
+  for (let i = 0; i < 25; i++) {
+    const angle = (i / 25) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const h = 0.40 + Math.random() * 0.30;
+    const w = 0.04 + Math.random() * 0.02;
+    const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 3);
+    const pos = bladeGeo.attributes.position;
+    const sweep = 0.18 + Math.random() * 0.15;
+    for (let vi = 0; vi < pos.count; vi++) {
+      const vy = pos.getY(vi);
+      const t = (vy + h / 2) / h;
+      pos.setZ(vi, sweep * t * t);
+      if (t > 0.5) pos.setX(vi, pos.getX(vi) * (1 - (t - 0.5) * 0.8));
+    }
+    bladeGeo.computeVertexNormals();
+    const blade = new THREE.Mesh(bladeGeo, lc());
+    blade.position.set(Math.cos(angle) * crownR * Math.random(), 0, Math.sin(angle) * crownR * Math.random());
+    blade.rotation.y = angle;
+    g.add(blade);
+  }
+
+  // 4 simple plume cones (no halo spheres)
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.random() * 0.5;
+    const stalkH = 0.9 + Math.random() * 0.2;
+    const stalkGeo = new THREE.CylinderGeometry(0.003, 0.006, stalkH, 3);
+    const stalk = new THREE.Mesh(stalkGeo, mat(0x7a9a45));
+    stalk.position.set(0, stalkH / 2, 0);
+    stalk.rotation.y = angle;
+    g.add(stalk);
+
+    const plumeH = 0.55;
+    const plumeR = 0.12; // fat teardrop matching hi-LOD bounding volume
+    const coneGeo = new THREE.ConeGeometry(plumeR, plumeH, 5, 3);
+    const cp = coneGeo.attributes.position;
+    for (let vi = 0; vi < cp.count; vi++) {
+      const cy = cp.getY(vi);
+      const t = (cy + plumeH / 2) / plumeH;
+      const bulge = t < 0.4 ? (0.6 + t * 1.0) : Math.max(0.05, 1.0 - (t - 0.4) * 1.3);
+      const fuzz = 1.0 + (Math.random() - 0.5) * 0.3;
+      cp.setX(vi, cp.getX(vi) * bulge * fuzz);
+      cp.setZ(vi, cp.getZ(vi) * bulge * fuzz);
+    }
+    coneGeo.computeVertexNormals();
+    const cone = new THREE.Mesh(coneGeo, plumeMat);
+    cone.position.set(0, stalkH * 0.85 + plumeH * 0.4, 0);
+    g.add(cone);
+  }
+
+  return g;
+}
+
 function buildDesertGrass(): THREE.Group { return buildGrassPlaceholder(); }
 
 function buildCypress(): THREE.Group {
@@ -3384,7 +3669,7 @@ export const BUILDERS: (() => THREE.Group)[] = [
  *  Grass placeholders (0-4), Saguaro (18), Aloe (19) reuse the full builder. */
 export const BUILDERS_LOW: (() => THREE.Group)[] = [
   // Grasses (0-5) — placeholders same, sedge has low version
-  buildTurfgrass, buildTallgrass, buildBunchgrass, buildBamboo, buildSpreading, buildSedgeLow,
+  buildTurfgrass, buildTallgrass, buildBunchgrassLow, buildBamboo, buildSpreading, buildSedgeLow,
   // Trees (6-11)
   buildOakLow, buildMagnoliaLow, buildConiferLow, buildTropicalLow, buildPalmLow, buildBirchLow,
   // Shrubs (12-17)
@@ -3394,7 +3679,7 @@ export const BUILDERS_LOW: (() => THREE.Group)[] = [
   // Forbs (24-29)
   buildWildflowerLow, buildTallHerbLow, buildFernLow, buildVineLow, buildCloverLow, buildMossLow,
   // New climate-zone subtypes (30-39)
-  buildPampasGrass, buildDesertGrass,
+  buildPampasGrassLow, buildDesertGrass,
   buildCypressLow, buildAcaciaLow,
   buildFloweringShrubLow, buildAromaticLow,
   buildBarrelCactusLow, buildJadeLow,

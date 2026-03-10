@@ -297,13 +297,49 @@ export function rebuildTerrainGeometry(
 
 import type { SubtypeModel } from './plant-models';
 
+// Tree subtypes: 6-11, 32-33
+const WIND_SUBTYPES: Set<number> = new Set([6, 7, 8, 9, 10, 11, 32, 33]);
+
 function createMeshesFromModels(models: SubtypeModel[], capacity = MAX_PER_SUBTYPE): THREE.InstancedMesh[] {
-  return models.map(m => {
+  return models.map((m, i) => {
     const meshMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
       flatShading: true,
     });
+    if (WIND_SUBTYPES.has(i)) {
+      meshMat.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = { value: 0 };
+        shader.uniforms.uWindStrength = { value: 0.1 };
+        // Inject uniform + attribute declarations
+        shader.vertexShader =
+          'uniform float uTime;\nuniform float uWindStrength;\nattribute float swayWeight;\n' +
+          shader.vertexShader;
+        // Inject wind displacement after project_vertex (post instance transform).
+        // Wind offset is computed and applied in world space so all instances
+        // sway in the same direction regardless of their local rotation.
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+{
+  // Use instance origin (not per-vertex position) for phase so the
+  // whole plant sways as one unit. swayWeight controls amplitude only.
+  vec3 iPos = vec3(instanceMatrix[3]);
+  vec4 wOrigin = modelMatrix * vec4(iPos, 1.0);
+  float sw = swayWeight * swayWeight; // quadratic — trunk stays planted, canopy moves
+  float wp = wOrigin.x * 0.8 + wOrigin.z * 0.6 + uTime * 0.8;
+  float wind1 = sin(wp) * uWindStrength * sw;
+  float wind2 = sin(wOrigin.x * 0.5 - wOrigin.z * 0.7 + uTime * 0.5) * uWindStrength * 0.3 * sw;
+  // Displace in world XZ, then project to view/clip space
+  vec3 worldOffset = vec3(wind1 * 0.7 + wind2 * 0.3, 0.0, wind1 * 0.3 + wind2 * 0.7);
+  mvPosition.xyz += (viewMatrix * vec4(worldOffset, 0.0)).xyz;
+  gl_Position = projectionMatrix * mvPosition;
+}`,
+        );
+        // Store ref for per-frame uniform updates
+        meshMat.userData.shader = shader;
+      };
+    }
     const mesh = new THREE.InstancedMesh(m.geometry, meshMat, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor = new THREE.InstancedBufferAttribute(

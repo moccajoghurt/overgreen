@@ -311,7 +311,20 @@ export async function createRenderer3D(
     waterSurface.update(env, sunDir, fogColor);
 
     // Update grass layer uniforms (per-frame wind animation)
-    grassLayer.updateUniforms(performance.now() * 0.001, sunDir, fogColor, camera);
+    const timeSeconds = performance.now() * 0.001;
+    grassLayer.updateUniforms(timeSeconds, sunDir, fogColor, camera);
+
+    // Update plant wind sway uniforms
+    for (const meshArr of [
+      state.subtypeMeshes, state.subtypeMeshesLow,
+      state.subtypeMeshesStressed, state.subtypeMeshesStressedLow,
+      state.subtypeMeshesDying, state.subtypeMeshesDyingLow,
+    ]) {
+      for (const mesh of meshArr) {
+        const s = (mesh.material as THREE.MeshLambertMaterial).userData.shader;
+        if (s) s.uniforms.uTime.value = timeSeconds;
+      }
+    }
 
     // Capture before updatePlants clears these
     const isNewTick = world.tick !== state.lastProcessedTick;
