@@ -17,7 +17,7 @@ export interface ScenarioSpecies {
   name: string;
   genome: Genome;
   color: SpeciesColor;
-  placements: { x: number; y: number; height?: number; energy?: number; age?: number }[];
+  placements: { x: number; y: number; height?: number; energy?: number; age?: number; healthEMA?: number; forceLow?: boolean }[];
 }
 
 export interface Scenario {

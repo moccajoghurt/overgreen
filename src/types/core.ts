@@ -66,6 +66,7 @@ export interface Plant {
   generation: number;
   parentId: number | null;
   offspringCount: number;
+  forceLow?: boolean;
 }
 
 export interface Cell {

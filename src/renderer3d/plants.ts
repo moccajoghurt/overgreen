@@ -405,10 +405,10 @@ function fullRebuild(
     );
     state.prevPlantHealth.set(plant.id, health);
 
-    // LOD: pick hi or lo mesh based on distance to camera
+    // LOD: pick hi or lo mesh based on distance to camera (or forceLow override)
     const dx = wx - camX;
     const dz = wz - camZ;
-    const isLow = dx * dx + dz * dz > lodDistSq;
+    const isLow = plant.forceLow === true || dx * dx + dz * dz > lodDistSq;
 
     const ma = getMeshArrays(state, health, isLow);
     const ba = getBufferArrays(health, isLow,
@@ -529,7 +529,7 @@ function incrementalUpdate(
     const wz = plant.y - HALF + 0.5;
     const dx = wx - camX;
     const dz = wz - camZ;
-    const isLow = dx * dx + dz * dz > lodDistSq;
+    const isLow = plant.forceLow === true || dx * dx + dz * dz > lodDistSq;
     const health = healthStateFromEMA(plant.healthEMA);
 
     const ma = getMeshArrays(state, health, isLow);

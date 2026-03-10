@@ -1,4 +1,4 @@
-Capture screenshots of all 40 plant subtypes on the Genesis terrain for visual review.
+Capture screenshots of all 40 plant subtypes on flat soil for visual review.
 
 ## Steps
 
@@ -26,16 +26,15 @@ screenshots/map-review-contact-sheet.jpg
 
 5. Evaluate:
    - Are all 40 subtypes visible and distinguishable?
-   - Do plants look correct at maturity scale on real terrain?
+   - Do all three health states (thriving, stressed, dying) look distinct?
    - Are there any rendering artifacts, z-fighting, or missing models?
    - Do colors provide enough contrast between adjacent species?
 
 ## Available camera presets
 
-- `showcaseOverview` — high-angle full map
-- `showcaseGrassesForbs` — grasses and forbs on flat SE desert
-- `showcaseTrees` — wadi corridor, 3×2 blocks
-- `showcaseShrubs` — escarpment flanks, 3×2 blocks
-- `showcaseSucculents` — east desert, 3×2 blocks
-- `showcaseForbsHill` — forbs mixed with grass on NE hills
-- `showcaseForbsWetland` — forbs mixed with grass on delta wetland
+- `showcaseOverview` — high-angle full map showing all 5 rows
+- `showcaseGrasses` — grasses row (subtypes 0-5, 30, 31)
+- `showcaseTrees` — trees row (subtypes 6-11, 32, 33)
+- `showcaseShrubs` — shrubs row (subtypes 12-17, 34, 35)
+- `showcaseSucculents` — succulents row (subtypes 18-23, 36, 37)
+- `showcaseForbs` — forbs row (subtypes 24-29, 38, 39)

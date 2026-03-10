@@ -107,6 +107,8 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (pos.height !== undefined) plant.height = pos.height;
       if (pos.energy !== undefined) plant.energy = pos.energy;
       if (pos.age !== undefined) plant.age = pos.age;
+      if (pos.healthEMA !== undefined) plant.healthEMA = pos.healthEMA;
+      if (pos.forceLow) plant.forceLow = true;
       world.plants.set(id, plant);
       cell.plantId = id;
       cell.lastSpeciesId = sp.id;
