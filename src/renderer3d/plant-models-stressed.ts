@@ -9,6 +9,7 @@ import { STRESSED_TREES, STRESSED_TREES_LOW } from './plant-models-stressed-tree
 import { STRESSED_SHRUBS, STRESSED_SHRUBS_LOW } from './plant-models-stressed-shrubs';
 import { STRESSED_SUCCULENTS, STRESSED_SUCCULENTS_LOW } from './plant-models-stressed-succulents';
 import { STRESSED_FORBS, STRESSED_FORBS_LOW } from './plant-models-stressed-forbs';
+import { STRESSED_GRASSES, STRESSED_GRASSES_LOW } from './plant-models-stressed-grasses';
 import type * as THREE from 'three';
 
 type Builder = () => THREE.Group;
@@ -19,8 +20,8 @@ function merge(...maps: Record<number, Builder>[]): Record<number, Builder> {
   return r;
 }
 
-const ALL = merge(STRESSED_TREES, STRESSED_SHRUBS, STRESSED_SUCCULENTS, STRESSED_FORBS);
-const ALL_LOW = merge(STRESSED_TREES_LOW, STRESSED_SHRUBS_LOW, STRESSED_SUCCULENTS_LOW, STRESSED_FORBS_LOW);
+const ALL = merge(STRESSED_TREES, STRESSED_SHRUBS, STRESSED_SUCCULENTS, STRESSED_FORBS, STRESSED_GRASSES);
+const ALL_LOW = merge(STRESSED_TREES_LOW, STRESSED_SHRUBS_LOW, STRESSED_SUCCULENTS_LOW, STRESSED_FORBS_LOW, STRESSED_GRASSES_LOW);
 
 export const BUILDERS_STRESSED: Builder[] = BUILDERS.map((healthy, i) => ALL[i] ?? healthy);
 export const BUILDERS_STRESSED_LOW: Builder[] = BUILDERS_LOW.map((healthy, i) => ALL_LOW[i] ?? healthy);

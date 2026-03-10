@@ -2,6 +2,7 @@ import { World, Scenario, TerrainType, SIM, ClimateZone } from './types';
 import { createEnvironment, assignClimateZones } from './simulation/terrain';
 import { createPlant } from './simulation/plants';
 import { applyTerrainDefaults } from './simulation/terrain-defaults';
+import { classifySubtype } from './types/subtypes';
 
 /**
  * Load a scenario into an existing world by mutating it in-place.
@@ -94,6 +95,9 @@ export function loadScenario(world: World, scenario: Scenario): void {
   for (const sp of scenario.species) {
     world.speciesColors.set(sp.id, sp.color);
     world.speciesNames.set(sp.id, sp.name);
+    const subtype = sp.subtype ?? classifySubtype(sp.genome);
+    world.speciesSubtypes.set(sp.id, subtype);
+    world.subtypeSpecies.set(subtype, sp.id);
     if (sp.id > maxSpeciesId) maxSpeciesId = sp.id;
 
     for (const pos of sp.placements) {

@@ -2946,7 +2946,95 @@ function buildPampasGrassLow(): THREE.Group {
   return g;
 }
 
-function buildDesertGrass(): THREE.Group { return buildGrassPlaceholder(); }
+function buildDesertGrass(): THREE.Group {
+  const g = new THREE.Group();
+  // Arid tussock — sparse wiry blades, sandy-olive palette
+  const bladeColors = [matDS(0x8a9a50), matDS(0x7a8a40), matDS(0x9a9a55), matDS(0x6a7a38), matDS(0xa0955a)];
+  const bc = () => bladeColors[Math.floor(Math.random() * bladeColors.length)];
+
+  // Tight crown, stiffer than bunchgrass, wiry upright habit
+  const crownR = 0.025;
+  const rings = [
+    { count: 16, hMin: 0.42, hVar: 0.12, sweep: 0.02, sweepVar: 0.02 }, // inner — stiff, upright
+    { count: 20, hMin: 0.30, hVar: 0.10, sweep: 0.06, sweepVar: 0.03 }, // mid
+    { count: 18, hMin: 0.20, hVar: 0.08, sweep: 0.10, sweepVar: 0.04 }, // outer — slight droop
+  ];
+  for (const ring of rings) {
+    for (let i = 0; i < ring.count; i++) {
+      const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const bx = Math.cos(angle) * crownR * (0.3 + Math.random() * 0.7);
+      const bz = Math.sin(angle) * crownR * (0.3 + Math.random() * 0.7);
+
+      const h = ring.hMin + Math.random() * ring.hVar;
+      const w = 0.025 + Math.random() * 0.015; // narrower, wiry blades
+      const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 5);
+
+      const pos = bladeGeo.attributes.position;
+      const sweep = ring.sweep + Math.random() * ring.sweepVar;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const vy = pos.getY(vi);
+        const t = (vy + h / 2) / h;
+        pos.setZ(vi, sweep * t * t);
+        // Sharp taper — wiry tips
+        if (t > 0.4) {
+          const sx = pos.getX(vi);
+          pos.setX(vi, sx * (1.0 - (t - 0.4) * 1.0));
+        }
+      }
+      bladeGeo.computeVertexNormals();
+
+      const blade = new THREE.Mesh(bladeGeo, bc());
+      blade.position.set(bx, 0, bz);
+      blade.rotation.y = angle + (Math.random() - 0.5) * 0.3;
+      g.add(blade);
+    }
+  }
+
+  // Small dry crown base
+  const coreGeo = new THREE.SphereGeometry(0.035, 4, 3);
+  coreGeo.scale(1, 0.3, 1);
+  const core = new THREE.Mesh(coreGeo, mat(0x6a6a30));
+  core.position.y = 0.01;
+  g.add(core);
+
+  return g;
+}
+
+function buildDesertGrassLow(): THREE.Group {
+  const g = new THREE.Group();
+  const bladeColors = [matDS(0x8a9a50), matDS(0x7a8a40), matDS(0x9a9a55)];
+  const bc = () => bladeColors[Math.floor(Math.random() * bladeColors.length)];
+
+  const crownR = 0.025;
+  const rings = [
+    { count: 7, hMin: 0.40, hVar: 0.10, sweep: 0.03, sweepVar: 0.02 },
+    { count: 8, hMin: 0.26, hVar: 0.06, sweep: 0.08, sweepVar: 0.03 },
+  ];
+  for (const ring of rings) {
+    for (let i = 0; i < ring.count; i++) {
+      const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const bx = Math.cos(angle) * crownR * Math.random();
+      const bz = Math.sin(angle) * crownR * Math.random();
+      const h = ring.hMin + Math.random() * ring.hVar;
+      const w = 0.035 + Math.random() * 0.02;
+      const bladeGeo = new THREE.PlaneGeometry(w, h, 1, 3);
+      const pos = bladeGeo.attributes.position;
+      const sweep = ring.sweep + Math.random() * ring.sweepVar;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const vy = pos.getY(vi);
+        const t = (vy + h / 2) / h;
+        pos.setZ(vi, sweep * t * t);
+        if (t > 0.4) pos.setX(vi, pos.getX(vi) * (1 - (t - 0.4) * 0.9));
+      }
+      bladeGeo.computeVertexNormals();
+      const blade = new THREE.Mesh(bladeGeo, bc());
+      blade.position.set(bx, 0, bz);
+      blade.rotation.y = angle;
+      g.add(blade);
+    }
+  }
+  return g;
+}
 
 function buildCypress(): THREE.Group {
   const g = new THREE.Group();
@@ -3679,7 +3767,7 @@ export const BUILDERS_LOW: (() => THREE.Group)[] = [
   // Forbs (24-29)
   buildWildflowerLow, buildTallHerbLow, buildFernLow, buildVineLow, buildCloverLow, buildMossLow,
   // New climate-zone subtypes (30-39)
-  buildPampasGrassLow, buildDesertGrass,
+  buildPampasGrassLow, buildDesertGrassLow,
   buildCypressLow, buildAcaciaLow,
   buildFloweringShrubLow, buildAromaticLow,
   buildBarrelCactusLow, buildJadeLow,
@@ -3816,7 +3904,7 @@ const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 
 
 /** Accent-only grass types — geometry is authored at world-unit scale, no model scaling.
  *  Carpet provides base coverage; these provide per-type visual identity. */
-const GRASS_ACCENT = new Set([0, 1, 2, 4, 30, 31]); // turf, tall, bunch, spreading, pampas, desert grass
+const GRASS_ACCENT = new Set([0, 1, 4, 30, 31]); // turf, tall, spreading, pampas, desert grass
 
 function buildModelsFromBuilders(builders: (() => THREE.Group)[]): SubtypeModel[] {
   return builders.map((build, i) => {

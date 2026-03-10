@@ -14,6 +14,7 @@ import { createTerrain, rebuildTerrainGeometry, createSubtypeMeshes, createSeedM
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 import { createGrassLayer } from './renderer3d/grass-layer';
+import { SHADER_GRASS_SUBTYPES } from './types/subtypes';
 
 export async function createRenderer3D(
   container: HTMLElement,
@@ -71,7 +72,7 @@ export async function createRenderer3D(
     maturityHeights, groundCover,
   } = await createSubtypeMeshes();
   for (let i = 0; i < subtypeMeshes.length; i++) {
-    if (i <= 4) continue; // subtypes 0-4: handled entirely by shader grass field
+    if (SHADER_GRASS_SUBTYPES.has(i)) continue; // handled entirely by shader grass field
     const shadow = i >= 6;
     subtypeMeshes[i].castShadow = shadow;
     subtypeMeshesLow[i].castShadow = shadow;

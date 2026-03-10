@@ -120,6 +120,7 @@ for (let gi = 0; gi < GROUPS.length; gi++) {
       name: SUBTYPE_NAMES[sub],
       genome: data.genome,
       color: data.color,
+      subtype: sub,
       placements: [
         ...triplet(x, yHi, sub, false),
         ...triplet(x, yLo, sub, true),

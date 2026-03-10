@@ -78,7 +78,7 @@ export function subtypeArchetype(subtype: SubtypeId): Archetype {
 }
 
 /** Subtypes rendered by the grass blade shader (not instanced mesh). */
-export const SHADER_GRASS_SUBTYPES = new Set([0, 1, 2, 3, 4]);
+export const SHADER_GRASS_SUBTYPES = new Set([0, 1, 3, 4]);
 
 // ── Classification ──
 
