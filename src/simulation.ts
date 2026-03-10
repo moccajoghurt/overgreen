@@ -212,13 +212,15 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   // Shade tolerance: short plants are adapted to capture diffuse understory light.
   // Scales inversely with actual height — groundcover & forbs benefit most, trees get nothing.
+  // Suppressed on Arid terrain where open canopy makes shade adaptation irrelevant.
   const isShaded = cell.lightLevel < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
-  const shadeTolerance = isShaded ? 1.0 + heightFactor * 2.0 : 1.0;
+  const shadeStrength = cell.terrainType === TerrainType.Arid ? 0.5 : 1.0;
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 2.5 * shadeStrength : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
   // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
-  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 0.8 : 1.0;
+  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.0 * shadeStrength : 1.0;
 
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
@@ -260,10 +262,11 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   }
   // Trait maintenance scales with maturity — seedlings haven't built specialized tissue yet
   const maturity = Math.min(1, plant.height / pc.maxHeight);
-  // Progressive height penalty: on terrain with heightMult > 1, penalty scales with height²
-  // This barely affects short plants (grasses, shrubs) but heavily penalizes tall trees
+  // Quadratic progressive height penalty: on terrain with heightMult > 1, penalty scales with height²
+  // At height=0.5 (grass): barely any extra cost. At height=2 (shrub): moderate. At height=5 (tree): extreme.
+  const hRatio = plant.height / 3.0;
   const effectiveHeightMult = heightMult > 1.01
-    ? 1.0 + (heightMult - 1.0) * Math.min(plant.height / 3.0, 2.0)
+    ? 1.0 + (heightMult - 1.0) * hRatio * hRatio
     : heightMult;
 
   let maintenance = mBase
@@ -276,6 +279,13 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
       + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
       + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE
     );
+  // Hill woodiness penalty: woody tissue is costly in exposed rocky terrain
+  // Scales quadratically above woodiness 0.5 — spares shrubs, punishes trees
+  if (cell.terrainType === TerrainType.Hill) {
+    const excessWood = Math.max(0, plant.genome.woodiness - 0.5);
+    maintenance += excessWood * excessWood * SIM.HILL_MAINT_WOODINESS_RATE * maturity;
+  }
+
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK * (1 - plant.genome.defense * SIM.DEFENSE_DISEASE_DRAIN_RESIST);
 
   // Senescence: maintenance scales up quadratically past onset fraction of maxAge
@@ -465,14 +475,18 @@ function phaseUpdatePlants(world: World): void {
     plant.lastMaintenanceCost = maintenance;
 
     // Update health EMA — smoothed energy ratio for visual health state
+    // Track peak energy for long-term decline detection
+    // Decay peak slowly so normal seed/growth spending doesn't trigger false stress
+    plant.peakEnergy *= 0.99;
+    plant.peakEnergy = Math.max(plant.peakEnergy, plant.energy);
     let healthTarget: number;
     if (maintenance > 0.01) {
       const prodRatio = Math.min(energyProduced / maintenance, 1.5);
-      // Very low energy reserves (< 5× maintenance) pull health down
-      const reservePenalty = plant.energy < maintenance * 5
-        ? plant.energy / (maintenance * 5)
+      // Energy relative to historical peak — gives slow visible decline over 100+ ticks
+      const peakRatio = plant.peakEnergy > 1.0
+        ? Math.min(plant.energy / plant.peakEnergy, 1.0)
         : 1.0;
-      healthTarget = prodRatio * (0.7 + 0.3 * reservePenalty);
+      healthTarget = Math.min(prodRatio, peakRatio);
     } else {
       healthTarget = establishing ? 0.5 : 1.0;
     }
@@ -673,7 +687,7 @@ function phaseGermination(world: World): void {
         lastLightReceived: 0, lastWaterAbsorbed: 0,
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
-        healthEMA: 1.0,
+        healthEMA: 1.0, peakEnergy: 2.0,
         generation: winner.generation, parentId: null, offspringCount: 0,
       };
       world.plants.set(childId, child);
