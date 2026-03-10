@@ -51,6 +51,7 @@ export interface PlantSnapshot {
   speciesId: number; genome: Genome;
   woodiness: number;
   subtype: number;
+  health: HealthState;
   causeOfDeath?: 'fire' | 'disease';
 }
 
