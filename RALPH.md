@@ -18,7 +18,7 @@ You are one iteration of an autonomous Ralph loop. You have NO memory of previou
 
 ## Goal
 
-Build a plant ecosystem sim that realistically models how diverse environments form. This is an educational tool — the sim should teach people why temperate forests look different from deserts, why wetlands have different species than hilltops.
+Build a plant ecosystem sim that realistically models how diverse environments form. This sim should teach people why temperate forests look different from deserts, why wetlands have different species than hilltops.
 
 Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid) × 4 climates (Temperate, Tropical, Mediterranean, Desert). Each niche should produce its realistic community of coexisting plant subtypes.
 
@@ -30,7 +30,7 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 
 ## Rules
 
-- **Performance: target ≥150 ticks/sec.** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change tanks perf below 200, optimize or revert — the sim must stay fast enough for rapid iteration.
+- **Performance: target ≥150 ticks/sec. On map Terrain Quad** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change tanks perf below 200, simplify the design, optimize performance or revert — the sim must stay fast enough for rapid iteration.
 
 ## Experiments
 
