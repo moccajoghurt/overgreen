@@ -490,6 +490,16 @@ function phaseUpdatePlants(world: World): void {
     } else {
       healthTarget = establishing ? 0.5 : 1.0;
     }
+    // Floor: low absolute energy forces visual decline regardless of ratios
+    const energyFloor = Math.min(plant.energy / 0.6, 1.0);
+    healthTarget = Math.min(healthTarget, energyFloor);
+    // Floor: approaching maxAge forces visible senescence
+    const maxAge = getPlantConstants(plant.genome).maxAge;
+    const ageOnset = 0.85;
+    if (plant.age > maxAge * ageOnset) {
+      const ageFrac = (plant.age - maxAge * ageOnset) / (maxAge * (1 - ageOnset));
+      healthTarget = Math.min(healthTarget, 1 - ageFrac * ageFrac);
+    }
     // Asymmetric smoothing: decline faster (0.25) than recovery (0.12)
     const alpha = healthTarget < plant.healthEMA ? 0.25 : 0.12;
     plant.healthEMA += (healthTarget - plant.healthEMA) * alpha;
