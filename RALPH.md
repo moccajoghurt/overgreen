@@ -30,7 +30,8 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 
 ## Rules
 
-- **Performance: target ≥150 ticks/sec. On map Terrain Quad** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change tanks perf below 200, simplify the design, optimize performance or revert — the sim must stay fast enough for rapid iteration.
+- **Performance: current Ticks/sec should roughly stay the same** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change drastically tanks perf, simplify the design, optimize performance or revert — the sim must stay fast enough for rapid iteration.
+- **Never run experiment commands in the background** (no `run_in_background`). Always run them in the foreground so results are available immediately.
 
 ## Experiments
 
