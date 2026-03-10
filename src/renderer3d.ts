@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season, ColorMode } from './types';
 import type { TimingHooks } from './perf';
-import { RendererState, GRID, HALF, MAX_PER_SUBTYPE } from './renderer3d/state';
+import { RendererState, GRID, HALF, MAX_PER_SUBTYPE, MAX_PER_SUBTYPE_HEALTH, HealthState } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';
@@ -15,10 +15,10 @@ import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 import { createGrassLayer } from './renderer3d/grass-layer';
 
-export function createRenderer3D(
+export async function createRenderer3D(
   container: HTMLElement,
   world: World,
-): Renderer & { canvas: HTMLCanvasElement } {
+): Promise<Renderer & { canvas: HTMLCanvasElement }> {
   // ── Scene & lights ──
   const scene = new THREE.Scene();
 
@@ -63,14 +63,28 @@ export function createRenderer3D(
   const grassLayer = createGrassLayer(getCellElevation);
   scene.add(grassLayer.mesh);
 
-  // ── Plants (24 subtype meshes × 2 LOD levels + seeds) ──
-  const { meshes: subtypeMeshes, meshesLow: subtypeMeshesLow, maturityHeights, groundCover } = createSubtypeMeshes();
+  // ── Plants (40 subtype meshes × 2 LOD levels × 3 health states + seeds) ──
+  const {
+    meshes: subtypeMeshes, meshesLow: subtypeMeshesLow,
+    meshesStressed: subtypeMeshesStressed, meshesStressedLow: subtypeMeshesStressedLow,
+    meshesDying: subtypeMeshesDying, meshesDyingLow: subtypeMeshesDyingLow,
+    maturityHeights, groundCover,
+  } = await createSubtypeMeshes();
   for (let i = 0; i < subtypeMeshes.length; i++) {
     if (i <= 4) continue; // subtypes 0-4: handled entirely by shader grass field
-    subtypeMeshes[i].castShadow = i >= 6;
-    subtypeMeshesLow[i].castShadow = i >= 6;
+    const shadow = i >= 6;
+    subtypeMeshes[i].castShadow = shadow;
+    subtypeMeshesLow[i].castShadow = shadow;
+    subtypeMeshesStressed[i].castShadow = shadow;
+    subtypeMeshesStressedLow[i].castShadow = shadow;
+    subtypeMeshesDying[i].castShadow = shadow;
+    subtypeMeshesDyingLow[i].castShadow = shadow;
     scene.add(subtypeMeshes[i]);
     scene.add(subtypeMeshesLow[i]);
+    scene.add(subtypeMeshesStressed[i]);
+    scene.add(subtypeMeshesStressedLow[i]);
+    scene.add(subtypeMeshesDying[i]);
+    scene.add(subtypeMeshesDyingLow[i]);
   }
   const seeds = createSeedMesh();
   scene.add(seeds);
@@ -178,6 +192,10 @@ export function createRenderer3D(
     getCellSlope,
     subtypeMeshes,
     subtypeMeshesLow,
+    subtypeMeshesStressed,
+    subtypeMeshesStressedLow,
+    subtypeMeshesDying,
+    subtypeMeshesDyingLow,
     maturityHeights,
     groundCover,
     grassLayer,
@@ -203,9 +221,18 @@ export function createRenderer3D(
     nextSnapshots: new Map(),
     subtypePlantIds: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE)),
     subtypePlantIdsLow: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE)),
+    subtypePlantIdsStressed: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE_HEALTH)),
+    subtypePlantIdsStressedLow: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE_HEALTH)),
+    subtypePlantIdsDying: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE_HEALTH)),
+    subtypePlantIdsDyingLow: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE_HEALTH)),
     plantIndex: new Map(),
     subtypeLiveCounts: new Uint32Array(40),
     subtypeLiveCountsLow: new Uint32Array(40),
+    subtypeLiveCountsStressed: new Uint32Array(40),
+    subtypeLiveCountsStressedLow: new Uint32Array(40),
+    subtypeLiveCountsDying: new Uint32Array(40),
+    subtypeLiveCountsDyingLow: new Uint32Array(40),
+    prevPlantHealth: new Map(),
     dirtyPlants: new Set(),
     prevPlantDisease: new Map(),
     forceFullRebuild: true,
@@ -301,7 +328,10 @@ export function createRenderer3D(
       let shadowDirty = isFirstFrame || world.tick % 30 === 0;
       if (!shadowDirty && tickDelta <= 1) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          if (state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i] !== state.lastShadowCounts[i]) {
+          const total = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i]
+            + state.subtypeLiveCountsStressed[i] + state.subtypeLiveCountsStressedLow[i]
+            + state.subtypeLiveCountsDying[i] + state.subtypeLiveCountsDyingLow[i];
+          if (total !== state.lastShadowCounts[i]) {
             shadowDirty = true;
             break;
           }
@@ -310,7 +340,9 @@ export function createRenderer3D(
       if (shadowDirty) {
         webgl.shadowMap.needsUpdate = true;
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          state.lastShadowCounts[i] = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i];
+          state.lastShadowCounts[i] = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i]
+            + state.subtypeLiveCountsStressed[i] + state.subtypeLiveCountsStressedLow[i]
+            + state.subtypeLiveCountsDying[i] + state.subtypeLiveCountsDyingLow[i];
         }
       }
     }
@@ -465,6 +497,11 @@ export function createRenderer3D(
     state.plantIndex.clear();
     state.subtypeLiveCounts.fill(0);
     state.subtypeLiveCountsLow.fill(0);
+    state.subtypeLiveCountsStressed.fill(0);
+    state.subtypeLiveCountsStressedLow.fill(0);
+    state.subtypeLiveCountsDying.fill(0);
+    state.subtypeLiveCountsDyingLow.fill(0);
+    state.prevPlantHealth.clear();
     state.dirtyPlants.clear();
     state.prevPlantDisease.clear();
     state.forceFullRebuild = true;

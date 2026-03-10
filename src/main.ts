@@ -29,7 +29,7 @@ const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
 // Load Genesis as the default starting scenario
 loadScenario(world, genesis);
 
-const renderer = createRenderer3D(container, world);
+const renderer = await createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer, world);
 
 let lastTickTime = 0;

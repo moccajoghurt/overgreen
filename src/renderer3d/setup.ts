@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { World, TerrainType } from '../types';
 import {
-  GRID, ELEV_SCALE, MAX_SEEDS, MAX_PER_SUBTYPE,
+  GRID, ELEV_SCALE, MAX_SEEDS, MAX_PER_SUBTYPE, MAX_PER_SUBTYPE_HEALTH,
   SNOW_PARTICLE_COUNT, RAIN_PARTICLE_COUNT, MOTE_PARTICLE_COUNT, LEAF_PARTICLE_COUNT,
   FIRE_PARTICLE_COUNT, DUST_PARTICLE_COUNT, SPORE_PARTICLE_COUNT,
   WeatherParticle, EventParticle,
 } from './state';
-import { buildSubtypeModels, buildSubtypeModelsLow } from './plant-models';
+import { buildSubtypeModels, buildSubtypeModelsLow, buildSubtypeModelsStressed, buildSubtypeModelsStressedLow, buildSubtypeModelsDying, buildSubtypeModelsDyingLow } from './plant-models';
 import { createRockFormations, RockFormations } from './rocks';
 import { createTerrainDetailTexture } from './terrain-detail-texture';
 
@@ -297,17 +297,17 @@ export function rebuildTerrainGeometry(
 
 import type { SubtypeModel } from './plant-models';
 
-function createMeshesFromModels(models: SubtypeModel[]): THREE.InstancedMesh[] {
+function createMeshesFromModels(models: SubtypeModel[], capacity = MAX_PER_SUBTYPE): THREE.InstancedMesh[] {
   return models.map(m => {
     const meshMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
       flatShading: true,
     });
-    const mesh = new THREE.InstancedMesh(m.geometry, meshMat, MAX_PER_SUBTYPE);
+    const mesh = new THREE.InstancedMesh(m.geometry, meshMat, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(MAX_PER_SUBTYPE * 3), 3,
+      new Float32Array(capacity * 3), 3,
     );
     mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
@@ -316,19 +316,35 @@ function createMeshesFromModels(models: SubtypeModel[]): THREE.InstancedMesh[] {
   });
 }
 
-export function createSubtypeMeshes(): {
+export interface SubtypeMeshResult {
   meshes: THREE.InstancedMesh[];
   meshesLow: THREE.InstancedMesh[];
+  meshesStressed: THREE.InstancedMesh[];
+  meshesStressedLow: THREE.InstancedMesh[];
+  meshesDying: THREE.InstancedMesh[];
+  meshesDyingLow: THREE.InstancedMesh[];
   maturityHeights: Float32Array;
   groundCover: boolean[];
-} {
+}
+
+export async function createSubtypeMeshes(): Promise<SubtypeMeshResult> {
   const models = buildSubtypeModels();
   const modelsLow = buildSubtypeModelsLow();
+  const [modelsStressed, modelsStressedLow, modelsDying, modelsDyingLow] = await Promise.all([
+    buildSubtypeModelsStressed(),
+    buildSubtypeModelsStressedLow(),
+    buildSubtypeModelsDying(),
+    buildSubtypeModelsDyingLow(),
+  ]);
   const meshes = createMeshesFromModels(models);
   const meshesLow = createMeshesFromModels(modelsLow);
+  const meshesStressed = createMeshesFromModels(modelsStressed, MAX_PER_SUBTYPE_HEALTH);
+  const meshesStressedLow = createMeshesFromModels(modelsStressedLow, MAX_PER_SUBTYPE_HEALTH);
+  const meshesDying = createMeshesFromModels(modelsDying, MAX_PER_SUBTYPE_HEALTH);
+  const meshesDyingLow = createMeshesFromModels(modelsDyingLow, MAX_PER_SUBTYPE_HEALTH);
   const maturityHeights = new Float32Array(models.map(m => m.maturityHeight));
   const groundCover = models.map(m => m.groundCover);
-  return { meshes, meshesLow, maturityHeights, groundCover };
+  return { meshes, meshesLow, meshesStressed, meshesStressedLow, meshesDying, meshesDyingLow, maturityHeights, groundCover };
 }
 
 // ── Seed mesh (flying seeds — separate from plant subtypes) ──

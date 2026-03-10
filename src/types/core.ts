@@ -61,6 +61,7 @@ export interface Plant {
   lastMaintenanceCost: number;
   isDiseased: boolean;
   storedWater: number;
+  healthEMA: number;
   generation: number;
   parentId: number | null;
   offspringCount: number;

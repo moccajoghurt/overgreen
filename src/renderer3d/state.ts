@@ -31,6 +31,17 @@ export const MAX_DECOR_STONES = 6000;
 export const MAX_DECOR_REEDS = 5000;
 export const MAX_DECOR_DRY_BRUSH = 2000;
 export const MAX_PER_SUBTYPE = 7000; // 80×80=6400 grid + dying/burning headroom
+export const MAX_PER_SUBTYPE_HEALTH = 3000; // stressed/dying meshes (most plants healthy)
+
+// ── Health state ──
+
+export const enum HealthState { Thriving = 0, Stressed = 1, Dying = 2 }
+
+export function healthStateFromEMA(ema: number): HealthState {
+  if (ema > 0.7) return HealthState.Thriving;
+  if (ema > 0.35) return HealthState.Stressed;
+  return HealthState.Dying;
+}
 
 // ── Animation interfaces ──
 
@@ -108,9 +119,13 @@ export interface RendererState {
   getCellElevation: (cx: number, cy: number) => number;
   getCellSlope: (cx: number, cy: number) => Float32Array;
 
-  // Plant meshes (24 subtypes — one InstancedMesh per subtype, hi + lo LOD)
+  // Plant meshes (40 subtypes — one InstancedMesh per subtype, hi + lo LOD × 3 health states)
   subtypeMeshes: THREE.InstancedMesh[];
   subtypeMeshesLow: THREE.InstancedMesh[];
+  subtypeMeshesStressed: THREE.InstancedMesh[];
+  subtypeMeshesStressedLow: THREE.InstancedMesh[];
+  subtypeMeshesDying: THREE.InstancedMesh[];
+  subtypeMeshesDyingLow: THREE.InstancedMesh[];
   maturityHeights: Float32Array;
   groundCover: boolean[];
 
@@ -145,11 +160,20 @@ export interface RendererState {
   nextSnapshots: Map<number, PlantSnapshot>;
 
   // Dirty-tracking for incremental plant instance updates
-  subtypePlantIds: Int32Array[];      // [24][MAX_PER_SUBTYPE] — plantId at each instance index
-  subtypePlantIdsLow: Int32Array[];   // [24][MAX_PER_SUBTYPE] — plantId at each instance index (low LOD)
-  plantIndex: Map<number, { subtype: number; idx: number; low: boolean }>;  // reverse lookup
-  subtypeLiveCounts: Uint32Array;     // [24] — live plant count per subtype
-  subtypeLiveCountsLow: Uint32Array;  // [24] — live plant count per subtype (low LOD)
+  subtypePlantIds: Int32Array[];      // [40][MAX_PER_SUBTYPE] — plantId at each instance index
+  subtypePlantIdsLow: Int32Array[];   // [40][MAX_PER_SUBTYPE] — plantId at each instance index (low LOD)
+  subtypePlantIdsStressed: Int32Array[];
+  subtypePlantIdsStressedLow: Int32Array[];
+  subtypePlantIdsDying: Int32Array[];
+  subtypePlantIdsDyingLow: Int32Array[];
+  plantIndex: Map<number, { subtype: number; idx: number; low: boolean; health: HealthState }>;
+  subtypeLiveCounts: Uint32Array;     // [40] — live plant count per subtype
+  subtypeLiveCountsLow: Uint32Array;  // [40] — live plant count per subtype (low LOD)
+  subtypeLiveCountsStressed: Uint32Array;
+  subtypeLiveCountsStressedLow: Uint32Array;
+  subtypeLiveCountsDying: Uint32Array;
+  subtypeLiveCountsDyingLow: Uint32Array;
+  prevPlantHealth: Map<number, HealthState>;
   dirtyPlants: Set<number>;           // cleared each frame
   prevPlantDisease: Map<number, boolean>; // for disease-change detection
   forceFullRebuild: boolean;          // true on first frame, highlight/colorMode/terrain changes

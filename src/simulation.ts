@@ -214,11 +214,11 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   // Scales inversely with actual height — groundcover & forbs benefit most, trees get nothing.
   const isShaded = cell.lightLevel < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
-  const shadeTolerance = isShaded ? 1.0 + heightFactor * 1.5 : 1.0;
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 2.0 : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
   // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
-  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 0.5 : 1.0;
+  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 0.8 : 1.0;
 
   const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
@@ -260,8 +260,14 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   }
   // Trait maintenance scales with maturity — seedlings haven't built specialized tissue yet
   const maturity = Math.min(1, plant.height / pc.maxHeight);
+  // Progressive height penalty: on terrain with heightMult > 1, penalty scales with height²
+  // This barely affects short plants (grasses, shrubs) but heavily penalizes tall trees
+  const effectiveHeightMult = heightMult > 1.01
+    ? 1.0 + (heightMult - 1.0) * Math.min(plant.height / 3.0, 2.0)
+    : heightMult;
+
   let maintenance = mBase
-    + plant.height * mHeight * heightMult
+    + plant.height * mHeight * effectiveHeightMult
     + plant.rootDepth * mRoot * rootMult
     + leafMaint
     + maturity * (
@@ -450,13 +456,29 @@ function phaseUpdatePlants(world: World): void {
       archetypeSet &= ~(1 << archetype(plant.genome));
       const archetypeCount = (archetypeSet & 1) + ((archetypeSet >> 1) & 1)
         + ((archetypeSet >> 2) & 1) + ((archetypeSet >> 3) & 1) + ((archetypeSet >> 4) & 1);
-      energyProduced *= 1.0 + archetypeCount * 0.20;
+      energyProduced *= 1.0 + archetypeCount * 0.25;
     }
 
     const maintenance = calculateMaintenance(plant, world, isDiseased);
 
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
+
+    // Update health EMA — smoothed energy ratio for visual health state
+    let healthTarget: number;
+    if (maintenance > 0.01) {
+      const prodRatio = Math.min(energyProduced / maintenance, 1.5);
+      // Very low energy reserves (< 5× maintenance) pull health down
+      const reservePenalty = plant.energy < maintenance * 5
+        ? plant.energy / (maintenance * 5)
+        : 1.0;
+      healthTarget = prodRatio * (0.7 + 0.3 * reservePenalty);
+    } else {
+      healthTarget = establishing ? 0.5 : 1.0;
+    }
+    // Asymmetric smoothing: decline faster (0.25) than recovery (0.12)
+    const alpha = healthTarget < plant.healthEMA ? 0.25 : 0.12;
+    plant.healthEMA += (healthTarget - plant.healthEMA) * alpha;
 
     // Establishing seedlings can offset maintenance with stored water
     if (establishing && plant.storedWater > 0) {
@@ -584,9 +606,11 @@ function phaseGermination(world: World): void {
       const dampen = TERRAIN_PROPS[cell.terrainType].vigorDampen;
       const seedSizeVigor = Math.max(0.1, rawVigor + (1.0 - rawVigor) * dampen);
 
-      // Janzen-Connell effect: seeds near same-subtype adults face establishment failure
+      // Janzen-Connell effect: two levels of density-dependent establishment failure
       const childSubtype = classifySubtype(winner.genome);
+      const childArch = archetype(winner.genome);
       let conspecificCount = 0;
+      let archConspecific = 0;
       for (let jy = y - 2; jy <= y + 2; jy++) {
         for (let jx = x - 2; jx <= x + 2; jx++) {
           if (jx === x && jy === y) continue;
@@ -594,12 +618,21 @@ function phaseGermination(world: World): void {
           const jc = world.grid[jy][jx];
           if (jc.plantId === null) continue;
           const jn = world.plants.get(jc.plantId);
-          if (jn && jn.alive && classifySubtype(jn.genome) === childSubtype) {
-            conspecificCount++;
+          if (jn && jn.alive) {
+            if (classifySubtype(jn.genome) === childSubtype) conspecificCount++;
+            if (archetype(jn.genome) === childArch) archConspecific++;
           }
         }
       }
-      if (conspecificCount > 0 && Math.random() > 1.0 / (1.0 + conspecificCount * 1.0)) {
+      // Subtype JC: strong penalty near same-subtype adults
+      if (conspecificCount > 0 && Math.random() > 1.0 / (1.0 + conspecificCount * 3.0)) {
+        cell.seeds.push(winner);
+        world.seedPopulations.set(winner.speciesId,
+          (world.seedPopulations.get(winner.speciesId) ?? 0) + 1);
+        continue;
+      }
+      // Archetype JC: weaker penalty near same-archetype adults (prevents monoculture biomes)
+      if (archConspecific > 3 && Math.random() > 1.0 / (1.0 + (archConspecific - 3) * 0.5)) {
         cell.seeds.push(winner);
         world.seedPopulations.set(winner.speciesId,
           (world.seedPopulations.get(winner.speciesId) ?? 0) + 1);
@@ -640,6 +673,7 @@ function phaseGermination(world: World): void {
         lastLightReceived: 0, lastWaterAbsorbed: 0,
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
+        healthEMA: 1.0,
         generation: winner.generation, parentId: null, offspringCount: 0,
       };
       world.plants.set(childId, child);
