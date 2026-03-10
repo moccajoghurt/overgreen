@@ -1,25 +1,46 @@
 #!/bin/bash
 # Ralph Loop — fresh context per iteration, no compaction
-# Usage: ./ralph.sh [MAX_ITERATIONS]
+# Usage: ./ralph.sh [MAX_ITERATIONS]                — create new worktree
+#        ./ralph.sh [MAX_ITERATIONS] --resume NAME  — resume existing worktree
 #
-# Runs in a git worktree so main repo stays clean.
 # Each iteration gets a completely fresh context window.
 # Progress is tracked via git commits + RALPH-PROGRESS.md.
 
 set -uo pipefail
 
 MAX_ITERATIONS="${1:-50}"
-WORKTREE_NAME="ralph-$(date +%Y%m%d-%H%M%S)"
-WORKTREE_DIR=".claude/worktrees/$WORKTREE_NAME"
-BRANCH="ralph/$WORKTREE_NAME"
 
-# ── Create worktree ───────────────────────────────────────
-echo "Creating worktree: $WORKTREE_DIR (branch: $BRANCH)"
-git worktree add "$WORKTREE_DIR" -b "$BRANCH"
+# ── Parse --resume flag ──────────────────────────────────
+RESUME=""
+for arg in "$@"; do
+  if [ "$arg" = "--resume" ]; then
+    RESUME="next"
+  elif [ "$RESUME" = "next" ]; then
+    RESUME="$arg"
+  fi
+done
+
+if [ -n "$RESUME" ] && [ "$RESUME" != "next" ]; then
+  # Resume existing worktree
+  WORKTREE_DIR=".claude/worktrees/$RESUME"
+  BRANCH="ralph/$RESUME"
+  if [ ! -d "$WORKTREE_DIR" ]; then
+    echo "ERROR: Worktree not found: $WORKTREE_DIR"
+    echo "Available worktrees:"
+    ls .claude/worktrees/ 2>/dev/null || echo "  (none)"
+    exit 1
+  fi
+  echo "Resuming worktree: $WORKTREE_DIR (branch: $BRANCH)"
+else
+  # Create new worktree
+  WORKTREE_NAME="ralph-$(date +%Y%m%d-%H%M%S)"
+  WORKTREE_DIR=".claude/worktrees/$WORKTREE_NAME"
+  BRANCH="ralph/$WORKTREE_NAME"
+  echo "Creating worktree: $WORKTREE_DIR (branch: $BRANCH)"
+  git worktree add "$WORKTREE_DIR" -b "$BRANCH"
+fi
 
 # ── Build the prompt ──────────────────────────────────────
-# RALPH.md has the loop instructions; task.md and target-matrix.md
-# are read by claude from the worktree during each iteration.
 PROMPT="$(cat RALPH.md)"
 
 # ── Cleanup on exit ──────────────────────────────────────
@@ -28,6 +49,7 @@ cleanup() {
   echo "Ralph loop ended. Worktree preserved at: $WORKTREE_DIR"
   echo "Branch: $BRANCH"
   echo ""
+  echo "To resume:          ./ralph.sh --resume $(basename "$WORKTREE_DIR")"
   echo "To review changes:  git log $BRANCH --oneline"
   echo "To diff vs main:    git diff main...$BRANCH"
   echo "To merge:           git merge $BRANCH"
