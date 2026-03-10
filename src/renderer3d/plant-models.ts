@@ -3799,19 +3799,19 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   6.00,   // 10: Palm         18m   → 6.0
   5.00,   // 11: Birch        15m   → 5.0
   // Shrubs (12-17)
-  0.50,   // 12: Ev. Shrub    1.5m  → 0.50
-  1.00,   // 13: Dec. Shrub   3.0m  → 1.0
-  0.33,   // 14: Mediterranean 1.0m → 0.33
-  0.67,   // 15: Thorny       2.0m  → 0.67
-  0.67,   // 16: Desert Shrub 2.0m  → 0.67
+  0.80,   // 12: Ev. Shrub    1.5m  → 0.80
+  2.00,   // 13: Dec. Shrub   3.0m  → 2.00
+  0.55,   // 14: Mediterranean 1.0m → 0.55
+  1.00,   // 15: Thorny       2.0m  → 1.00
+  1.00,   // 16: Desert Shrub 2.0m  → 1.00
   1.67,   // 17: Mangrove     5.0m  → 1.67
   // Succulents (18-23)
   4.00,   // 18: Saguaro      12m   → 4.0
-  0.17,   // 19: Aloe         0.5m  → 0.17
-  0.67,   // 20: Caudiciform  2.0m  → 0.67
+  0.75,   // 19: Aloe         0.5m  → 0.75
+  1.00,   // 20: Caudiciform  2.0m  → 1.00
   2.00,   // 21: Euphorbia    6.0m  → 2.0
-  0.08,   // 22: Ice Plant    0.15m → 0.05 (floored)
-  0.10,   // 23: Epiphytic    0.3m  → 0.10
+  0.15,   // 22: Ice Plant    0.15m → 0.15
+  0.55,   // 23: Epiphytic    0.3m  → 0.55
   // Forbs (24-29)
   0.08,   // 24: Wildflower   0.20m → 0.067 (floored)
   0.33,   // 25: Tall Herb    1.0m  → 0.33
@@ -3821,13 +3821,13 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   0.08,   // 29: Moss         0.05m → 0.017 (floored)
   // New climate-zone subtypes (30-39)
   0.67,   // 30: Pampas       2.0m  → 0.67
-  0.17,   // 31: Desert Grass 0.5m  → 0.17
+  0.80,   // 31: Desert Grass 0.5m  → 0.80
   6.67,   // 32: Cypress      20m   → 6.67
   4.00,   // 33: Acacia       12m   → 4.0
-  1.00,   // 34: Flowering    3.0m  → 1.0
-  0.25,   // 35: Aromatic     0.75m → 0.25
-  0.50,   // 36: Barrel       1.5m  → 0.5
-  0.33,   // 37: Jade         1.0m  → 0.33
+  1.50,   // 34: Flowering    3.0m  → 1.50
+  0.70,   // 35: Aromatic     0.75m → 0.70
+  1.25,   // 36: Barrel       1.5m  → 1.25
+  0.85,   // 37: Jade         1.0m  → 0.85
   0.33,   // 38: Tropical Herb 1.0m → 0.33
   0.08,   // 39: Desert Annual 0.30m→ 0.10 (floored)
 ];
