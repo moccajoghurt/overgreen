@@ -571,7 +571,7 @@ Note: Succulents only germinate on Arid + Hill terrain. In Soil/Wetland pockets,
 | 3 | `experiment-terrain-quad` | 5000 | 500 | Terrain archetype/subtype validation (larger pockets) |
 | 4 | `experiment-zone-quad` | 5000 | 500 | Zone archetype/subtype validation (larger pockets) |
 
-Run via: `npx tsx scripts/run-experiment.ts <scenario-id> --ticks 5000 --interval 500`
+Run via: `npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts <scenario-id> --ticks 5000 --interval 500`
 
 ### 16.5 Niche Predictions
 

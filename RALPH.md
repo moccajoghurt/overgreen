@@ -40,10 +40,10 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 **Run all 4 in parallel** to save time (use `--out` and `&` + `wait`):
 
 ```bash
-npx tsx scripts/run-experiment.ts experiment-terrain-quad --ticks 10000 --interval 1000 --out results/quad.json &
-npx tsx scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 10000 --interval 1000 --out results/tropical.json &
-npx tsx scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 10000 --interval 1000 --out results/mediterranean.json &
-npx tsx scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 10000 --interval 1000 --out results/desert.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad --ticks 10000 --interval 1000 --out results/quad.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 10000 --interval 1000 --out results/tropical.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 10000 --interval 1000 --out results/mediterranean.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 10000 --interval 1000 --out results/desert.json &
 wait
 ```
 
