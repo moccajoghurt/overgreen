@@ -6,7 +6,7 @@ import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 
 // ── Constants ──
 
-const BLADES_PER_CELL = 48;
+const BLADES_PER_CELL = 96;
 const TOTAL_BLADES = GRID * GRID * BLADES_PER_CELL;
 const VERTS_PER_BLADE = 4;               // quad: bottom-left, bottom-right, top-left, top-right
 const TRIS_PER_BLADE = 2;
@@ -19,12 +19,12 @@ const FADE_END = 50.0;
 
 // Per-subtype blade heights at full growth (world units)
 const SUBTYPE_BLADE_HEIGHT: number[] = [
-  0.10,  // 0: Turfgrass — short lawn
-  0.38,  // 1: Tallgrass — tall prairie grass
-  0.22,  // 2: Bunchgrass — medium bunchy
-  0.08,  // 3: Bamboo — low ground cover
-  0.06,  // 4: Spreading/Ryegrass — carpet-like
-  0.28,  // 5: Sedge — medium-tall
+  0.22,  // 0: Turfgrass — short lawn
+  0.55,  // 1: Tallgrass — tall prairie grass
+  0.35,  // 2: Bunchgrass — medium bunchy
+  0.16,  // 3: Bamboo — low ground cover
+  0.14,  // 4: Spreading/Ryegrass — carpet-like
+  0.40,  // 5: Sedge — medium-tall
 ];
 
 // Per-subtype color tint multipliers — bold hue shifts so each grass species
@@ -66,6 +66,7 @@ const grassVertexShader = /* glsl */`
   varying float vHeight01;
   varying vec3 vTint;
   varying vec3 vWorldPos;
+  varying float vBladeRand;
 
   void main() {
     // World XZ position (grid → world coords) at the blade's actual position
@@ -83,16 +84,16 @@ const grassVertexShader = /* glsl */`
     }
     float fadeFactor = 1.0 - smoothstep(uFadeStart, uFadeEnd, dist);
 
-    // Sample cell data at blade's world position with nearest filter
-    // Each blade adopts the species color/height of whichever cell it physically
-    // occupies → sharp species boundaries, visual smoothness from blade scatter
+    // Sample cell data at blade's world position with linear filter
+    // Blades near species boundaries get smoothly blended colors
     vec2 bladeUV = (vec2(wx, wz) + ${HALF.toFixed(1)}) / ${GRID.toFixed(1)};
     vec4 cellData = texture2D(uCellData, bladeUV);
     float bladeHeight = cellData.r;
     vTint = cellData.gba;
 
-    // Collapse to degenerate triangle if no grass
-    if (bladeHeight < 0.001) {
+    // Collapse to degenerate triangle if no/very sparse grass
+    // (linear filter creates partial values at patch edges)
+    if (bladeHeight < 0.015) {
       gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
       vHeight01 = 0.0;
       vWorldPos = vec3(0.0);
@@ -123,15 +124,18 @@ const grassVertexShader = /* glsl */`
 
     // Side offset: 0=left(-1), 1=right(+1), flipped when facing away from camera
     float isLeft = flipSign * (1.0 - 2.0 * step(0.5, mod(vid, 2.0)));
-    // Taper: top verts are narrower (degenerate at very tip for natural look)
-    float taper = mix(1.0, 0.15, isTop);
+    // Taper: top verts narrower but retain width for leaf-like blade shape
+    float taper = mix(1.0, 0.3, isTop);
     float baseOffX = perpX * aBladeWidth * isLeft * taper;
     float baseOffZ = perpZ * aBladeWidth * isLeft * taper;
 
-    // Tip: slightly lean in yaw direction for natural look
-    float tipLean = 0.03 * h;
-    float tipOffX = cy * tipLean * isTop;
-    float tipOffZ = sy * tipLean * isTop;
+    // Prevailing wind lean: all blades share a directional bias
+    // plus per-blade random lean for organic variation
+    float leanAmount = (0.08 + aHeightVar * 0.08) * h;
+    float prevailingLeanX = 0.12 * h; // slight consistent lean in +X direction
+    float prevailingLeanZ = 0.06 * h; // slight consistent lean in +Z direction
+    float tipOffX = cy * leanAmount * isTop + prevailingLeanX * isTop;
+    float tipOffZ = sy * leanAmount * isTop + prevailingLeanZ * isTop;
 
     // Wind: only affects top vertices
     float windPhase = wx * 1.5 + wz * 1.3 + uTime * 2.5;
@@ -141,11 +145,14 @@ const grassVertexShader = /* glsl */`
     // Final position
     float finalX = wx + baseOffX + tipOffX + windBend * 0.7 + windBend2 * 0.3;
     float finalZ = wz + baseOffZ + tipOffZ + windBend * 0.3 + windBend2 * 0.7;
-    float finalY = elev + 0.005 + h * isTop;
+    // Sink base slightly below terrain so blades emerge FROM ground
+    float finalY = elev - 0.01 + (h + 0.015) * isTop;
 
     vec3 worldPos = vec3(finalX, finalY, finalZ);
     vWorldPos = worldPos;
     vHeight01 = isTop;
+    // Per-blade random (0-1) for color variation in fragment shader
+    vBladeRand = fract(aHeightVar * 3.7 + aYaw * 1.3);
 
     gl_Position = projectionMatrix * viewMatrix * vec4(worldPos, 1.0);
   }
@@ -160,34 +167,63 @@ const grassFragmentShader = /* glsl */`
   varying float vHeight01;
   varying vec3 vTint;
   varying vec3 vWorldPos;
+  varying float vBladeRand;
 
   void main() {
-    // Fake AO: darken blade base, stronger gradient
-    float ao = mix(0.45, 1.0, vHeight01);
+    // Subtle alpha fade at blade base — soft ground transition
+    float alpha = smoothstep(0.0, 0.2, vHeight01);
+    if (alpha < 0.05) discard;
+
+    // Strong AO gradient: very dark rooted base → bright tips
+    float ao = mix(0.25, 1.0, smoothstep(0.0, 0.5, vHeight01));
 
     // Approximate blade normal (pointing up + slightly outward)
     vec3 bladeNormal = normalize(vec3(0.0, 1.0, 0.0));
 
     // Diffuse lighting
     float NdotL = max(dot(bladeNormal, uSunDirection), 0.0);
-    float diffuse = 0.55 + NdotL * 0.45;
+    float diffuse = 0.50 + NdotL * 0.50;
 
-    // Tip highlight — grass tips catch more light
-    float tipBrightness = mix(0.9, 1.2, vHeight01);
+    // Bright golden tips — catches sunlight like real grass
+    float tipBrightness = mix(0.80, 1.45, vHeight01);
 
     // Landscape-scale brightness variation (~5 cell period)
-    // Modulates brightness only — preserves species hue identity
     float brightnessMod = 1.0 + sin(vWorldPos.x * 0.22 + 1.3) * sin(vWorldPos.z * 0.18 + 0.7) * 0.15;
 
-    vec3 baseGreen = vec3(0.28, 0.52, 0.18);
-    vec3 color = baseGreen * vTint * ao * diffuse * tipBrightness * brightnessMod;
+    // Landscape-scale hue patches (~2-3 cell period) for visible tuft-level variation
+    float patchNoise = sin(vWorldPos.x * 1.8 + 0.5) * sin(vWorldPos.z * 2.1 + 1.2);
+    float patchWarm = patchNoise * 0.35; // -0.35 to +0.35
+
+    // Per-blade hue variation on top of landscape patches
+    float hueShift = (vBladeRand - 0.5) * 0.3 + patchWarm;
+    // ~8% fully dried/golden blades + 12% dried tips
+    float isFullyDry = step(0.92, vBladeRand);
+    float isDryTip = step(0.80, vBladeRand) * (1.0 - isFullyDry);
+
+    // Dramatic base-to-tip color shift: dark cool base → warm golden-green tips
+    vec3 baseColor = vec3(0.15, 0.28, 0.08);   // dark earthy green at roots
+    vec3 tipColor  = vec3(0.38, 0.58, 0.20);   // warm bright green at tips
+    // Shift tip hue per blade + landscape patch
+    tipColor.r += hueShift * 0.5;
+    tipColor.g += hueShift * 0.15;
+    tipColor.b -= hueShift * 0.25;
+    // Dried blade tips: shift toward straw/yellow-brown
+    vec3 dryTip = vec3(0.62, 0.54, 0.18);
+    tipColor = mix(tipColor, dryTip, isDryTip * 0.8 * vHeight01);
+    // Fully dried blades: entire blade is straw-golden
+    vec3 dryBlade = vec3(0.55, 0.48, 0.18);
+    baseColor = mix(baseColor, dryBlade * 0.5, isFullyDry);
+    tipColor = mix(tipColor, dryBlade, isFullyDry);
+
+    vec3 bladeColor = mix(baseColor, tipColor, smoothstep(0.0, 0.8, vHeight01));
+    vec3 color = bladeColor * vTint * ao * diffuse * tipBrightness * brightnessMod;
 
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
     float fogFactor = smoothstep(uFogNear, uFogFar, fogDepth);
     color = mix(color, uFogColor, fogFactor);
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, alpha);
   }
 `;
 
@@ -211,12 +247,26 @@ export function createGrassLayer(
   for (let cy = 0; cy < GRID; cy++) {
     for (let cx = 0; cx < GRID; cx++) {
       const cellIdx = cy * GRID + cx;
+      // Pre-compute tuft centers for clumping (8 tufts per cell)
+      // Tufts can straddle cell boundaries for organic overlap
+      const TUFTS = 8;
+      const tuftCX: number[] = [];
+      const tuftCZ: number[] = [];
+      for (let t = 0; t < TUFTS; t++) {
+        tuftCX.push((plantHash(cellIdx, 600 + t) - 0.5) * 1.6);
+        tuftCZ.push((plantHash(cellIdx, 700 + t) - 0.5) * 1.6);
+      }
       for (let b = 0; b < BLADES_PER_CELL; b++) {
-        const ox = (plantHash(cellIdx, 100 + b) - 0.5) * 1.6;  // ±0.8
-        const oz = (plantHash(cellIdx, 200 + b) - 0.5) * 1.6;
+        // Assign blade to nearest tuft, with scatter
+        const tuftIdx = b % TUFTS;
+        const scatter = 0.32;
+        const ox = tuftCX[tuftIdx] + (plantHash(cellIdx, 100 + b) - 0.5) * scatter;
+        const oz = tuftCZ[tuftIdx] + (plantHash(cellIdx, 200 + b) - 0.5) * scatter;
         const yaw = plantHash(cellIdx, 300 + b) * Math.PI * 2;
-        const hv = 0.5 + plantHash(cellIdx, 400 + b) * 1.3;    // [0.5, 1.8]
-        const bw = 0.05 + plantHash(cellIdx, 500 + b) * 0.06;  // [0.05, 0.11]
+        // Mix of hero blades (tall) and filler blades (short) for lush tufts
+        const raw = plantHash(cellIdx, 400 + b);
+        const hv = raw < 0.4 ? 0.25 + raw * 1.0 : 0.6 + raw * 1.4;  // bimodal: [0.25-0.65] or [0.6-2.0]
+        const bw = 0.07 + plantHash(cellIdx, 500 + b) * 0.10;  // [0.07, 0.17]
 
         const baseVert = vi;
         // 4 vertices per blade quad
@@ -260,8 +310,8 @@ export function createGrassLayer(
     cellDataArray, GRID, GRID,
     THREE.RGBAFormat, THREE.FloatType,
   );
-  cellDataTex.minFilter = THREE.NearestFilter;
-  cellDataTex.magFilter = THREE.NearestFilter;
+  cellDataTex.minFilter = THREE.LinearFilter;
+  cellDataTex.magFilter = THREE.LinearFilter;
   cellDataTex.needsUpdate = true;
 
   const elevArray = new Float32Array(GRID * GRID * 4); // RGBA but we only use R
@@ -299,6 +349,8 @@ export function createGrassLayer(
     side: THREE.FrontSide,
     fog: false,
     depthWrite: true,
+    transparent: true,
+    alphaTest: 0.05,
   });
 
   const mesh = new THREE.Mesh(geometry, material);

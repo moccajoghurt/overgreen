@@ -13,7 +13,7 @@ const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
 
 // Pre-computed terrain base colors (RGB, from HSL constants)
 const TERRAIN_RGB: Record<number, [number, number, number]> = {
-  [TerrainType.Soil]:    [0.4480, 0.3200, 0.1920],
+  [TerrainType.Soil]:    [0.4200, 0.3100, 0.1800],
   [TerrainType.River]:   [0.4480, 0.3200, 0.1920],
   [TerrainType.Rock]:    [0.4028, 0.3800, 0.3572], // + elevation * [0.0636, 0.06, 0.0564]
   [TerrainType.Hill]:    [0.5130, 0.3889, 0.2470],
@@ -135,14 +135,14 @@ export function updateTerrainColors(state: RendererState): void {
   // Per-archetype tint colors [R, G, B] and max blend strengths
   // Indexed by Archetype enum: Grass=0, Shrub=1, Succulent=2, Tree=3, Forb=4
   const VEG_TINT: [number, number, number][] = [
-    [0.22, 0.48, 0.12],  // 0: Grass — bright natural green
+    [0.26, 0.50, 0.16],  // 0: Grass — matches grass blade baseGreen closely
     [0.16, 0.32, 0.08],  // 1: Shrub — medium green
     [0.00, 0.00, 0.00],  // 2: Succulent — placeholder (skipped)
     [0.12, 0.20, 0.06],  // 3: Tree — dark understory
     [0.20, 0.45, 0.14],  // 4: Forb — bright herb green
   ];
-  const VEG_MAX_BLEND = [0.92, 0.70, 0.0, 0.50, 0.85];
-  const VEG_REF_HEIGHT = [0.4, 1.2, 0.0, 3.0, 0.6];
+  const VEG_MAX_BLEND = [0.95, 0.70, 0.0, 0.50, 0.85];
+  const VEG_REF_HEIGHT = [0.3, 1.2, 0.0, 3.0, 0.6];
   const vegR = new Float32Array(cellCount);
   const vegG = new Float32Array(cellCount);
   const vegB = new Float32Array(cellCount);
@@ -193,7 +193,36 @@ export function updateTerrainColors(state: RendererState): void {
         vegR[idx] = sumR / count;
         vegG[idx] = sumG / count;
         vegB[idx] = sumB / count;
-        vegBlend[idx] = (sumB2 / count) * 0.6;
+        vegBlend[idx] = (sumB2 / count) * 0.75;
+      }
+    }
+  }
+
+  // Second neighbor-spread pass: extends green further from grass patches
+  // Uses a copy of the first pass results to avoid contamination
+  const vegBlend2 = new Float32Array(vegBlend);
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const idx = y * GRID + x;
+      if (vegBlend2[idx] > 0) continue;
+      let sumR = 0, sumG = 0, sumB = 0, sumB2 = 0, count = 0;
+      const neighbors = [
+        y > 0 ? (y - 1) * GRID + x : -1,
+        y < GRID - 1 ? (y + 1) * GRID + x : -1,
+        x > 0 ? y * GRID + (x - 1) : -1,
+        x < GRID - 1 ? y * GRID + (x + 1) : -1,
+      ];
+      for (const ni of neighbors) {
+        if (ni >= 0 && vegBlend[ni] > 0) {
+          sumR += vegR[ni]; sumG += vegG[ni]; sumB += vegB[ni];
+          sumB2 += vegBlend[ni]; count++;
+        }
+      }
+      if (count > 0) {
+        vegR[idx] = sumR / count;
+        vegG[idx] = sumG / count;
+        vegB[idx] = sumB / count;
+        vegBlend[idx] = (sumB2 / count) * 0.45;
       }
     }
   }
