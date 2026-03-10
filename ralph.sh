@@ -6,7 +6,7 @@
 # Each iteration gets a completely fresh context window.
 # Progress is tracked via git commits + RALPH-PROGRESS.md.
 
-set -euo pipefail
+set -uo pipefail
 
 MAX_ITERATIONS="${1:-50}"
 WORKTREE_NAME="ralph-$(date +%Y%m%d-%H%M%S)"
