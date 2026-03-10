@@ -303,14 +303,19 @@ function getTerrain(x: number, y: number): ScenarioCell | null {
   // ── Oasis: the hidden spring — Hagar's well ──
   const oasisX = 65, oasisY = 52;
   const oDist = Math.hypot(x - oasisX, y - oasisY);
-  if (oDist <= 3.0) {
+  if (oDist <= 2.5) {
+    // Open water pool — the spring itself
+    return { x, y, terrain: TerrainType.River, elevation: 0.28 };
+  }
+  if (oDist <= 4.0) {
+    // Lush wetland ring around the pool
     return { x, y, terrain: TerrainType.Wetland, elevation: 0.30 };
   }
-  if (oDist <= 4.5) {
+  if (oDist <= 5.5) {
     // Wetland fringe — green beacon in the desert
     return { x, y, terrain: TerrainType.Wetland, elevation: 0.28 };
   }
-  if (oDist <= 7) {
+  if (oDist <= 8) {
     return null; // soil ring
   }
   // Soil/wetland finger toward inselberg chain — wider, visible
@@ -561,7 +566,7 @@ export const genesis: Scenario = (() => {
           longevity: 0.65,
         },
         color: { r: 0.70, g: 0.55, b: 0.15 },
-        placements: [{ x: 65, y: 52 }],
+        placements: [{ x: 61, y: 52 }],
       },
     ],
   };
