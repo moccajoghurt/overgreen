@@ -1,3 +1,21 @@
+## Loop Protocol
+
+You are one iteration of an autonomous Ralph loop. You have NO memory of previous iterations — your only link to the past is the filesystem.
+
+**Start of iteration:**
+1. `git log --oneline -20` — see what previous iterations did
+2. Read `RALPH-PROGRESS.md` (if it exists) — previous iteration left you notes
+3. Based on the current state, pick ONE focused task (e.g. fix one mechanic, tune one niche, add one system)
+
+**End of iteration:**
+4. Commit your changes with a descriptive message
+5. Write `RALPH-PROGRESS.md` with: what you did, experiment results summary, what the next iteration should focus on
+6. If ALL 16 niches pass (dominant subtypes match, Shannon H ≥ 2.5): output RALPH_COMPLETE
+
+**Scoping rule:** Do ONE thing well per iteration. Don't try to fix everything at once. A single mechanic change + one experiment run is a good iteration. The loop will keep going.
+
+---
+
 ## Goal
 
 Build a plant ecosystem sim that realistically models how diverse environments form. This is an educational tool — the sim should teach people why temperate forests look different from deserts, why wetlands have different species than hilltops.
