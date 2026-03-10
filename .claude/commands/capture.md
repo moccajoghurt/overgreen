@@ -1,6 +1,6 @@
-Run the performance benchmark pipeline and review results.
+Capture screenshots of the map from preset or ad-hoc camera positions, with optional performance analysis.
 
-Captures screenshots from multiple camera angles at a given tick, with per-subsystem performance timings.
+Captures a screenshot from a camera position at a given tick. Can include per-subsystem performance timings.
 
 ## Steps
 
