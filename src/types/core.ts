@@ -62,6 +62,7 @@ export interface Plant {
   isDiseased: boolean;
   storedWater: number;
   healthEMA: number;
+  peakEnergy: number;
   generation: number;
   parentId: number | null;
   offspringCount: number;
