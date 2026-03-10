@@ -57,7 +57,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     "$PROMPT" \
     2>&1) || true
 
-  echo "$OUTPUT" | tail -30
+  echo "$OUTPUT"
 
   # Check for completion promise
   if echo "$OUTPUT" | grep -q "RALPH_COMPLETE"; then
