@@ -1,0 +1,1 @@
+/ralph-loop:ralph-loop "Read task.md and follow the instructions. Once you have successfully created a realistic full spectrum of coexisting plant subtypes, matching the target matrix described in target-matrix.md and can proof that with the experiments, output <promise>COMPLETE</promise>" --completion-promise "COMPLETE" --max-iterations 50
