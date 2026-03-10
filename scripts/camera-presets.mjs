@@ -81,5 +81,54 @@ export const SHOWCASE_PRESETS_MAP = {
 
 export const SHOWCASE_PRESETS = Object.keys(SHOWCASE_PRESETS_MAP);
 
-// Merge showcase presets into main PRESETS for unified lookup
-Object.assign(PRESETS, SHOWCASE_PRESETS_MAP);
+// ── Per-plant close-up presets ──
+// Each frames one subtype's 6 meshes (3 health × 2 LOD).
+// Layout mirrors src/scenarios/showcase.ts:
+//   START_X=3, TRIPLET_SPACING=9, ROW_Y_HI=[7,21,35,49,63], ROW_Y_LO=[11,25,39,53,67]
+//   Cell (x,y) → world (x-40+0.5, 0, y-40+0.5)
+
+const PLANT_GROUPS = [
+  { subs: [0,1,2,3,4,5,30,31], yHi: 7, yLo: 11, camY: 5, camZoff: 5 },   // Grasses
+  { subs: [6,7,8,9,10,11,32,33], yHi: 21, yLo: 25, camY: 30, camZoff: 25 }, // Trees
+  { subs: [12,13,14,15,16,17,34,35], yHi: 35, yLo: 39, camY: 8, camZoff: 7 }, // Shrubs
+  { subs: [18,19,20,21,22,23,36,37], yHi: 49, yLo: 53, camY: 18, camZoff: 15 }, // Succulents
+  { subs: [24,25,26,27,28,29,38,39], yHi: 63, yLo: 67, camY: 5, camZoff: 5 }, // Forbs
+];
+
+const SUBTYPE_NAMES = [
+  'Turfgrass','Tallgrass','Bunchgrass','Bamboo','Ryegrass','Sedge',
+  'Oak','Magnolia','Conifer','Tropical','Palm','Birch',
+  'Holly','Hazel','Mediterranean','Bramble','Saltbush','Mangrove',
+  'Saguaro','Aloe','Caudiciform','Euphorbia','Iceplant','Epiphytic',
+  'Wildflower','Tall Herb','Fern','Vine','Clover','Moss',
+  'Pampas','Desert Grass','Cypress','Acacia',
+  'Flowering Shrub','Aromatic','Barrel Cactus','Jade',
+  'Tropical Herb','Desert Annual',
+];
+
+const START_X = 3;
+const TRIPLET_SPACING = 9;
+
+export const PLANT_PRESETS_MAP = {};
+const plantPresetKeys = [];
+
+for (const group of PLANT_GROUPS) {
+  const wzCenter = (group.yHi + group.yLo) / 2 - 39.5;
+  for (let si = 0; si < group.subs.length; si++) {
+    const sub = group.subs[si];
+    const wx = START_X + si * TRIPLET_SPACING + 2 - 39.5;
+    const name = SUBTYPE_NAMES[sub];
+    const key = 'plant' + name.replace(/\s+/g, '');
+    PLANT_PRESETS_MAP[key] = {
+      name: name,
+      position: { x: wx, y: group.camY, z: wzCenter + group.camZoff },
+      target: { x: wx, y: 0, z: wzCenter },
+    };
+    plantPresetKeys.push(key);
+  }
+}
+
+export const PLANT_PRESETS = plantPresetKeys;
+
+// Merge all presets into main PRESETS for unified lookup
+Object.assign(PRESETS, SHOWCASE_PRESETS_MAP, PLANT_PRESETS_MAP);
