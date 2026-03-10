@@ -88,6 +88,7 @@ const _gridSize = GRID_WIDTH * GRID_WIDTH;
 const _heightGrid = new Float32Array(_gridSize);
 const _srGrid = new Float32Array(_gridSize);
 const _shsGrid = new Float32Array(_gridSize);
+const _diseasedGrid = new Uint8Array(_gridSize);
 
 function phaseCalculateLight(world: World): void {
   const W = world.width;
@@ -441,17 +442,25 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
 }
 
 function phaseUpdatePlants(world: World): void {
+  // Build flat disease grid to avoid string-key lookups per plant
+  const W = world.width;
+  _diseasedGrid.fill(0);
+  for (const disease of world.environment.diseases) {
+    for (const [key] of disease.cells) {
+      const i = key.indexOf(',');
+      const dx = Number(key.slice(0, i));
+      const dy = Number(key.slice(i + 1));
+      _diseasedGrid[dy * W + dx] = 1;
+    }
+  }
+
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
     const pc = getPlantConstants(plant.genome);
 
-    // Check disease status once and store on plant
-    const cellKey = `${plant.x},${plant.y}`;
-    let isDiseased = false;
-    for (const disease of world.environment.diseases) {
-      if (disease.cells.has(cellKey)) { isDiseased = true; break; }
-    }
+    // Check disease status from pre-built grid
+    const isDiseased = _diseasedGrid[plant.y * W + plant.x] === 1;
     plant.isDiseased = isDiseased;
 
     // Establishment delay — seedlings can't photosynthesize until roots/leaves are built
