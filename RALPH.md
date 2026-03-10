@@ -1,10 +1,45 @@
-### 18.1 Full 16-niche targets (realistic spectrum)
+## Goal
 
-Each niche lists the full community structure: **Dominant** (most abundant, defines the landscape), **Common** (reliably present, significant population), **Minor** (present but sparse), **Absent** (should not appear — ecologically impossible).
+Build a plant ecosystem sim that realistically models how diverse environments form. This is an educational tool — the sim should teach people why temperate forests look different from deserts, why wetlands have different species than hilltops.
 
-Subtypes available (40): Grasses — Turfgrass, Tallgrass, Bunchgrass, Bamboo, Ryegrass, Sedge, Pampas, Desert Grass. Trees — Oak, Magnolia, Conifer, Tropical, Palm, Birch, Cypress, Acacia. Shrubs — Holly, Hazel, Mediterranean, Bramble, Saltbush, Mangrove, Flowering Shrub, Aromatic. Succulents — Saguaro, Aloe, Caudiciform, Euphorbia, Iceplant, Epiphytic, Barrel Cactus, Jade. Forbs — Wildflower, Tall Herb, Fern, Vine, Clover, Moss, Tropical Herb, Desert Annual.
+Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid) × 4 climates (Temperate, Tropical, Mediterranean, Desert). Each niche should produce its realistic community of coexisting plant subtypes.
+
+## What you can do
+
+- Add new systems or mechanics
+- Remove or rework existing systems
+- Tweak constants and tuning values
+
+## Rules
+
+- **Performance: target ≥150 ticks/sec.** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change tanks perf below 200, optimize or revert — the sim must stay fast enough for rapid iteration.
+
+## Experiments
+
+4 experiments, each 80×80 with 35×35 pockets (1,225 cells). Run at 10,000 ticks, snapshot every 1000.
+
+```
+npx tsx scripts/run-experiment.ts <id> --ticks 10000 --interval 1000
+```
+
+| Experiment                              | Climate       | Niches                        |
+| --------------------------------------- | ------------- | ----------------------------- |
+| `experiment-terrain-quad`               | Temperate     | Soil/Hill/Wetland/Arid × Temp |
+| `experiment-terrain-quad-tropical`      | Tropical      | Soil/Hill/Wetland/Arid × Trop |
+| `experiment-terrain-quad-mediterranean` | Mediterranean | Soil/Hill/Wetland/Arid × Med  |
+| `experiment-terrain-quad-desert`        | Desert        | Soil/Hill/Wetland/Arid × Des  |
+
+Success = dominant subtypes match the target matrix per niche, ≥8 subtypes coexist per niche (Shannon H ≥ 2.5).
 
 ---
+
+## Target Matrix
+
+40 subtypes: Grasses — Turfgrass, Tallgrass, Bunchgrass, Bamboo, Ryegrass, Sedge, Pampas, Desert Grass. Trees — Oak, Magnolia, Conifer, Tropical, Palm, Birch, Cypress, Acacia. Shrubs — Holly, Hazel, Mediterranean, Bramble, Saltbush, Mangrove, Flowering Shrub, Aromatic. Succulents — Saguaro, Aloe, Caudiciform, Euphorbia, Iceplant, Epiphytic, Barrel Cactus, Jade. Forbs — Wildflower, Tall Herb, Fern, Vine, Clover, Moss, Tropical Herb, Desert Annual.
+
+Each niche: **Dominant** (most abundant), **Common** (reliably present), **Minor** (sparse), **Absent** (ecologically impossible).
+
+### Soil
 
 **Soil+Temperate** — Central European broadleaf forest
 
@@ -34,7 +69,7 @@ Subtypes available (40): Grasses — Turfgrass, Tallgrass, Bunchgrass, Bamboo, R
 - Minor: Bunchgrass, Caudiciform, Pampas
 - Absent: Oak, Birch, Magnolia, Conifer, Tropical, Palm, Cypress, Holly, Hazel, Mangrove, Bramble, Flowering Shrub, Iceplant, Epiphytic, Wildflower, Tall Herb, Fern, Vine, Clover, Moss, Tropical Herb, Tallgrass, Turfgrass, Ryegrass, Sedge, Bamboo
 
----
+### Hill
 
 **Hill+Temperate** — Alpine/rocky meadow
 
@@ -64,7 +99,7 @@ Subtypes available (40): Grasses — Turfgrass, Tallgrass, Bunchgrass, Bamboo, R
 - Minor: Caudiciform, Aromatic, Jade
 - Absent: Oak, Magnolia, Conifer, Tropical, Palm, Birch, Cypress, Acacia, Holly, Hazel, Mediterranean, Bramble, Mangrove, Flowering Shrub, Iceplant, Epiphytic, Tallgrass, Turfgrass, Ryegrass, Bamboo, Pampas, Sedge, Wildflower, Tall Herb, Fern, Vine, Clover, Moss, Tropical Herb
 
----
+### Wetland
 
 **Wetland+Temperate** — Temperate riparian forest / swamp
 
@@ -94,7 +129,7 @@ Subtypes available (40): Grasses — Turfgrass, Tallgrass, Bunchgrass, Bamboo, R
 - Minor: Saltbush, Wildflower, Clover
 - Absent: Oak, Birch, Magnolia, Conifer, Tropical, Cypress, Holly, Hazel, Mediterranean, Aromatic, Bramble, Flowering Shrub, all Succulents, Bamboo, Pampas, Desert Grass, Bunchgrass, Turfgrass, Vine, Tall Herb, Tropical Herb, Desert Annual
 
----
+### Arid
 
 **Arid+Temperate** — Temperate steppe / dry scrubland
 

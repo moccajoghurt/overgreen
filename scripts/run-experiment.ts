@@ -3,6 +3,7 @@ import { tickWorld, clearFrameEvents } from '../src/simulation';
 import { loadScenario } from '../src/scenario-loader';
 import { SCENARIOS } from '../src/scenarios';
 import { SIM } from '../src/types';
+import { PerfTracker } from '../src/perf';
 import {
   createAccumulator, accumulateTick, computeSnapshot,
   computeTerrainSummary, computeNearRiverSet,
@@ -56,6 +57,10 @@ process.stderr.write(`Running "${scenario.name}" for ${totalTicks} ticks (snapsh
 const world = createWorld();
 loadScenario(world, scenario);
 
+const perf = new PerfTracker();
+const phases = ['environment', 'rechargeWater', 'calculateLight', 'updatePlants', 'herbivores', 'death', 'decomposition', 'germination'];
+for (const p of phases) perf.register(p, 'sim');
+
 const terrainSummary = computeTerrainSummary(world);
 const nearRiver = computeNearRiverSet(world);
 const snapshots: Snapshot[] = [];
@@ -65,7 +70,7 @@ const t0 = performance.now();
 
 for (let t = 1; t <= totalTicks; t++) {
   clearFrameEvents(world);
-  tickWorld(world);
+  tickWorld(world, perf);
   accumulateTick(accumulator, world);
 
   if (t % interval === 0) {
@@ -104,10 +109,22 @@ for (let t = 1; t <= totalTicks; t++) {
   }
 }
 
-const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-process.stderr.write(`Done in ${elapsed}s — ${snapshots.length} snapshots\n`);
+process.stderr.write(`Done in ${((performance.now() - t0) / 1000).toFixed(2)}s — ${snapshots.length} snapshots\n`);
+
+// Per-phase profiling
+process.stderr.write('\nPer-phase avg ms/tick:\n');
+for (const e of perf.getEntries()) {
+  process.stderr.write(`  ${e.label.padEnd(20)} ${e.avgMs.toFixed(3)} ms\n`);
+}
 
 // ── Output report ──
+
+interface PerfStats {
+  elapsedSeconds: number;
+  msPerTick: number;
+  ticksPerSecond: number;
+  phases: Record<string, number>;
+}
 
 interface ExperimentReport {
   scenarioId: string;
@@ -115,9 +132,22 @@ interface ExperimentReport {
   config: { totalTicks: number; snapshotInterval: number };
   gridSize: { width: number; height: number };
   terrainSummary: TerrainSummary;
+  perfStats: PerfStats;
   simConstants: Record<string, number>;
   snapshots: Snapshot[];
 }
+
+const elapsedSec = (performance.now() - t0) / 1000;
+const phaseStats: Record<string, number> = {};
+for (const e of perf.getEntries()) {
+  phaseStats[e.label] = Math.round(e.avgMs * 1000) / 1000;
+}
+const perfStats: PerfStats = {
+  elapsedSeconds: Math.round(elapsedSec * 100) / 100,
+  msPerTick: Math.round((elapsedSec * 1000 / totalTicks) * 100) / 100,
+  ticksPerSecond: Math.round(totalTicks / elapsedSec),
+  phases: phaseStats,
+};
 
 const report: ExperimentReport = {
   scenarioId: scenario.id,
@@ -125,6 +155,7 @@ const report: ExperimentReport = {
   config: { totalTicks, snapshotInterval: interval },
   gridSize: { width: world.width, height: world.height },
   terrainSummary,
+  perfStats,
   simConstants: { ...SIM } as unknown as Record<string, number>,
   snapshots,
 };
