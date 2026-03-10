@@ -41,64 +41,100 @@ function lerpAngle(a: number, b: number, t: number): number {
 export function createDeerGeometry(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
 
-  // Body: ellipsoid (sphere scaled to oval)
-  const body = new THREE.SphereGeometry(1, 6, 5);
-  body.scale(0.32, 0.16, 0.14);
-  body.translate(0, 0.3, 0);
-  parts.push(body);
+  // Legs first — deer legs are long and slender
+  // Leg height determines body position
+  const legH = 0.28;
+  const bodyY = legH + 0.08; // body center height
 
-  // Shoulder: slightly bulkier sphere at front of body
-  const shoulder = new THREE.SphereGeometry(1, 5, 4);
-  shoulder.scale(0.14, 0.14, 0.12);
-  shoulder.translate(0.18, 0.34, 0);
-  parts.push(shoulder);
-
-  // Neck: tilted cylinder connecting shoulder to head
-  const neck = new THREE.CylinderGeometry(0.055, 0.07, 0.15, 6);
-  neck.rotateZ(-0.6); // tilt forward
-  neck.translate(0.27, 0.42, 0);
-  parts.push(neck);
-
-  // Head: sphere with more segments for roundness
-  const head = new THREE.SphereGeometry(0.09, 6, 5);
-  head.translate(0.33, 0.50, 0);
-  parts.push(head);
-
-  // Snout: tapered cylinder
-  const snout = new THREE.CylinderGeometry(0.025, 0.04, 0.09, 5);
-  snout.rotateZ(-Math.PI / 2); // point forward
-  snout.translate(0.42, 0.47, 0);
-  parts.push(snout);
-
-  // 4 Legs: 6-sided cylinders (look round), slightly tapered
+  // 4 Legs: long, tapered cylinders
   const legPositions = [
-    [0.15, 0.10, 0.08],   // front-left
-    [0.15, 0.10, -0.08],  // front-right
-    [-0.18, 0.10, 0.08],  // back-left
-    [-0.18, 0.10, -0.08], // back-right
+    [0.12, 0, 0.07],    // front-left
+    [0.12, 0, -0.07],   // front-right
+    [-0.14, 0, 0.065],  // back-left
+    [-0.14, 0, -0.065], // back-right
   ];
-  for (const [lx, ly, lz] of legPositions) {
-    const leg = new THREE.CylinderGeometry(0.02, 0.028, 0.20, 6);
-    leg.translate(lx, ly, lz);
+  for (const [lx, , lz] of legPositions) {
+    const leg = new THREE.CylinderGeometry(0.018, 0.022, legH, 6);
+    leg.translate(lx, legH / 2, lz);
     parts.push(leg);
+    // Small hoof
+    const hoof = new THREE.CylinderGeometry(0.024, 0.020, 0.02, 6);
+    hoof.translate(lx, 0.01, lz);
+    parts.push(hoof);
   }
 
-  // 2 Antlers: 5-sided cones tilted outward
-  const antlerL = new THREE.ConeGeometry(0.025, 0.14, 5);
-  antlerL.translate(0.30, 0.62, 0.05);
-  antlerL.rotateZ(-0.3);
-  parts.push(antlerL);
+  // Body: slender ellipsoid, slightly deeper
+  const body = new THREE.SphereGeometry(1, 7, 5);
+  body.scale(0.22, 0.12, 0.09);
+  body.translate(0, bodyY, 0);
+  parts.push(body);
 
-  const antlerR = new THREE.ConeGeometry(0.025, 0.14, 5);
-  antlerR.translate(0.30, 0.62, -0.05);
-  antlerR.rotateZ(0.3);
-  parts.push(antlerR);
+  // Chest: slight bulge at front
+  const chest = new THREE.SphereGeometry(1, 5, 4);
+  chest.scale(0.09, 0.10, 0.08);
+  chest.translate(0.13, bodyY + 0.02, 0);
+  parts.push(chest);
 
-  // Tail: small cone at back
-  const tail = new THREE.ConeGeometry(0.02, 0.06, 3);
-  tail.translate(-0.32, 0.38, 0);
-  tail.rotateZ(Math.PI / 4);
-  parts.push(tail);
+  // Haunch: slight bulge at rear, extends further back
+  const haunch = new THREE.SphereGeometry(1, 5, 4);
+  haunch.scale(0.09, 0.09, 0.07);
+  haunch.translate(-0.14, bodyY + 0.01, 0);
+  parts.push(haunch);
+
+  // Neck: long, angled upward — overlaps body to avoid gap
+  const neckAngle = 0.65;
+  const neckLen = 0.20;
+  const neck = new THREE.CylinderGeometry(0.04, 0.065, neckLen, 6);
+  neck.rotateZ(-neckAngle);
+  const neckBaseX = 0.16;
+  const neckBaseY = bodyY + 0.05;
+  const neckX = neckBaseX + Math.sin(neckAngle) * neckLen * 0.5;
+  const neckY = neckBaseY + Math.cos(neckAngle) * neckLen * 0.5;
+  neck.translate(neckX, neckY, 0);
+  parts.push(neck);
+
+  // Head: elongated sphere — sized to anchor antlers visibly
+  const headX = neckBaseX + Math.sin(neckAngle) * neckLen;
+  const headY = neckBaseY + Math.cos(neckAngle) * neckLen;
+  const head = new THREE.SphereGeometry(1, 6, 5);
+  head.scale(0.08, 0.058, 0.052);
+  head.translate(headX, headY, 0);
+  parts.push(head);
+
+  // Snout: shorter, more compact
+  const snout = new THREE.CylinderGeometry(0.020, 0.035, 0.045, 5);
+  snout.rotateZ(-Math.PI / 2);
+  snout.translate(headX + 0.065, headY - 0.012, 0);
+  parts.push(snout);
+
+  // Ears: angled up and outward — visible from front and side
+  for (const side of [-1, 1]) {
+    const ear = new THREE.ConeGeometry(0.015, 0.04, 4);
+    ear.rotateX(side * 0.5);  // splay outward
+    ear.rotateZ(-0.15);       // tilt slightly backward
+    ear.translate(headX - 0.015, headY + 0.05, side * 0.038);
+    parts.push(ear);
+  }
+
+  // Antlers: outward-sweeping beams with two tines each
+  for (const side of [-1, 1]) {
+    // Main beam — sweeps outward and slightly backward
+    const beam = new THREE.CylinderGeometry(0.008, 0.012, 0.10, 4);
+    beam.rotateZ(0.25 * side);  // outward splay
+    beam.rotateX(0.12);         // slight backward sweep
+    beam.translate(headX - 0.01, headY + 0.09, side * 0.02);
+    parts.push(beam);
+    // Lower tine — forward prong at mid-beam
+    const tine1 = new THREE.CylinderGeometry(0.005, 0.007, 0.035, 4);
+    tine1.rotateZ(-0.65);
+    tine1.translate(headX + 0.005, headY + 0.10, side * 0.03);
+    parts.push(tine1);
+    // Upper tine — shorter prong near beam tip, angled up-forward
+    const tine2 = new THREE.CylinderGeometry(0.004, 0.006, 0.03, 4);
+    tine2.rotateZ(-0.4);
+    tine2.translate(headX + 0.003, headY + 0.13, side * 0.038);
+    parts.push(tine2);
+  }
 
   const merged = mergeGeometries(parts);
   for (const p of parts) p.dispose();

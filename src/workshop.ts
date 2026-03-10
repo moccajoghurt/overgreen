@@ -12,10 +12,13 @@ import * as THREE from 'three';
 import { BUILDERS, BUILDERS_LOW, scaleToTarget, TARGET_MODEL_HEIGHTS } from './renderer3d/plant-models';
 import { BUILDERS_STRESSED, BUILDERS_STRESSED_LOW } from './renderer3d/plant-models-stressed';
 import { BUILDERS_DYING, BUILDERS_DYING_LOW } from './renderer3d/plant-models-dying';
+import { createDeerGeometry } from './renderer3d/herbivores';
 
 // ── Config from query params ──
 const params = new URLSearchParams(location.search);
-const subtypeIdx = parseInt(params.get('subtype') ?? '6', 10);
+const subtypeParam = params.get('subtype') ?? '6';
+const isDeer = subtypeParam === 'deer';
+const subtypeIdx = isDeer ? -1 : parseInt(subtypeParam, 10);
 const angleCount = parseInt(params.get('angles') ?? '4', 10);
 const compareMode = params.get('compare') === '1';
 const healthState = params.get('state') ?? 'healthy'; // 'healthy' | 'stressed' | 'dying'
@@ -98,12 +101,21 @@ function makeScene(builders: (() => THREE.Group)[]): { scene: THREE.Scene; cente
   ground.position.y = -0.025;
   scene.add(ground);
 
-  const plantGroup = builders[subtypeIdx]();
-  scalePlant(plantGroup);
-  scene.add(plantGroup);
+  let targetGroup: THREE.Group;
+  if (isDeer) {
+    const geo = createDeerGeometry();
+    const deerMat = new THREE.MeshLambertMaterial({ color: 0x8a6a4a });
+    const mesh = new THREE.Mesh(geo, deerMat);
+    targetGroup = new THREE.Group();
+    targetGroup.add(mesh);
+  } else {
+    targetGroup = builders[subtypeIdx]();
+    scalePlant(targetGroup);
+  }
+  scene.add(targetGroup);
 
-  plantGroup.updateMatrixWorld(true);
-  const bbox = new THREE.Box3().setFromObject(plantGroup);
+  targetGroup.updateMatrixWorld(true);
+  const bbox = new THREE.Box3().setFromObject(targetGroup);
   const plantH = bbox.max.y - bbox.min.y;
   const centerY = (bbox.max.y + bbox.min.y) / 2;
   const plantW = Math.max(bbox.max.x - bbox.min.x, bbox.max.z - bbox.min.z);
@@ -166,7 +178,7 @@ const ctx = overlay.getContext('2d')!;
 ctx.scale(devicePixelRatio, devicePixelRatio);
 
 const stateLabel = healthState !== 'healthy' ? ` [${healthState.toUpperCase()}]` : '';
-const label = `#${subtypeIdx} ${NAMES[subtypeIdx] ?? 'Unknown'}${stateLabel}`;
+const label = isDeer ? 'Deer (Herbivore)' : `#${subtypeIdx} ${NAMES[subtypeIdx] ?? 'Unknown'}${stateLabel}`;
 ctx.font = 'bold 16px monospace';
 ctx.fillStyle = healthState === 'dying' ? '#f88' : healthState === 'stressed' ? '#ff8' : '#fff';
 ctx.fillText(label, 10, 24);
@@ -188,4 +200,5 @@ for (let i = 0; i < angleCount; i++) {
 
 // Signal ready for puppeteer
 (window as any).__workshopReady = true;
-console.log(`[workshop] Rendered subtype ${subtypeIdx} (${NAMES[subtypeIdx]}) ${healthState} from ${angleCount} angles${compareMode ? ' [COMPARE]' : ''}`);
+const logName = isDeer ? 'deer' : `${subtypeIdx} (${NAMES[subtypeIdx]})`;
+console.log(`[workshop] Rendered subtype ${logName} ${healthState} from ${angleCount} angles${compareMode ? ' [COMPARE]' : ''}`);
