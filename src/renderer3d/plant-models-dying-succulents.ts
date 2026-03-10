@@ -240,12 +240,11 @@ function buildIcePlantDying(): THREE.Group {
   const dryTan = mat(0x9a8a60);
   const darkDead = mat(0x6a5a3a);
 
-  // Only 4 surviving clumps (down from 12), much sparser
+  // Only 3 surviving clumps — smaller and tighter than living plant
   const clumps = [
-    { x: 0.00, z: 0.00, count: 8, r: 0.28 },
-    { x: -0.45, z: 0.20, count: 5, r: 0.20 },
-    { x: 0.40, z: -0.35, count: 4, r: 0.18 },
-    { x: 0.20, z: 0.45, count: 3, r: 0.15 },
+    { x: 0.00, z: 0.00, count: 6, r: 0.18 },
+    { x: -0.25, z: 0.12, count: 4, r: 0.14 },
+    { x: 0.22, z: -0.18, count: 3, r: 0.12 },
   ];
 
   const leafMats = [deadBrown, dryTan, darkDead];
@@ -255,9 +254,9 @@ function buildIcePlantDying(): THREE.Group {
     for (let i = 0; i < cl.count; i++) {
       const a = i * Math.PI * 2 / cl.count + ci * 0.35;
       const lean = 0.6 + Math.random() * 0.4;
-      const fLen = 0.10 + Math.random() * 0.04;
+      const fLen = 0.07 + Math.random() * 0.03;
       const finger = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.022, fLen, 3, 4),
+        new THREE.CapsuleGeometry(0.018, fLen, 3, 4),
         leafMats[(i + ci) % 3],
       );
       finger.position.set(
@@ -271,14 +270,13 @@ function buildIcePlantDying(): THREE.Group {
     }
   }
 
-  // Dead bare patches — flat brown discs to show where rosettes used to be
+  // Small bare patches — hint of decay, not dominant
   const patchMat = mat(0x7a6a4a);
   const patches = [
-    { x: -0.30, z: -0.40 }, { x: 0.50, z: 0.25 }, { x: -0.50, z: -0.15 },
-    { x: 0.10, z: -0.50 }, { x: -0.10, z: 0.55 },
+    { x: -0.18, z: -0.22 }, { x: 0.25, z: 0.15 }, { x: -0.20, z: 0.10 },
   ];
   for (const p of patches) {
-    const patchGeo = new THREE.CylinderGeometry(0.10, 0.12, 0.02, 5);
+    const patchGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.015, 5);
     const patch = new THREE.Mesh(patchGeo, patchMat);
     patch.position.set(p.x, 0.01, p.z);
     g.add(patch);
@@ -677,26 +675,25 @@ function buildIcePlantDyingLow(): THREE.Group {
   const dryTan = mat(0x9a8a60);
   const patchMat = mat(0x7a6a4a);
 
-  // 3 surviving clump blobs — flattened
+  // 2 surviving clump blobs — small and flattened
   const blobs: [number, number, number, number][] = [
-    [0.0, 0.0, 0.18, 0x8a7a55],
-    [-0.40, 0.18, 0.13, 0x9a8a60],
-    [0.35, -0.30, 0.11, 0x6a5a3a],
+    [0.0, 0.0, 0.12, 0x8a7a55],
+    [-0.20, 0.12, 0.09, 0x9a8a60],
   ];
   for (const [bx, bz, r, c] of blobs) {
     const blob = new THREE.Mesh(
       jitter(new THREE.IcosahedronGeometry(r, 0), r * 0.05),
       mat(c),
     );
-    blob.position.set(bx, 0.05, bz);
-    blob.scale.set(1.0, 0.30, 1.0);
+    blob.position.set(bx, 0.04, bz);
+    blob.scale.set(1.0, 0.28, 1.0);
     g.add(blob);
   }
 
-  // 4 bare ground patches
-  const patches: [number, number][] = [[-0.30, -0.40], [0.45, 0.25], [-0.45, -0.15], [0.10, 0.50]];
+  // 3 small bare patches
+  const patches: [number, number][] = [[-0.18, -0.20], [0.22, 0.14], [-0.15, 0.10]];
   for (const [px, pz] of patches) {
-    const patch = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.02, 4), patchMat);
+    const patch = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.015, 4), patchMat);
     patch.position.set(px, 0.01, pz);
     g.add(patch);
   }
