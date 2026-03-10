@@ -78,15 +78,21 @@ for (let t = 1; t <= totalTicks; t++) {
       if (!arr.includes(p.speciesId)) arr.push(p.speciesId);
     }
     snap.lineageRoots = lineageRoots;
-    // Attach all species detail (topSpecies only has top 5)
-    const allSpecies: Array<{ id: number; name: string; count: number }> = [];
-    const spCounts = new Map<number, number>();
+    // Attach all species detail with per-terrain breakdown
+    const allSpecies: Array<{ id: number; name: string; count: number; terrain: Record<string, number> }> = [];
+    const spCounts = new Map<number, { total: number; terrain: Record<string, number> }>();
+    const terrainNames = ['soil', 'river', 'rock', 'hill', 'wetland', 'arid'];
     for (const p of world.plants.values()) {
       if (!p.alive) continue;
-      spCounts.set(p.speciesId, (spCounts.get(p.speciesId) ?? 0) + 1);
+      const cell = world.grid[p.y][p.x];
+      const tName = terrainNames[cell.terrainType] || 'unknown';
+      let entry = spCounts.get(p.speciesId);
+      if (!entry) { entry = { total: 0, terrain: {} }; spCounts.set(p.speciesId, entry); }
+      entry.total++;
+      entry.terrain[tName] = (entry.terrain[tName] || 0) + 1;
     }
-    for (const [id, count] of spCounts) {
-      allSpecies.push({ id, name: world.speciesNames.get(id) ?? `Sp ${id}`, count });
+    for (const [id, entry] of spCounts) {
+      allSpecies.push({ id, name: world.speciesNames.get(id) ?? `Sp ${id}`, count: entry.total, terrain: entry.terrain });
     }
     (snap as any).speciesDetail = allSpecies;
     snapshots.push(snap);

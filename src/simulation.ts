@@ -232,6 +232,24 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
 
+  // Climate-specific trait bonuses: shift evolutionary trajectories per climate zone
+  // to produce distinct communities (different dominant subtypes per climate)
+  const g = plant.genome;
+  switch (cell.climateZone) {
+    case ClimateZone.Tropical:
+      // Disease-adapted species thrive: defense gives metabolic efficiency
+      energyProduced *= 1.0 + g.defense * 0.3;
+      break;
+    case ClimateZone.Mediterranean:
+      // Sclerophyll advantage: small, tough leaves with water storage
+      energyProduced *= 1.0 + (1 - g.leafSize) * g.waterStorage * 0.4;
+      break;
+    case ClimateZone.Desert:
+      // Water storage is essential; large leaves are costly
+      energyProduced *= 1.0 + g.waterStorage * 0.5 - g.leafSize * 0.15;
+      break;
+  }
+
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY + plant.genome.defense * SIM.DEFENSE_DISEASE_PHOTO_RECOVER;
   return energyProduced;
 }
@@ -656,7 +674,7 @@ function phaseGermination(world: World): void {
         continue;
       }
       // Archetype JC: weaker penalty near same-archetype adults (prevents monoculture biomes)
-      if (archConspecific > 3 && Math.random() > 1.0 / (1.0 + (archConspecific - 3) * 0.5)) {
+      if (archConspecific > 2 && Math.random() > 1.0 / (1.0 + (archConspecific - 2) * 1.0)) {
         cell.seeds.push(winner);
         world.seedPopulations.set(winner.speciesId,
           (world.seedPopulations.get(winner.speciesId) ?? 0) + 1);

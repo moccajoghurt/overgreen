@@ -28,10 +28,10 @@ const ZONE_SEASON_TARGETS: Record<ClimateZone, Record<Season, [number,number,num
     [Season.Winter]: [1.4, 0.65, 1.6, 0.0, 0.0],
   },
   [ClimateZone.Desert]: {
-    [Season.Spring]: [0.7, 1.05, 1.3, 1.0, 0.8],    // leafMaint 1.0→1.3: already hot
-    [Season.Summer]: [0.15, 1.3, 2.5, 0.3, 0.1],    // leafMaint 1.2→2.5: extreme heat desiccation
-    [Season.Autumn]: [0.3, 1.0, 1.3, 0.3, 0.2],     // leafMaint 1.0→1.3: still hot
-    [Season.Winter]: [0.5, 0.7, 1.8, 0.0, 0.0],
+    [Season.Spring]: [0.5, 1.05, 1.4, 1.0, 0.8],    // brief wet season, still dry
+    [Season.Summer]: [0.12, 1.3, 2.8, 0.2, 0.1],    // extreme heat desiccation
+    [Season.Autumn]: [0.2, 1.0, 1.6, 0.2, 0.1],     // still very hot and dry
+    [Season.Winter]: [0.35, 0.7, 1.8, 0.0, 0.0],    // cool but dry
   },
 };
 

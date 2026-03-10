@@ -132,9 +132,10 @@ export const SIM = {
   GROUNDWATER_ABSORPTION_RATE: 0.3,
 
   // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
-  HILL_MAINT_ROOT_MULT: 4.0,     // rock is hard to dig
-  HILL_MAINT_HEIGHT_MULT: 1.3,   // wind stress on tall plants (moderate — allows shrubs)
+  HILL_MAINT_ROOT_MULT: 2.5,     // rock is hard to dig (moderate — allows shrubs)
+  HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants (quadratic progressive)
   HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
+  HILL_MAINT_WOODINESS_RATE: 15.0, // woody tissue maintenance in exposed rocky terrain (quadratic above 0.5)
 
   SOIL_MAINT_HEIGHT_MULT: 1.0,     // no height advantage on soil — keeps grass/forb/shrub mix
   SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
@@ -145,7 +146,7 @@ export const SIM = {
   WETLAND_MAINT_WSTORAGE_MULT: 8.0, // succulent tissue rots in waterlogged soil
 
   ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
-  ARID_MAINT_HEIGHT_MULT: 1.5,   // heat stress on tall plants
+  ARID_MAINT_HEIGHT_MULT: 2.5,   // heat stress + water demand on tall plants (quadratic progressive)
   ARID_MAINT_LEAF_MULT: 2.5,     // transpiration water loss
   ARID_MAINT_WSTORAGE_MULT: 0.3, // succulent tissue is strongly advantageous in arid
 
@@ -269,7 +270,9 @@ export function getPlantConstants(genome: import('./core').Genome): PlantConstan
     seedRangeMax: lerpVal(GRASS.SEED_RANGE_MAX, SIM.SEED_RANGE_MAX, w),
     seedRangeHeightDivisor: lerpVal(GRASS.SEED_RANGE_HEIGHT_DIVISOR, SIM.SEED_RANGE_HEIGHT_DIVISOR, w),
     seedInitialEnergy: lerpVal(GRASS.SEED_INITIAL_ENERGY, SIM.SEED_INITIAL_ENERGY, w),
-    growthEfficiency: lerpVal(GRASS.GROWTH_EFFICIENCY, SIM.GROWTH_EFFICIENCY, w) * (1.3 - lon * 0.6),
+    growthEfficiency: (lerpVal(GRASS.GROWTH_EFFICIENCY, SIM.GROWTH_EFFICIENCY, w)
+      // Shrub growth efficiency bump: mid-woodiness plants grow faster, resisting drift to tree/grass
+      + Math.max(0, 0.1 * (1 - Math.pow((w - 0.55) / 0.2, 2)))) * (1.3 - lon * 0.6),
     maxAge,
     shadowReduction: lerpVal(GRASS.SHADOW_REDUCTION, SIM.SHADOW_REDUCTION, w),
     shadowHeightScale: lerpVal(GRASS.SHADOW_HEIGHT_SCALE, SIM.SHADOW_HEIGHT_SCALE, w),
