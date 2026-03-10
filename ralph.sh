@@ -51,16 +51,17 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   # Run claude with fresh context each time
   # -p = print mode (non-interactive, fresh context)
   # Working directory = the worktree
-  OUTPUT=$(cd "$WORKTREE_DIR" && claude -p \
+  # Use tee to stream output live AND capture it for completion check
+  OUTFILE=$(mktemp)
+  (cd "$WORKTREE_DIR" && claude -p \
     --dangerously-skip-permissions \
     --model opus \
     "$PROMPT" \
-    2>&1) || true
-
-  echo "$OUTPUT"
+    2>&1) | tee "$OUTFILE" || true
 
   # Check for completion promise
-  if echo "$OUTPUT" | grep -q "RALPH_COMPLETE"; then
+  if grep -q "RALPH_COMPLETE" "$OUTFILE"; then
+    rm -f "$OUTFILE"
     echo ""
     echo "=========================================="
     echo "RALPH_COMPLETE signaled on iteration $i"
@@ -68,6 +69,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     COMPLETED=1
     break
   fi
+  rm -f "$OUTFILE"
 
   # Small pause between iterations to avoid rate limits
   sleep 3
