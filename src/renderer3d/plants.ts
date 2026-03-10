@@ -228,26 +228,21 @@ function ingestEvents(state: RendererState): void {
 
 // ── Dying / burning animation rendering (appended after live section) ──
 
-interface AnimCountSets {
-  thriving: Uint32Array;
-  stressed: Uint32Array;
-  dying: Uint32Array;
-}
-
 function renderDyingBurning(
   state: RendererState,
-  animCounts: AnimCountSets,
-  mtxArrays: Float32Array[], clrArrays: Float32Array[],
-  mtxStressed: Float32Array[], clrStressed: Float32Array[],
-  mtxDying: Float32Array[], clrDying: Float32Array[],
+  animCounts: { thriving: Uint32Array; stressed: Uint32Array; dying: Uint32Array },
+  buffers: {
+    thriving: [Float32Array[], Float32Array[]];
+    stressed: [Float32Array[], Float32Array[]];
+    dying: [Float32Array[], Float32Array[]];
+  },
 ): void {
   const { world, dyingPlants, burningPlants, getCellElevation } = state;
 
-  // Pick correct buffers + counts for a given health state (hi-LOD only for animations)
-  function animBuffers(health: HealthState) {
-    if (health === HealthState.Stressed) return { counts: animCounts.stressed, mtx: mtxStressed, clr: clrStressed };
-    if (health === HealthState.Dying) return { counts: animCounts.dying, mtx: mtxDying, clr: clrDying };
-    return { counts: animCounts.thriving, mtx: mtxArrays, clr: clrArrays };
+  function pickAnimTarget(health: HealthState) {
+    if (health === HealthState.Stressed) return { counts: animCounts.stressed, mtx: buffers.stressed[0], clr: buffers.stressed[1] };
+    if (health === HealthState.Dying) return { counts: animCounts.dying, mtx: buffers.dying[0], clr: buffers.dying[1] };
+    return { counts: animCounts.thriving, mtx: buffers.thriving[0], clr: buffers.thriving[1] };
   }
 
   // ── Render dying plants ──
@@ -280,9 +275,9 @@ function renderDyingBurning(
       }
     }
 
-    const ab = animBuffers(dp.health);
-    const idx = ab.counts[dp.subtype]++;
-    writePlantInstance(state, dp.subtype, idx, ab.mtx, ab.clr,
+    const target = pickAnimTarget(dp.health);
+    const idx = target.counts[dp.subtype]++;
+    writePlantInstance(state, dp.subtype, idx, target.mtx, target.clr,
       wx, wz, baseY, dp.height, shrink, id, tr, tg, tb);
   }
   for (const id of toRemove) dyingPlants.delete(id);
@@ -317,9 +312,9 @@ function renderDyingBurning(
       : lerp(1.2, 0.08, t) * (0.7 + flicker * 0.3));
     const tb = bp.woodiness < 0.4 ? lerp(0.3, 0.03, t) : lerp(0.2, 0.03, t);
 
-    const ab = animBuffers(bp.health);
-    const idx = ab.counts[bp.subtype]++;
-    writePlantInstance(state, bp.subtype, idx, ab.mtx, ab.clr,
+    const target = pickAnimTarget(bp.health);
+    const idx = target.counts[bp.subtype]++;
+    writePlantInstance(state, bp.subtype, idx, target.mtx, target.clr,
       wx, wz, baseY, bp.height, burnShrink, id, tr, tg, tb);
   }
   for (const id of burnToRemove) burningPlants.delete(id);
@@ -360,6 +355,8 @@ function fullRebuild(
     if (!plant.alive) continue;
 
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+
+    // Health state: pick mesh set
     const health = healthStateFromEMA(plant.healthEMA);
 
     newSnapshots.set(plant.id, {
@@ -368,7 +365,8 @@ function fullRebuild(
       leafArea: plant.leafArea, speciesId: plant.speciesId,
       genome: plant.genome,
       woodiness: plant.genome.woodiness,
-      subtype, health,
+      subtype,
+      health,
     });
 
     // Skip shader-grass subtypes — handled entirely by shader grass field
@@ -405,8 +403,6 @@ function fullRebuild(
       state, plant.id, plant.speciesId, plant.genome,
       plant.x, plant.y, plant.lineageRoot,
     );
-
-    // Health state: pick mesh set (computed above for snapshot)
     state.prevPlantHealth.set(plant.id, health);
 
     // LOD: pick hi or lo mesh based on distance to camera
@@ -434,14 +430,17 @@ function fullRebuild(
   state.nextSnapshots = state.prevSnapshots;
   state.prevSnapshots = newSnapshots;
 
-  // Dying/burning appended after live plants on their respective health mesh
-  const animCounts: AnimCountSets = {
+  // Dying/burning appended after live plants (routed to correct health mesh)
+  const animCounts = {
     thriving: new Uint32Array(state.subtypeLiveCounts),
     stressed: new Uint32Array(state.subtypeLiveCountsStressed),
     dying: new Uint32Array(state.subtypeLiveCountsDying),
   };
-  renderDyingBurning(state, animCounts, mtxArrays, clrArrays,
-    mtxStressed, clrStressed, mtxDying, clrDying);
+  renderDyingBurning(state, animCounts, {
+    thriving: [mtxArrays, clrArrays],
+    stressed: [mtxStressed, clrStressed],
+    dying: [mtxDying, clrDying],
+  });
 
   // ── Update counts and mark dirty (all 3 health states × 2 LODs) ──
   const allMeshSets: [THREE.InstancedMesh[], Uint32Array][] = [
@@ -551,14 +550,16 @@ function incrementalUpdate(
     if (!plant.alive) continue;
     const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
 
-    const snapHealth = healthStateFromEMA(plant.healthEMA);
+    const newHealth = healthStateFromEMA(plant.healthEMA);
+
     newSnapshots.set(plant.id, {
       x: plant.x, y: plant.y,
       height: plant.height, rootDepth: plant.rootDepth,
       leafArea: plant.leafArea, speciesId: plant.speciesId,
       genome: plant.genome,
       woodiness: plant.genome.woodiness,
-      subtype, health: snapHealth,
+      subtype,
+      health: newHealth,
     });
 
     if (SHADER_GRASS_SUBTYPES.has(subtype)) {
@@ -586,7 +587,6 @@ function incrementalUpdate(
     }
 
     // Health transition detection
-    const newHealth = healthStateFromEMA(plant.healthEMA);
     const prevHealth = state.prevPlantHealth.get(plant.id);
     if (prevHealth !== undefined && prevHealth !== newHealth) {
       const entry = plantIndex.get(plant.id);
@@ -651,14 +651,17 @@ function incrementalUpdate(
   }
   dirtyPlants.clear();
 
-  // 5. Dying/burning appended after live section on their respective health mesh
-  const animCounts: AnimCountSets = {
+  // 5. Dying/burning appended after live section (routed to correct health mesh)
+  const animCounts = {
     thriving: new Uint32Array(state.subtypeLiveCounts),
     stressed: new Uint32Array(state.subtypeLiveCountsStressed),
     dying: new Uint32Array(state.subtypeLiveCountsDying),
   };
-  renderDyingBurning(state, animCounts, mtxArrays, clrArrays,
-    mtxStressed, clrStressed, mtxDying, clrDying);
+  renderDyingBurning(state, animCounts, {
+    thriving: [mtxArrays, clrArrays],
+    stressed: [mtxStressed, clrStressed],
+    dying: [mtxDying, clrDying],
+  });
 
   // 6. Update counts and needsUpdate (all 3 health states × 2 LODs)
   const allMeshSets: [THREE.InstancedMesh[], Uint32Array, Uint32Array | null][] = [
@@ -747,14 +750,17 @@ function animationOnlyUpdate(
   }
   dirtyPlants.clear();
 
-  // Dying/burning appended after live section on their respective health mesh
-  const animCounts: AnimCountSets = {
+  // Dying/burning appended after live section (routed to correct health mesh)
+  const animCounts = {
     thriving: new Uint32Array(state.subtypeLiveCounts),
     stressed: new Uint32Array(state.subtypeLiveCountsStressed),
     dying: new Uint32Array(state.subtypeLiveCountsDying),
   };
-  renderDyingBurning(state, animCounts, mtxArrays, clrArrays,
-    mtxStressed, clrStressed, mtxDying, clrDying);
+  renderDyingBurning(state, animCounts, {
+    thriving: [mtxArrays, clrArrays],
+    stressed: [mtxStressed, clrStressed],
+    dying: [mtxDying, clrDying],
+  });
 
   // Update counts (all 3 health states × 2 LODs)
   const allMeshSets: [THREE.InstancedMesh[], Uint32Array, Uint32Array | null][] = [
