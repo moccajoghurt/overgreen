@@ -7,11 +7,12 @@ import {
 } from './renderer3d/plant-models';
 import { BUILDERS_STRESSED } from './renderer3d/plant-models-stressed';
 import { BUILDERS_DYING } from './renderer3d/plant-models-dying';
+import { createDeerGeometry } from './renderer3d/herbivores';
 
 // ============================================================
 // LAYOUT — fit to viewport width
 // ============================================================
-const COLS = 8, ROWS = 13;
+const COLS = 8, ROWS = 14;
 const PAD = 10;
 const W = window.innerWidth;
 const CELL_W = Math.floor((W - PAD * 2) / COLS);
@@ -84,6 +85,10 @@ const FORBS: PlantEntry[] = [
   { id: '5.8', name: 'Desert annual', species: 'Eschscholzia californica' },
 ];
 
+const DEER: PlantEntry[] = [
+  { id: 'deer', name: 'Deer', species: 'Cervus elaphus' },
+];
+
 // Category base colors
 const CAT_COLORS: Record<string, string> = {
   GRASSES: '#4c8738',
@@ -91,6 +96,7 @@ const CAT_COLORS: Record<string, string> = {
   SHRUBS: '#8c783c',
   SUCCULENTS: '#558c64',
   FORBS: '#b45a8c',
+  DEER: '#8a5c3a',
 };
 
 // State-specific header colors
@@ -115,6 +121,7 @@ const DISPLAY_ROWS: DisplayRow[] = [
   ...makeRows('SHRUBS', SHRUBS),
   ...makeRows('SUCCULENTS', SUCCULENTS),
   ...makeRows('FORBS', FORBS),
+  { name: 'DEER (Herbivore)', color: CAT_COLORS.DEER, state: 'thriving', plants: DEER },
 ];
 
 // ============================================================
@@ -264,31 +271,46 @@ for (let row = 0; row < DISPLAY_ROWS.length; row++) {
   const drow = DISPLAY_ROWS[row];
   for (let col = 0; col < drow.plants.length; col++) {
     const plant = drow.plants[col];
-    const builder = getBuilder(plant.id, drow.state);
-    const plantGroup = builder();
+    const isDeer = plant.id === 'deer';
+    let group: THREE.Group;
 
-    // Scale plant to correct game-world proportions
-    const idx = ID_TO_INDEX[plant.id];
-    const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39]);
-    if (GROUND_COVER.has(idx)) {
-      plantGroup.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(plantGroup);
-      const rawH = Math.max(0.01, box.max.y);
-      const yScale = TARGET_MODEL_HEIGHTS[idx] / rawH;
-      const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
-      const xzScale = 1.0 / Math.max(0.01, rawXZ);
-      plantGroup.scale.set(xzScale, yScale, xzScale);
-    } else {
-      scaleToTarget(plantGroup, idx);
-    }
-
-    // Wrapper so ground disc isn't affected by plant scale
-    const group = new THREE.Group();
-    group.add(plantGroup);
-    if (idx === 17) {
-      addWaterDisc(group);
-    } else {
+    if (isDeer) {
+      // Deer uses its own geometry builder
+      const geo = createDeerGeometry();
+      const deerMat = new THREE.MeshLambertMaterial({ color: 0x8a6a4a });
+      const mesh = new THREE.Mesh(geo, deerMat);
+      const plantGroup = new THREE.Group();
+      plantGroup.add(mesh);
+      group = new THREE.Group();
+      group.add(plantGroup);
       addGround(group);
+    } else {
+      const builder = getBuilder(plant.id, drow.state);
+      const plantGroup = builder();
+
+      // Scale plant to correct game-world proportions
+      const idx = ID_TO_INDEX[plant.id];
+      const GROUND_COVER = new Set([0, 1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39]);
+      if (GROUND_COVER.has(idx)) {
+        plantGroup.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(plantGroup);
+        const rawH = Math.max(0.01, box.max.y);
+        const yScale = TARGET_MODEL_HEIGHTS[idx] / rawH;
+        const rawXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+        const xzScale = 1.0 / Math.max(0.01, rawXZ);
+        plantGroup.scale.set(xzScale, yScale, xzScale);
+      } else {
+        scaleToTarget(plantGroup, idx);
+      }
+
+      // Wrapper so ground disc isn't affected by plant scale
+      group = new THREE.Group();
+      group.add(plantGroup);
+      if (idx === 17) {
+        addWaterDisc(group);
+      } else {
+        addGround(group);
+      }
     }
 
     // Scene
@@ -302,7 +324,12 @@ for (let row = 0; row < DISPLAY_ROWS.length; row++) {
     scene.add(group);
 
     // Scale ruler
-    addRuler(scene, REAL_HEIGHTS_M[idx]);
+    if (!isDeer) {
+      const idx = ID_TO_INDEX[plant.id];
+      addRuler(scene, REAL_HEIGHTS_M[idx]);
+    } else {
+      addRuler(scene, 1.5); // ~1.5m at shoulder for red deer
+    }
 
     // Camera
     const cam = new THREE.PerspectiveCamera(38, CELL_W / CELL_3D, 0.1, 500);
@@ -380,7 +407,8 @@ function drawLabels(): void {
       const idx2 = ID_TO_INDEX[p.id];
       ctx.font = `bold ${Math.round(10 * FS)}px "Segoe UI", sans-serif`;
       ctx.fillStyle = '#aa6633';
-      ctx.fillText(formatHeight(REAL_HEIGHTS_M[idx2]), cx, labelY + LABEL_H * 0.76);
+      const realH = idx2 !== undefined ? REAL_HEIGHTS_M[idx2] : 1.5;
+      ctx.fillText(formatHeight(realH), cx, labelY + LABEL_H * 0.76);
     }
   }
 }
