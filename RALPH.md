@@ -25,7 +25,7 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 ## What you can do
 
 - Add new systems or mechanics
-- Remove or rework existing systems
+- Rework existing systems (even delete if no real benefit or replaced by new system)
 - Tweak constants and tuning values
 
 ## Rules
@@ -35,15 +35,15 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 
 ## Experiments
 
-4 experiments, each 80×80 with 35×35 pockets (1,225 cells). Run at 10,000 ticks, snapshot every 1000.
+4 experiments, each 80×80 with 35×35 pockets (1,225 cells). Default: 5,000 ticks, snapshot every 1000. You may adjust `--ticks` up or down as needed — use fewer for quick smoke tests, more for convergence validation.
 
 **Run all 4 in parallel** to save time (use `--out` and `&` + `wait`):
 
 ```bash
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad --ticks 10000 --interval 1000 --out results/quad.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 10000 --interval 1000 --out results/tropical.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 10000 --interval 1000 --out results/mediterranean.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 10000 --interval 1000 --out results/desert.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad --ticks 5000 --interval 1000 --out results/quad.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 5000 --interval 1000 --out results/tropical.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 5000 --interval 1000 --out results/mediterranean.json &
+npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 5000 --interval 1000 --out results/desert.json &
 wait
 ```
 
