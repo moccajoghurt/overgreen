@@ -1,4 +1,4 @@
-import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -203,9 +203,8 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
   return waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
 }
 
-function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean): number {
+function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean, pc: PlantConstants): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  const pc = getPlantConstants(plant.genome);
   let heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
 
   heightLightBonus *= TERRAIN_PROPS[cell.terrainType].heightBonusMult;
@@ -254,8 +253,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   return energyProduced;
 }
 
-function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): number {
-  const pc = getPlantConstants(plant.genome);
+function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean, pc: PlantConstants): number {
   const mBase = pc.maintenanceBase;
   const mHeight = pc.maintenancePerHeight;
   const mRoot = pc.maintenancePerRoot;
@@ -317,8 +315,7 @@ function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean): 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers): void {
-  const pc = getPlantConstants(plant.genome);
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants): void {
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
   const capHeight = pc.maxHeight;
@@ -447,6 +444,7 @@ function phaseUpdatePlants(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
+    const pc = getPlantConstants(plant.genome);
 
     // Check disease status once and store on plant
     const cellKey = `${plant.x},${plant.y}`;
@@ -468,7 +466,7 @@ function phaseUpdatePlants(world: World): void {
     const establishing = plant.age < estTicks;
 
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
-    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased);
+    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc);
 
     // Facilitation: DIFFERENT archetypes in neighborhood boost photosynthesis.
     // Excludes own archetype — minority archetypes in a pocket benefit most.
@@ -490,7 +488,7 @@ function phaseUpdatePlants(world: World): void {
       energyProduced *= 1.0 + archetypeCount * 0.25;
     }
 
-    const maintenance = calculateMaintenance(plant, world, isDiseased);
+    const maintenance = calculateMaintenance(plant, world, isDiseased, pc);
 
     plant.lastEnergyProduced = energyProduced;
     plant.lastMaintenanceCost = maintenance;
@@ -515,7 +513,7 @@ function phaseUpdatePlants(world: World): void {
     const energyFloor = Math.min(plant.energy / 0.6, 1.0);
     healthTarget = Math.min(healthTarget, energyFloor);
     // Floor: approaching maxAge forces visible senescence
-    const maxAge = getPlantConstants(plant.genome).maxAge;
+    const maxAge = pc.maxAge;
     const ageOnset = 0.85;
     if (plant.age > maxAge * ageOnset) {
       const ageFrac = (plant.age - maxAge * ageOnset) / (maxAge * (1 - ageOnset));
@@ -541,7 +539,7 @@ function phaseUpdatePlants(world: World): void {
     }
 
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc);
     }
 
     plant.age++;
