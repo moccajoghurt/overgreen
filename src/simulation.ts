@@ -285,11 +285,12 @@ function calculateMaintenance(plant: Plant, _world: World, isDiseased: boolean, 
 function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants, cellEnv: CellEnvironment): void {
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
-  // Wind stunting (krummholz effect): high wind exposure limits maximum height.
-  // Flexible low-woodiness plants resist stunting better than rigid woody plants.
-  const windStunt = Math.max(0.3, 1 - cellEnv.windExposure * plant.genome.woodiness * 0.9);
+  // Wind stunting (krummholz effect): high wind exposure limits maximum height and leaf area.
+  // Rigid woody plants are stunted in height; broad-leaved plants lose foliage.
+  const windStunt = Math.max(0.2, 1 - cellEnv.windExposure * plant.genome.woodiness * 2.0);
   const capHeight = pc.maxHeight * windStunt;
-  const capLeaf = pc.maxLeafArea;
+  const leafWindStunt = Math.max(0.3, 1 - cellEnv.windExposure * plant.genome.leafSize * 1.5);
+  const capLeaf = pc.maxLeafArea * leafWindStunt;
   const seedCost = pc.seedEnergyCost;
   const seedRangeMax = pc.seedRangeMax;
   const seedRangeDiv = pc.seedRangeHeightDivisor;

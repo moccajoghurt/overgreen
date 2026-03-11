@@ -111,6 +111,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.30, description: 'freeze damage' },
   { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
+  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.40, description: 'wind strips and damages foliage' },
 
   // Defense — costly but essential where disease thrives
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
@@ -122,17 +123,20 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'waterStorage',   envVar: 'frostRisk',      coefficient: -0.40, description: 'succulent tissue freezes' },
   { trait: 'waterStorage',   envVar: 'waterlogging',   coefficient: -0.50, description: 'redundant in saturated soil' },
 
-  // Woodiness — bark insulates but rigid structures break in wind and rot in water
+  // Woodiness — structural support enables efficient photosynthesis, but rigid structures suffer in wind/water
+  { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.25, description: 'rigid trunks snap in wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
 
-  // Root priority — deep roots access water but drown in wetland
+  // Root priority — deep roots mine nutrients and anchor plant, but drown in wetland
+  { trait: 'rootPriority',   envVar: null,             coefficient: +0.10, description: 'nutrient mining and soil anchoring' },
   { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.45, description: 'deep water access' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.40, description: 'root drowning' },
 
-  // Height priority — height aids flood escape but wind destroys tall plants
+  // Height priority — competitive light positioning, but wind destroys tall plants
+  { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
 
