@@ -28,6 +28,12 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 - Rework existing systems (even delete if no real benefit or replaced by new system)
 - Tweak constants and tuning values
 
+## Key Files
+
+- `src/simulation/trait-effects.ts` — environment physics + trait effect coefficients (primary tuning lever)
+- `src/simulation/tiers.ts` — vertical tier thresholds + light filtering
+- Read `CLAUDE.md` for architectural rules before making changes
+
 ## Rules
 
 - **Performance: current Ticks/sec should roughly stay the same** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change drastically tanks perf, simplify the design, optimize performance or revert — the sim must stay fast enough for rapid iteration.
