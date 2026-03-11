@@ -633,6 +633,16 @@ function phaseGermination(world: World): void {
             continue;
           }
         }
+        // Tree germination restrictions:
+        // - Blocked on Hill terrain in Temperate/Desert climates
+        // - Exposed ridgeline wind prevents tree establishment on cold/dry hills
+        // - Allowed on Hill in Tropical (cloud forest conifers) and Mediterranean (cypress)
+        if (archetype(seed.genome) === Archetype.Tree) {
+          if (!TERRAIN_PROPS[cell.terrainType].treeGermination
+            && (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Desert)) {
+            continue;
+          }
+        }
         const waterThreshold = seed.seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);

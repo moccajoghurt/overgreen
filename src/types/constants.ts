@@ -294,6 +294,7 @@ export interface TerrainProperties {
   plantable: boolean;
   succulentGermination: boolean;
   shrubGermination: boolean;
+  treeGermination: boolean;
 }
 
 export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
@@ -306,6 +307,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: true,
     succulentGermination: false,
     shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.River]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -316,6 +318,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: false,
     succulentGermination: false,
     shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Rock]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -326,6 +329,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: false,
     succulentGermination: false,
     shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Hill]: {
     waterTable: SIM.HILL_WATER_TABLE,
@@ -336,6 +340,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: true,
     succulentGermination: true,
     shrubGermination: false,
+    treeGermination: false,
   },
   [TerrainType.Wetland]: {
     waterTable: SIM.WETLAND_WATER_TABLE,
@@ -346,6 +351,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: true,
     succulentGermination: false,
     shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Arid]: {
     waterTable: SIM.ARID_WATER_TABLE,
@@ -356,6 +362,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: true,
     succulentGermination: true,
     shrubGermination: true,
+    treeGermination: true,
   },
 };
 
