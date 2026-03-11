@@ -22,6 +22,7 @@ import { genesis } from './scenarios/genesis';
 import { createHookPhase } from './hook-phase';
 import { PerfTracker } from './perf';
 import { createPerfPanel } from './perf-panel';
+import { createSystemsOverlay } from './systems-overlay';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -106,8 +107,12 @@ const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => spe
 const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));
 const climateToggle = setupViewCheckbox('toggle-climate', (on) => zoneLabels.setVisible(on));
 setupViewCheckbox('toggle-lineage-cards', (on) => speciesLabels.setLineageVisible(on));
+const systemsToggle = setupViewCheckbox('toggle-systems', (on) => {
+  if (on) systemsOverlay.show(); else systemsOverlay.hide();
+});
 
 const ffOverlay = createFFOverlay(container);
+const systemsOverlay = createSystemsOverlay(container);
 
 const history = createHistory();
 const diagLogger = createDiagnosticLogger();
@@ -142,6 +147,11 @@ const btnSandbox = document.getElementById('btn-sandbox') as HTMLButtonElement;
 btnSandbox.addEventListener('click', () => {
   const next = !sandboxPanel.isVisible();
   sandboxPanel.setVisible(next);
+});
+const btnSystems = document.getElementById('btn-systems') as HTMLButtonElement;
+btnSystems.addEventListener('click', () => {
+  systemsOverlay.toggle();
+  systemsToggle.checked = systemsOverlay.isVisible();
 });
 
 // Map buttons — featured maps shown as full buttons, experiments in dev dropdown
@@ -274,6 +284,7 @@ function resetAllState(): void {
   speciesLabels.reset();
   genomePanel.reset();
   lineagePanel.reset();
+  systemsOverlay.reset();
   chart.reset();
   traitChart.reset();
   renderer.rebuildTerrain();
@@ -344,6 +355,7 @@ function updateUI(): void {
   commentary.update(history, world.speciesColors, world, renderer);
   sandboxPanel.update(world);
   speciesLabels.update(world, history);
+  systemsOverlay.update(world);
 }
 
 
@@ -385,11 +397,13 @@ function loop(now: number): void {
     speciesLabels.setLineageVisible(false);
     terrainLabels.setVisible(false);
     zoneLabels.setVisible(false);
+    systemsOverlay.hide();
   } else if (!warpActive && wasWarpActive) {
     ffOverlay.hide();
     speciesLabels.setVisible(speciesCardsToggle.checked);
     terrainLabels.setVisible(terrainToggle.checked);
     zoneLabels.setVisible(climateToggle.checked);
+    if (systemsToggle.checked) systemsOverlay.show();
     lastUITick = -1; // force full UI refresh
   }
   wasWarpActive = warpActive;
@@ -488,6 +502,11 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'F3') {
     e.preventDefault();
     perfPanel.toggle();
+  }
+  if (e.key === 'F4') {
+    e.preventDefault();
+    systemsOverlay.toggle();
+    systemsToggle.checked = systemsOverlay.isVisible();
   }
   if (e.key === 'f' || e.key === 'F') {
     spawnFire(world);
