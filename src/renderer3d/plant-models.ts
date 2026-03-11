@@ -3668,8 +3668,9 @@ function buildJadeLow(): THREE.Group {
 
 function buildTropicalHerbLow(): THREE.Group {
   const g = new THREE.Group();
-  // 12 meshes: 4 stems + 4 bract clusters + 4 leaves — flowers dominate
+  // 20 meshes: 4 stems + 4 bracts + 4 tips + 8 leaves
   const stemMat = mat(0x557744);
+  const leafMats = [matDS(0x338833), matDS(0x3d9d3d), matDS(0x2d7a2d), matDS(0x338833)];
   const bractColors = [mat(0xff2211), mat(0xff4422), mat(0xee1100), mat(0xff6622)];
   const bractYellow = mat(0xffcc22);
   // 4 flower stalks spread across cell
@@ -3690,6 +3691,19 @@ function buildTropicalHerbLow(): THREE.Group {
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 3, 2), bractYellow);
     tip.position.set(x, h - 0.08, z);
     g.add(tip);
+    // 2 leaves per stalk — angled outward, mostly upright like heliconia
+    for (let li = 0; li < 2; li++) {
+      const la = (i * Math.PI / 2) + li * Math.PI + 0.3;
+      const leafGeo = new THREE.PlaneGeometry(0.08, 0.20, 1, 1);
+      const leaf = new THREE.Mesh(leafGeo, leafMats[(i + li) % 4]);
+      leaf.position.set(0, 0, 0.10);
+      leaf.rotation.x = -Math.PI / 5;
+      const leafGrp = new THREE.Group();
+      leafGrp.add(leaf);
+      leafGrp.position.set(x, h * (0.2 + li * 0.2), z);
+      leafGrp.rotation.y = la;
+      g.add(leafGrp);
+    }
   }
   return g;
 }
