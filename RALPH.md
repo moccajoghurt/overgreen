@@ -5,14 +5,36 @@ You are one iteration of an autonomous Ralph loop. You have NO memory of previou
 **Start of iteration:**
 1. `git log --oneline -20` — see what previous iterations did
 2. Read `RALPH-PROGRESS.md` (if it exists) — previous iteration left you notes
-3. Based on the current state, pick ONE focused task (e.g. fix one mechanic, tune one niche, add one system)
+3. Decide what to do this iteration (see Decision Framework below)
 
 **End of iteration:**
 4. Commit your changes with a descriptive message
-5. Write `RALPH-PROGRESS.md` with: what you did, experiment results summary, what the next iteration should focus on
+5. Update `RALPH-PROGRESS.md` (see Progress File Format below)
 6. If ALL 16 niches pass (dominant subtypes match, Shannon H ≥ 2.5): output RALPH_COMPLETE
 
-**Scoping rule:** Do ONE thing well per iteration. Don't try to fix everything at once. A single mechanic change + one experiment run is a good iteration. The loop will keep going.
+---
+
+## Decision Framework
+
+Each iteration, choose ONE of these approaches based on the current state:
+
+### Tactical fix (default)
+A single coefficient tweak, classifier adjustment, or germination filter. Good when the problem is clearly scoped and the fix is obvious.
+
+### Structural change (escalate when stuck)
+A new environment variable, new mechanic, or system rework. **Choose this when:**
+- The same problem appears in `RALPH-PROGRESS.md` Stuck Problems for 3+ iterations
+- Multiple niches share the same root cause (e.g., "climate zones don't differentiate" affects all 16 niches)
+- You find yourself wanting to add another special-case filter to work around a missing environmental axis
+
+Structural changes are higher risk but higher reward. They may produce messy experiment results on the first iteration — that's expected. The next iteration can tune the coefficients. Don't avoid structural changes just because the first experiment won't be clean.
+
+### Strategic review (every 5 iterations)
+Count the iterations from git log. On every 5th iteration (5, 10, 15, 20...), BEFORE picking a task:
+1. Read the Stuck Problems section — which problems have been there longest?
+2. Ask: "Am I making progress on the hard problems, or just polishing the easy ones?"
+3. If a problem has survived 3+ iterations of tactical fixes, it needs a structural change this iteration
+4. Write your strategic assessment in the progress file before proceeding
 
 ---
 
@@ -24,14 +46,19 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 
 ## What you can do
 
-- Add new systems or mechanics
-- Rework existing systems (even delete if no real benefit or replaced by new system)
+- Add new environment variables to `CellEnvironment` and `deriveCellEnv` (this is the primary way to give the trait engine new axes of differentiation)
+- Add trait-effect rows to the `TRAIT_EFFECTS` table
+- Add or rework classifiers in `src/types/subtypes.ts`
+- Add germination filters or other mechanics in `src/simulation.ts`
 - Tweak constants and tuning values
+- Rework or delete existing systems that aren't working
 
 ## Key Files
 
 - `src/simulation/trait-effects.ts` — environment physics + trait effect coefficients (primary tuning lever)
 - `src/simulation/tiers.ts` — vertical tier thresholds + light filtering
+- `src/types/subtypes.ts` — subtype classifiers (how genomes map to named plant types)
+- `src/types/constants.ts` — SIM constants + terrain properties
 - Read `CLAUDE.md` for architectural rules before making changes
 
 ## Rules
@@ -61,6 +88,47 @@ wait
 | `experiment-terrain-quad-desert`        | Desert        | Soil/Hill/Wetland/Arid × Des  |
 
 Success = dominant subtypes match the target matrix per niche, ≥8 subtypes coexist per niche (Shannon H ≥ 2.5).
+
+---
+
+## Progress File Format
+
+`RALPH-PROGRESS.md` must have these sections:
+
+```markdown
+# Ralph Loop Progress
+
+## Iteration N: <title>
+
+### What was done
+<description of changes>
+
+### Experiment results
+<niche table, performance numbers>
+
+### What improved
+<specific wins vs previous iteration>
+
+### Regressions
+<anything that got worse>
+
+## Stuck Problems
+
+Problems that persist across iterations. Add new ones, increment the counter on existing ones, remove solved ones.
+
+| Problem | Iterations stuck | Root cause hypothesis | Suggested approach |
+|---------|-----------------|----------------------|-------------------|
+| <description> | <count> | <why tactical fixes haven't worked> | <structural change needed> |
+
+## Next iteration suggestion
+<what to do next, informed by the stuck problems table>
+```
+
+The **Stuck Problems** table is critical. It's your long-term memory. Rules:
+- When a problem appears for the first time, add it with count 1
+- Each iteration where it's still present, increment the count
+- When a problem is solved, remove it
+- When a problem hits count 3, the "Suggested approach" column MUST contain a structural change, not another coefficient tweak
 
 ---
 

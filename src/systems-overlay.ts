@@ -237,6 +237,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   for (const [key, label] of [
     ['droughtStress', 'Drought'], ['frostRisk', 'Frost'], ['diseasePressure', 'Disease'],
     ['windExposure', 'Wind'], ['waterlogging', 'Waterlog'], ['heatStress', 'Heat'],
+    ['soilFertility', 'Fertility'], ['extremeAridity', 'ExtrArid'],
   ] as const) {
     stressBars[key] = stressRow(envSec.body, label);
   }
@@ -465,6 +466,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     const avg: Record<string, number> = {
       droughtStress: 0, frostRisk: 0, diseasePressure: 0,
       windExposure: 0, waterlogging: 0, heatStress: 0,
+      soilFertility: 0, extremeAridity: 0,
     };
     for (let cz = 0; cz < CLIMATE_ZONE_COUNT; cz++) {
       for (let tt = 0; tt < TERRAIN_COUNT; tt++) {
@@ -482,12 +484,16 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     for (const [key] of [
       ['droughtStress'], ['frostRisk'], ['diseasePressure'],
       ['windExposure'], ['waterlogging'], ['heatStress'],
+      ['soilFertility'], ['extremeAridity'],
     ] as const) {
       const v = avg[key];
       const bar = stressBars[key];
       bar.val.textContent = fmt(v, 2);
       const p = Math.min(100, v * 100);
-      const barColor = p > 60 ? '#e06060' : p > 30 ? '#d4c95a' : '#7bc47b';
+      const positive = key === 'soilFertility';
+      const barColor = positive
+        ? (p > 60 ? '#7bc47b' : p > 30 ? '#d4c95a' : '#e06060')
+        : (p > 60 ? '#e06060' : p > 30 ? '#d4c95a' : '#7bc47b');
       bar.bar.style.background = `linear-gradient(to right, ${barColor} ${p}%, #333 ${p}%)`;
     }
 
