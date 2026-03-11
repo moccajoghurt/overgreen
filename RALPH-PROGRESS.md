@@ -1,99 +1,85 @@
 # Ralph Loop Progress
 
-## Iteration 11: Ground heat + woodiness heat penalty + extremeAridity boost
+## Iteration 12: Woodiness drought/aridity penalties + defense drought bonus + Arid tree block
 
 ### What was done
 
-3 changes in `src/simulation/trait-effects.ts` targeting Saguaro viability on desert niches:
+4 changes targeting tree removal from desert/arid niches:
 
-1. **New `groundHeat` component in heatStress formula** — `heatStress += heat × aridity × (1-exposure) × (1-waterlogging) × 0.5`. On flat arid terrain, low wind (1-exposure) and low moisture (1-waterlogging) trap intense radiative heat at ground level. Hills are protected by wind cooling, wetlands by evaporative cooling. This decouples desert ground heat from wind exposure.
+1. **`woodiness × droughtStress: -0.15 → -0.35`** — Doubled the water cost of woody tissue in drought. Affects all woody plants but hits trees (woodiness >0.7) hardest in dry climates.
 
-2. **extremeAridity × heightPriority coefficient: 0.90→1.30** — Stronger selective advantage for tall columnar cacti escaping lethal ground-level heat. Combined with groundHeat, this makes heightPriority 2-3× more valuable than rootPriority on Arid+Desert and Hill+Desert.
+2. **New: `woodiness × extremeAridity × -1.50`** — Xylem cavitation and wood cracking in extreme desert. Only fires when droughtStress > 0.35 (Soil+Desert: 0.10, Arid+Med: 0.10, Hill+Desert: 0.28, Arid+Desert: 0.46). Zero effect on temperate/tropical/wetland.
 
-3. **New trait effect: woodiness × heatStress × -0.30** — Bark cracking and xylem desiccation in extreme heat. Specifically penalizes trees in hot environments, reducing Cypress dominance on desert niches while minimally affecting temperate/tropical.
+3. **New: `defense × droughtStress × +0.35`** — Thorns and thick bark reduce water loss in drought. Differentiates Acacia (high defense) from Cypress (low defense) in desert conditions. Also benefits Holly, Saltbush, and defensive succulents.
 
-### Key learnings from experimentation
-
-- **Iter 10's Hill+Desert Saguaro:179 was a rare outlier.** Baseline runs (same iter 10 code) show Caudiciform:178-205 and Saguaro:0-1. The previous iteration's report was based on a single lucky run. All subsequent analysis used multiple runs per configuration.
-
-- **Caudiciform classifier gate is counterproductive due to Janzen-Connell.** Tried adding a height gate to Caudiciform classifier (h<0.25 full score, ramp to zero at h=0.45). This INCREASED Caudiciform from ~180 to ~210 on Hill+Desert. Reason: JC uses classifySubtype for conspecific counting. By reclassifying moderate-height succulents away from Caudiciform, we reduced JC pressure on remaining short Caudiciform, allowing them to proliferate unchecked. **Key principle: classifier changes affect JC dynamics, not just labels.**
-
-- **Desert niche results are highly stochastic.** Hill+Desert Saguaro ranged 0-205 across runs with identical code. Arid+Desert Saguaro ranged 24-69. Multiple runs (3+) are essential for evaluating desert changes. Single-run results are unreliable.
-
-- **The groundHeat formula's main impact is on Soil+Desert (0.27→0.525) and Arid+Desert (0.45→0.653).** Hill+Desert gets only +0.081 because (1-exposure)=0.2 on hills. The extremeAridity coefficient boost (0.90→1.30) has more impact on Hill+Desert because it applies on both terrains equally.
-
-### heatStress values (base, before seasonal modulation)
-
-| Terrain\Climate | Temperate | Tropical | Mediterranean | Desert |
-|----------------|-----------|----------|---------------|--------|
-| Soil (e=0.3)   | 0.118     | 0.254    | 0.229         | 0.525  |
-| Hill (e=0.8)   | 0.249     | 0.574    | 0.425         | 0.801  |
-| Wetland (e=0.2)| 0.064     | 0.146    | 0.110         | 0.212  |
-| Arid (e=0.5)   | 0.173     | 0.385    | 0.313         | 0.653  |
+4. **Arid `treeGermination: false`** + extended tree filter to block Arid+Mediterranean. Trees now blocked on: Hill+Temp, Hill+Desert, Arid+Temp, Arid+Desert, Arid+Med. Trees allowed on: Arid+Tropical (for Acacia dominant target).
 
 ### Performance
 
-| Climate | Iter 10 | Iter 11 |
+| Climate | Iter 11 | Iter 12 |
 |---------|---------|---------|
 | Temperate | 30 t/s | 30 t/s |
 | Tropical | 30 t/s | 30 t/s |
-| Mediterranean | 32 t/s | 32 t/s |
-| Desert | 51 t/s | 49 t/s |
+| Mediterranean | 32 t/s | 35 t/s |
+| Desert | 49 t/s | 48 t/s |
 
-Stable. Two new trait effect rows + one new envVar computation had no measurable impact.
+Stable. No performance impact.
 
-### Niche Results Summary (tick 5000, best of available runs)
+### Niche Results Summary (tick 5000)
 
 | Niche | Top 5 | H | Target Match |
 |-------|-------|---|-------------|
-| Soil+Temp | Fern:132, Oak:124, Acacia:120, Cypress:118, Magnolia:116 | 2.74 | Oak correct. Fern present. Acacia should be absent. |
-| Soil+Trop | Cypress:125, Magnolia:109, Hazel:97, Mangrove:89, Fern:89 | 3.03 | H passes! Need Tropical/Palm dominant. |
-| Soil+Med | Cypress:141, Bramble:128, Oak:113, Hazel:101, Magnolia:98 | 2.85 | Need Mediterranean/Aromatic dominant. |
-| Soil+Desert | Cypress:223, Tallgrass:118, TallHerb:113, Hazel:96, Mediterranean:95 | 2.39 | Cypress still dominant (should be absent). Saltbush:79 present. |
-| Hill+Temp | Turfgrass:192, Bunchgrass:120, Wildflower:94, DesertGrass:67, Clover:44 | 1.59 | Turfgrass/Bunchgrass/Wildflower correct! DesertGrass:67 (should be absent but reduced from 111). |
-| Hill+Trop | TallHerb:167, Pampas:166, Bunchgrass:154, DesertGrass:124, Tallgrass:95 | 2.29 | Need TropicalHerb/Fern/Conifer. Pampas/DesertGrass wrong. |
-| Hill+Med | Bunchgrass:161, Caudiciform:158, Wildflower:156, Turfgrass:128, DesertGrass:122 | 2.59 | Bunchgrass correct! Caudiciform:158 (absent). Saguaro:81 (absent). |
-| Hill+Desert | Saguaro:205, Caudiciform:146, Tallgrass:111, BarrelCactus:87 | 1.82 | **Saguaro #1 dominant!** BarrelCactus present. Best run of 3 (0, 202, 205). |
-| Wetland+Temp | Mangrove:187, Magnolia:125, Hazel:119, Cypress:105, Palm:102 | 2.76 | Mangrove correct. Need Birch/Sedge/Fern dominant. |
-| Wetland+Trop | Mangrove:145, Cypress:141, Magnolia:138, Hazel:122, Palm:108 | 2.98 | Mangrove/Palm correct. Need Tropical/Fern/Bamboo dominant. |
-| Wetland+Med | Magnolia:151, Mangrove:147, Hazel:144, Cypress:127, Palm:123 | 2.90 | Mangrove/Cypress correct. Need Sedge/Fern dominant. |
-| Wetland+Desert | Hazel:142, Cypress:134, TallHerb:96, Tallgrass:90, Vine:89 | 2.92 | Need Palm/Acacia/Sedge/Tallgrass dominant. |
-| Arid+Temp | Clover:196, Bunchgrass:184, DesertGrass:177, Hazel:139, Aromatic:135 | 2.50 | Bunchgrass/DesertGrass correct! H passes. Hazel:139 (absent). |
-| Arid+Trop | Caudiciform:127, Aromatic:118, DesertGrass:108, Turfgrass:98, Cypress:78 | 2.68 | Need Acacia/Aloe/Euphorbia/Pampas dominant. Saguaro:57 (common target). |
-| Arid+Med | Caudiciform:223, Saltbush:155, Bunchgrass:134, DesertGrass:126, Hazel:126 | 2.57 | Saguaro:88, BarrelCactus:88 (both target dominants). Caudiciform:223 still #1. |
-| Arid+Desert | Caudiciform:138, Aromatic:78, Saltbush:73, Turfgrass:55, Saguaro:49 | 2.49 | Saguaro:49 (up from 16). Need Saguaro/BarrelCactus as top 2. |
+| Soil+Temp | Acacia:160, Magnolia:118, Oak:118, Fern:116, Fl.Shrub:89 | 2.76 | Oak/Fern correct. **Acacia:160 is #1 (should be absent!)** Side effect of defense×drought bonus. |
+| Soil+Trop | Magnolia:117, Hazel:94, Cypress:86, Holly:82, Birch:78 | 3.03 | H passes. Still need Tropical/Palm dominant. |
+| Soil+Med | Cypress:226, Aromatic:128, Magnolia:101, Mediterranean:92, Hazel:88 | 2.81 | **Cypress+Aromatic+Mediterranean correct!** Oak missing. |
+| Soil+Desert | TallHerb:153, Tallgrass:127, DesertGrass:105, Hazel:104, Mangrove:96 | 2.76 | **Cypress GONE from top 5!** (was 223). DesertGrass present. Need Saltbush/Acacia. |
+| Hill+Temp | Bunchgrass:285, Turfgrass:237, DesertGrass:190, Wildflower:130, Clover:27 | 1.52 | Top3 grasses correct but DesertGrass:190 (absent). H fails. |
+| Hill+Trop | TallHerb:219, Pampas:185, Bunchgrass:136, DesertGrass:100, Tallgrass:99 | 2.30 | Need TropicalHerb/Fern/Conifer. H fails. |
+| Hill+Med | Bunchgrass:223, Wildflower:169, Caudiciform:130, Saguaro:121, DesertGrass:106 | 2.57 | Bunchgrass correct! Caudiciform/Saguaro (absent). |
+| Hill+Desert | **Saguaro:324**, Tallgrass:130, DesertGrass:126, Pampas:97, TallHerb:63 | 1.88 | **Saguaro dominant! (was 205 best).** Need BarrelCactus. |
+| Wetland+Temp | Mangrove:139, Magnolia:137, Hazel:127, Cypress:114, Acacia:111 | 2.84 | Mangrove/Cypress present. Need Birch/Sedge/Fern. |
+| Wetland+Trop | Hazel:145, Cypress:144, Magnolia:135, Mangrove:132, Acacia:101 | 2.97 | Mangrove present. Need Tropical/Palm/Fern/Bamboo. |
+| Wetland+Med | Mangrove:148, Cypress:145, Magnolia:126, Palm:121, Hazel:121 | 2.99 | **Mangrove+Cypress #1+#2 correct!** Need Sedge/Fern. |
+| Wetland+Desert | Hazel:133, TallHerb:101, Cypress:91, Magnolia:84, Vine:75 | 2.99 | Need Palm/Acacia/Sedge/Tallgrass. |
+| Arid+Temp | Bunchgrass:224, Aromatic:176, Bramble:153, DesertGrass:140, Hazel:131 | 2.33 | **Bunchgrass+Aromatic+DesertGrass correct!** Need Saltbush. Hazel:131 (absent). H fails. |
+| Arid+Trop | Caudiciform:131, Bunchgrass:117, Aromatic:101, DesertGrass:75, Cypress:73 | 2.89 | Need Acacia/Aloe/Euphorbia/Pampas. Cypress:73 still present (not blocked in Trop). |
+| Arid+Med | Caudiciform:231, DesertGrass:149, Aromatic:143, Bunchgrass:132, BarrelCactus:103 | 2.46 | Aromatic correct. BarrelCactus:103 present. Need Saguaro/Mediterranean. |
+| Arid+Desert | Caudiciform:145, BarrelCactus:139, DesertGrass:119, Saguaro:89, Aromatic:85 | 2.16 | **BarrelCactus:139 (up!)**, Saguaro:89 (up from 49). Caudiciform still #1. |
 
-### Improvements from iteration 10
+### Improvements from iteration 11
 
-- **Hill+Desert Saguaro**: baseline ~1 → now 0/202/205 across 3 runs. Two out of three runs show Saguaro as #1 or #2 dominant. The extremeAridity boost (0.90→1.30) was the key driver.
-- **Arid+Desert Saguaro**: 16→49 average. Modest improvement from groundHeat + extremeAridity boost.
-- **Arid+Trop Saguaro**: appeared at 57 (target: common). New presence.
-- **Arid+Med Saguaro+BarrelCactus**: both at 88 (target: dominant). Significant improvement.
-- **Soil+Desert Cypress**: 199→223 (woodiness penalty helped but not enough). Trees still dominate.
-- **Hill+Temp DesertGrass**: 111→67. Reduced spurious desert grass on temperate hills.
+- **Soil+Desert Cypress**: 223 → gone from top 5. Trees successfully removed from desert soil.
+- **Hill+Desert Saguaro**: 205 (best of 3) → 324. Solidly dominant.
+- **Arid+Desert BarrelCactus**: not in top 5 → 139 (#2). Saguaro 49 → 89.
+- **Arid+Med BarrelCactus**: 88 → 103. Trees removed via germination filter.
+- **Arid+Temp**: Trees (Cypress/Acacia/etc.) removed. Aromatic now #2 (target dominant).
+
+### Side effects
+
+- **Soil+Temp Acacia**: 120 (#3) → 160 (#1). The `defense × droughtStress × +0.35` bonus boosted Acacia on temperate soil (droughtStress=0.15, defense 0.7 → +0.037 each tick). Acacia should be absent on Soil+Temp.
 
 ### Remaining problems (ranked by priority)
 
-1. **Caudiciform dominance everywhere** — Still #1 on Hill+Desert (146-275), Arid+Desert (100-164), Arid+Med (223), Arid+Trop (127). The JC discovery means we can't fix this via classifier changes alone. Need trait-level differentiation that specifically advantages tall vs short succulents, or a new mechanism.
+1. **Caudiciform dominance on Arid/Desert** — #1 on Arid+Trop (131), Arid+Med (231), Arid+Desert (145). Caudiciform is a short fat succulent that thrives via waterStorage+rootPriority. Need Saguaro (tall columnar) to beat it. The JC discovery from iter 11 means classifier changes backfire.
 
-2. **Hill+Desert extreme stochasticity** — Saguaro ranges 0-205 across runs. The population (~500-700) is too small for stable outcomes. Consider: (a) increasing pocket size for desert experiments, (b) longer runs (10k ticks), or (c) multiple-run averaging in the experiment runner.
+2. **Soil+Temp Acacia (#1 when should be absent)** — defense × droughtStress bonus side effect. May need to reduce coefficient or add a drought threshold.
 
-3. **Soil+Desert Cypress dominance** — 223 despite woodiness × heatStress penalty. Cypress (high height, low leaf, long-lived) benefits from heightPriority × heatStress bonus. May need tree germination restrictions on Soil+Desert.
+3. **Tropical trees never dominant** — Soil+Trop needs Tropical/Palm, Wetland+Trop needs Tropical/Palm/Bamboo. Cypress/Hazel/Magnolia dominate instead.
 
-4. **Tropical tree never dominant** — Persistent across all iterations. Tropical classifier overlaps with Cypress/Oak. The defense*0.3 + heightPriority*0.3 + leafSize*0.25 formula loses to Cypress (heightPriority*0.4 + longevity*0.2 + woodiness*0.15) for most tropical genomes.
+4. **Wetland subtypes wrong** — All wetlands dominated by Magnolia/Hazel/Cypress/Mangrove instead of Birch/Sedge/Fern/Bamboo. Need wetland-specific positive effects for these subtypes.
 
-5. **Wetland subtypes wrong** — All wetland niches dominated by Magnolia/Hazel/Cypress/Mangrove. Need Birch/Sedge/Fern for temperate, Tropical/Fern/Bamboo for tropical.
+5. **Hill diversity low** — Hill+Temp H=1.52, Hill+Desert H=1.88. Grass/succulent monocultures.
 
-6. **Saguaro on Hill+Med** — 81 (target: absent). extremeAridity=0.0 on Hill+Med but heatStress=0.425 still gives height bonus.
+6. **DesertGrass everywhere** — Shows up in 10/16 niches including Hill+Temp (190), Hill+Trop (100), Hill+Med (106) where it should be absent.
 
 ### Suggested next focus (pick ONE)
 
-- **Option A: Fix Soil+Desert trees** — Block tree germination on Soil+Desert or Arid+Desert (similar to existing Hill+Temp/Desert block). This would immediately remove Cypress/Magnolia/Hazel from desert soil niches, allowing Saltbush/Acacia/DesertGrass to emerge.
+- **Option A: Fix DesertGrass ubiquity** — DesertGrass appears in too many non-desert niches. The DesertGrass classifier may be too easy to satisfy, or there's a trait combination that scores high on DesertGrass across many environments. Rework the classifier to require extreme drought traits, or add trait interactions that penalize DesertGrass-like genomes in wet/temperate conditions.
 
-- **Option B: Fix Tropical tree classifier** — Rework the Tropical tree classifier to better capture defense+leaf genomes, preventing overlap with Cypress.
+- **Option B: Fix Caudiciform dominance** — The core issue is that short, fat succulents (high waterStorage + rootPriority) outcompete tall ones (high heightPriority) in most arid niches. Need a mechanism that specifically advantages height over root depth in arid environments. The existing extremeAridity × heightPriority helps but isn't enough outside Hill+Desert.
 
-- **Option C: Fix wetland subtypes** — Boost wetland-specific traits (Sedge, Fern, Bamboo) via waterlogging interactions. Currently waterlogging mostly acts as a penalty; need more positive effects for wetland-adapted subtypes.
+- **Option C: Fix Tropical tree absence** — Rework Tropical tree classifier or add trait interactions that favor defense+leaf+height genomes in humid, warm environments. Currently Cypress (height+longevity) beats Tropical (defense+height+leaf) because leafSize penalties in disease/wind outweigh benefits.
 
-- **Option D: Run longer experiments (10k+ ticks)** — Check if Saguaro and other desired subtypes emerge given more evolutionary time, especially on low-population desert niches.
+- **Option D: Fix wetland subtypes** — Add waterlogging-positive effects for grass-like (Sedge) and forb-like (Fern) plants. Currently waterlogging is mostly a penalty.
 
-**Recommendation: Option A.** Blocking tree germination on desert soil would immediately fix the most visible remaining issue (Cypress:223 on Soil+Desert) and allow the trait system to select the correct desert community. This follows the pattern already established for Hill+Temp/Desert tree restrictions.
+**Recommendation: Option A (DesertGrass).** DesertGrass appearing in 10/16 niches is the most widespread classifier/niche issue. Fixing it would improve Hill+Temp (H too low due to DesertGrass), Hill+Med, and several other niches in one change.
