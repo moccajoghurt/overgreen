@@ -52,6 +52,7 @@ export interface PlantSnapshot {
   woodiness: number;
   subtype: number;
   health: HealthState;
+  healthEMA: number;
   causeOfDeath?: 'fire' | 'disease';
 }
 

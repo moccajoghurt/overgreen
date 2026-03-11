@@ -1,22 +1,28 @@
 import type { ColorMode } from '../types/renderer';
 
-/** Normalize a resource value to 0–1 based on mode. */
+/** Normalize a resource value to 0–1 based on mode.
+ *  Calibrated to plant health, not theoretical maximums:
+ *  - Water: plants thrive at ~5, so /5 → 1.0 at "plenty"
+ *  - Nutrients: bonus plateaus ~6, so /6 → 1.0 at "plenty"
+ *  - Light: t³ gamma spreads the 0.7–1.0 cluster where most values sit */
 export function normalizeResource(mode: ColorMode, value: number): number {
   if (mode === 'light') {
     const raw = Math.min(1, Math.max(0, value));
-    // Gamma t³ spreads the 0.7–1.0 range where most values cluster
     return raw * raw * raw;
   }
-  // water and nutrients both range 0–10
-  return Math.min(1, Math.max(0, value / 10));
+  if (mode === 'water') return Math.min(1, Math.max(0, value / 5));
+  // nutrients
+  return Math.min(1, Math.max(0, value / 6));
 }
 
-/** Stress = min of all three normalized resources. 0 = severely stressed, 1 = thriving. */
-export function stressValue(water: number, light: number, nutrients: number): number {
-  const w = Math.min(1, Math.max(0, water / 10));
+/** Fertility = average of all three health-calibrated resources. 0 = barren, 1 = fertile.
+ *  Average is more forgiving than min — a dense shaded forest with good water/nutrients
+ *  shows as moderate rather than infertile. */
+export function fertilityValue(water: number, light: number, nutrients: number): number {
+  const w = Math.min(1, Math.max(0, water / 5));
   const l = Math.min(1, Math.max(0, light));
-  const n = Math.min(1, Math.max(0, nutrients / 10));
-  return Math.min(w, l, n);
+  const n = Math.min(1, Math.max(0, nutrients / 6));
+  return (w + l + n) / 3;
 }
 
 /** Lerp between two RGB triples. */
@@ -64,12 +70,21 @@ export function heatmapColor(mode: ColorMode, t: number): [number, number, numbe
       t,
     );
   }
-  if (mode === 'stress') {
-    // dark red (struggling) → yellow (moderate) → bright green (thriving)
+  if (mode === 'fertility') {
+    // dark red (barren) → yellow (moderate) → bright green (fertile)
     return gradient3(
       [0.55, 0.05, 0.05],  // dark red
       [0.85, 0.70, 0.10],  // warm yellow
       [0.15, 0.85, 0.20],  // bright green
+      t,
+    );
+  }
+  if (mode === 'health') {
+    // dark maroon (dying) → amber (stressed) → emerald (thriving)
+    return gradient3(
+      [0.45, 0.05, 0.10],  // dark maroon
+      [0.90, 0.55, 0.10],  // warm amber
+      [0.10, 0.75, 0.35],  // emerald green
       t,
     );
   }

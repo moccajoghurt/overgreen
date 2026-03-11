@@ -4,7 +4,7 @@ import { isHeatmapMode } from '../types/renderer';
 import { RendererState, GRID, HALF, plantHash, easeOutCubic, lerp } from './state';
 import { computePlantTint } from './plant-colors';
 import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
-import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
+import { normalizeResource, heatmapColor, fertilityValue } from './heatmap-colors';
 
 // ── Constants ──
 
@@ -437,14 +437,18 @@ export function createGrassLayer(
 
       // Heatmap mode: pass pure gradient color (shader uses it directly)
       if (isHeatmapMode(state.colorMode)) {
-        const cell = world.grid[plant.y][plant.x];
         const mode = state.colorMode;
-        const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
-          : mode === 'water' ? cell.waterLevel
-          : mode === 'light' ? cell.lightLevel
-          : cell.nutrients;
-        const ht = mode === 'stress' ? value : normalizeResource(mode, value);
-        [tr, tg, tb] = heatmapColor(mode, ht);
+        if (mode === 'health') {
+          [tr, tg, tb] = heatmapColor('health', plant.healthEMA);
+        } else {
+          const cell = world.grid[plant.y][plant.x];
+          const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+            : mode === 'water' ? cell.waterLevel
+            : mode === 'light' ? cell.lightLevel
+            : cell.nutrients;
+          const ht = mode === 'fertility' ? value : normalizeResource(mode, value);
+          [tr, tg, tb] = heatmapColor(mode, ht);
+        }
       } else {
       // Compute tint (reuses same cache as accent plants)
       const tint = computePlantTint(

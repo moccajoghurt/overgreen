@@ -4,7 +4,8 @@ import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
 import { cellPrimaryPlantId } from '../simulation/tiers';
-import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
+import { normalizeResource, heatmapColor, fertilityValue } from './heatmap-colors';
+import { cellPlantIds } from '../simulation/tiers';
 
 /** Snow multiplier per climate zone: 0 = no snow, 1 = full snow */
 const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
@@ -117,10 +118,26 @@ export function updateTerrainColors(state: RendererState): void {
       for (let x = 0; x < GRID; x++) {
         const cell = world.grid[y][x];
         const idx = y * GRID + x;
+        // Health mode: average healthEMA of plants in cell (gray if empty)
+        if (mode === 'health') {
+          let sum = 0, count = 0;
+          for (const pid of cellPlantIds(cell)) {
+            const p = world.plants.get(pid);
+            if (p) { sum += p.healthEMA; count++; }
+          }
+          if (count > 0) {
+            const [r, g, b] = heatmapColor('health', sum / count);
+            cellBaseR[idx] = r; cellBaseG[idx] = g; cellBaseB[idx] = b;
+          } else {
+            // No plants: neutral gray
+            cellBaseR[idx] = 0.30; cellBaseG[idx] = 0.28; cellBaseB[idx] = 0.26;
+          }
+          continue;
+        }
         let value: number;
-        if (mode === 'stress') {
+        if (mode === 'fertility') {
           const w = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
-          value = stressValue(w, cell.lightLevel, cell.nutrients);
+          value = fertilityValue(w, cell.lightLevel, cell.nutrients);
         } else if (mode === 'water') {
           // River cells show as max water
           value = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
@@ -129,7 +146,7 @@ export function updateTerrainColors(state: RendererState): void {
         } else {
           value = cell.nutrients;
         }
-        const t = mode === 'stress' ? value : normalizeResource(mode, value);
+        const t = mode === 'fertility' ? value : normalizeResource(mode, value);
         const [r, g, b] = heatmapColor(mode, t);
         cellBaseR[idx] = r;
         cellBaseG[idx] = g;

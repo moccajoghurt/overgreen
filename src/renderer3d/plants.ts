@@ -10,7 +10,7 @@ import {
 import { computePlantTint } from './plant-colors';
 import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 import { cellPrimaryPlantId } from '../simulation/tiers';
-import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
+import { normalizeResource, heatmapColor, fertilityValue } from './heatmap-colors';
 
 const SUBTYPE_COUNT = 40;
 
@@ -118,15 +118,20 @@ function computeFinalTint(
   x: number, y: number,
   lineageRoot: number,
 ): { tr: number; tg: number; tb: number } {
-  // Heatmap mode: tint plant by cell resource value
+  // Heatmap mode: tint plant by cell resource or plant health
   if (isHeatmapMode(state.colorMode)) {
-    const cell = state.world.grid[y][x];
     const mode = state.colorMode;
-    const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+    if (mode === 'health') {
+      const plant = state.world.plants.get(plantId);
+      const [r, g, b] = heatmapColor('health', plant ? plant.healthEMA : 0.5);
+      return { tr: r, tg: g, tb: b };
+    }
+    const cell = state.world.grid[y][x];
+    const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
       : mode === 'water' ? cell.waterLevel
       : mode === 'light' ? cell.lightLevel
       : cell.nutrients;
-    const t = mode === 'stress' ? value : normalizeResource(mode, value);
+    const t = mode === 'fertility' ? value : normalizeResource(mode, value);
     const [r, g, b] = heatmapColor(mode, t);
     return { tr: r, tg: g, tb: b };
   }
@@ -230,6 +235,7 @@ function ingestEvents(state: RendererState): void {
       woodiness: evt.genome.woodiness,
       subtype,
       health: prevSnap?.health ?? HealthState.Thriving,
+      healthEMA: prevSnap?.healthEMA ?? 0,
       progress: 0,
     });
   }
@@ -285,18 +291,21 @@ function renderDyingBurning(
 
     // Heatmap mode: use cell resource gradient × shrink
     if (isHeatmapMode(state.colorMode)) {
-      const cell = world.grid[dp.y]?.[dp.x];
-      if (cell) {
-        const mode = state.colorMode;
-        const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
-          : mode === 'water' ? cell.waterLevel
-          : mode === 'light' ? cell.lightLevel
-          : cell.nutrients;
-        const nt = mode === 'stress' ? value : normalizeResource(mode, value);
-        const [hr, hg, hb] = heatmapColor(mode, nt);
-        tr = hr * shrink;
-        tg = hg * shrink;
-        tb = hb * shrink;
+      const mode = state.colorMode;
+      if (mode === 'health') {
+        const [hr, hg, hb] = heatmapColor('health', dp.healthEMA ?? 0);
+        tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
+      } else {
+        const cell = world.grid[dp.y]?.[dp.x];
+        if (cell) {
+          const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+            : mode === 'water' ? cell.waterLevel
+            : mode === 'light' ? cell.lightLevel
+            : cell.nutrients;
+          const nt = mode === 'fertility' ? value : normalizeResource(mode, value);
+          const [hr, hg, hb] = heatmapColor(mode, nt);
+          tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
+        }
       }
     } else if (state.colorMode === 'species') {
       // Species mode: tint the dying plant too
@@ -400,6 +409,7 @@ function fullRebuild(
       woodiness: plant.genome.woodiness,
       subtype,
       health,
+      healthEMA: plant.healthEMA,
     });
 
     // Skip shader-grass subtypes — handled entirely by shader grass field
@@ -593,6 +603,7 @@ function incrementalUpdate(
       woodiness: plant.genome.woodiness,
       subtype,
       health: newHealth,
+      healthEMA: plant.healthEMA,
     });
 
     if (SHADER_GRASS_SUBTYPES.has(subtype)) {
