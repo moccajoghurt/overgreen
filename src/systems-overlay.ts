@@ -20,12 +20,12 @@ function fmt(n: number, d = 1): string { return n.toFixed(d); }
 function pct(n: number): string { return (n * 100).toFixed(0) + '%'; }
 function comma(n: number): string { return n.toLocaleString(); }
 
-function makeSection(title: string, color: string): { wrap: HTMLDivElement; body: HTMLDivElement } {
+function makeSection(title: string, color: string, fullWidth?: boolean): { wrap: HTMLDivElement; body: HTMLDivElement } {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'margin-bottom:8px;';
+  wrap.style.cssText = 'margin-bottom:4px;' + (fullWidth ? 'grid-column:1/-1;' : '');
 
   const hdr = document.createElement('div');
-  hdr.style.cssText = `color:${color};font-weight:bold;font-size:11px;letter-spacing:1px;border-bottom:1px solid ${color}44;padding-bottom:2px;margin-bottom:3px;`;
+  hdr.style.cssText = `color:${color};font-weight:bold;font-size:11px;letter-spacing:1px;border-bottom:1px solid ${color}44;padding-bottom:1px;margin-bottom:2px;`;
   hdr.textContent = title;
   wrap.appendChild(hdr);
 
@@ -61,19 +61,19 @@ interface StressBar {
 
 function stressRow(parent: HTMLElement, label: string): StressBar {
   const r = document.createElement('div');
-  r.style.cssText = 'display:flex;align-items:center;gap:6px;';
+  r.style.cssText = 'display:flex;align-items:center;gap:4px;';
 
   const lbl = document.createElement('span');
-  lbl.style.cssText = 'width:64px;color:#999;';
+  lbl.style.cssText = 'width:48px;color:#999;';
   lbl.textContent = label;
   r.appendChild(lbl);
 
   const val = document.createElement('span');
-  val.style.cssText = 'width:32px;text-align:right;color:#e8e8e8;';
+  val.style.cssText = 'width:28px;text-align:right;color:#e8e8e8;';
   r.appendChild(val);
 
   const bar = document.createElement('span');
-  bar.style.cssText = 'display:inline-block;width:64px;height:7px;border-radius:2px;background:#333;';
+  bar.style.cssText = 'display:inline-block;width:48px;height:7px;border-radius:2px;background:#333;';
   r.appendChild(bar);
 
   parent.appendChild(r);
@@ -106,16 +106,24 @@ class RingBuf {
   reset(): void { this.len = 0; this.idx = 0; }
 }
 
-function makeSparkCanvas(): HTMLCanvasElement {
+function makeSparkCanvas(h = 18): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = 160; c.height = 28;
-  c.style.cssText = 'width:160px;height:28px;display:block;margin:3px 0 1px;border-radius:2px;background:#1a1a1a;';
+  c.style.cssText = `width:100%;height:${h}px;display:block;margin:3px 0 1px;border-radius:2px;background:#1a1a1a;`;
   return c;
 }
 
 function drawSparkline(canvas: HTMLCanvasElement, buf: RingBuf, color: string, zero = false): void {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const cw = Math.round(rect.width * dpr);
+  const ch = Math.round(rect.height * dpr);
+  if (cw <= 0 || ch <= 0) return;
+  if (canvas.width !== cw) canvas.width = cw;
+  if (canvas.height !== ch) canvas.height = ch;
+
   const ctx = canvas.getContext('2d')!;
-  const W = canvas.width, H = canvas.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = rect.height;
   ctx.clearRect(0, 0, W, H);
   if (buf.len < 2) return;
 
@@ -168,13 +176,12 @@ const TERRAIN_COUNT = 6;
 export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   const el = document.createElement('div');
   el.style.cssText = `
-    position:absolute;top:8px;right:8px;width:480px;
-    max-height:calc(100% - 16px);overflow-y:auto;
+    position:absolute;top:8px;right:8px;width:700px;
+    max-height:calc(100% - 16px);overflow-y:hidden;
     background:rgba(0,0,0,0.85);color:#ccc;
-    font:11px/1.5 monospace;padding:10px 12px;
+    font:11px/1.4 monospace;padding:8px 10px;
     border-radius:4px;pointer-events:auto;
     z-index:30;display:none;
-    scrollbar-width:thin;scrollbar-color:#444 transparent;
   `;
   container.appendChild(el);
 
@@ -192,42 +199,40 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   kvRow(headerRow, spans, [['', 'season'], ['Tick', 'tick'], ['Year', 'year']]);
   el.appendChild(headerRow);
 
-  // ── Water ──
+  // ── Grid ──
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;';
+  el.appendChild(grid);
+
+  // ── Row 1L: Water ──
   const water = makeSection('WATER', '#4a90d9');
-  kvRow(water.body, spans, [['Avg', 'wAvg'], ['Min', 'wMin'], ['Max', 'wMax']]);
-  kvRow(water.body, spans, [['Cells <1', 'wLow'], ['Droughts', 'wDroughts']]);
+  kvRow(water.body, spans, [['Avg', 'wAvg'], ['Min', 'wMin'], ['Max', 'wMax'], ['Lo', 'wLow'], ['Dr', 'wDroughts']]);
   const waterSpark = makeSparkCanvas();
   water.body.appendChild(waterSpark);
-  el.appendChild(water.wrap);
+  grid.appendChild(water.wrap);
 
-  // ── Light ──
-  const light = makeSection('LIGHT', '#d4c95a');
-  kvRow(light.body, spans, [['Avg', 'lAvg'], ['Shadowed', 'lShaded'], ['Season', 'lMult']]);
-  el.appendChild(light.wrap);
-
-  // ── Tiers ──
-  const tiers = makeSection('TIERS', '#7bc47b');
-  kvRow(tiers.body, spans, [['Canopy', 'tCan'], ['Understory', 'tUnd'], ['Ground', 'tGnd']]);
-  kvRow(tiers.body, spans, [['Empty cells', 'tEmpty'], ['Multi-plant', 'tMulti']]);
+  // ── Row 1R: Light / Tiers ──
+  const lightTiers = makeSection('LIGHT / TIERS', '#7bc47b');
+  kvRow(lightTiers.body, spans, [['Avg', 'lAvg'], ['Shade', 'lShaded'], ['Seas', 'lMult']]);
+  kvRow(lightTiers.body, spans, [['Can', 'tCan'], ['Und', 'tUnd'], ['Gnd', 'tGnd'], ['Ety', 'tEmpty'], ['Mul', 'tMulti']]);
   const tierBar = makePropBar();
-  // legend
   const tierLegend = document.createElement('div');
   tierLegend.style.cssText = 'display:flex;gap:8px;font-size:9px;color:#888;margin-top:1px;';
   tierLegend.innerHTML = '<span><span style="color:#5a9e5a">\u25A0</span> Can</span><span><span style="color:#8bc48b">\u25A0</span> Und</span><span><span style="color:#c4b870">\u25A0</span> Gnd</span><span><span style="color:#333">\u25A0</span> Empty</span>';
-  tiers.body.appendChild(tierBar.el);
-  tiers.body.appendChild(tierLegend);
-  el.appendChild(tiers.wrap);
+  lightTiers.body.appendChild(tierBar.el);
+  lightTiers.body.appendChild(tierLegend);
+  grid.appendChild(lightTiers.wrap);
 
-  // ── Energy Flow ──
+  // ── Row 2L: Energy Flow ──
   const energy = makeSection('ENERGY FLOW', '#e89040');
-  kvRow(energy.body, spans, [['Prod', 'eProd'], ['Maint', 'eMaint']]);
-  kvRow(energy.body, spans, [['Net', 'eNet'], ['Avg', 'eAvg']]);
+  kvRow(energy.body, spans, [['Prod', 'eProd'], ['Maint', 'eMaint'], ['Net', 'eNet'], ['Avg', 'eAvg']]);
   const energySpark = makeSparkCanvas();
   energy.body.appendChild(energySpark);
-  el.appendChild(energy.wrap);
+  grid.appendChild(energy.wrap);
 
-  // ── Environment Stress ──
+  // ── Row 2R: Environment Stress ──
   const envSec = makeSection('ENVIRONMENT STRESS', '#c57070');
+  envSec.body.style.cssText = 'padding-left:2px;display:grid;grid-template-columns:1fr 1fr;gap:1px 6px;';
   const stressBars: Record<string, StressBar> = {};
   for (const [key, label] of [
     ['droughtStress', 'Drought'], ['frostRisk', 'Frost'], ['diseasePressure', 'Disease'],
@@ -235,13 +240,13 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   ] as const) {
     stressBars[key] = stressRow(envSec.body, label);
   }
-  el.appendChild(envSec.wrap);
+  grid.appendChild(envSec.wrap);
 
-  // ── Trait Effects ──
+  // ── Row 3 (F): Trait Effects ──
   const traitLookup = new Map<string, { label: string; color: string }>();
   for (const t of TRAITS) traitLookup.set(t.genomeKey, { label: t.label, color: t.color });
 
-  const traitFx = makeSection('TRAIT EFFECTS', '#c0a060');
+  const traitFx = makeSection('TRAIT EFFECTS', '#c0a060', true);
   const traitFxHint = document.createElement('div');
   traitFxHint.style.cssText = 'color:#777;font-size:9px;margin-bottom:3px;';
   traitFxHint.textContent = 'Which traits help (green) or hurt (red) photosynthesis right now';
@@ -250,64 +255,57 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   traitFxTotal.style.cssText = 'margin-bottom:4px;font-size:10px;';
   traitFx.body.appendChild(traitFxTotal);
   const traitFxRows = document.createElement('div');
+  traitFxRows.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:1px 8px;';
   traitFx.body.appendChild(traitFxRows);
-  el.appendChild(traitFx.wrap);
+  grid.appendChild(traitFx.wrap);
 
-  // ── Reproduction ──
-  const repro = makeSection('REPRODUCTION', '#b080d0');
-  kvRow(repro.body, spans, [['Attempted', 'rAttempt'], ['Germinated', 'rGerm']]);
-  kvRow(repro.body, spans, [['Rate', 'rRate'], ['Seed bank', 'rBank']]);
-  el.appendChild(repro.wrap);
+  // ── Row 4L: Reproduction / Pop ──
+  const repro = makeSection('REPRODUCTION / POP', '#b080d0');
+  kvRow(repro.body, spans, [['Att', 'rAttempt'], ['Germ', 'rGerm'], ['Rate', 'rRate'], ['Bank', 'rBank']]);
+  kvRow(repro.body, spans, [['Plants', 'pTotal'], ['Species', 'pSpecies']]);
+  grid.appendChild(repro.wrap);
 
-  // ── Herbivores ──
+  // ── Row 4R: Herbivores ──
   const herb = makeSection('HERBIVORES', '#a0826a');
-  kvRow(herb.body, spans, [['Pop', 'hPop'], ['Births', 'hBirth'], ['Deaths', 'hDeath']]);
-  kvRow(herb.body, spans, [['Grazing', 'hGraze']]);
+  kvRow(herb.body, spans, [['Pop', 'hPop'], ['Births', 'hBirth'], ['Deaths', 'hDeath'], ['Graze', 'hGraze']]);
   const herbSpark = makeSparkCanvas();
   herb.body.appendChild(herbSpark);
-  el.appendChild(herb.wrap);
+  grid.appendChild(herb.wrap);
 
-  // ── Active Events ──
-  const events = makeSection('ACTIVE EVENTS', '#e06060');
-  const eventsBody = events.body;
-  el.appendChild(events.wrap);
+  // ── Row 5 (F): Events / Deaths ──
+  const evDeaths = makeSection('EVENTS / DEATHS', '#e06060', true);
+  evDeaths.body.style.cssText = 'padding-left:2px;display:flex;gap:16px;';
+  const eventsText = document.createElement('div');
+  eventsText.style.cssText = 'flex:1;';
+  evDeaths.body.appendChild(eventsText);
+  const deathKVs = document.createElement('div');
+  kvRow(deathKVs, spans, [['Starved', 'dStarve'], ['Age', 'dAge'], ['Fire', 'dFire'], ['Dis', 'dDisease']]);
+  evDeaths.body.appendChild(deathKVs);
+  grid.appendChild(evDeaths.wrap);
 
-  // ── Deaths ──
-  const deaths = makeSection('DEATHS THIS TICK', '#888');
-  kvRow(deaths.body, spans, [['Starved', 'dStarve'], ['Age', 'dAge']]);
-  kvRow(deaths.body, spans, [['Fire', 'dFire'], ['Disease', 'dDisease']]);
-  el.appendChild(deaths.wrap);
-
-  // ── Population ──
-  const pop = makeSection('POPULATION', '#8cb4ff');
-  kvRow(pop.body, spans, [['Plants', 'pTotal'], ['Species', 'pSpecies']]);
-  const popSpark = makeSparkCanvas();
-  pop.body.appendChild(popSpark);
-  el.appendChild(pop.wrap);
-
-  // ── Population History chart ──
-  const popChartSec = makeSection('POPULATION HISTORY', '#8cb4ff');
+  // ── Row 6 (F): Population History chart ──
+  const popChartSec = makeSection('POPULATION HISTORY', '#8cb4ff', true);
   const popChartContainer = document.createElement('div');
-  popChartContainer.style.cssText = 'width:100%;height:140px;position:relative;overflow:hidden;';
+  popChartContainer.style.cssText = 'width:100%;height:90px;position:relative;overflow:hidden;';
   popChartSec.body.appendChild(popChartContainer);
-  el.appendChild(popChartSec.wrap);
+  grid.appendChild(popChartSec.wrap);
   const popChart = createPopulationChart(popChartContainer);
 
-  // ── Trait History chart ──
-  const traitChartSec = makeSection('TRAIT HISTORY', '#b080d0');
+  // ── Row 7 (F): Trait History chart ──
+  const traitChartSec = makeSection('TRAIT HISTORY', '#b080d0', true);
   const traitChartContainer = document.createElement('div');
-  traitChartContainer.style.cssText = 'width:100%;height:140px;position:relative;overflow:hidden;';
+  traitChartContainer.style.cssText = 'width:100%;height:90px;position:relative;overflow:hidden;';
   traitChartSec.body.appendChild(traitChartContainer);
-  el.appendChild(traitChartSec.wrap);
+  grid.appendChild(traitChartSec.wrap);
   const traitChartInst = createTraitChart(traitChartContainer);
 
-  // ── Event Log ──
-  const tickerSec = makeSection('EVENT LOG', '#8f8');
+  // ── Row 8 (F): Event Log ──
+  const tickerSec = makeSection('EVENT LOG', '#8f8', true);
   const tickerContainer = document.createElement('div');
   tickerContainer.className = 'sys-ticker';
-  tickerContainer.style.cssText = 'width:100%;height:160px;overflow-y:auto;font-size:11px;line-height:1.4;scrollbar-width:thin;scrollbar-color:#444 transparent;';
+  tickerContainer.style.cssText = 'width:100%;height:100px;overflow-y:auto;font-size:11px;line-height:1.4;scrollbar-width:thin;scrollbar-color:#444 transparent;';
   tickerSec.body.appendChild(tickerContainer);
-  el.appendChild(tickerSec.wrap);
+  grid.appendChild(tickerSec.wrap);
   const tickerInst = createEventTicker(tickerContainer);
 
   // Ticker CSS (scoped to .sys-ticker)
@@ -332,7 +330,6 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
 
   // ── History ring buffers ──
   const histPop = new RingBuf();
-  const histSpecies = new RingBuf();
   const histNetEnergy = new RingBuf();
   const histAvgWater = new RingBuf();
   const histHerbPop = new RingBuf();
@@ -366,7 +363,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   function isVisible(): boolean { return visible; }
   function reset(): void {
     histDirty = true;
-    histPop.reset(); histSpecies.reset(); histNetEnergy.reset();
+    histPop.reset(); histNetEnergy.reset();
     histAvgWater.reset(); histHerbPop.reset();
     popChart.reset();
     traitChartInst.reset();
@@ -560,6 +557,10 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     for (const v of world.seedPopulations.values()) seedBank += v;
     spans.rBank.textContent = comma(seedBank);
 
+    // ── Population ──
+    spans.pTotal.textContent = comma(alive);
+    spans.pSpecies.textContent = String(speciesSet.size);
+
     // ── Herbivores ──
     let totalGraze = 0;
     for (const h of world.herbivores.values()) {
@@ -571,26 +572,26 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     spans.hGraze.textContent = fmt(totalGraze);
 
     // ── Active Events ──
-    const env = world.environment;
+    const envW = world.environment;
     const parts: string[] = [];
-    if (env.fires.length > 0) {
+    if (envW.fires.length > 0) {
       let burning = 0;
-      for (const f of env.fires) burning += f.cells.size;
-      parts.push(`Fires: ${env.fires.length} (${burning} cells)`);
+      for (const f of envW.fires) burning += f.cells.size;
+      parts.push(`Fires: ${envW.fires.length} (${burning} cells)`);
     }
-    if (env.droughts.length > 0) {
-      parts.push(`Droughts: ${env.droughts.length}`);
+    if (envW.droughts.length > 0) {
+      parts.push(`Droughts: ${envW.droughts.length}`);
     }
-    if (env.aridDrySpell) {
-      parts.push(`Arid dry spell (${env.aridDrySpell.ticksRemaining}t)`);
+    if (envW.aridDrySpell) {
+      parts.push(`Arid dry spell (${envW.aridDrySpell.ticksRemaining}t)`);
     }
-    if (env.diseases.length > 0) {
+    if (envW.diseases.length > 0) {
       let kills = 0;
-      for (const d of env.diseases) kills += d.killCount;
-      parts.push(`Diseases: ${env.diseases.length} (${kills} kills)`);
+      for (const d of envW.diseases) kills += d.killCount;
+      parts.push(`Diseases: ${envW.diseases.length} (${kills} kills)`);
     }
     if (parts.length === 0) parts.push('None');
-    eventsBody.textContent = parts.join(' \u00b7 ');
+    eventsText.textContent = parts.join(' \u00b7 ');
 
     // ── Deaths ──
     let dStarve = 0, dAge = 0, dFire = 0, dDisease = 0;
@@ -607,20 +608,14 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     spans.dFire.textContent = String(dFire);
     spans.dDisease.textContent = String(dDisease);
 
-    // ── Population ──
-    spans.pTotal.textContent = comma(alive);
-    spans.pSpecies.textContent = String(speciesSet.size);
-
     // ── Push history + draw sparklines ──
     histPop.push(alive);
-    histSpecies.push(speciesSet.size);
     histNetEnergy.push(net);
     histAvgWater.push(sumWater / cells);
     histHerbPop.push(world.herbivores.size);
 
-    drawSparkline(popSpark, histPop, '#8cb4ff');
-    drawSparkline(energySpark, histNetEnergy, '#e89040', true);
     drawSparkline(waterSpark, histAvgWater, '#4a90d9');
+    drawSparkline(energySpark, histNetEnergy, '#e89040', true);
     drawSparkline(herbSpark, histHerbPop, '#a0826a');
 
     // ── Charts & Ticker ──
