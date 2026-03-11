@@ -34,8 +34,11 @@ export const experimentName: Scenario = (() => {
           heightPriority: 0.5,
           leafSize: 0.5,
           seedInvestment: 0.5,
+          seedSize: 0.5,       // 0.01-0.99: small (many cheap) to large (few expensive) seeds
           defense: 0.0,
-          woodiness: 0.8, // 0.01-0.99: low = herbaceous/grass, high = woody/tree
+          woodiness: 0.8,      // 0.01-0.99: low = herbaceous/grass, high = woody/tree
+          waterStorage: 0.1,   // 0.01-0.99: internal water tank capacity
+          longevity: 0.5,      // 0.01-0.99: short-lived annual (low) to long-lived perennial (high)
         },
         color: { r: 0.3, g: 0.7, b: 0.3 },
         placements: scatter(35, 45, 35, 45, 20),

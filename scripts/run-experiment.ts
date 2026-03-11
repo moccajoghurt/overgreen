@@ -58,7 +58,7 @@ const world = createWorld();
 loadScenario(world, scenario);
 
 const perf = new PerfTracker();
-const phases = ['environment', 'rechargeWater', 'calculateLight', 'updatePlants', 'herbivores', 'death', 'decomposition', 'germination'];
+const phases = ['environment', 'rechargeWater', 'calculateLight', 'tierAssignment', 'tierLight', 'updatePlants', 'herbivores', 'death', 'decomposition', 'germination'];
 for (const p of phases) perf.register(p, 'sim');
 
 const terrainSummary = computeTerrainSummary(world);

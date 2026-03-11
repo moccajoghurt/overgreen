@@ -5,7 +5,7 @@
  * Usage: npx tsx scripts/probe-healthy-death.ts [scenario-id] [--ticks N]
  */
 
-import { createWorld, tickWorld } from '../src/simulation';
+import { createWorld, tickWorld, clearFrameEvents } from '../src/simulation';
 import { loadScenario } from '../src/scenario-loader';
 import { SCENARIOS } from '../src/scenarios';
 import { getPlantConstants } from '../src/types';
@@ -59,14 +59,7 @@ for (let t = 1; t <= totalTicks; t++) {
     });
   }
 
-  world.deathEvents.length = 0;
-  world.fireDeathEvents.length = 0;
-  world.seedLandingEvents.length = 0;
-  world.germinationEvents.length = 0;
-  world.environmentEvents.length = 0;
-  world.heightChangedIds.clear();
-  world.seedsAttempted = 0;
-
+  clearFrameEvents(world);
   tickWorld(world);
 
   for (const evt of world.deathEvents) {
