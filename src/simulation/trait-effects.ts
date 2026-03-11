@@ -132,6 +132,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
   { trait: 'defense',        envVar: null,              coefficient: -0.25, description: 'metabolic cost of defensive tissue' },
   { trait: 'defense',        envVar: 'heatStress',      coefficient: +0.25, description: 'spines and waxy coating provide sun/heat protection' },
+  { trait: 'defense',        envVar: 'droughtStress',   coefficient: +0.35, description: 'thorns and thick bark reduce water loss in drought' },
 
   // Water storage — critical in drought, liability in frost/wetland/wind
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
@@ -148,7 +149,8 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: 'heatStress',     coefficient: -0.30, description: 'bark cracking and xylem desiccation in extreme heat' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.20, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
-  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
+  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.35, description: 'water-demanding woody tissue' },
+  { trait: 'woodiness',      envVar: 'extremeAridity',  coefficient: -1.50, description: 'xylem cavitation and wood cracking in extreme desert' },
 
   // Root priority — deep roots mine nutrients and anchor plant, but drown in wetland
   { trait: 'rootPriority',   envVar: null,             coefficient: +0.10, description: 'nutrient mining and soil anchoring' },
