@@ -30,11 +30,11 @@ const SUBTYPE_BLADE_HEIGHT: number[] = [
 // Per-subtype color tint multipliers — bold hue shifts so each grass species
 // is visually distinct even at full zoom-out (~20+ degree hue separation)
 const SUBTYPE_COLOR_TINT: [number, number, number][] = [
-  [1.10, 1.10, 0.35],  // 0: Turfgrass — warm yellow-green lawn
-  [1.80, 0.85, 0.20],  // 1: Tallgrass — golden straw prairie
+  [1.05, 1.08, 0.55],  // 0: Turfgrass — warm green lawn
+  [1.45, 0.95, 0.35],  // 1: Tallgrass — golden prairie
   [0.55, 0.75, 0.50],  // 2: Bunchgrass — dark forest green
-  [0.70, 1.80, 0.30],  // 3: Bamboo — vivid lime
-  [0.35, 1.50, 1.80],  // 4: Spreading/Ryegrass — cool teal-green
+  [0.65, 1.25, 0.50],  // 3: Bamboo — fresh bamboo green
+  [0.50, 1.40, 1.15],  // 4: Spreading/Ryegrass — cool blue-green
   [1.80, 0.65, 0.25],  // 5: Sedge — rusty bronze-green
 ];
 
@@ -171,21 +171,25 @@ const grassFragmentShader = /* glsl */`
 
   void main() {
     // Subtle alpha fade at blade base — soft ground transition
-    float alpha = smoothstep(0.0, 0.2, vHeight01);
+    float alpha = smoothstep(0.0, 0.14, vHeight01);
     if (alpha < 0.05) discard;
 
-    // Strong AO gradient: very dark rooted base → bright tips
-    float ao = mix(0.25, 1.0, smoothstep(0.0, 0.5, vHeight01));
+    // Very gentle AO: minor darkening at ground contact only
+    float ao = mix(0.88, 1.0, smoothstep(0.0, 0.25, vHeight01));
 
-    // Approximate blade normal (pointing up + slightly outward)
+    // Wrap-around diffuse: half-Lambert so blades are never dark
     vec3 bladeNormal = normalize(vec3(0.0, 1.0, 0.0));
+    float NdotL = dot(bladeNormal, uSunDirection) * 0.5 + 0.5;
+    float diffuse = 0.85 + NdotL * 0.15;
 
-    // Diffuse lighting
-    float NdotL = max(dot(bladeNormal, uSunDirection), 0.0);
-    float diffuse = 0.50 + NdotL * 0.50;
+    // Translucency: sunlight shining through thin blades
+    vec3 viewDir = normalize(cameraPosition - vWorldPos);
+    float backLight = max(dot(-viewDir, uSunDirection), 0.0);
+    float translucency = pow(backLight, 3.0) * 0.30 * vHeight01;
+    diffuse += translucency;
 
-    // Bright golden tips — catches sunlight like real grass
-    float tipBrightness = mix(0.80, 1.45, vHeight01);
+    // Bright tips catching sunlight
+    float tipBrightness = mix(1.0, 1.12, vHeight01);
 
     // Landscape-scale brightness variation (~5 cell period)
     float brightnessMod = 1.0 + sin(vWorldPos.x * 0.22 + 1.3) * sin(vWorldPos.z * 0.18 + 0.7) * 0.15;
@@ -196,13 +200,13 @@ const grassFragmentShader = /* glsl */`
 
     // Per-blade hue variation on top of landscape patches
     float hueShift = (vBladeRand - 0.5) * 0.3 + patchWarm;
-    // ~8% fully dried/golden blades + 12% dried tips
-    float isFullyDry = step(0.92, vBladeRand);
-    float isDryTip = step(0.80, vBladeRand) * (1.0 - isFullyDry);
+    // ~4% fully dried/golden blades + 6% dried tips
+    float isFullyDry = step(0.96, vBladeRand);
+    float isDryTip = step(0.90, vBladeRand) * (1.0 - isFullyDry);
 
-    // Dramatic base-to-tip color shift: dark cool base → warm golden-green tips
-    vec3 baseColor = vec3(0.15, 0.28, 0.08);   // dark earthy green at roots
-    vec3 tipColor  = vec3(0.38, 0.58, 0.20);   // warm bright green at tips
+    // Base-to-tip color shift: medium green base → warm bright tips
+    vec3 baseColor = vec3(0.24, 0.44, 0.16);   // medium green at roots
+    vec3 tipColor  = vec3(0.38, 0.60, 0.24);   // warm green at tips
     // Shift tip hue per blade + landscape patch
     tipColor.r += hueShift * 0.5;
     tipColor.g += hueShift * 0.15;
@@ -216,7 +220,12 @@ const grassFragmentShader = /* glsl */`
     tipColor = mix(tipColor, dryBlade, isFullyDry);
 
     vec3 bladeColor = mix(baseColor, tipColor, smoothstep(0.0, 0.8, vHeight01));
-    vec3 color = bladeColor * vTint * ao * diffuse * tipBrightness * brightnessMod;
+
+    // Luminance-preserving tint: shift hue without darkening
+    // Normalize vTint so its perceived brightness ≈ 1.0, then multiply
+    float tintLum = dot(vTint, vec3(0.299, 0.587, 0.114));
+    vec3 normTint = vTint / max(tintLum, 0.01);
+    vec3 color = bladeColor * normTint * ao * diffuse * tipBrightness * brightnessMod;
 
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
