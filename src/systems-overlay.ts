@@ -1,5 +1,6 @@
-import { World, History, TerrainType, SEASON_NAMES, CLIMATE_ZONE_COUNT } from './types';
-import { getEffectiveEnv } from './simulation/trait-effects';
+import { World, History, Genome, TerrainType, SEASON_NAMES, CLIMATE_ZONE_COUNT } from './types';
+import { getEffectiveEnv, diagnoseTraitEffects, CellEnvironment } from './simulation/trait-effects';
+import { TRAITS } from './trait-defs';
 import { createPopulationChart } from './population-chart';
 import { createTraitChart } from './trait-chart';
 import { createEventTicker } from './event-ticker';
@@ -236,6 +237,22 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   }
   el.appendChild(envSec.wrap);
 
+  // ── Trait Effects ──
+  const traitLookup = new Map<string, { label: string; color: string }>();
+  for (const t of TRAITS) traitLookup.set(t.genomeKey, { label: t.label, color: t.color });
+
+  const traitFx = makeSection('TRAIT EFFECTS', '#c0a060');
+  const traitFxHint = document.createElement('div');
+  traitFxHint.style.cssText = 'color:#777;font-size:9px;margin-bottom:3px;';
+  traitFxHint.textContent = 'Which traits help (green) or hurt (red) photosynthesis right now';
+  traitFx.body.appendChild(traitFxHint);
+  const traitFxTotal = document.createElement('div');
+  traitFxTotal.style.cssText = 'margin-bottom:4px;font-size:10px;';
+  traitFx.body.appendChild(traitFxTotal);
+  const traitFxRows = document.createElement('div');
+  traitFx.body.appendChild(traitFxRows);
+  el.appendChild(traitFx.wrap);
+
   // ── Reproduction ──
   const repro = makeSection('REPRODUCTION', '#b080d0');
   kvRow(repro.body, spans, [['Attempted', 'rAttempt'], ['Germinated', 'rGerm']]);
@@ -372,6 +389,8 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     // ── Plants pass ──
     let alive = 0, sumEnergy = 0, sumProd = 0, sumMaint = 0;
     const speciesSet = new Set<number>();
+    const genomeSum: Record<string, number> = {};
+    let genomeKeys: string[] | null = null;
     for (const p of world.plants.values()) {
       if (!p.alive) continue;
       alive++;
@@ -379,6 +398,15 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       sumProd += p.lastEnergyProduced;
       sumMaint += p.lastMaintenanceCost;
       speciesSet.add(p.speciesId);
+      const g = p.genome;
+      if (!genomeKeys) genomeKeys = Object.keys(g);
+      for (const key of genomeKeys) {
+        genomeSum[key] = (genomeSum[key] || 0) + (g as any)[key];
+      }
+    }
+    const avgGenome: Record<string, number> = {};
+    for (const key of Object.keys(genomeSum)) {
+      avgGenome[key] = alive > 0 ? genomeSum[key] / alive : 0.5;
     }
 
     // ── Grid pass ──
@@ -464,6 +492,62 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       const p = Math.min(100, v * 100);
       const barColor = p > 60 ? '#e06060' : p > 30 ? '#d4c95a' : '#7bc47b';
       bar.bar.style.background = `linear-gradient(to right, ${barColor} ${p}%, #333 ${p}%)`;
+    }
+
+    // ── Trait Effects ──
+    traitFxRows.innerHTML = '';
+    if (alive > 0) {
+      const effects = diagnoseTraitEffects(avgGenome as Genome, avg as unknown as CellEnvironment);
+      const grouped = new Map<string, { posSum: number; negSum: number; label: string; color: string }>();
+      let totalMod = 0;
+      for (const e of effects) {
+        const rawTrait = e.trait.startsWith('(1-') ? e.trait.slice(3, -1) : e.trait;
+        let g = grouped.get(rawTrait);
+        if (!g) {
+          const def = traitLookup.get(rawTrait);
+          g = { posSum: 0, negSum: 0, label: def?.label ?? rawTrait.slice(0, 5), color: def?.color ?? '#888' };
+          grouped.set(rawTrait, g);
+        }
+        if (e.contribution >= 0) g.posSum += e.contribution;
+        else g.negSum += e.contribution;
+        totalMod += e.contribution;
+      }
+      traitFxTotal.innerHTML = `<span style="color:#999">Modifier</span> <span style="color:${totalMod >= 0 ? '#7bc47b' : '#e06060'}">${totalMod >= 0 ? '+' : ''}${totalMod.toFixed(3)}</span> <span style="color:#666">(on avg genome)</span>`;
+
+      let maxMag = 0;
+      for (const [, v] of grouped) maxMag = Math.max(maxMag, v.posSum, -v.negSum);
+      if (maxMag < 0.001) maxMag = 0.001;
+
+      for (const [, v] of grouped) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:4px;height:14px;';
+        const lbl = document.createElement('span');
+        lbl.style.cssText = `width:36px;color:${v.color};font-size:10px;text-align:right;flex-shrink:0;`;
+        lbl.textContent = v.label;
+        row.appendChild(lbl);
+        const netVal = v.posSum + v.negSum;
+        const netEl = document.createElement('span');
+        netEl.style.cssText = `width:44px;text-align:right;font-size:10px;flex-shrink:0;color:${netVal >= 0 ? '#7bc47b' : '#e06060'}`;
+        netEl.textContent = (netVal >= 0 ? '+' : '') + netVal.toFixed(3);
+        row.appendChild(netEl);
+        const barWrap = document.createElement('div');
+        barWrap.style.cssText = 'flex:1;height:7px;position:relative;background:#222;border-radius:2px;overflow:hidden;';
+        const center = document.createElement('div');
+        center.style.cssText = 'position:absolute;left:50%;top:0;width:1px;height:100%;background:#555;';
+        barWrap.appendChild(center);
+        const posW = (v.posSum / maxMag) * 50;
+        const posBar = document.createElement('div');
+        posBar.style.cssText = `position:absolute;left:50%;top:0;height:100%;background:#5a9e5a;width:${posW}%;`;
+        barWrap.appendChild(posBar);
+        const negW = (-v.negSum / maxMag) * 50;
+        const negBar = document.createElement('div');
+        negBar.style.cssText = `position:absolute;right:50%;top:0;height:100%;background:#c05050;width:${negW}%;`;
+        barWrap.appendChild(negBar);
+        row.appendChild(barWrap);
+        traitFxRows.appendChild(row);
+      }
+    } else {
+      traitFxTotal.innerHTML = '<span style="color:#666">No plants</span>';
     }
 
     // ── Reproduction ──
