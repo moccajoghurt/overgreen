@@ -107,7 +107,8 @@ interface TraitEffect {
 
 const TRAIT_EFFECTS: TraitEffect[] = [
   // Leaf size — big leaves capture light but are vulnerable to stress
-  { trait: 'leafSize',       envVar: null,             coefficient: +0.30, description: 'base light capture' },
+  { trait: 'leafSize',       envVar: null,             coefficient: +0.22, description: 'base light capture' },
+  { trait: 'leafSize',       envVar: 'waterlogging',   coefficient: +0.25, description: 'lush growth in saturated soil' },
   { trait: 'leafSize',       envVar: 'droughtStress',  coefficient: -0.50, description: 'transpiration loss' },
   { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.30, description: 'freeze damage' },
   { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
@@ -118,24 +119,26 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
   { trait: 'defense',        envVar: null,              coefficient: -0.15, description: 'metabolic cost of defensive tissue' },
 
-  // Water storage — critical in drought, liability in frost/wetland
+  // Water storage — critical in drought, liability in frost/wetland/wind
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
   { trait: 'waterStorage',   envVar: 'heatStress',     coefficient: +0.25, description: 'evaporative cooling' },
   { trait: 'waterStorage',   envVar: 'frostRisk',      coefficient: -0.40, description: 'succulent tissue freezes' },
   { trait: 'waterStorage',   envVar: 'waterlogging',   coefficient: -0.50, description: 'redundant in saturated soil' },
+  { trait: 'waterStorage',   envVar: 'windExposure',   coefficient: -0.25, description: 'wind desiccation of exposed succulent tissue' },
 
   // Woodiness — structural support enables efficient photosynthesis, but rigid structures suffer in wind/water
   { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.25, description: 'rigid trunks snap in wind' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.45, inverse: true, description: 'flexible herbaceous stems resist wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.35, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.38, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
 
   // Root priority — deep roots mine nutrients and anchor plant, but drown in wetland
   { trait: 'rootPriority',   envVar: null,             coefficient: +0.10, description: 'nutrient mining and soil anchoring' },
-  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.45, description: 'deep water access' },
+  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.55, description: 'deep water access' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.40, description: 'root drowning' },
+  { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.30, inverse: true, description: 'shallow roots thrive in saturated soil' },
 
   // Height priority — competitive light positioning, but wind destroys tall plants
   { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
@@ -147,8 +150,10 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'seedInvestment', envVar: null,              coefficient: -0.06, description: 'reproductive allocation reduces somatic performance' },
 
   // Longevity — persistence advantage but costly in harsh environments
-  { trait: 'longevity',      envVar: null,              coefficient: +0.04, description: 'persistence advantage' },
-  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: -0.08, description: 'long-lived tissue costly in harsh conditions' },
+  { trait: 'longevity',      envVar: null,              coefficient: +0.01, description: 'persistence advantage' },
+  { trait: 'longevity',      envVar: 'diseasePressure', coefficient: +0.08, description: 'evolved immune system in disease-rich environments' },
+  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: +0.05, description: 'established perennial root networks resist drought' },
+  { trait: 'longevity',      envVar: 'frostRisk',       coefficient: -0.10, description: 'frost damages accumulated long-lived tissue' },
 ];
 
 /** Compute the aggregate production modifier from genome × environment interaction. */
