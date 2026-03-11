@@ -286,7 +286,7 @@ function assignTerrainProperties(
 }
 
 function defaultZoneModifiers(): ZoneModifiers {
-  return { waterMult: 1.2, lightMult: 1.0, leafMaintenanceMult: 1.0, growthMult: 1.3, seedMult: 1.0 };
+  return { waterMult: 1.2, lightMult: 1.0, droughtMult: 1.0, frostMult: 1.0, growthMult: 1.3, seedMult: 1.0 };
 }
 
 export function createEnvironment(): Environment {
@@ -296,7 +296,8 @@ export function createEnvironment(): Environment {
     yearCount: 0,
     waterMult: 1.2,
     lightMult: 1.0,
-    leafMaintenanceMult: 1.0,
+    droughtMult: 1.0,
+    frostMult: 1.0,
     growthMult: 1.3,
     seedMult: 1.0,
     zoneModifiers: Array.from({ length: CLIMATE_ZONE_COUNT }, () => defaultZoneModifiers()),

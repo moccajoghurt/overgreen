@@ -38,7 +38,8 @@ export const ZONE_NAMES: Record<ClimateZone, string> = {
 export interface ZoneModifiers {
   waterMult: number;
   lightMult: number;
-  leafMaintenanceMult: number;
+  droughtMult: number;
+  frostMult: number;
   growthMult: number;
   seedMult: number;
 }
@@ -82,7 +83,8 @@ export interface Environment {
   yearCount: number;
   waterMult: number;
   lightMult: number;
-  leafMaintenanceMult: number;
+  droughtMult: number;
+  frostMult: number;
   growthMult: number;
   seedMult: number;
   zoneModifiers: ZoneModifiers[]; // indexed by ClimateZone

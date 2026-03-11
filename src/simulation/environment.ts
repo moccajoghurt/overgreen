@@ -6,32 +6,38 @@ import {
 } from '../types';
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
+import { updateEffectiveEnv } from './trait-effects';
 
-// [water, light, leafMaint, growth, seed]
-const ZONE_SEASON_TARGETS: Record<ClimateZone, Record<Season, [number,number,number,number,number]>> = {
+interface SeasonTargets {
+  water: number; light: number;
+  droughtMult: number; frostMult: number;
+  growth: number; seed: number;
+}
+
+const ZONE_SEASON_TARGETS: Record<ClimateZone, Record<Season, SeasonTargets>> = {
   [ClimateZone.Temperate]: {
-    [Season.Spring]: [1.2, 1.0, 1.0, 1.3, 1.0],
-    [Season.Summer]: [0.8, 1.15, 1.0, 1.0, 1.0],
-    [Season.Autumn]: [1.0, 0.85, 1.0, 0.5, 0.3],
-    [Season.Winter]: [0.7, 0.6, 2.0, 0.0, 0.0],
+    [Season.Spring]: { water: 1.2, light: 1.0, droughtMult: 1.0, frostMult: 1.0, growth: 1.3, seed: 1.0 },
+    [Season.Summer]: { water: 0.8, light: 1.15, droughtMult: 1.2, frostMult: 0.3, growth: 1.0, seed: 1.0 },
+    [Season.Autumn]: { water: 1.0, light: 0.85, droughtMult: 1.0, frostMult: 1.0, growth: 0.5, seed: 0.3 },
+    [Season.Winter]: { water: 0.7, light: 0.6, droughtMult: 0.8, frostMult: 2.5, growth: 0.0, seed: 0.0 },
   },
   [ClimateZone.Tropical]: {
-    [Season.Spring]: [1.3, 1.1, 0.9, 1.2, 1.0],   // leafMaint 1.0→0.9: humid air protects leaves
-    [Season.Summer]: [1.4, 1.2, 0.9, 1.1, 0.8],   // leafMaint 1.0→0.9: lush growth season
-    [Season.Autumn]: [1.1, 0.95, 0.95, 0.8, 0.5],  // leafMaint 1.1→0.95: still humid
-    [Season.Winter]: [0.9, 0.85, 1.0, 0.3, 0.1],   // leafMaint 1.2→1.0: mild dry season
+    [Season.Spring]: { water: 1.3, light: 1.1, droughtMult: 0.9, frostMult: 0.0, growth: 1.2, seed: 1.0 },
+    [Season.Summer]: { water: 1.4, light: 1.2, droughtMult: 0.9, frostMult: 0.0, growth: 1.1, seed: 0.8 },
+    [Season.Autumn]: { water: 1.1, light: 0.95, droughtMult: 1.0, frostMult: 0.0, growth: 0.8, seed: 0.5 },
+    [Season.Winter]: { water: 0.9, light: 0.85, droughtMult: 1.2, frostMult: 0.0, growth: 0.3, seed: 0.1 },
   },
   [ClimateZone.Mediterranean]: {
-    [Season.Spring]: [1.3, 1.1, 1.0, 1.4, 1.2],
-    [Season.Summer]: [0.3, 1.25, 2.0, 0.6, 0.5],   // leafMaint 1.0→2.0: dry summer stresses leaves
-    [Season.Autumn]: [0.7, 0.9, 1.2, 0.4, 0.2],     // leafMaint 1.0→1.2: lingering heat
-    [Season.Winter]: [1.4, 0.65, 1.6, 0.0, 0.0],
+    [Season.Spring]: { water: 1.3, light: 1.1, droughtMult: 1.0, frostMult: 0.3, growth: 1.4, seed: 1.2 },
+    [Season.Summer]: { water: 0.3, light: 1.25, droughtMult: 2.5, frostMult: 0.3, growth: 0.6, seed: 0.5 },
+    [Season.Autumn]: { water: 0.7, light: 0.9, droughtMult: 1.2, frostMult: 1.0, growth: 0.4, seed: 0.2 },
+    [Season.Winter]: { water: 1.4, light: 0.65, droughtMult: 0.8, frostMult: 2.0, growth: 0.0, seed: 0.0 },
   },
   [ClimateZone.Desert]: {
-    [Season.Spring]: [0.5, 1.05, 1.4, 1.0, 0.8],    // brief wet season, still dry
-    [Season.Summer]: [0.12, 1.3, 2.8, 0.2, 0.1],    // extreme heat desiccation
-    [Season.Autumn]: [0.2, 1.0, 1.6, 0.2, 0.1],     // still very hot and dry
-    [Season.Winter]: [0.35, 0.7, 1.8, 0.0, 0.0],    // cool but dry
+    [Season.Spring]: { water: 0.5, light: 1.05, droughtMult: 1.4, frostMult: 0.3, growth: 1.0, seed: 0.8 },
+    [Season.Summer]: { water: 0.12, light: 1.3, droughtMult: 3.0, frostMult: 0.0, growth: 0.2, seed: 0.1 },
+    [Season.Autumn]: { water: 0.2, light: 1.0, droughtMult: 1.6, frostMult: 0.3, growth: 0.2, seed: 0.1 },
+    [Season.Winter]: { water: 0.35, light: 0.7, droughtMult: 1.2, frostMult: 1.5, growth: 0.0, seed: 0.0 },
   },
 };
 
@@ -48,20 +54,24 @@ function computeSeasonModifiers(env: Environment): void {
     const cur = ZONE_SEASON_TARGETS[zone as ClimateZone][env.season];
     const next = ZONE_SEASON_TARGETS[zone as ClimateZone][nextSeason];
     const zm = env.zoneModifiers[zone];
-    zm.waterMult = cur[0] + (next[0] - cur[0]) * t;
-    zm.lightMult = cur[1] + (next[1] - cur[1]) * t;
-    zm.leafMaintenanceMult = cur[2] + (next[2] - cur[2]) * t;
-    zm.growthMult = cur[3] + (next[3] - cur[3]) * t;
-    zm.seedMult = cur[4] + (next[4] - cur[4]) * t;
+    zm.waterMult    = cur.water   + (next.water   - cur.water)   * t;
+    zm.lightMult    = cur.light   + (next.light   - cur.light)   * t;
+    zm.droughtMult  = cur.droughtMult + (next.droughtMult - cur.droughtMult) * t;
+    zm.frostMult    = cur.frostMult   + (next.frostMult   - cur.frostMult)   * t;
+    zm.growthMult   = cur.growth  + (next.growth  - cur.growth)  * t;
+    zm.seedMult     = cur.seed    + (next.seed    - cur.seed)    * t;
   }
 
   // Set global fields to Temperate values for backward compat
   const temperate = env.zoneModifiers[ClimateZone.Temperate];
   env.waterMult = temperate.waterMult;
   env.lightMult = temperate.lightMult;
-  env.leafMaintenanceMult = temperate.leafMaintenanceMult;
+  env.droughtMult = temperate.droughtMult;
+  env.frostMult = temperate.frostMult;
   env.growthMult = temperate.growthMult;
   env.seedMult = temperate.seedMult;
+
+  updateEffectiveEnv(env);
 }
 
 function spawnDrought(world: World): void {

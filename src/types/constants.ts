@@ -118,7 +118,6 @@ export const SIM = {
   WETLAND_WATER_RECHARGE: 0.7,
   WETLAND_NUTRIENT_BONUS: 2.0,
   WETLAND_NUTRIENT_MAX: 8.0,
-  WETLAND_HEIGHT_BONUS_MULT: 1.5,
 
   // Arid terrain
   ARID_WATER_RECHARGE: 0.25,
@@ -130,25 +129,6 @@ export const SIM = {
   WETLAND_WATER_TABLE: 0.5,
   ARID_WATER_TABLE: 3.0,
   GROUNDWATER_ABSORPTION_RATE: 0.3,
-
-  // Terrain maintenance multipliers (per-trait, Soil = 1.0 implicit)
-  HILL_MAINT_ROOT_MULT: 2.5,     // rock is hard to dig (moderate — allows shrubs)
-  HILL_MAINT_HEIGHT_MULT: 1.5,   // wind stress on tall plants (quadratic progressive)
-  HILL_MAINT_LEAF_MULT: 1.2,     // wind desiccation
-  HILL_MAINT_WOODINESS_RATE: 15.0, // woody tissue maintenance in exposed rocky terrain (quadratic above 0.5)
-
-  SOIL_MAINT_HEIGHT_MULT: 1.0,     // no height advantage on soil — keeps grass/forb/shrub mix
-  SOIL_MAINT_WSTORAGE_MULT: 2.5,  // no selective advantage to succulence in reliable rain
-
-  WETLAND_MAINT_ROOT_MULT: 3.5,  // anoxic deep soil
-  WETLAND_MAINT_HEIGHT_MULT: 1.0,
-  WETLAND_MAINT_LEAF_MULT: 0.85, // humidity protects leaves
-  WETLAND_MAINT_WSTORAGE_MULT: 8.0, // succulent tissue rots in waterlogged soil
-
-  ARID_MAINT_ROOT_MULT: 0.8,     // easy dig in sand
-  ARID_MAINT_HEIGHT_MULT: 2.5,   // heat stress + water demand on tall plants (quadratic progressive)
-  ARID_MAINT_LEAF_MULT: 2.5,     // transpiration water loss
-  ARID_MAINT_WSTORAGE_MULT: 0.3, // succulent tissue is strongly advantageous in arid
 
   // Defense
   DEFENSE_GRAZE_REDUCTION: 0.7,
@@ -298,11 +278,6 @@ export interface TerrainProperties {
   establishmentTicks: number;
   vigorDampen: number;
   nutrientMax: number;
-  maintRootMult: number;
-  maintHeightMult: number;
-  maintLeafMult: number;
-  maintWStorageMult: number;
-  heightBonusMult: number;
   plantable: boolean;
   succulentGermination: boolean;
 }
@@ -314,11 +289,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
     vigorDampen: SIM.SOIL_VIGOR_DAMPEN,
     nutrientMax: SIM.MAX_NUTRIENTS,
-    maintRootMult: 1.0,
-    maintHeightMult: SIM.SOIL_MAINT_HEIGHT_MULT,
-    maintLeafMult: 1.0,
-    maintWStorageMult: SIM.SOIL_MAINT_WSTORAGE_MULT,
-    heightBonusMult: 1.0,
     plantable: true,
     succulentGermination: false,
   },
@@ -328,11 +298,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
     vigorDampen: 0,
     nutrientMax: SIM.MAX_NUTRIENTS,
-    maintRootMult: 1.0,
-    maintHeightMult: 1.0,
-    maintLeafMult: 1.0,
-    maintWStorageMult: 1.0,
-    heightBonusMult: 1.0,
     plantable: false,
     succulentGermination: false,
   },
@@ -342,11 +307,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.SOIL_ESTABLISHMENT_TICKS,
     vigorDampen: 0,
     nutrientMax: SIM.ROCK_NUTRIENT_MAX,
-    maintRootMult: 1.0,
-    maintHeightMult: 1.0,
-    maintLeafMult: 1.0,
-    maintWStorageMult: 1.0,
-    heightBonusMult: 1.0,
     plantable: false,
     succulentGermination: false,
   },
@@ -356,11 +316,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.HILL_ESTABLISHMENT_TICKS,
     vigorDampen: SIM.HILL_VIGOR_DAMPEN,
     nutrientMax: SIM.HILL_NUTRIENT_MAX,
-    maintRootMult: SIM.HILL_MAINT_ROOT_MULT,
-    maintHeightMult: SIM.HILL_MAINT_HEIGHT_MULT,
-    maintLeafMult: SIM.HILL_MAINT_LEAF_MULT,
-    maintWStorageMult: 1.0,
-    heightBonusMult: 1.0,
     plantable: true,
     succulentGermination: true,
   },
@@ -370,11 +325,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.WETLAND_ESTABLISHMENT_TICKS,
     vigorDampen: SIM.WETLAND_VIGOR_DAMPEN,
     nutrientMax: SIM.WETLAND_NUTRIENT_MAX,
-    maintRootMult: SIM.WETLAND_MAINT_ROOT_MULT,
-    maintHeightMult: SIM.WETLAND_MAINT_HEIGHT_MULT,
-    maintLeafMult: SIM.WETLAND_MAINT_LEAF_MULT,
-    maintWStorageMult: SIM.WETLAND_MAINT_WSTORAGE_MULT,
-    heightBonusMult: SIM.WETLAND_HEIGHT_BONUS_MULT,
     plantable: true,
     succulentGermination: false,
   },
@@ -384,28 +334,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     establishmentTicks: SIM.ARID_ESTABLISHMENT_TICKS,
     vigorDampen: SIM.ARID_VIGOR_DAMPEN,
     nutrientMax: SIM.ARID_NUTRIENT_MAX,
-    maintRootMult: SIM.ARID_MAINT_ROOT_MULT,
-    maintHeightMult: SIM.ARID_MAINT_HEIGHT_MULT,
-    maintLeafMult: SIM.ARID_MAINT_LEAF_MULT,
-    maintWStorageMult: SIM.ARID_MAINT_WSTORAGE_MULT,
-    heightBonusMult: 1.0,
     plantable: true,
     succulentGermination: true,
   },
 };
 
-// ── Zone maintenance multipliers (compound with terrain multipliers) ──
-
-import { ClimateZone } from './environment';
-
-export interface ZoneMaintProperties {
-  defenseMult: number;
-  wStorageMult: number;
-}
-
-export const ZONE_MAINT_PROPS: Record<ClimateZone, ZoneMaintProperties> = {
-  [ClimateZone.Temperate]:     { defenseMult: 1.0, wStorageMult: 2.0 },  // reliable rain → succulence costly (germination restriction handles gating)
-  [ClimateZone.Tropical]:      { defenseMult: 0.2, wStorageMult: 1.5 },  // disease-rich → defense nearly free; wet → succulence costly
-  [ClimateZone.Mediterranean]: { defenseMult: 1.0, wStorageMult: 0.7 },  // dry summers reward some water storage
-  [ClimateZone.Desert]:        { defenseMult: 1.0, wStorageMult: 0.3 },  // extreme drought → cheap water storage
-};

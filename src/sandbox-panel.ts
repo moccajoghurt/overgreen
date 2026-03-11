@@ -396,7 +396,7 @@ export function createSandboxPanel(
 
     // Create plant
     const id = world.nextPlantId++;
-    const plant = createPlant(id, x, y, genome, speciesId);
+    const plant = createPlant(id, x, y, genome, speciesId, speciesId);
     world.plants.set(id, plant);
     cell.plantId = id;
     cell.lastSpeciesId = speciesId;

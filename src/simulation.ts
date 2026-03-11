@@ -1,4 +1,5 @@
-import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, ZONE_MAINT_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { getEffectiveEnv, computeTraitModifier, CellEnvironment } from './simulation/trait-effects';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
@@ -204,18 +205,16 @@ function absorbWater(plant: Plant, cell: Cell, world: World): number {
   return waterNeeded > 0.01 ? waterAbsorbed / waterNeeded : 0;
 }
 
-function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean, pc: PlantConstants): number {
+function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean, pc: PlantConstants, cellEnv: CellEnvironment): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  let heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
-
-  heightLightBonus *= TERRAIN_PROPS[cell.terrainType].heightBonusMult;
+  const heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
 
   // Shade tolerance: short plants are adapted to capture diffuse understory light.
   // Scales inversely with actual height — groundcover & forbs benefit most, trees get nothing.
-  // Suppressed on Arid terrain where open canopy makes shade adaptation irrelevant.
+  // Suppressed in drought-stressed environments where open canopy makes shade adaptation irrelevant.
   const isShaded = cell.lightLevel < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
-  const shadeStrength = cell.terrainType === TerrainType.Arid ? 0.5 : 1.0;
+  const shadeStrength = Math.max(0.3, 1.0 - cellEnv.droughtStress * 0.8);
   const shadeTolerance = isShaded ? 1.0 + heightFactor * 2.5 * shadeStrength : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
@@ -232,76 +231,36 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
   plant.lastLightReceived = cell.lightLevel;
 
-  // Climate-specific trait bonuses: shift evolutionary trajectories per climate zone
-  // to produce distinct communities (different dominant subtypes per climate)
-  const g = plant.genome;
-  switch (cell.climateZone) {
-    case ClimateZone.Tropical:
-      // Disease-adapted species thrive: defense gives metabolic efficiency
-      energyProduced *= 1.0 + g.defense * 0.3;
-      break;
-    case ClimateZone.Mediterranean:
-      // Sclerophyll advantage: small, tough leaves with water storage
-      energyProduced *= 1.0 + (1 - g.leafSize) * g.waterStorage * 0.4;
-      break;
-    case ClimateZone.Desert:
-      // Water storage is essential; large leaves are costly
-      energyProduced *= 1.0 + g.waterStorage * 0.5 - g.leafSize * 0.15;
-      break;
-  }
+  // Trait tradeoff modifier: genome × environment interaction
+  const traitMod = computeTraitModifier(plant.genome, cellEnv);
+  energyProduced *= Math.max(0.3, 1.0 + traitMod);
 
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY + plant.genome.defense * SIM.DEFENSE_DISEASE_PHOTO_RECOVER;
   return energyProduced;
 }
 
-function calculateMaintenance(plant: Plant, world: World, isDiseased: boolean, pc: PlantConstants): number {
+function calculateMaintenance(plant: Plant, _world: World, isDiseased: boolean, pc: PlantConstants): number {
   const mBase = pc.maintenanceBase;
   const mHeight = pc.maintenancePerHeight;
   const mRoot = pc.maintenancePerRoot;
   const mLeaf = pc.maintenancePerLeaf;
-  const maxRoot = pc.maxRootDepth;
-
-  const cell = world.grid[plant.y][plant.x];
-  const tp = TERRAIN_PROPS[cell.terrainType];
-  const rootMult = tp.maintRootMult;
-  const heightMult = tp.maintHeightMult;
-  const leafMult = tp.maintLeafMult;
-  const wStorageMult = tp.maintWStorageMult;
 
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
-  const zm = world.environment.zoneModifiers[cell.climateZone];
-  const zmp = ZONE_MAINT_PROPS[cell.climateZone];
-  let leafMaint = effectiveLeaf * mLeaf * leafMult * zm.leafMaintenanceMult;
-  if (zm.leafMaintenanceMult > 1.01) {
-    const rootInsulation = Math.min(0.8, plant.rootDepth / maxRoot * 0.8);
-    const penalty = leafMaint - effectiveLeaf * mLeaf * leafMult;
-    leafMaint -= penalty * rootInsulation;
-  }
+  const leafMaint = effectiveLeaf * mLeaf;
+
   // Trait maintenance scales with maturity — seedlings haven't built specialized tissue yet
   const maturity = Math.min(1, plant.height / pc.maxHeight);
-  // Quadratic progressive height penalty: on terrain with heightMult > 1, penalty scales with height²
-  // At height=0.5 (grass): barely any extra cost. At height=2 (shrub): moderate. At height=5 (tree): extreme.
-  const hRatio = plant.height / 3.0;
-  const effectiveHeightMult = heightMult > 1.01
-    ? 1.0 + (heightMult - 1.0) * hRatio * hRatio
-    : heightMult;
 
   let maintenance = mBase
-    + plant.height * mHeight * effectiveHeightMult
-    + plant.rootDepth * mRoot * rootMult
+    + plant.height * mHeight
+    + plant.rootDepth * mRoot
     + leafMaint
     + maturity * (
-        plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE * zmp.defenseMult
-      + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE * wStorageMult * zmp.wStorageMult
+        plant.genome.defense * SIM.DEFENSE_MAINTENANCE_RATE
+      + plant.genome.waterStorage * SIM.WATER_STORAGE_MAINTENANCE
       + plant.genome.seedInvestment * SIM.REPRODUCTIVE_MAINTENANCE_RATE
       + plant.genome.longevity * SIM.LONGEVITY_MAINTENANCE_RATE
     );
-  // Hill woodiness penalty: woody tissue is costly in exposed rocky terrain
-  // Scales quadratically above woodiness 0.5 — spares shrubs, punishes trees
-  if (cell.terrainType === TerrainType.Hill) {
-    const excessWood = Math.max(0, plant.genome.woodiness - 0.5);
-    maintenance += excessWood * excessWood * SIM.HILL_MAINT_WOODINESS_RATE * maturity;
-  }
 
   if (isDiseased) maintenance += SIM.DISEASE_DRAIN_PER_TICK * (1 - plant.genome.defense * SIM.DEFENSE_DISEASE_DRAIN_RESIST);
 
@@ -474,8 +433,10 @@ function phaseUpdatePlants(world: World): void {
     const estTicks = Math.ceil(baseEstTicks / vigorEst);
     const establishing = plant.age < estTicks;
 
+    const cellEnv = getEffectiveEnv(cell.climateZone, cell.terrainType);
+
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
-    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc);
+    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc, cellEnv);
 
     // Facilitation: DIFFERENT archetypes in neighborhood boost photosynthesis.
     // Excludes own archetype — minority archetypes in a pocket benefit most.
@@ -542,11 +503,11 @@ function phaseUpdatePlants(world: World): void {
     }
 
     // Energy-based leaf drop: plant sheds leaves when losing energy in harsh conditions
-    const zmPlant = world.environment.zoneModifiers[cell.climateZone];
-    if (energyProduced < maintenance && zmPlant.leafMaintenanceMult > 1.0) {
+    if (energyProduced < maintenance && (cellEnv.droughtStress > 0.3 || cellEnv.frostRisk > 0.3)) {
       plant.leafArea = 0.1;
     }
 
+    const zmPlant = world.environment.zoneModifiers[cell.climateZone];
     if (plant.energy > 1.0) {
       allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc);
     }
