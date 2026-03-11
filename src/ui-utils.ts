@@ -24,6 +24,30 @@ export function speciesCentroid(world: World, speciesId: number): { x: number; y
   return _centroidCache.get(speciesId) ?? null;
 }
 
+/** Tick-scoped cache for lineage centroids */
+let _lineageCentroidCache: Map<number, { x: number; y: number }> = new Map();
+let _lineageCentroidTick = -1;
+
+export function lineageCentroid(world: World, lineageRoot: number): { x: number; y: number } | null {
+  if (world.tick !== _lineageCentroidTick) {
+    _lineageCentroidCache.clear();
+    _lineageCentroidTick = world.tick;
+    const sums = new Map<number, { sx: number; sy: number; count: number }>();
+    for (const plant of world.plants.values()) {
+      if (!plant.alive) continue;
+      let s = sums.get(plant.lineageRoot);
+      if (!s) { s = { sx: 0, sy: 0, count: 0 }; sums.set(plant.lineageRoot, s); }
+      s.sx += plant.x;
+      s.sy += plant.y;
+      s.count++;
+    }
+    for (const [rid, s] of sums) {
+      _lineageCentroidCache.set(rid, { x: s.sx / s.count, y: s.sy / s.count });
+    }
+  }
+  return _lineageCentroidCache.get(lineageRoot) ?? null;
+}
+
 /** Convert a SpeciesColor (0-1 floats) to an rgb() CSS string */
 export function speciesColorToRgb(sc: SpeciesColor): string {
   return `rgb(${Math.round(sc.r * 255)},${Math.round(sc.g * 255)},${Math.round(sc.b * 255)})`;

@@ -1,13 +1,14 @@
 import { World, SpeciesColor, Renderer } from './types';
-import { speciesColorToRgb, hexToRgba } from './ui-utils';
+import { speciesColorToRgb, hexToRgba, lineageCentroid } from './ui-utils';
 import { TRAITS } from './trait-defs';
 
 export function createLineagePanel(
   container: HTMLElement,
   _mapContainer: HTMLElement,
-  _renderer: Renderer,
+  renderer: Renderer,
 ) {
   let lastRenderedTick = -1;
+  let lastWorld: World | null = null;
   let sortBy: 'count' | string = 'count';
 
   const wrapper = document.createElement('div');
@@ -47,6 +48,13 @@ export function createLineagePanel(
       const rgb = speciesColorToRgb(d.color);
       const row = document.createElement('div');
       row.className = 'genome-row';
+      row.addEventListener('click', () => {
+        if (!lastWorld) return;
+        const pos = lineageCentroid(lastWorld, d.rootId);
+        if (pos) renderer.moveTo(pos.x, pos.y);
+      });
+      row.addEventListener('mouseenter', () => renderer.setHighlightedLineageRoot(d.rootId));
+      row.addEventListener('mouseleave', () => renderer.setHighlightedLineageRoot(null));
 
       // Dot
       const dot = document.createElement('div');
@@ -133,6 +141,7 @@ export function createLineagePanel(
   }
 
   function update(world: World): void {
+    lastWorld = world;
     if (world.tick === lastRenderedTick) return;
     lastRenderedTick = world.tick;
 
