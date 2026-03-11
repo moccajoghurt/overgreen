@@ -93,8 +93,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Tallgrass: high heightPriority, perennial
   scores[1] = g.heightPriority * 0.6 + g.leafSize * 0.2 + g.seedInvestment * 0.1 + g.longevity * 0.1;
 
-  // Bunchgrass: hill-adapted tussock — high reproductive investment, big seeds, compact, persistent
-  scores[2] = g.seedInvestment * 0.30 + g.seedSize * 0.25 + (1 - g.heightPriority) * 0.25 + g.longevity * 0.20;
+  // Bunchgrass: hill-adapted tussock — deep fibrous roots, compact, persistent, big seeds
+  scores[2] = g.rootPriority * 0.25 + g.seedSize * 0.20 + (1 - g.heightPriority) * 0.20 + g.longevity * 0.15 + g.seedInvestment * 0.20;
 
   // Bamboo: high woodiness (within grass range)
   scores[3] = g.woodiness * 0.6 + g.heightPriority * 0.3 + (1 - g.leafSize) * 0.1;
@@ -108,8 +108,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Pampas: tall ornamental, feathery plumes
   scores[6] = g.heightPriority * 0.4 + g.seedInvestment * 0.25 + g.longevity * 0.2 + g.leafSize * 0.15;
 
-  // Desert Grass: arid-adapted, deep-rooted drought miner, low reproductive investment
-  scores[7] = g.rootPriority * 0.40 + (1 - g.seedInvestment) * 0.25 + (1 - g.leafSize) * 0.20 + g.longevity * 0.15;
+  // Desert Grass: arid-adapted, water-storing deep-rooted drought miner
+  scores[7] = g.waterStorage * 0.35 + g.rootPriority * 0.20 + (1 - g.leafSize) * 0.20 + (1 - g.seedInvestment) * 0.15 + g.longevity * 0.10;
 
   let best = 0;
   for (let i = 1; i < 8; i++) if (scores[i] > scores[best]) best = i;
