@@ -500,7 +500,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     // ── Trait Effects ──
     traitFxRows.innerHTML = '';
     if (alive > 0) {
-      const effects = diagnoseTraitEffects(avgGenome as Genome, avg as unknown as CellEnvironment);
+      const effects = diagnoseTraitEffects(avgGenome as unknown as Genome, avg as unknown as CellEnvironment);
       const grouped = new Map<string, { posSum: number; negSum: number; label: string; color: string }>();
       let totalMod = 0;
       for (const e of effects) {

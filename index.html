@@ -299,7 +299,16 @@
       </div>
       <label class="view-label"><input type="checkbox" id="toggle-hover" checked /> Hover species</label>
       <div class="view-drawer hidden" id="view-drawer">
-        <label class="view-label"><input type="checkbox" id="toggle-species-colors" /> Species colors</label>
+        <label class="view-label">Color
+          <select id="color-mode-select" style="background:#333;color:#ccc;border:1px solid #555;font-family:monospace;font-size:12px;padding:2px 4px;border-radius:3px;cursor:pointer;">
+            <option value="natural">Natural</option>
+            <option value="species">Species</option>
+            <option value="water">Water</option>
+            <option value="light">Light</option>
+            <option value="nutrients">Nutrients</option>
+            <option value="stress">Stress</option>
+          </select>
+        </label>
         <label class="view-label"><input type="checkbox" id="toggle-species-cards" /> Species cards</label>
         <label class="view-label"><input type="checkbox" id="toggle-terrain" /> Terrain overlay</label>
         <label class="view-label"><input type="checkbox" id="toggle-climate" /> Climate overlay</label>

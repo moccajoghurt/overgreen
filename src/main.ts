@@ -13,6 +13,7 @@ import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createZoneLabelsOverlay } from './zone-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
+import type { ColorMode } from './types/renderer';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 import { genesis } from './scenarios/genesis';
@@ -97,8 +98,9 @@ const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 
-setupViewCheckbox('toggle-species-colors', (on) => {
-  renderer.setColorMode(on ? 'species' : 'natural');
+const colorModeSelect = document.getElementById('color-mode-select') as HTMLSelectElement;
+colorModeSelect.addEventListener('change', () => {
+  renderer.setColorMode(colorModeSelect.value as ColorMode);
 });
 const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => speciesLabels.setVisible(on));
 const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));

@@ -1,6 +1,10 @@
 import type { TimingHooks } from '../perf';
 
-export type ColorMode = 'natural' | 'species';
+export type ColorMode = 'natural' | 'species' | 'water' | 'light' | 'nutrients' | 'stress';
+
+export function isHeatmapMode(mode: ColorMode): boolean {
+  return mode === 'water' || mode === 'light' || mode === 'nutrients' || mode === 'stress';
+}
 
 export interface Renderer {
   render(selectedCell: { x: number; y: number } | null, hooks?: TimingHooks): void;

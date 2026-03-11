@@ -1,8 +1,10 @@
 import { SIM, TerrainType, WeatherOverlay, Environment, Season, ClimateZone } from '../types';
+import { isHeatmapMode } from '../types/renderer';
 import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
 import { cellPrimaryPlantId } from '../simulation/tiers';
+import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
 
 /** Snow multiplier per climate zone: 0 = no snow, 1 = full snow */
 const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
@@ -106,7 +108,38 @@ export function updateTerrainColors(state: RendererState): void {
     }
   }
 
+  const heatmap = isHeatmapMode(state.colorMode);
+
+  // ── Heatmap override: replace terrain colors with resource gradient ──
+  if (heatmap) {
+    const mode = state.colorMode;
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const cell = world.grid[y][x];
+        const idx = y * GRID + x;
+        let value: number;
+        if (mode === 'stress') {
+          const w = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
+          value = stressValue(w, cell.lightLevel, cell.nutrients);
+        } else if (mode === 'water') {
+          // River cells show as max water
+          value = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
+        } else if (mode === 'light') {
+          value = cell.lightLevel;
+        } else {
+          value = cell.nutrients;
+        }
+        const t = mode === 'stress' ? value : normalizeResource(mode, value);
+        const [r, g, b] = heatmapColor(mode, t);
+        cellBaseR[idx] = r;
+        cellBaseG[idx] = g;
+        cellBaseB[idx] = b;
+      }
+    }
+  }
+
   // ── Wet bank tint: darken cells adjacent to rivers to look like wet mud ──
+  if (!heatmap) {
   const WET_BANK_R = 0.22, WET_BANK_G = 0.18, WET_BANK_B = 0.12;
   const WET_BANK_BLEND = 0.6;
   for (let y = 0; y < GRID; y++) {
@@ -131,8 +164,10 @@ export function updateTerrainColors(state: RendererState): void {
       }
     }
   }
+  } // end !heatmap
 
-  // ── Vegetation tint pass ──
+  // ── Vegetation tint pass (skipped in heatmap mode) ──
+  if (!heatmap) {
   // Per-archetype tint colors [R, G, B] and max blend strengths
   // Indexed by Archetype enum: Grass=0, Shrub=1, Succulent=2, Tree=3, Forb=4
   const VEG_TINT: [number, number, number][] = [
@@ -237,6 +272,7 @@ export function updateTerrainColors(state: RendererState): void {
       cellBaseB[i] = lerp(cellBaseB[i], vegB[i], vegBlend[i]);
     }
   }
+  } // end !heatmap (vegetation tint)
 
   // ── Corner-averaging for smooth terrain boundaries ──
   const cornerSize = GRID + 1;
@@ -268,7 +304,7 @@ export function updateTerrainColors(state: RendererState): void {
 
   // ── Per-cell snow coverage (for corner-averaging) ──
   const cellSnowArr = new Float32Array(cellCount);
-  if (snowCov > 0) {
+  if (snowCov > 0 && !heatmap) {
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const cell = world.grid[y][x];
@@ -286,7 +322,7 @@ export function updateTerrainColors(state: RendererState): void {
 
   // Corner-averaged snow
   const cornerSnow = new Float32Array(cornerSize * cornerSize);
-  if (snowCov > 0) {
+  if (snowCov > 0 && !heatmap) {
     for (let cy = 0; cy <= GRID; cy++) {
       for (let cx = 0; cx <= GRID; cx++) {
         let sum = 0, count = 0;
@@ -314,11 +350,11 @@ export function updateTerrainColors(state: RendererState): void {
       const cBL = (row + 1) * cornerSize + col;
       const cBR = (row + 1) * cornerSize + col + 1;
 
-      // Weather overlay
+      // Weather overlay (skipped in heatmap mode)
       let wxR = 0, wxG = 0, wxB = 0, wxBlend = 0;
       let wxUsesAvg = false;
       const overlayVal = env.weatherOverlay[cellIdx];
-      if (overlayVal !== WeatherOverlay.None) {
+      if (overlayVal !== WeatherOverlay.None && !heatmap) {
         if (overlayVal === WeatherOverlay.Drought) {
           wxUsesAvg = true; wxBlend = 0.4;
         } else if (overlayVal === WeatherOverlay.Burning) {

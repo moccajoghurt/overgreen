@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { GRID_WIDTH, WeatherOverlay } from '../types';
+import { isHeatmapMode } from '../types/renderer';
 import { RendererState, GRID, HALF, plantHash, easeOutCubic, lerp } from './state';
 import { computePlantTint } from './plant-colors';
 import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
+import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
 
 // ── Constants ──
 
@@ -163,6 +165,7 @@ const grassFragmentShader = /* glsl */`
   uniform vec3 uFogColor;
   uniform float uFogNear;
   uniform float uFogFar;
+  uniform float uHeatmap;
 
   varying float vHeight01;
   varying vec3 vTint;
@@ -182,6 +185,12 @@ const grassFragmentShader = /* glsl */`
     float NdotL = dot(bladeNormal, uSunDirection) * 0.5 + 0.5;
     float diffuse = 0.85 + NdotL * 0.15;
 
+    vec3 color;
+
+    if (uHeatmap > 0.5) {
+      // Heatmap mode: use vTint directly as the color (pure resource gradient)
+      color = vTint * ao * diffuse;
+    } else {
     // Translucency: sunlight shining through thin blades
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
     float backLight = max(dot(-viewDir, uSunDirection), 0.0);
@@ -225,7 +234,8 @@ const grassFragmentShader = /* glsl */`
     // Normalize vTint so its perceived brightness ≈ 1.0, then multiply
     float tintLum = dot(vTint, vec3(0.299, 0.587, 0.114));
     vec3 normTint = vTint / max(tintLum, 0.01);
-    vec3 color = bladeColor * normTint * ao * diffuse * tipBrightness * brightnessMod;
+    color = bladeColor * normTint * ao * diffuse * tipBrightness * brightnessMod;
+    }
 
     // Fog
     float fogDepth = length(vWorldPos - cameraPosition);
@@ -348,6 +358,7 @@ export function createGrassLayer(
     uCameraPos: { value: new THREE.Vector3() },
     uFadeStart: { value: FADE_START },
     uFadeEnd: { value: FADE_END },
+    uHeatmap: { value: 0.0 },
   };
 
   // ── Material ──
@@ -390,6 +401,9 @@ export function createGrassLayer(
     lastHighlightedSpecies = state.highlightedSpecies;
     lastHighlightedLineageRoot = state.highlightedLineageRoot;
 
+    // Set heatmap uniform for shader
+    uniforms.uHeatmap.value = isHeatmapMode(state.colorMode) ? 1.0 : 0.0;
+
     // Clear all cell data
     cellDataArray.fill(0);
 
@@ -419,12 +433,27 @@ export function createGrassLayer(
 
       const bladeHeight = SUBTYPE_BLADE_HEIGHT[subtype] * (plant.height / matH) * growScale;
 
+      let tr: number, tg: number, tb: number;
+
+      // Heatmap mode: pass pure gradient color (shader uses it directly)
+      if (isHeatmapMode(state.colorMode)) {
+        const cell = world.grid[plant.y][plant.x];
+        const mode = state.colorMode;
+        const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+          : mode === 'water' ? cell.waterLevel
+          : mode === 'light' ? cell.lightLevel
+          : cell.nutrients;
+        const ht = mode === 'stress' ? value : normalizeResource(mode, value);
+        [tr, tg, tb] = heatmapColor(mode, ht);
+      } else {
       // Compute tint (reuses same cache as accent plants)
       const tint = computePlantTint(
         state, plant.id, plant.speciesId, plant.genome,
       );
 
-      let { r: tr, g: tg, b: tb } = tint;
+      tr = tint.r;
+      tg = tint.g;
+      tb = tint.b;
 
       // Per-subtype color shift — gives each grass species a distinct hue
       const subtypeTint = SUBTYPE_COLOR_TINT[subtype] ?? [1, 1, 1];
@@ -457,6 +486,7 @@ export function createGrassLayer(
           tr *= 0.55; tg *= 0.55; tb *= 0.55;
         }
       }
+      } // end !heatmap
 
       const offset = (plant.y * GRID + plant.x) * 4;
       cellDataArray[offset] = bladeHeight;

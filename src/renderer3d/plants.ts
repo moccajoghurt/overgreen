@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GRID_WIDTH, WeatherOverlay } from '../types';
+import { isHeatmapMode } from '../types/renderer';
 import {
   RendererState, GRID, HALF, MAX_SEEDS, MAX_DYING,
   DEATH_ANIM_FRAMES, GROWTH_ANIM_FRAMES, BURN_ANIM_FRAMES,
@@ -9,6 +10,7 @@ import {
 import { computePlantTint } from './plant-colors';
 import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 import { cellPrimaryPlantId } from '../simulation/tiers';
+import { normalizeResource, heatmapColor, stressValue } from './heatmap-colors';
 
 const SUBTYPE_COUNT = 40;
 
@@ -116,6 +118,19 @@ function computeFinalTint(
   x: number, y: number,
   lineageRoot: number,
 ): { tr: number; tg: number; tb: number } {
+  // Heatmap mode: tint plant by cell resource value
+  if (isHeatmapMode(state.colorMode)) {
+    const cell = state.world.grid[y][x];
+    const mode = state.colorMode;
+    const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+      : mode === 'water' ? cell.waterLevel
+      : mode === 'light' ? cell.lightLevel
+      : cell.nutrients;
+    const t = mode === 'stress' ? value : normalizeResource(mode, value);
+    const [r, g, b] = heatmapColor(mode, t);
+    return { tr: r, tg: g, tb: b };
+  }
+
   const tint = computePlantTint(state, plantId, speciesId, genome);
   let tr = tint.r, tg = tint.g, tb = tint.b;
 
@@ -268,8 +283,23 @@ function renderDyingBurning(
     let tg = lerp(1.0, 0.30, p);
     let tb = lerp(1.0, 0.12, p);
 
-    // Species mode: tint the dying plant too
-    if (state.colorMode === 'species') {
+    // Heatmap mode: use cell resource gradient × shrink
+    if (isHeatmapMode(state.colorMode)) {
+      const cell = world.grid[dp.y]?.[dp.x];
+      if (cell) {
+        const mode = state.colorMode;
+        const value = mode === 'stress' ? stressValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+          : mode === 'water' ? cell.waterLevel
+          : mode === 'light' ? cell.lightLevel
+          : cell.nutrients;
+        const nt = mode === 'stress' ? value : normalizeResource(mode, value);
+        const [hr, hg, hb] = heatmapColor(mode, nt);
+        tr = hr * shrink;
+        tg = hg * shrink;
+        tb = hb * shrink;
+      }
+    } else if (state.colorMode === 'species') {
+      // Species mode: tint the dying plant too
       const sc = world.speciesColors.get(dp.speciesId);
       if (sc) {
         tr *= lerp(0.4 + sc.r * 0.8, 0.45, p);

@@ -10,7 +10,8 @@ import { updateFireParticles, updateDroughtParticles, updateDiseaseParticles } f
 import { createSkyDome } from './renderer3d/sky';
 import { createWaterSurface } from './renderer3d/water';
 import { createDistantEnvironment } from './renderer3d/environment';
-import { createTerrain, rebuildTerrainGeometry, createSubtypeMeshes, createSeedMesh, createWeatherMeshes, createEventMeshes } from './renderer3d/setup';
+import { createTerrain, rebuildTerrainGeometry, createSubtypeMeshes, createSeedMesh, createWeatherMeshes, createEventMeshes, setPlantHeatmap } from './renderer3d/setup';
+import { isHeatmapMode } from './types/renderer';
 import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 import { createGrassLayer } from './renderer3d/grass-layer';
@@ -324,7 +325,7 @@ export async function createRenderer3D(
     ]) {
       for (const mesh of meshArr) {
         const s = (mesh.material as THREE.MeshLambertMaterial).userData.shader;
-        if (s) s.uniforms.uTime.value = timeSeconds;
+        if (s?.uniforms.uTime) s.uniforms.uTime.value = timeSeconds;
       }
     }
 
@@ -481,6 +482,7 @@ export async function createRenderer3D(
 
   function setColorMode(mode: ColorMode): void {
     state.colorMode = mode;
+    setPlantHeatmap(isHeatmapMode(mode));
   }
 
   function setHighlightedSpecies(ids: Set<number> | null): void {
