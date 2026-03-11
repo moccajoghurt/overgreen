@@ -86,6 +86,10 @@ export const SIM = {
   SENESCENCE_MAX_MULT: 6.0,    // maintenance multiplier at maxAge
   LONGEVITY_MAINTENANCE_RATE: 0.08, // ongoing cost of long-lived tissue
 
+  // Environmental stress mortality — per-tick death chance when trait modifier < threshold
+  STRESS_MORTALITY_RATE: 0.08,
+  STRESS_MORTALITY_THRESHOLD: 0.05,
+
   // Disease / Blight
   DISEASE_DISTANCE_THRESHOLD: 0.25,
   DISEASE_DRAIN_PER_TICK: 0.15,

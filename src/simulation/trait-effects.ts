@@ -25,6 +25,7 @@ export interface CellEnvironment {
   windExposure: number;
   waterlogging: number;
   heatStress: number;
+  soilFertility: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -53,6 +54,7 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     windExposure:    tp.exposure * (1 - cp.humidity * 0.3),
     waterlogging:    tp.waterlogging * cp.humidity,
     heatStress:      cp.heat * tp.exposure,
+    soilFertility:   tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
   };
 }
 
@@ -88,6 +90,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.diseasePressure = base.diseasePressure;              // static
       eff.windExposure    = base.windExposure;                 // static
       eff.waterlogging    = base.waterlogging;                 // static
+      eff.soilFertility   = base.soilFertility;               // static
     }
   }
 }
@@ -108,6 +111,8 @@ interface TraitEffect {
 const TRAIT_EFFECTS: TraitEffect[] = [
   // Leaf size — big leaves capture light but are vulnerable to stress
   { trait: 'leafSize',       envVar: null,             coefficient: +0.22, description: 'base light capture' },
+  { trait: 'leafSize',       envVar: 'soilFertility',  coefficient: +0.60, description: 'big leaves thrive on fertile soil' },
+  { trait: 'leafSize',       envVar: 'soilFertility',  coefficient: -0.30, inverse: true, description: 'small leaves can\'t capture light on fertile soil' },
   { trait: 'leafSize',       envVar: 'waterlogging',   coefficient: +0.25, description: 'lush growth in saturated soil' },
   { trait: 'leafSize',       envVar: 'droughtStress',  coefficient: -0.50, description: 'transpiration loss' },
   { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.30, description: 'freeze damage' },
@@ -117,7 +122,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // Defense — costly but essential where disease thrives
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
-  { trait: 'defense',        envVar: null,              coefficient: -0.15, description: 'metabolic cost of defensive tissue' },
+  { trait: 'defense',        envVar: null,              coefficient: -0.25, description: 'metabolic cost of defensive tissue' },
 
   // Water storage — critical in drought, liability in frost/wetland/wind
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
@@ -128,9 +133,10 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // Woodiness — structural support enables efficient photosynthesis, but rigid structures suffer in wind/water
   { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
+  { trait: 'woodiness',      envVar: 'soilFertility',  coefficient: +0.25, description: 'woody investment pays off on fertile soil' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.35, description: 'rigid trunks snap in wind' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.38, inverse: true, description: 'flexible herbaceous stems resist wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.50, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.20, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
 
@@ -142,6 +148,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // Height priority — competitive light positioning, but wind destroys tall plants
   { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
+  { trait: 'heightPriority', envVar: 'soilFertility',  coefficient: +0.30, description: 'tall plants compete for light on fertile soil' },
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
 

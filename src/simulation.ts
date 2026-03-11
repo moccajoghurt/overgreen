@@ -222,11 +222,11 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   const isShaded = lightInput < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
   const shadeStrength = Math.max(0.3, 1.0 - cellEnv.droughtStress * 0.8);
-  const shadeTolerance = isShaded ? 1.0 + heightFactor * 1.5 * shadeStrength : 1.0;
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 0.5 * shadeStrength : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
   // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
-  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.0 * shadeStrength : 1.0;
+  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.5 * shadeStrength : 1.0;
 
   const rawEnergy = (lightInput + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
@@ -240,7 +240,8 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   // Trait tradeoff modifier: genome × environment interaction
   const traitMod = computeTraitModifier(plant.genome, cellEnv);
-  energyProduced *= Math.max(0.3, 1.0 + traitMod);
+  plant.lastTraitModifier = traitMod;
+  energyProduced *= Math.max(0.15, 1.0 + traitMod);
 
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY + plant.genome.defense * SIM.DEFENSE_DISEASE_PHOTO_RECOVER;
   return energyProduced;
@@ -537,6 +538,25 @@ function phaseDeath(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const maxAge = getPlantConstants(plant.genome).maxAge;
+
+    // Environmental stress mortality — poorly adapted plants die from environmental pressure
+    if (plant.age > 10) { // skip seedlings
+      const traitMod = plant.lastTraitModifier;
+      const stressGap = SIM.STRESS_MORTALITY_THRESHOLD - traitMod;
+      if (stressGap > 0 && Math.random() < stressGap * SIM.STRESS_MORTALITY_RATE) {
+        plant.alive = false;
+        world.deathEvents.push({
+          id: plant.id,
+          speciesId: plant.speciesId,
+          cause: 'stress',
+          age: plant.age,
+          offspringCount: plant.offspringCount,
+          generation: plant.generation,
+        });
+        continue;
+      }
+    }
+
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
@@ -707,7 +727,7 @@ function phaseGermination(world: World): void {
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         healthEMA: 1.0, peakEnergy: 2.0,
-        generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0,
+        generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0, lastTraitModifier: 0,
       };
       world.plants.set(childId, child);
       setCellPlant(cell, Tier.Ground, childId);
