@@ -118,7 +118,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.30, description: 'freeze damage' },
   { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
-  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.40, description: 'wind strips and damages foliage' },
+  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.20, description: 'wind strips foliage on broad-leaved plants' },
 
   // Defense — costly but essential where disease thrives
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
@@ -135,7 +135,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
   { trait: 'woodiness',      envVar: 'soilFertility',  coefficient: +0.25, description: 'woody investment pays off on fertile soil' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.50, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.70, description: 'rigid trunks snap in wind' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.20, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },

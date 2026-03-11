@@ -87,7 +87,7 @@ export const SIM = {
   LONGEVITY_MAINTENANCE_RATE: 0.08, // ongoing cost of long-lived tissue
 
   // Environmental stress mortality — per-tick death chance when trait modifier < threshold
-  STRESS_MORTALITY_RATE: 0.08,
+  STRESS_MORTALITY_RATE: 0.10,
   STRESS_MORTALITY_THRESHOLD: 0.05,
 
   // Disease / Blight
