@@ -49,13 +49,17 @@ const TERRAIN_COUNT = 6;
 
 function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment {
   const droughtStress = cp.aridity * tp.drainage;
+  // Ground heat: direct solar exposure + aridity-driven ground-level heat buildup.
+  // On flat arid terrain, low wind (1-exposure) + low moisture (1-waterlogging) trap
+  // intense radiative heat at ground level. Wind-exposed terrain (hills) stays cooler.
+  const groundHeat = cp.heat * cp.aridity * (1 - tp.exposure) * (1 - tp.waterlogging) * 0.5;
   return {
     droughtStress,
     frostRisk:       cp.coldness * tp.exposure,
     diseasePressure: cp.humidity * (1 - tp.exposure),
     windExposure:    tp.exposure * (1 - cp.humidity * 0.3),
     waterlogging:    tp.waterlogging * cp.humidity,
-    heatStress:      cp.heat * tp.exposure,
+    heatStress:      cp.heat * tp.exposure + groundHeat,
     soilFertility:   tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
     extremeAridity:  Math.max(0, droughtStress - 0.35),
   };
@@ -141,6 +145,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: 'soilFertility',  coefficient: +0.25, description: 'woody investment pays off on fertile soil' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.70, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'heatStress',     coefficient: -0.30, description: 'bark cracking and xylem desiccation in extreme heat' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.20, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
@@ -159,7 +164,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
   { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.50, description: 'tall columnar form radiates heat efficiently' },
-  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +0.90, description: 'tall plants escape lethal ground-level heat in extreme desert' },
+  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +1.30, description: 'tall plants escape lethal ground-level heat in extreme desert' },
 
   // Seed investment — colonizers exploit harsh niches via rapid reproduction
   { trait: 'seedInvestment', envVar: 'windExposure',   coefficient: +0.20, description: 'wind seed dispersal' },
