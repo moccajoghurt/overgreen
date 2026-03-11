@@ -87,6 +87,87 @@ function stressRow(parent: HTMLElement, label: string): StressBar {
   return { val, bar };
 }
 
+// ── Sparkline ring buffer + renderer ──
+
+const HISTORY_LEN = 200;
+
+class RingBuf {
+  data = new Float64Array(HISTORY_LEN);
+  len = 0;
+  idx = 0;
+
+  push(v: number): void {
+    this.data[this.idx] = v;
+    this.idx = (this.idx + 1) % HISTORY_LEN;
+    if (this.len < HISTORY_LEN) this.len++;
+  }
+
+  /** oldest → newest */
+  each(fn: (v: number, i: number) => void): void {
+    const start = this.len < HISTORY_LEN ? 0 : this.idx;
+    for (let i = 0; i < this.len; i++) {
+      fn(this.data[(start + i) % HISTORY_LEN], i);
+    }
+  }
+
+  reset(): void { this.len = 0; this.idx = 0; }
+}
+
+function makeSparkCanvas(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 160; c.height = 28;
+  c.style.cssText = 'width:160px;height:28px;display:block;margin:3px 0 1px;border-radius:2px;background:#1a1a1a;';
+  return c;
+}
+
+function drawSparkline(canvas: HTMLCanvasElement, buf: RingBuf, color: string, zero = false): void {
+  const ctx = canvas.getContext('2d')!;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (buf.len < 2) return;
+
+  let min = Infinity, max = -Infinity;
+  buf.each(v => { if (v < min) min = v; if (v > max) max = v; });
+  if (zero && min > 0) min = 0;
+  const range = max - min || 1;
+
+  // zero line
+  if (zero && min < 0 && max > 0) {
+    const zy = H - 2 - ((0 - min) / range) * (H - 4);
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(0, zy); ctx.lineTo(W, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const step = W / (buf.len - 1);
+  buf.each((v, i) => {
+    const x = i * step;
+    const y = H - 2 - ((v - min) / range) * (H - 4);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+function makePropBar(): { el: HTMLDivElement; segments: HTMLSpanElement[] } {
+  const el = document.createElement('div');
+  el.style.cssText = 'display:flex;height:8px;border-radius:2px;overflow:hidden;margin:3px 0 1px;background:#1a1a1a;';
+  const colors = ['#5a9e5a', '#8bc48b', '#c4b870', '#333'];
+  const segments: HTMLSpanElement[] = [];
+  for (const c of colors) {
+    const s = document.createElement('span');
+    s.style.cssText = `height:100%;background:${c};transition:width 0.3s;`;
+    s.style.width = '0%';
+    el.appendChild(s);
+    segments.push(s);
+  }
+  return { el, segments };
+}
+
 // ── Main factory ──
 
 const TERRAIN_COUNT = 6;
@@ -122,6 +203,8 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   const water = makeSection('WATER', '#4a90d9');
   kvRow(water.body, spans, [['Avg', 'wAvg'], ['Min', 'wMin'], ['Max', 'wMax']]);
   kvRow(water.body, spans, [['Cells <1', 'wLow'], ['Droughts', 'wDroughts']]);
+  const waterSpark = makeSparkCanvas();
+  water.body.appendChild(waterSpark);
   el.appendChild(water.wrap);
 
   // ── Light ──
@@ -133,12 +216,21 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   const tiers = makeSection('TIERS', '#7bc47b');
   kvRow(tiers.body, spans, [['Canopy', 'tCan'], ['Understory', 'tUnd'], ['Ground', 'tGnd']]);
   kvRow(tiers.body, spans, [['Empty cells', 'tEmpty'], ['Multi-plant', 'tMulti']]);
+  const tierBar = makePropBar();
+  // legend
+  const tierLegend = document.createElement('div');
+  tierLegend.style.cssText = 'display:flex;gap:8px;font-size:9px;color:#888;margin-top:1px;';
+  tierLegend.innerHTML = '<span><span style="color:#5a9e5a">\u25A0</span> Can</span><span><span style="color:#8bc48b">\u25A0</span> Und</span><span><span style="color:#c4b870">\u25A0</span> Gnd</span><span><span style="color:#333">\u25A0</span> Empty</span>';
+  tiers.body.appendChild(tierBar.el);
+  tiers.body.appendChild(tierLegend);
   el.appendChild(tiers.wrap);
 
   // ── Energy Flow ──
   const energy = makeSection('ENERGY FLOW', '#e89040');
   kvRow(energy.body, spans, [['Prod', 'eProd'], ['Maint', 'eMaint']]);
   kvRow(energy.body, spans, [['Net', 'eNet'], ['Avg', 'eAvg']]);
+  const energySpark = makeSparkCanvas();
+  energy.body.appendChild(energySpark);
   el.appendChild(energy.wrap);
 
   // ── Environment Stress ──
@@ -162,6 +254,8 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   const herb = makeSection('HERBIVORES', '#a0826a');
   kvRow(herb.body, spans, [['Pop', 'hPop'], ['Births', 'hBirth'], ['Deaths', 'hDeath']]);
   kvRow(herb.body, spans, [['Grazing', 'hGraze']]);
+  const herbSpark = makeSparkCanvas();
+  herb.body.appendChild(herbSpark);
   el.appendChild(herb.wrap);
 
   // ── Active Events ──
@@ -178,7 +272,16 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   // ── Population ──
   const pop = makeSection('POPULATION', '#8cb4ff');
   kvRow(pop.body, spans, [['Plants', 'pTotal'], ['Species', 'pSpecies']]);
+  const popSpark = makeSparkCanvas();
+  pop.body.appendChild(popSpark);
   el.appendChild(pop.wrap);
+
+  // ── History ring buffers ──
+  const histPop = new RingBuf();
+  const histSpecies = new RingBuf();
+  const histNetEnergy = new RingBuf();
+  const histAvgWater = new RingBuf();
+  const histHerbPop = new RingBuf();
 
   // ── Cell type histogram for O(24) env stress aggregation ──
   const cellHist = new Float64Array(CLIMATE_ZONE_COUNT * TERRAIN_COUNT);
@@ -207,7 +310,11 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   function hide(): void { visible = false; el.style.display = 'none'; }
   function toggle(): void { if (visible) hide(); else show(); }
   function isVisible(): boolean { return visible; }
-  function reset(): void { histDirty = true; }
+  function reset(): void {
+    histDirty = true;
+    histPop.reset(); histSpecies.reset(); histNetEnergy.reset();
+    histAvgWater.reset(); histHerbPop.reset();
+  }
 
   function update(world: World): void {
     if (!visible) return;
@@ -379,6 +486,27 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     // ── Population ──
     spans.pTotal.textContent = comma(alive);
     spans.pSpecies.textContent = String(speciesSet.size);
+
+    // ── Push history + draw sparklines ──
+    histPop.push(alive);
+    histSpecies.push(speciesSet.size);
+    histNetEnergy.push(net);
+    histAvgWater.push(sumWater / cells);
+    histHerbPop.push(world.herbivores.size);
+
+    drawSparkline(popSpark, histPop, '#8cb4ff');
+    drawSparkline(energySpark, histNetEnergy, '#e89040', true);
+    drawSparkline(waterSpark, histAvgWater, '#4a90d9');
+    drawSparkline(herbSpark, histHerbPop, '#a0826a');
+
+    // ── Tier proportional bar ──
+    const total = canopy + understory + ground + empty;
+    if (total > 0) {
+      tierBar.segments[0].style.width = (canopy / total * 100) + '%';
+      tierBar.segments[1].style.width = (understory / total * 100) + '%';
+      tierBar.segments[2].style.width = (ground / total * 100) + '%';
+      tierBar.segments[3].style.width = (empty / total * 100) + '%';
+    }
   }
 
   return { show, hide, update, toggle, isVisible, reset };
