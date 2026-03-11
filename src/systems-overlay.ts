@@ -238,6 +238,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     ['droughtStress', 'Drought'], ['frostRisk', 'Frost'], ['diseasePressure', 'Disease'],
     ['windExposure', 'Wind'], ['waterlogging', 'Waterlog'], ['heatStress', 'Heat'],
     ['soilFertility', 'Fertility'], ['extremeAridity', 'ExtrArid'],
+    ['tropicality', 'Tropical'], ['winterHarshness', 'Winter'],
   ] as const) {
     stressBars[key] = stressRow(envSec.body, label);
   }
@@ -467,6 +468,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       droughtStress: 0, frostRisk: 0, diseasePressure: 0,
       windExposure: 0, waterlogging: 0, heatStress: 0,
       soilFertility: 0, extremeAridity: 0,
+      tropicality: 0, winterHarshness: 0,
     };
     for (let cz = 0; cz < CLIMATE_ZONE_COUNT; cz++) {
       for (let tt = 0; tt < TERRAIN_COUNT; tt++) {

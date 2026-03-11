@@ -5,12 +5,13 @@ You are one iteration of an autonomous Ralph loop. You have NO memory of previou
 **Start of iteration:**
 1. `git log --oneline -20` — see what previous iterations did
 2. Read `RALPH-PROGRESS.md` (if it exists) — previous iteration left you notes
-3. Decide what to do this iteration (see Decision Framework below)
+3. Read the Stuck Problems table. **If any problem has iterations stuck ≥ 3, you must do a structural change for it this iteration.** A structural change means adding a new environment variable, a new mechanic, or a system rework — not a coefficient tweak, classifier adjustment, or germination filter.
+4. Otherwise, pick a tactical fix for the highest-priority problem.
 
 **End of iteration:**
-4. Commit your changes with a descriptive message
-5. Update `RALPH-PROGRESS.md` (see Progress File Format below)
-6. If ALL 16 niches pass (dominant subtypes match, Shannon H ≥ 2.5): output RALPH_COMPLETE
+5. Commit your changes with a descriptive message
+6. Update `RALPH-PROGRESS.md` (see Progress File Format below)
+7. If ALL 16 niches pass (dominant subtypes match, Shannon H ≥ 2.5): output RALPH_COMPLETE
 
 ---
 
@@ -93,42 +94,23 @@ Success = dominant subtypes match the target matrix per niche, ≥8 subtypes coe
 
 ## Progress File Format
 
-`RALPH-PROGRESS.md` must have these sections:
+`RALPH-PROGRESS.md` must end with these two sections (in addition to iteration notes above them):
 
 ```markdown
-# Ralph Loop Progress
-
-## Iteration N: <title>
-
-### What was done
-<description of changes>
-
-### Experiment results
-<niche table, performance numbers>
-
-### What improved
-<specific wins vs previous iteration>
-
-### Regressions
-<anything that got worse>
-
 ## Stuck Problems
 
-Problems that persist across iterations. Add new ones, increment the counter on existing ones, remove solved ones.
+| Problem | Iterations stuck | Root cause hypothesis | Suggested structural change |
+|---------|-----------------|----------------------|----------------------------|
+| <description> | <count> | <why> | <new env var, mechanic, or system rework> |
 
-| Problem | Iterations stuck | Root cause hypothesis | Suggested approach |
-|---------|-----------------|----------------------|-------------------|
-| <description> | <count> | <why tactical fixes haven't worked> | <structural change needed> |
-
-## Next iteration suggestion
-<what to do next, informed by the stuck problems table>
+## What I would do next iteration
+<one sentence>
 ```
 
-The **Stuck Problems** table is critical. It's your long-term memory. Rules:
-- When a problem appears for the first time, add it with count 1
-- Each iteration where it's still present, increment the count
-- When a problem is solved, remove it
-- When a problem hits count 3, the "Suggested approach" column MUST contain a structural change, not another coefficient tweak
+Rules for the Stuck Problems table:
+- Add new problems with count 1, increment each iteration if still present, remove when solved
+- The "Suggested structural change" column must always contain a structural idea (new env var, new mechanic, system rework) — never a coefficient tweak or classifier adjustment
+- The table is your long-term memory. Keep it in this exact format with this exact heading.
 
 ---
 

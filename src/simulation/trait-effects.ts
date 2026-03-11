@@ -27,6 +27,8 @@ export interface CellEnvironment {
   heatStress: number;
   soilFertility: number;
   extremeAridity: number;
+  tropicality: number;
+  winterHarshness: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -55,13 +57,19 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
   const groundHeat = cp.heat * cp.aridity * (1 - tp.exposure) * (1 - tp.waterlogging) * 0.5;
   return {
     droughtStress,
-    frostRisk:       cp.coldness * tp.exposure,
-    diseasePressure: cp.humidity * (1 - tp.exposure),
-    windExposure:    tp.exposure * (1 - cp.humidity * 0.3),
-    waterlogging:    tp.waterlogging * cp.humidity,
-    heatStress:      cp.heat * tp.exposure + groundHeat,
-    soilFertility:   tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
-    extremeAridity:  Math.max(0, droughtStress - 0.35),
+    frostRisk:        cp.coldness * tp.exposure,
+    diseasePressure:  cp.humidity * (1 - tp.exposure),
+    windExposure:     tp.exposure * (1 - cp.humidity * 0.3),
+    waterlogging:     tp.waterlogging * cp.humidity,
+    heatStress:       cp.heat * tp.exposure + groundHeat,
+    soilFertility:    tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
+    extremeAridity:   Math.max(0, droughtStress - 0.35),
+    // Composite climate axes — these create large gaps between climate zones
+    // (4-7×) unlike terrain×climate products where terrain dominates.
+    // Trop=0.63, Med=0.15, Temp=0.15, Desert=0.09
+    tropicality:      cp.heat * cp.humidity,
+    // Temp=0.42, Med=0.10, Desert=0.03, Trop=0.00
+    winterHarshness:  cp.coldness * (1 - cp.heat),
   };
 }
 
@@ -94,11 +102,13 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.droughtStress   = base.droughtStress * zm.droughtMult;
       eff.frostRisk       = base.frostRisk * zm.frostMult;
       eff.heatStress      = base.heatStress * zm.droughtMult; // co-varies with drought
-      eff.diseasePressure = base.diseasePressure;              // static
-      eff.windExposure    = base.windExposure;                 // static
-      eff.waterlogging    = base.waterlogging;                 // static
-      eff.soilFertility   = base.soilFertility;               // static
-      eff.extremeAridity  = Math.max(0, eff.droughtStress - 0.35); // derived from seasonal drought
+      eff.diseasePressure  = base.diseasePressure;              // static
+      eff.windExposure     = base.windExposure;                 // static
+      eff.waterlogging     = base.waterlogging;                 // static
+      eff.soilFertility    = base.soilFertility;               // static
+      eff.extremeAridity   = Math.max(0, eff.droughtStress - 0.35); // derived from seasonal drought
+      eff.tropicality      = base.tropicality;                  // static (climate-only)
+      eff.winterHarshness  = base.winterHarshness;              // static (climate-only)
     }
   }
 }
@@ -177,6 +187,21 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'longevity',      envVar: 'diseasePressure', coefficient: +0.08, description: 'evolved immune system in disease-rich environments' },
   { trait: 'longevity',      envVar: 'droughtStress',   coefficient: +0.05, description: 'established perennial root networks resist drought' },
   { trait: 'longevity',      envVar: 'frostRisk',       coefficient: -0.10, description: 'frost damages accumulated long-lived tissue' },
+
+  // ── Tropicality axis — separates tropical from other climates ──
+  // Tropical rainforest rewards: big leaves, defensive chemistry, tall canopy competition
+  { trait: 'leafSize',       envVar: 'tropicality',     coefficient: +0.50, description: 'lush foliage thrives in warm humid conditions' },
+  { trait: 'defense',        envVar: 'tropicality',     coefficient: +0.40, description: 'chemical defenses essential against tropical herbivores and pathogens' },
+  { trait: 'heightPriority', envVar: 'tropicality',     coefficient: +0.35, description: 'intense canopy competition in tropical forests' },
+  { trait: 'waterStorage',   envVar: 'tropicality',     coefficient: -0.35, description: 'succulence unnecessary in humid tropics — wasted tissue' },
+  { trait: 'rootPriority',   envVar: 'tropicality',     coefficient: -0.20, description: 'shallow lateral roots outperform taproots in tropical soils' },
+
+  // ── Winter harshness axis — separates temperate from other climates ──
+  // Temperate winter rewards: woody tissue, deciduous strategy, frost hardiness
+  { trait: 'woodiness',      envVar: 'winterHarshness', coefficient: +0.40, description: 'woody perennials survive winter dormancy' },
+  { trait: 'waterStorage',   envVar: 'winterHarshness', coefficient: -0.45, description: 'succulent tissue destroyed by freeze-thaw cycles' },
+  { trait: 'longevity',      envVar: 'winterHarshness', coefficient: +0.25, description: 'long-lived perennials amortize winter survival investment' },
+  { trait: 'leafSize',       envVar: 'winterHarshness', coefficient: -0.25, description: 'deciduous leaf loss — large leaves are costly to regrow each spring' },
 ];
 
 /** Compute the aggregate production modifier from genome × environment interaction. */
