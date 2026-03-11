@@ -101,6 +101,7 @@ interface TraitEffect {
   trait: GenomeTrait;
   envVar: EnvVar | null;
   coefficient: number;
+  inverse?: boolean; // use (1 - traitVal) instead of traitVal
   description: string;
 }
 
@@ -115,7 +116,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // Defense — costly but essential where disease thrives
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
-  { trait: 'defense',        envVar: null,              coefficient: -0.10, description: 'metabolic cost of defensive tissue' },
+  { trait: 'defense',        envVar: null,              coefficient: -0.15, description: 'metabolic cost of defensive tissue' },
 
   // Water storage — critical in drought, liability in frost/wetland
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
@@ -127,6 +128,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
   { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.25, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.45, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
   { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.15, description: 'water-demanding woody tissue' },
 
@@ -154,7 +156,7 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
   let modifier = 0;
   for (let i = 0; i < TRAIT_EFFECTS.length; i++) {
     const e = TRAIT_EFFECTS[i];
-    const traitVal = genome[e.trait];
+    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
     modifier += traitVal * envVal * e.coefficient;
   }
@@ -167,10 +169,10 @@ export function diagnoseTraitEffects(genome: Genome, env: CellEnvironment): Arra
   traitVal: number; envVal: number; contribution: number; description: string;
 }> {
   return TRAIT_EFFECTS.map(e => {
-    const traitVal = genome[e.trait];
+    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
     return {
-      trait: e.trait,
+      trait: e.inverse ? `(1-${e.trait})` : e.trait,
       envVar: e.envVar,
       coefficient: e.coefficient,
       traitVal,

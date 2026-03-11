@@ -287,9 +287,9 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
   const capRoot = pc.maxRootDepth;
   // Wind stunting (krummholz effect): high wind exposure limits maximum height and leaf area.
   // Rigid woody plants are stunted in height; broad-leaved plants lose foliage.
-  const windStunt = Math.max(0.2, 1 - cellEnv.windExposure * plant.genome.woodiness * 2.0);
+  const windStunt = Math.max(0.1, 1 - cellEnv.windExposure * plant.genome.woodiness * 2.0);
   const capHeight = pc.maxHeight * windStunt;
-  const leafWindStunt = Math.max(0.3, 1 - cellEnv.windExposure * plant.genome.leafSize * 1.5);
+  const leafWindStunt = Math.max(0.15, 1 - cellEnv.windExposure * plant.genome.leafSize * 1.5);
   const capLeaf = pc.maxLeafArea * leafWindStunt;
   const seedCost = pc.seedEnergyCost;
   const seedRangeMax = pc.seedRangeMax;
