@@ -1,85 +1,83 @@
 # Ralph Loop Progress
 
-## Iteration 5: Soil Fertility + Stress Mortality + Shade Rebalance
+## Iteration 6: Wind Rebalance + Stress Mortality Tuning
 
 ### What was done
 
-6 interconnected changes to break generalist dominance and reward niche specialists:
+3 coefficient changes to improve hill niche differentiation and strengthen appropriate specialists:
 
-1. **soilFertility environment variable** — `soilDepth × humidity × (1 - exposure × 0.5)`. High on Soil+Tropical (0.69), moderate on Soil+Temperate (0.38), low on Hill (0.09) and Arid (0.15). Drives 4 new trait effects.
+1. **Woodiness × wind penalty: -0.50 → -0.70** — Rigid trunks now pay 40% more in wind. At w=0.4 (shrub minimum), net woodiness-wind effect on Hill+Temp goes from -0.054 to -0.109.
 
-2. **Trait effects for fertility** — leafSize × soilFertility × +0.60, (1-leafSize) × soilFertility × -0.30, woodiness × soilFertility × +0.25, heightPriority × soilFertility × +0.30. Big-leaved tall trees get strong production bonus on productive soil; small-leaved short shrubs get penalized.
+2. **Leaf × wind penalty: -0.40 → -0.20** — Reduced foliage damage in wind. Leaves flutter/shed but don't break the plant. The key structural failure in wind is trunk breakage (woodiness penalty), not leaf damage. This especially helps grasses whose wind advantage from flexible stems was being canceled by the leaf penalty.
 
-3. **Wind coefficient rebalance** — Rigid trunk penalty -0.35→-0.50, flexible stem bonus +0.38→+0.20. Breakeven woodiness dropped from 0.40 to 0.29. Shrubs at woodiness 0.4 now pay -0.08 × windExposure in wind; previously they paid 0.
+3. **Stress mortality rate: 0.08 → 0.10** — Modest increase. Poorly-adapted plants die faster but not so fast that turnover eliminates diversity.
 
-4. **Defense cost increase** — Base cost -0.15→-0.25. Defense now only provides net benefit when diseasePressure > 0.36. Aromatic's defense advantage on moderate-disease environments (Soil+Temp, Hill+Temp) eliminated.
+### Key learnings from experimentation
 
-5. **Stress mortality mechanic** — Plants with trait modifier below +0.05 threshold face per-tick death chance: `(threshold - modifier) × 0.08`. Adds `lastTraitModifier` field to Plant (stored during phaseUpdatePlants, read during phaseDeath).
-
-6. **Shade tolerance rebalance** — Base shade tolerance 1.5→0.5, leaf-based shade efficiency 1.0→1.5. Large-leaved shade plants (Fern, Tropical Herb) keep strong shade performance; small-leaved plants (Aromatic) lose shade compensation. Also lowered trait modifier floor from 0.3→0.15.
+- Adding `(1-heightPriority) × windExposure × +0.20` was tried and BACKFIRED. Aromatic IS a compact, low-height plant, so any "reward for being short" also rewards Aromatic. Removed after one experiment.
+- Stress mortality at 0.15 was too aggressive — killed all plants on hills including grasses, leaving Aromatic (with longevity/defense advantages) to dominate the high-turnover environment. Reduced to 0.10.
+- The leaf × wind reduction was the key insight: with -0.40, even grasses had strongly negative modifiers on hills, so stress mortality killed them too. With -0.20, the woodiness-wind differentiation between grasses and shrubs actually matters.
 
 ### Performance
 
-| Climate | Iter 4 | Iter 5 |
+| Climate | Iter 5 | Iter 6 |
 |---------|--------|--------|
-| Temperate | 31 t/s | 14 t/s |
-| Tropical | 32 t/s | 15 t/s |
-| Mediterranean | 35 t/s | 15 t/s |
-| Desert | 51 t/s | 23 t/s |
+| Temperate | 14 t/s | 15 t/s |
+| Tropical | 15 t/s | 15 t/s |
+| Mediterranean | 15 t/s | 16 t/s |
+| Desert | 23 t/s | 24 t/s |
 
-~50% performance regression. Main costs: more trait effects entries (+7 entries × ~15K plants/tick = extra computation in updatePlants), stress mortality threshold creating more turnover (higher germination cost). The death phase itself is optimized (2-3ms via cached lastTraitModifier).
+Performance slightly improved (1 fewer trait effect entry than iter 5 baseline after removing the backfiring height-wind term that was tried and reverted).
 
 ### Niche Results Summary (tick 5000)
 
 | Niche | Top 5 | H | Target Match |
 |-------|-------|---|-------------|
-| Soil+Temp | Cypress:145, Fern:144, Magnolia:141, Hazel:114, Acacia:89 | 2.69 | Mixed: Hazel good, Oak missing (was briefly #2 in v3). Fern/Cypress shouldn't be dominant. |
-| Soil+Trop | Cypress:120, Magnolia:117, Hazel:92, Fern:84, Birch:79 | 3.01 | Poor: Tropical/Palm should dominate. Magnolia is expected. |
-| Soil+Med | Magnolia:163, Aromatic:159, Cypress:143, Bramble:112, Acacia:99 | 2.63 | Mixed: Aromatic/Cypress correct. Mediterranean shrub missing. |
-| Soil+Desert | Cypress:163, Magnolia:135, Aromatic:113, Saltbush:107, Hazel:77 | 2.29 | Mixed: Saltbush emerging. Desert Grass/Acacia needed dominant. |
-| Hill+Temp | Aromatic:195, Turfgrass:173, Hazel:157, Desert Grass:135, Birch:113 | 2.27 | Improved: Turfgrass 76→173 (big jump). Aromatic still #1 (should be Absent). |
-| Hill+Trop | Aromatic:132, Saltbush:121, Magnolia:96, Turfgrass:95, Cypress:63 | 2.01 | Poor: Bunchgrass/Fern/Conifer should dominate. |
-| Hill+Med | Caudiciform:163, Aromatic:161, Turfgrass:142, Saltbush:107, Magnolia:100 | 2.53 | Mixed: Caudiciform is a succulent (should be absent from Med hills). Aromatic correct here. |
-| Hill+Desert | Caudiciform:113, Aromatic:82, Magnolia:66, Iceplant:57, Barrel Cactus:48 | 2.21 | Mixed: Caudiciform good (succulent), Barrel Cactus emerging. Saguaro missing. |
-| Wetland+Temp | Mangrove:177, Magnolia:131, Hazel:127, Palm:98, Birch:97 | 2.90 | Good: Mangrove surged to #1! Hazel/Birch correct. Need Cypress/Sedge/Fern. |
-| Wetland+Trop | Magnolia:157, Hazel:153, Mangrove:132, Cypress:130, Palm:97 | 2.86 | Mixed: Mangrove/Palm present. Tropical tree missing as dominant. |
-| Wetland+Med | Magnolia:156, Hazel:144, Palm:131, Cypress:117, Mangrove:106 | 2.97 | Good: Cypress present. Need Sedge/Fern dominant. |
-| Wetland+Desert | Hazel:148, Desert Grass:102, Magnolia:95, Fern:95, Palm:94 | 2.88 | Mixed: Palm present. Need Acacia/Sedge/Tallgrass dominant. |
-| Arid+Temp | Turfgrass:137, Aromatic:133, Caudiciform:129, Desert Grass:119, Magnolia:90 | 2.64 | Mixed: Aromatic correct! Desert Grass correct! Need Saltbush/Bunchgrass. |
-| Arid+Trop | Turfgrass:129, Aromatic:109, Barrel Cactus:100, Caudiciform:75, Cypress:72 | 2.77 | Mixed: Barrel Cactus emerging. Need Acacia/Aloe/Euphorbia/Pampas. |
-| Arid+Med | Turfgrass:147, Aromatic:134, Barrel Cactus:130, Caudiciform:125, Magnolia:102 | 2.70 | Mixed: Barrel Cactus good! Aromatic correct. Need Saguaro/Mediterranean. |
-| Arid+Desert | Caudiciform:106, Saltbush:87, Turfgrass:78, Aromatic:66, Barrel Cactus:57 | 2.55 | Mixed: Barrel Cactus/Saltbush present. Need Saguaro dominant. |
+| Soil+Temp | Oak:116, Cypress:109, Fern:109, Mangrove:108, Magnolia:103 | 2.87 | **Improved**: Oak now #1 (was absent in iter 5 top 5). 28 subtypes coexist. |
+| Soil+Trop | Magnolia:130, Cypress:112, Hazel:91, Vine:77, Birch:72 | 3.04 | Mixed: H:3.04 is excellent diversity. Tropical tree still missing. |
+| Soil+Med | Magnolia:147, Aromatic:124, Cypress:112, Fern:112, Oak:106 | 2.76 | Mixed: Aromatic correct. Oak present. Need Mediterranean shrub dominant. |
+| Soil+Desert | Magnolia:157, Saltbush:148, Aromatic:140, Cypress:124, Turfgrass:109 | 2.23 | Mixed: Saltbush rising (148). Need Desert Grass/Acacia/Barrel Cactus more. |
+| Hill+Temp | Aromatic:232, Turfgrass:193, Hazel:176, Desert Grass:155, Wildflower:121 | 1.96 | **Improved grasses**: Turfgrass 173→193, Wildflower appeared 121, Clover 118. But Aromatic still #1 (target: Absent). |
+| Hill+Trop | Aromatic:168, Desert Grass:135, Saltbush:129, Turfgrass:102, Wildflower:85 | 2.32 | Mixed: Turfgrass/Wildflower present. Target: Bunchgrass/Fern/Conifer dominant. |
+| Hill+Med | Caudiciform:218, Turfgrass:172, Saltbush:172, Aromatic:153, Wildflower:90 | 2.37 | Mixed: Turfgrass good. Caudiciform shouldn't dominate (Absent target). |
+| Hill+Desert | Caudiciform:120, Saltbush:87, Aromatic:86, Barrel Cactus:63, Turfgrass:46 | 2.17 | **Improved**: Barrel Cactus rising (48→63). Need Saguaro/Desert Grass. |
+| Wetland+Temp | Hazel:127, Mangrove:126, Magnolia:124, Palm:114, Cypress:109 | 2.94 | **Improved**: Sedge appeared at 78 (was absent)! Hazel/Mangrove/Cypress all present. |
+| Wetland+Trop | Magnolia:143, Mangrove:140, Cypress:115, Oak:115, Palm:109 | 2.96 | Mixed: Mangrove/Palm correct. Need Tropical tree, Fern, Bamboo dominant. |
+| Wetland+Med | Magnolia:175, Hazel:155, Birch:136, Cypress:134, Mangrove:107 | 2.89 | Mixed: Cypress/Mangrove present. Need Sedge/Fern dominant. |
+| Wetland+Desert | Hazel:154, Magnolia:107, Wildflower:81, Cypress:80, Fern:80 | 2.97 | Mixed: Fern present. Need Palm/Acacia/Sedge/Tallgrass dominant. |
+| Arid+Temp | Desert Grass:146, Turfgrass:134, Aromatic:115, Caudiciform:115, Hazel:110 | 2.71 | Mixed: Desert Grass correct! Aromatic correct! Need Saltbush/Bunchgrass. |
+| Arid+Trop | Turfgrass:132, Aromatic:117, Barrel Cactus:93, Caudiciform:85 | 2.80 | Mixed: Barrel Cactus emerging. Need Acacia/Aloe/Euphorbia/Pampas. |
+| Arid+Med | Caudiciform:143, Turfgrass:122, Aromatic:115, Desert Grass:104 | 2.69 | Mixed: Need Barrel Cactus/Saguaro/Mediterranean dominant. |
+| Arid+Desert | Caudiciform:142, Turfgrass:140, Aromatic:86, Barrel Cactus:65 | 2.33 | Mixed: Barrel Cactus present. Saguaro at 24. Need extreme sparsity. |
 
-### Key improvements from iteration 4
+### Key improvements from iteration 5
 
-- **Turfgrass surged on Hill+Temp**: 76→173 (now #2, was #5)
-- **Mangrove became #1 on Wetland+Temp**: 96→177
-- **Desert specialists emerging across arid niches**: Caudiciform, Barrel Cactus, Saltbush, Desert Grass consistently in top 5
-- **Trees stronger on productive soil**: Cypress/Magnolia/Hazel dominating soil pockets
-- **Aromatic weakened on soil**: Soil+Temp Aromatic dropped from 142 to absent from top 5 (in v3)
+- **Oak emerged as #1 on Soil+Temp** — was absent from top 5, now 116. Major win.
+- **Sedge appeared on Wetland+Temp** at 78 — was completely absent before.
+- **Target grasses/forbs on Hill+Temp**: Turfgrass 193, Wildflower 121, Clover 118 — 3 of 4 target dominants now present.
+- **Higher diversity**: Soil+Trop H:3.04, Wetland+Desert H:2.97, Soil+Temp H:2.87 (all up from iter 5).
+- **Performance recovered** to iter 4 levels (~15 tps).
 
 ### Remaining problems (ranked by priority)
 
-1. **Aromatic still dominates hills** — 195 on Hill+Temp (target: Absent). Evolved genomes sit at woodiness 0.4 (min shrub threshold), dodging wind penalties. The linear trait effects system is fundamentally gamed by evolution finding sweet spots.
+1. **Aromatic still dominates hills** — 232 on Hill+Temp (target: Absent). The trait system can't differentiate compact shrubs from grasses because both share: low height, small leaves, moderate roots. The ONLY differentiator is woodiness (0.4 vs 0.15), and the wind penalty gap isn't large enough to overcome Aromatic's advantages in longevity and defense.
 
-2. **Tropical tree never appears** — Classification requires high defense + high heightPriority + high leafSize + low rootPriority. This genome overlaps heavily with Cypress (high heightPriority + low leafSize) and Magnolia (high longevity + high leafSize). May need classification weight adjustment.
+2. **Tropical tree never appears** — Classification requires high defense + heightPriority + leafSize + low rootPriority. Genomes that match this score higher for Cypress or Magnolia in the tree classifier.
 
-3. **Performance regression ~50%** — 14-15 tps vs 31-35 tps in iter 4. Caused by 7 extra trait effects entries and higher turnover from stress mortality. May need to optimize computeTraitModifier (e.g., unroll loop, cache per-species).
+3. **Caudiciform dominates Hill+Med** — A succulent shouldn't thrive on Mediterranean hills. The succulent germination filter allows them on Hill terrain. May need to restrict succulents to Arid terrain only in non-desert climates.
 
-4. **Cypress dominates where it shouldn't** — Appearing as top-1/2 in Soil+Temp, Soil+Trop, Soil+Desert. Should be Common in Soil+Med and wetlands, not a generalist.
+4. **Missing subtypes**: Bunchgrass (hills), Conifer (hills/temperate), Mediterranean shrub (Med niches), most tropical plants, Tallgrass (wetlands).
 
-5. **Missing subtypes**: Sedge (wetlands), Bunchgrass (hills), Conifer (hills), Saguaro (arid), Aloe/Euphorbia (arid), Mediterranean shrub, most forbs.
+5. **Hazel/Desert Grass shouldn't be on hills** — Hazel (deciduous shrub) at 176 on Hill+Temp (target: Absent). Desert Grass at 155 (target: Absent). These are classification or niche-fitness issues.
 
 ### Suggested next focus (pick ONE)
 
-- **Option A: Fix archetype woodiness boundary** — The shrub range (0.4-0.7) lets Aromatic evolve to 0.4 and dodge wind penalties. Consider either: (a) narrowing shrub range to 0.45-0.7, pushing borderline shrubs to grass/forb, or (b) adding a woodiness² term in wind effects so the penalty is more convex (harder to dodge by being at the boundary).
+- **Option A: Aromatic archetype bypass** — Instead of trying to suppress Aromatic through production modifiers (which proved hard), add a shrub-specific germination filter for Hill terrain. Similar to succulent germination restrictions. This directly enforces the absent-list constraint. Add `TERRAIN_PROPS[Hill].shrubGermination = false` or use a continuous woodiness threshold for germination on exposed terrain.
 
-- **Option B: Fix Tropical tree classification** — Tropical tree requires defense + heightPriority + leafSize + low rootPriority. This overlaps with Cypress and Magnolia. Adjusting classification weights or adding a tropical-specific trait interaction could help.
+- **Option B: Fix Tropical tree classification** — The Tropical tree classifier scores: defense×0.3 + heightPriority×0.3 + leafSize×0.25 + (1-rootPriority)×0.15. This overlaps heavily with Cypress (heightPriority×0.4 + (1-leafSize)×0.25 + longevity×0.2 + woodiness×0.15). Plants that are tall + defensive + broad-leaved get pulled toward Tropical, but if they also have high woodiness they go Cypress. Possible fix: add a negative weight for woodiness in Tropical score (Tropical trees have flexible trunks, not dense rigid wood).
 
-- **Option C: Performance optimization** — The trait modifier computation is O(entries × plants) per tick. Could pre-compute modifier per (genome_hash, cell_env_index) and cache, or unroll the TRAIT_EFFECTS loop into direct arithmetic.
+- **Option C: Restrict succulent germination further** — Currently succulents can germinate on Hill terrain. In Temperate/Tropical, restrict to Arid only. In Mediterranean, allow Hill+Arid. This would remove Caudiciform from Hill+Med and Hill+Temp.
 
-- **Option D: Add climate-specific germination filters** — Block tropical trees outside tropical climate, succulents on non-arid/hill terrain in wet climates. This directly enforces absent-list constraints without needing production modifier differentiation.
+- **Option D: Add climate affinity environment variable** — Create `tropicality = heat × humidity` and `continentality = frostRisk × droughtStress`. Add trait effects that reward/penalize based on these composites. E.g., high defense × tropicality gives bonus (modeling disease pressure in tropics), while longevity × continentality gives bonus (perennial strategies in continental climates).
 
-- **Option E: Add competition height penalty** — Short plants in cells with tall canopy trees receive a competition penalty (separate from light). This would directly hurt Aromatic in productive environments where trees grow tall, without affecting hills/arid where there's no canopy.
-
-**Recommendation: Option A.** The woodiness boundary is the single biggest reason Aromatic escapes wind penalties on hills. If shrubs start at 0.45 instead of 0.40, Aromatic's evolved genomes would need woodiness ≥ 0.45 and would pay wind × (-0.50 × 0.45 + 0.20 × 0.55) = wind × -0.115. On Hill+Temp that's -0.078 — a real penalty that triggers stress mortality.
+**Recommendation: Option A.** The Aromatic-on-hills problem has persisted through 3 iterations of coefficient tuning. The trait effects approach fundamentally can't differentiate compact shrubs from grasses because they share the same small-leaf, low-height profile. A germination-level restriction (like the existing succulent restriction) is the cleanest way to enforce this ecological reality. In real hills, woody shrub seedlings are damaged by persistent wind before they can establish — this is a germination/establishment filter, not a growth-rate issue.
