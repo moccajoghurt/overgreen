@@ -118,9 +118,14 @@ function computeFinalTint(
   x: number, y: number,
   lineageRoot: number,
 ): { tr: number; tg: number; tb: number } {
-  // Heatmap mode: tint plant by cell resource or plant health
+  // Heatmap mode: tint plant by cell resource, plant health, or species
   if (isHeatmapMode(state.colorMode)) {
     const mode = state.colorMode;
+    if (mode === 'species') {
+      const sc = state.world.speciesColors.get(speciesId);
+      if (sc) return { tr: sc.r, tg: sc.g, tb: sc.b };
+      return { tr: 0.5, tg: 0.5, tb: 0.5 };
+    }
     if (mode === 'health') {
       const plant = state.world.plants.get(plantId);
       const [r, g, b] = heatmapColor('health', plant ? plant.healthEMA : 0.5);
@@ -292,7 +297,11 @@ function renderDyingBurning(
     // Heatmap mode: use cell resource gradient × shrink
     if (isHeatmapMode(state.colorMode)) {
       const mode = state.colorMode;
-      if (mode === 'health') {
+      if (mode === 'species') {
+        const sc = world.speciesColors.get(dp.speciesId);
+        if (sc) { tr = sc.r * shrink; tg = sc.g * shrink; tb = sc.b * shrink; }
+        else { tr = 0.5 * shrink; tg = 0.5 * shrink; tb = 0.5 * shrink; }
+      } else if (mode === 'health') {
         const [hr, hg, hb] = heatmapColor('health', dp.healthEMA ?? 0);
         tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
       } else {

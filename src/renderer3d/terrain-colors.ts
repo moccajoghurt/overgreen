@@ -118,6 +118,26 @@ export function updateTerrainColors(state: RendererState): void {
       for (let x = 0; x < GRID; x++) {
         const cell = world.grid[y][x];
         const idx = y * GRID + x;
+        // Species mode: color by primary plant's species color (gray if empty)
+        if (mode === 'species') {
+          const pid = cellPrimaryPlantId(cell);
+          if (pid != null) {
+            const p = world.plants.get(pid);
+            if (p) {
+              const sc = world.speciesColors.get(p.speciesId);
+              if (sc) {
+                cellBaseR[idx] = sc.r; cellBaseG[idx] = sc.g; cellBaseB[idx] = sc.b;
+              } else {
+                cellBaseR[idx] = 0.5; cellBaseG[idx] = 0.5; cellBaseB[idx] = 0.5;
+              }
+            } else {
+              cellBaseR[idx] = 0.30; cellBaseG[idx] = 0.28; cellBaseB[idx] = 0.26;
+            }
+          } else {
+            cellBaseR[idx] = 0.30; cellBaseG[idx] = 0.28; cellBaseB[idx] = 0.26;
+          }
+          continue;
+        }
         // Health mode: average healthEMA of plants in cell (gray if empty)
         if (mode === 'health') {
           let sum = 0, count = 0;

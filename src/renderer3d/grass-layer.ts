@@ -438,7 +438,11 @@ export function createGrassLayer(
       // Heatmap mode: pass pure gradient color (shader uses it directly)
       if (isHeatmapMode(state.colorMode)) {
         const mode = state.colorMode;
-        if (mode === 'health') {
+        if (mode === 'species') {
+          const sc = world.speciesColors.get(plant.speciesId);
+          if (sc) { tr = sc.r; tg = sc.g; tb = sc.b; }
+          else { tr = 0.5; tg = 0.5; tb = 0.5; }
+        } else if (mode === 'health') {
           [tr, tg, tb] = heatmapColor('health', plant.healthEMA);
         } else {
           const cell = world.grid[plant.y][plant.x];
