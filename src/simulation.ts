@@ -92,6 +92,7 @@ const _heightGrid = new Float32Array(_gridSize);
 const _srGrid = new Float32Array(_gridSize);
 const _shsGrid = new Float32Array(_gridSize);
 const _diseasedGrid = new Uint8Array(_gridSize);
+const _archetypeMask = new Uint8Array(_gridSize);
 
 function phaseCalculateLight(world: World): void {
   const W = world.width;
@@ -221,11 +222,11 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   const isShaded = lightInput < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
   const shadeStrength = Math.max(0.3, 1.0 - cellEnv.droughtStress * 0.8);
-  const shadeTolerance = isShaded ? 1.0 + heightFactor * 1.5 * shadeStrength : 1.0;
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 0.5 * shadeStrength : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
   // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
-  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.0 * shadeStrength : 1.0;
+  const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.5 * shadeStrength : 1.0;
 
   const rawEnergy = (lightInput + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
@@ -239,7 +240,8 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
 
   // Trait tradeoff modifier: genome × environment interaction
   const traitMod = computeTraitModifier(plant.genome, cellEnv);
-  energyProduced *= Math.max(0.3, 1.0 + traitMod);
+  plant.lastTraitModifier = traitMod;
+  energyProduced *= Math.max(0.15, 1.0 + traitMod);
 
   if (isDiseased) energyProduced *= SIM.DISEASE_PHOTO_PENALTY + plant.genome.defense * SIM.DEFENSE_DISEASE_PHOTO_RECOVER;
   return energyProduced;
@@ -281,11 +283,15 @@ function calculateMaintenance(plant: Plant, _world: World, isDiseased: boolean, 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants): void {
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants, cellEnv: CellEnvironment): void {
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
-  const capHeight = pc.maxHeight;
-  const capLeaf = pc.maxLeafArea;
+  // Wind stunting (krummholz effect): high wind exposure limits maximum height and leaf area.
+  // Rigid woody plants are stunted in height; broad-leaved plants lose foliage.
+  const windStunt = Math.max(0.1, 1 - cellEnv.windExposure * plant.genome.woodiness * 2.0);
+  const capHeight = pc.maxHeight * windStunt;
+  const leafWindStunt = Math.max(0.15, 1 - cellEnv.windExposure * plant.genome.leafSize * 1.5);
+  const capLeaf = pc.maxLeafArea * leafWindStunt;
   const seedCost = pc.seedEnergyCost;
   const seedRangeMax = pc.seedRangeMax;
   const seedRangeDiv = pc.seedRangeHeightDivisor;
@@ -421,6 +427,13 @@ function phaseUpdatePlants(world: World): void {
     }
   }
 
+  // Pre-compute per-cell archetype bitmasks for facilitation check
+  _archetypeMask.fill(0);
+  for (const p of world.plants.values()) {
+    if (!p.alive) continue;
+    _archetypeMask[p.y * W + p.x] |= (1 << archetype(p.genome));
+  }
+
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
@@ -454,11 +467,7 @@ function phaseUpdatePlants(world: World): void {
       for (const [dx, dy] of NEIGHBORS) {
         const nx = plant.x + dx, ny = plant.y + dy;
         if (!inBounds(nx, ny, world.width, world.height)) continue;
-        const nc = world.grid[ny][nx];
-        for (const nid of cellPlantIds(nc)) {
-          const n = world.plants.get(nid);
-          if (n && n.alive) archetypeSet |= (1 << archetype(n.genome));
-        }
+        archetypeSet |= _archetypeMask[ny * W + nx];
       }
       // Exclude self-archetype: trees among trees get 0 bonus, forbs among trees get bonus
       archetypeSet &= ~(1 << archetype(plant.genome));
@@ -518,7 +527,7 @@ function phaseUpdatePlants(world: World): void {
 
     const zmPlant = world.environment.zoneModifiers[cell.climateZone];
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc, cellEnv);
     }
 
     plant.age++;
@@ -529,6 +538,25 @@ function phaseDeath(world: World): void {
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const maxAge = getPlantConstants(plant.genome).maxAge;
+
+    // Environmental stress mortality — poorly adapted plants die from environmental pressure
+    if (plant.age > 10) { // skip seedlings
+      const traitMod = plant.lastTraitModifier;
+      const stressGap = SIM.STRESS_MORTALITY_THRESHOLD - traitMod;
+      if (stressGap > 0 && Math.random() < stressGap * SIM.STRESS_MORTALITY_RATE) {
+        plant.alive = false;
+        world.deathEvents.push({
+          id: plant.id,
+          speciesId: plant.speciesId,
+          cause: 'stress',
+          age: plant.age,
+          offspringCount: plant.offspringCount,
+          generation: plant.generation,
+        });
+        continue;
+      }
+    }
+
     if (plant.energy <= SIM.STARVATION_THRESHOLD || plant.age >= maxAge) {
       plant.alive = false;
 
@@ -594,6 +622,30 @@ function phaseGermination(world: World): void {
           if (!TERRAIN_PROPS[cell.terrainType].succulentGermination) continue;
           if ((cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)
             && cell.terrainType !== TerrainType.Arid) continue;
+        }
+        // Shrub germination restrictions:
+        // - Blocked on Hill terrain in Temperate/Tropical climates
+        // - Woody shrub seedlings are killed by persistent cold/humid wind before establishment
+        // - Allowed on Hill in Mediterranean/Desert (garrigue/scrubland conditions)
+        if (archetype(seed.genome) === Archetype.Shrub) {
+          if (!TERRAIN_PROPS[cell.terrainType].shrubGermination
+            && (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)) {
+            continue;
+          }
+        }
+        // Tree germination restrictions:
+        // - Hill: blocked in Temperate/Desert (cloud forest & Mediterranean cypress ok)
+        // - Arid: blocked in Temperate/Desert/Mediterranean (only Tropical ok for Acacia)
+        // - Exposed wind and extreme drought prevent tree establishment
+        if (archetype(seed.genome) === Archetype.Tree) {
+          if (!TERRAIN_PROPS[cell.terrainType].treeGermination) {
+            if (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Desert) {
+              continue;
+            }
+            if (cell.terrainType === TerrainType.Arid && cell.climateZone === ClimateZone.Mediterranean) {
+              continue;
+            }
+          }
         }
         const waterThreshold = seed.seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
@@ -699,7 +751,7 @@ function phaseGermination(world: World): void {
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         healthEMA: 1.0, peakEnergy: 2.0,
-        generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0,
+        generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0, lastTraitModifier: 0,
       };
       world.plants.set(childId, child);
       setCellPlant(cell, Tier.Ground, childId);

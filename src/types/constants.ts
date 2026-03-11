@@ -86,6 +86,10 @@ export const SIM = {
   SENESCENCE_MAX_MULT: 6.0,    // maintenance multiplier at maxAge
   LONGEVITY_MAINTENANCE_RATE: 0.08, // ongoing cost of long-lived tissue
 
+  // Environmental stress mortality — per-tick death chance when trait modifier < threshold
+  STRESS_MORTALITY_RATE: 0.10,
+  STRESS_MORTALITY_THRESHOLD: 0.05,
+
   // Disease / Blight
   DISEASE_DISTANCE_THRESHOLD: 0.25,
   DISEASE_DRAIN_PER_TICK: 0.15,
@@ -289,6 +293,8 @@ export interface TerrainProperties {
   nutrientMax: number;
   plantable: boolean;
   succulentGermination: boolean;
+  shrubGermination: boolean;
+  treeGermination: boolean;
 }
 
 export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
@@ -300,6 +306,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.MAX_NUTRIENTS,
     plantable: true,
     succulentGermination: false,
+    shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.River]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -309,6 +317,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.MAX_NUTRIENTS,
     plantable: false,
     succulentGermination: false,
+    shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Rock]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -318,6 +328,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.ROCK_NUTRIENT_MAX,
     plantable: false,
     succulentGermination: false,
+    shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Hill]: {
     waterTable: SIM.HILL_WATER_TABLE,
@@ -327,6 +339,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.HILL_NUTRIENT_MAX,
     plantable: true,
     succulentGermination: true,
+    shrubGermination: false,
+    treeGermination: false,
   },
   [TerrainType.Wetland]: {
     waterTable: SIM.WETLAND_WATER_TABLE,
@@ -336,6 +350,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.WETLAND_NUTRIENT_MAX,
     plantable: true,
     succulentGermination: false,
+    shrubGermination: true,
+    treeGermination: true,
   },
   [TerrainType.Arid]: {
     waterTable: SIM.ARID_WATER_TABLE,
@@ -345,6 +361,8 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     nutrientMax: SIM.ARID_NUTRIENT_MAX,
     plantable: true,
     succulentGermination: true,
+    shrubGermination: true,
+    treeGermination: false,
   },
 };
 

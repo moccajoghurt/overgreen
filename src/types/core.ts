@@ -68,6 +68,7 @@ export interface Plant {
   offspringCount: number;
   forceLow?: boolean;
   effectiveLight: number;
+  lastTraitModifier: number;
 }
 
 export interface Cell {
@@ -118,7 +119,7 @@ export interface World {
 export interface DeathEvent {
   id: number;
   speciesId: number;
-  cause: 'starvation' | 'age' | 'fire' | 'disease';
+  cause: 'starvation' | 'age' | 'fire' | 'disease' | 'stress';
   age: number;
   offspringCount: number;
   generation: number;

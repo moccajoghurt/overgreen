@@ -87,14 +87,14 @@ const GRASS_IDS: SubtypeId[] = [0, 1, 2, 3, 4, 5, 30, 31];
 function classifyGrass(g: Genome): SubtypeId {
   const scores = new Float64Array(8);
 
-  // Turfgrass: low height, low woodiness — default short lawn grass
-  scores[0] = (1 - g.heightPriority) * 0.55 + (1 - g.woodiness) * 0.25 + (1 - g.leafSize) * 0.1 + (1 - g.longevity) * 0.1;
+  // Turfgrass: low height, shallow roots — default short lawn grass
+  scores[0] = (1 - g.heightPriority) * 0.45 + (1 - g.rootPriority) * 0.15 + (1 - g.woodiness) * 0.20 + (1 - g.leafSize) * 0.1 + (1 - g.longevity) * 0.1;
 
   // Tallgrass: high heightPriority, perennial
   scores[1] = g.heightPriority * 0.6 + g.leafSize * 0.2 + g.seedInvestment * 0.1 + g.longevity * 0.1;
 
-  // Bunchgrass: hill-adapted tussock — big seeds, persistent, compact
-  scores[2] = g.seedSize * 0.3 + g.longevity * 0.25 + (1 - g.rootPriority) * 0.25 + (1 - g.heightPriority) * 0.2;
+  // Bunchgrass: hill-adapted tussock — deep fibrous roots, compact, persistent, big seeds
+  scores[2] = g.rootPriority * 0.25 + g.seedSize * 0.20 + (1 - g.heightPriority) * 0.20 + g.longevity * 0.15 + g.seedInvestment * 0.20;
 
   // Bamboo: high woodiness (within grass range)
   scores[3] = g.woodiness * 0.6 + g.heightPriority * 0.3 + (1 - g.leafSize) * 0.1;
@@ -108,8 +108,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Pampas: tall ornamental, feathery plumes
   scores[6] = g.heightPriority * 0.4 + g.seedInvestment * 0.25 + g.longevity * 0.2 + g.leafSize * 0.15;
 
-  // Desert Grass: arid-adapted perennial tussock
-  scores[7] = g.rootPriority * 0.35 + (1 - g.waterStorage) * 0.3 + g.longevity * 0.2 + (1 - g.leafSize) * 0.15;
+  // Desert Grass: arid-adapted, water-storing deep-rooted drought miner
+  scores[7] = g.waterStorage * 0.35 + g.rootPriority * 0.20 + (1 - g.leafSize) * 0.20 + (1 - g.seedInvestment) * 0.15 + g.longevity * 0.10;
 
   let best = 0;
   for (let i = 1; i < 8; i++) if (scores[i] > scores[best]) best = i;
@@ -196,8 +196,8 @@ function classifySucculent(g: Genome): SubtypeId {
   // Aloe: rosette (high leafSize, low height)
   scores[1] = g.leafSize * 0.5 + (1 - g.heightPriority) * 0.3 + g.waterStorage * 0.2;
 
-  // Caudiciform: fat caudex (high rootPriority)
-  scores[2] = g.rootPriority * 0.5 + (1 - g.heightPriority) * 0.2 + g.waterStorage * 0.15 + g.seedInvestment * 0.15;
+  // Caudiciform: fat caudex — very compact ground-hugging storage specialist with deep taproot
+  scores[2] = (1 - g.heightPriority) * 0.40 + g.rootPriority * 0.30 + g.longevity * 0.20 + (1 - g.leafSize) * 0.10;
 
   // Euphorbia: candelabra (moderate height, branching)
   scores[3] = g.heightPriority * 0.3 + g.seedInvestment * 0.25 + g.defense * 0.25 + (1 - g.rootPriority) * 0.2;

@@ -25,6 +25,8 @@ export interface CellEnvironment {
   windExposure: number;
   waterlogging: number;
   heatStress: number;
+  soilFertility: number;
+  extremeAridity: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -46,13 +48,20 @@ const CLIMATE_PHYSICS: Record<ClimateZone, ClimatePhysics> = {
 const TERRAIN_COUNT = 6;
 
 function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment {
+  const droughtStress = cp.aridity * tp.drainage;
+  // Ground heat: direct solar exposure + aridity-driven ground-level heat buildup.
+  // On flat arid terrain, low wind (1-exposure) + low moisture (1-waterlogging) trap
+  // intense radiative heat at ground level. Wind-exposed terrain (hills) stays cooler.
+  const groundHeat = cp.heat * cp.aridity * (1 - tp.exposure) * (1 - tp.waterlogging) * 0.5;
   return {
-    droughtStress:   cp.aridity * tp.drainage,
+    droughtStress,
     frostRisk:       cp.coldness * tp.exposure,
     diseasePressure: cp.humidity * (1 - tp.exposure),
     windExposure:    tp.exposure * (1 - cp.humidity * 0.3),
     waterlogging:    tp.waterlogging * cp.humidity,
-    heatStress:      cp.heat * tp.exposure,
+    heatStress:      cp.heat * tp.exposure + groundHeat,
+    soilFertility:   tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
+    extremeAridity:  Math.max(0, droughtStress - 0.35),
   };
 }
 
@@ -88,6 +97,8 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.diseasePressure = base.diseasePressure;              // static
       eff.windExposure    = base.windExposure;                 // static
       eff.waterlogging    = base.waterlogging;                 // static
+      eff.soilFertility   = base.soilFertility;               // static
+      eff.extremeAridity  = Math.max(0, eff.droughtStress - 0.35); // derived from seasonal drought
     }
   }
 }
@@ -101,46 +112,71 @@ interface TraitEffect {
   trait: GenomeTrait;
   envVar: EnvVar | null;
   coefficient: number;
+  inverse?: boolean; // use (1 - traitVal) instead of traitVal
   description: string;
 }
 
 const TRAIT_EFFECTS: TraitEffect[] = [
-  // Leaf size
-  { trait: 'leafSize',       envVar: null,             coefficient: +0.20, description: 'base light capture' },
-  { trait: 'leafSize',       envVar: 'droughtStress',  coefficient: -0.35, description: 'transpiration loss' },
-  { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.20, description: 'freeze damage' },
-  { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.15, description: 'heat scorching' },
+  // Leaf size — big leaves capture light but are vulnerable to stress
+  { trait: 'leafSize',       envVar: null,             coefficient: +0.22, description: 'base light capture' },
+  { trait: 'leafSize',       envVar: 'soilFertility',  coefficient: +0.60, description: 'big leaves thrive on fertile soil' },
+  { trait: 'leafSize',       envVar: 'soilFertility',  coefficient: -0.30, inverse: true, description: 'small leaves can\'t capture light on fertile soil' },
+  { trait: 'leafSize',       envVar: 'waterlogging',   coefficient: +0.25, description: 'lush growth in saturated soil' },
+  { trait: 'leafSize',       envVar: 'droughtStress',  coefficient: -0.50, description: 'transpiration loss' },
+  { trait: 'leafSize',       envVar: 'frostRisk',      coefficient: -0.30, description: 'freeze damage' },
+  { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
+  { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
+  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.20, description: 'wind strips foliage on broad-leaved plants' },
 
-  // Defense
-  { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.50, description: 'disease resistance' },
-  { trait: 'defense',        envVar: null,              coefficient: -0.08, description: 'metabolic cost of defensive tissue' },
+  // Defense — costly but essential where disease thrives; spines protect from sun in heat
+  { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
+  { trait: 'defense',        envVar: null,              coefficient: -0.25, description: 'metabolic cost of defensive tissue' },
+  { trait: 'defense',        envVar: 'heatStress',      coefficient: +0.25, description: 'spines and waxy coating provide sun/heat protection' },
+  { trait: 'defense',        envVar: 'droughtStress',   coefficient: +0.35, description: 'thorns and thick bark reduce water loss in drought' },
 
-  // Water storage
-  { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.50, description: 'drought buffer' },
-  { trait: 'waterStorage',   envVar: 'heatStress',     coefficient: +0.15, description: 'evaporative cooling' },
-  { trait: 'waterStorage',   envVar: 'frostRisk',      coefficient: -0.25, description: 'succulent tissue freezes' },
-  { trait: 'waterStorage',   envVar: 'waterlogging',   coefficient: -0.40, description: 'redundant in saturated soil' },
+  // Water storage — critical in drought, liability in frost/wetland/wind
+  { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
+  { trait: 'waterStorage',   envVar: 'heatStress',     coefficient: +0.25, description: 'evaporative cooling' },
+  { trait: 'waterStorage',   envVar: 'frostRisk',      coefficient: -0.40, description: 'succulent tissue freezes' },
+  { trait: 'waterStorage',   envVar: 'waterlogging',   coefficient: -0.50, description: 'redundant in saturated soil' },
+  { trait: 'waterStorage',   envVar: 'windExposure',   coefficient: -0.35, description: 'wind desiccation of exposed succulent tissue' },
 
-  // Woodiness
-  { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.25, description: 'bark insulates' },
-  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.15, description: 'structural wind resistance' },
-  { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.30, description: 'root rot' },
-  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.10, description: 'water-demanding tissue' },
+  // Woodiness — structural support enables efficient photosynthesis, but rigid structures suffer in wind/water
+  { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
+  { trait: 'woodiness',      envVar: 'soilFertility',  coefficient: +0.25, description: 'woody investment pays off on fertile soil' },
+  { trait: 'woodiness',      envVar: 'frostRisk',      coefficient: +0.15, description: 'bark insulates' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: -0.70, description: 'rigid trunks snap in wind' },
+  { trait: 'woodiness',      envVar: 'heatStress',     coefficient: -0.30, description: 'bark cracking and xylem desiccation in extreme heat' },
+  { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.20, inverse: true, description: 'flexible herbaceous stems resist wind' },
+  { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.40, description: 'root rot in waterlogged soil' },
+  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.35, description: 'water-demanding woody tissue' },
+  { trait: 'woodiness',      envVar: 'extremeAridity',  coefficient: -1.50, description: 'xylem cavitation and wood cracking in extreme desert' },
 
-  // Root priority
-  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.30, description: 'deep water access' },
-  { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.30, description: 'root drowning' },
+  // Root priority — deep roots mine nutrients and anchor plant, but drown in wetland
+  { trait: 'rootPriority',   envVar: null,             coefficient: +0.10, description: 'nutrient mining and soil anchoring' },
+  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.55, description: 'deep water access' },
+  { trait: 'rootPriority',   envVar: 'windExposure',   coefficient: -0.20, description: 'deep taproots wind-levered in thin exposed soil' },
+  { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.40, description: 'root drowning' },
+  { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.30, inverse: true, description: 'shallow roots thrive in saturated soil' },
+  { trait: 'rootPriority',   envVar: 'heatStress',     coefficient: -0.25, description: 'root zone overheating in hot exposed soil' },
 
-  // Height priority
-  { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.25, description: 'wind damage' },
-  { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.20, description: 'flood escape' },
+  // Height priority — competitive light positioning, but wind destroys tall plants
+  { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
+  { trait: 'heightPriority', envVar: 'soilFertility',  coefficient: +0.30, description: 'tall plants compete for light on fertile soil' },
+  { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
+  { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
+  { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.50, description: 'tall columnar form radiates heat efficiently' },
+  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +1.30, description: 'tall plants escape lethal ground-level heat in extreme desert' },
 
-  // Longevity
-  { trait: 'longevity',      envVar: null,              coefficient: +0.03, description: 'persistence advantage' },
-  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: -0.05, description: 'long-lived tissue costly in harsh conditions' },
+  // Seed investment — colonizers exploit harsh niches via rapid reproduction
+  { trait: 'seedInvestment', envVar: 'windExposure',   coefficient: +0.20, description: 'wind seed dispersal' },
+  { trait: 'seedInvestment', envVar: null,              coefficient: -0.06, description: 'reproductive allocation reduces somatic performance' },
 
-  // Seed investment
-  { trait: 'seedInvestment', envVar: null,              coefficient: -0.05, description: 'reproductive allocation reduces somatic performance' },
+  // Longevity — persistence advantage but costly in harsh environments
+  { trait: 'longevity',      envVar: null,              coefficient: +0.01, description: 'persistence advantage' },
+  { trait: 'longevity',      envVar: 'diseasePressure', coefficient: +0.08, description: 'evolved immune system in disease-rich environments' },
+  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: +0.05, description: 'established perennial root networks resist drought' },
+  { trait: 'longevity',      envVar: 'frostRisk',       coefficient: -0.10, description: 'frost damages accumulated long-lived tissue' },
 ];
 
 /** Compute the aggregate production modifier from genome × environment interaction. */
@@ -148,7 +184,7 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
   let modifier = 0;
   for (let i = 0; i < TRAIT_EFFECTS.length; i++) {
     const e = TRAIT_EFFECTS[i];
-    const traitVal = genome[e.trait];
+    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
     modifier += traitVal * envVal * e.coefficient;
   }
@@ -161,10 +197,10 @@ export function diagnoseTraitEffects(genome: Genome, env: CellEnvironment): Arra
   traitVal: number; envVal: number; contribution: number; description: string;
 }> {
   return TRAIT_EFFECTS.map(e => {
-    const traitVal = genome[e.trait];
+    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
     return {
-      trait: e.trait,
+      trait: e.inverse ? `(1-${e.trait})` : e.trait,
       envVar: e.envVar,
       coefficient: e.coefficient,
       traitVal,
