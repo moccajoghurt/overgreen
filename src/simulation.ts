@@ -623,6 +623,16 @@ function phaseGermination(world: World): void {
           if ((cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)
             && cell.terrainType !== TerrainType.Arid) continue;
         }
+        // Shrub germination restrictions:
+        // - Blocked on Hill terrain in Temperate/Tropical climates
+        // - Woody shrub seedlings are killed by persistent cold/humid wind before establishment
+        // - Allowed on Hill in Mediterranean/Desert (garrigue/scrubland conditions)
+        if (archetype(seed.genome) === Archetype.Shrub) {
+          if (!TERRAIN_PROPS[cell.terrainType].shrubGermination
+            && (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)) {
+            continue;
+          }
+        }
         const waterThreshold = seed.seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
