@@ -196,8 +196,8 @@ function classifySucculent(g: Genome): SubtypeId {
   // Aloe: rosette (high leafSize, low height)
   scores[1] = g.leafSize * 0.5 + (1 - g.heightPriority) * 0.3 + g.waterStorage * 0.2;
 
-  // Caudiciform: fat caudex — extremely long-lived, compact storage specialist
-  scores[2] = g.longevity * 0.30 + g.rootPriority * 0.25 + (1 - g.heightPriority) * 0.25 + (1 - g.seedInvestment) * 0.20;
+  // Caudiciform: fat caudex — very compact ground-hugging storage specialist with deep taproot
+  scores[2] = (1 - g.heightPriority) * 0.40 + g.rootPriority * 0.30 + g.longevity * 0.20 + (1 - g.leafSize) * 0.10;
 
   // Euphorbia: candelabra (moderate height, branching)
   scores[3] = g.heightPriority * 0.3 + g.seedInvestment * 0.25 + g.defense * 0.25 + (1 - g.rootPriority) * 0.2;

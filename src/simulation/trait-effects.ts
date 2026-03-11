@@ -26,6 +26,7 @@ export interface CellEnvironment {
   waterlogging: number;
   heatStress: number;
   soilFertility: number;
+  extremeAridity: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -47,14 +48,16 @@ const CLIMATE_PHYSICS: Record<ClimateZone, ClimatePhysics> = {
 const TERRAIN_COUNT = 6;
 
 function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment {
+  const droughtStress = cp.aridity * tp.drainage;
   return {
-    droughtStress:   cp.aridity * tp.drainage,
+    droughtStress,
     frostRisk:       cp.coldness * tp.exposure,
     diseasePressure: cp.humidity * (1 - tp.exposure),
     windExposure:    tp.exposure * (1 - cp.humidity * 0.3),
     waterlogging:    tp.waterlogging * cp.humidity,
     heatStress:      cp.heat * tp.exposure,
     soilFertility:   tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
+    extremeAridity:  Math.max(0, droughtStress - 0.35),
   };
 }
 
@@ -91,6 +94,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.windExposure    = base.windExposure;                 // static
       eff.waterlogging    = base.waterlogging;                 // static
       eff.soilFertility   = base.soilFertility;               // static
+      eff.extremeAridity  = Math.max(0, eff.droughtStress - 0.35); // derived from seasonal drought
     }
   }
 }
@@ -155,6 +159,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
   { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.50, description: 'tall columnar form radiates heat efficiently' },
+  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +0.90, description: 'tall plants escape lethal ground-level heat in extreme desert' },
 
   // Seed investment — colonizers exploit harsh niches via rapid reproduction
   { trait: 'seedInvestment', envVar: 'windExposure',   coefficient: +0.20, description: 'wind seed dispersal' },
