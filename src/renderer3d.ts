@@ -15,6 +15,7 @@ import { createHerbivoreMesh, updateHerbivores } from './renderer3d/herbivores';
 import { createDecorMeshes, placeTerrainDecor } from './renderer3d/terrain-decor';
 import { createGrassLayer } from './renderer3d/grass-layer';
 import { SHADER_GRASS_SUBTYPES } from './types/subtypes';
+import { cellPlantIds } from './simulation/tiers';
 
 export async function createRenderer3D(
   container: HTMLElement,
@@ -429,19 +430,20 @@ export async function createRenderer3D(
         const nx = cx + dx;
         if (nx < 0 || nx >= GRID) continue;
         const cell = world.grid[ny][nx];
-        if (cell.plantId === null) continue;
-        const plant = world.plants.get(cell.plantId);
-        if (!plant?.alive) continue;
-        const wx = plant.x - HALF + 0.5;
-        const wz = plant.y - HALF + 0.5;
-        const ddx = p.x - wx;
-        const ddz = p.z - wz;
-        const dist = ddx * ddx + ddz * ddz;
-        // Only match if within roughly the plant's visual footprint
-        const radius = Math.max(0.3, plant.height * 0.4);
-        if (dist < radius * radius && dist < bestDist) {
-          bestDist = dist;
-          bestPlant = { plantId: plant.id, speciesId: plant.speciesId };
+        for (const pid of cellPlantIds(cell)) {
+          const plant = world.plants.get(pid);
+          if (!plant?.alive) continue;
+          const wx = plant.x - HALF + 0.5;
+          const wz = plant.y - HALF + 0.5;
+          const ddx = p.x - wx;
+          const ddz = p.z - wz;
+          const dist = ddx * ddx + ddz * ddz;
+          // Only match if within roughly the plant's visual footprint
+          const radius = Math.max(0.3, plant.height * 0.4);
+          if (dist < radius * radius && dist < bestDist) {
+            bestDist = dist;
+            bestPlant = { plantId: plant.id, speciesId: plant.speciesId };
+          }
         }
       }
     }

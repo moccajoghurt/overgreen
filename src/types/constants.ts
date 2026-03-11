@@ -3,6 +3,15 @@ import { TerrainType } from './core';
 export const GRID_WIDTH = 80;
 export const GRID_HEIGHT = 80;
 
+// Vertical tier thresholds (height in sim units)
+export const CANOPY_THRESHOLD = 3.0;
+export const GROUND_THRESHOLD = 1.0;
+
+// Light filtering coefficients per tier
+export const CANOPY_FILTER_COEFF = 0.12;
+export const UNDERSTORY_FILTER_COEFF = 0.15;
+export const MIN_TIER_LIGHT = 0.05;
+
 export const SIM = {
   // Water
   BASE_WATER_RECHARGE: 0.4,

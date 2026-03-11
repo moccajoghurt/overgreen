@@ -328,6 +328,9 @@ export function createWorld(width: number, height: number): World {
         nutrients: 1 + Math.random() * 3,
         lightLevel: SIM.BASE_LIGHT,
         plantId: null,
+        canopyId: null,
+        understoryId: null,
+        groundId: null,
         lastSpeciesId: null,
         seeds: [],
       });

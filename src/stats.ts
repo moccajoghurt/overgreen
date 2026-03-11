@@ -1,4 +1,5 @@
 import { SIM, TERRAIN_PROPS, TerrainType, ClimateZone, CLIMATE_ZONE_COUNT, World } from './types';
+import { cellIsEmpty, cellPlantIds } from './simulation/tiers';
 
 // ── Types ──
 
@@ -251,10 +252,11 @@ export function computeSnapshot(
         const nx = plant.x + dx, ny = plant.y + dy;
         if (nx < 0 || nx >= world.width || ny < 0 || ny >= world.height) continue;
         const nc = world.grid[ny][nx];
-        if (nc.plantId !== null) {
-          const neighbor = world.plants.get(nc.plantId);
+        for (const nid of cellPlantIds(nc)) {
+          const neighbor = world.plants.get(nid);
           if (neighbor && neighbor.alive && neighbor.speciesId !== plant.speciesId) {
             hasCrossSpeciesNeighbor = true;
+            break;
           }
         }
       }
@@ -325,7 +327,7 @@ export function computeSnapshot(
       if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
       sumWater += cell.waterLevel;
       sumNutrients += cell.nutrients;
-      if (cell.plantId !== null) {
+      if (!cellIsEmpty(cell)) {
         occupiedCells++;
         sumWaterOccupied += cell.waterLevel;
         countOccupied++;

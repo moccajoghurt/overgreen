@@ -2,6 +2,7 @@ import {
   Herbivore, HerbivoreGenome, HERB, SIM, TerrainType, World, Season, WeatherOverlay,
 } from '../types';
 import { NEIGHBORS, inBounds } from './neighbors';
+import { cellIsEmpty, cellPlantIds } from './tiers';
 
 function clampGenome(val: number): number {
   return Math.max(0.01, Math.min(0.99, val));
@@ -45,7 +46,7 @@ export function seedInitialHerbivores(world: World, count: number): void {
     const y = Math.floor(Math.random() * world.height);
     const cell = world.grid[y][x];
     if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
-    if (cell.plantId === null) continue; // prefer cells with plants
+    if (cellIsEmpty(cell)) continue; // prefer cells with plants
 
     const id = world.nextHerbivoreId++;
     const h = createHerbivore(id, x, y, randomHerbivoreGenome());
@@ -101,8 +102,8 @@ function moveHerbivore(h: Herbivore, world: World): void {
         const sy = ny + ry;
         if (!inBounds(sx, sy, world.width, world.height)) continue;
         const cell = world.grid[sy][sx];
-        if (cell.plantId !== null) {
-          const plant = world.plants.get(cell.plantId);
+        for (const pid of cellPlantIds(cell)) {
+          const plant = world.plants.get(pid);
           if (plant && plant.alive) {
             const dist = Math.abs(rx) + Math.abs(ry);
             const defPenalty = 1 - plant.genome.defense * 0.5;
@@ -150,11 +151,13 @@ function moveHerbivore(h: Herbivore, world: World): void {
 
 function grazeHerbivore(h: Herbivore, world: World): void {
   const cell = world.grid[h.y][h.x];
-  if (cell.plantId === null) {
+  // Target ground tier first, then understory (canopy out of reach)
+  const targetId = cell.groundId ?? cell.understoryId;
+  if (targetId === null) {
     h.lastEnergyGained = 0;
     return;
   }
-  const plant = world.plants.get(cell.plantId);
+  const plant = world.plants.get(targetId);
   if (!plant || !plant.alive) {
     h.lastEnergyGained = 0;
     return;

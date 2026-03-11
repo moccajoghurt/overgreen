@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { generateSpeciesName } from '../species-names';
 import { classifySubtype } from '../types/subtypes';
+import { cellIsEmpty, setCellPlant, cellPrimaryPlantId, Tier } from './tiers';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -80,7 +81,7 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
     energy: 3.0, age: 0, alive: true,
     lastLightReceived: 0, lastWaterAbsorbed: 0,
     lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false, storedWater: 0, healthEMA: 1.0, peakEnergy: 3.0,
-    generation: 0, parentId: null, offspringCount: 0,
+    generation: 0, parentId: null, offspringCount: 0, effectiveLight: 0,
   };
 }
 
@@ -128,7 +129,8 @@ export function seedSinglePlant(world: World): void {
   const plant = createPlant(id, cx, cy, genome, speciesId, speciesId);
   world.plants.set(id, plant);
   const cell = world.grid[cy][cx];
-  cell.plantId = id;
+  setCellPlant(cell, Tier.Ground, id);
+  cell.plantId = cellPrimaryPlantId(cell);
   cell.lastSpeciesId = speciesId;
   world.subtypeSpecies.set(subtype, speciesId);
 }
@@ -188,13 +190,14 @@ export function seedInitialPlants(world: World, _count: number): void {
           const py = center.y + dy;
           if (px < 0 || px >= world.width || py < 0 || py >= world.height) continue;
           const cell = world.grid[py][px];
-          if (cell.plantId !== null) continue;
+          if (!cellIsEmpty(cell)) continue;
           if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
 
           const id = world.nextPlantId++;
           const plant = createPlant(id, px, py, genome, speciesId, speciesId);
           world.plants.set(id, plant);
-          cell.plantId = id;
+          setCellPlant(cell, Tier.Ground, id);
+          cell.plantId = cellPrimaryPlantId(cell);
           cell.lastSpeciesId = speciesId;
           break;
         }

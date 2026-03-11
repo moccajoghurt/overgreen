@@ -10,6 +10,7 @@ import {
 import { generateSpeciesName } from './species-names';
 import { phaseEnvironment } from './simulation/environment';
 import { phaseHerbivores } from './simulation/herbivores';
+import { phaseTierAssignment, phaseTierLight, cellPlantIds, cellIsEmpty, cellHasSpace, cellPrimaryPlantId, setCellPlant, clearCellPlant, Tier } from './simulation/tiers';
 import { classifySubtype } from './types/subtypes';
 
 export { createWorld } from './simulation/terrain';
@@ -49,8 +50,9 @@ function phaseRechargeWater(world: World): void {
       cell.waterLevel = Math.min(cell.waterLevel + recharge, SIM.MAX_WATER);
       cell.nutrients = Math.max(0, cell.nutrients - nutrientDecay);
       // Hill bedrock nutrient extraction: deep roots weather minerals
-      if (cell.terrainType === TerrainType.Hill && cell.plantId !== null) {
-        const hillPlant = world.plants.get(cell.plantId);
+      if (cell.terrainType === TerrainType.Hill && !cellIsEmpty(cell)) {
+        const hillPlantId = cellPrimaryPlantId(cell);
+        const hillPlant = hillPlantId !== null ? world.plants.get(hillPlantId) : undefined;
         if (hillPlant && hillPlant.alive) {
           const hillMaxRoot = getPlantConstants(hillPlant.genome).maxRootDepth;
           const hillRootFrac = hillPlant.rootDepth / hillMaxRoot;
@@ -96,16 +98,19 @@ function phaseCalculateLight(world: World): void {
   const H = world.height;
 
   // Build flat grids from live plants (dead/absent → 0)
+  // With multi-plant cells, use tallest plant's height and woodiness for shadow params
   _heightGrid.fill(0);
   _srGrid.fill(0);
   _shsGrid.fill(0);
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const idx = plant.y * W + plant.x;
-    _heightGrid[idx] = plant.height;
-    const w = Math.max(0, Math.min(1, plant.genome.woodiness));
-    _srGrid[idx] = 0.05 + 0.20 * w;
-    _shsGrid[idx] = 1.0 + 2.0 * w;
+    if (plant.height > _heightGrid[idx]) {
+      _heightGrid[idx] = plant.height;
+      const w = Math.max(0, Math.min(1, plant.genome.woodiness));
+      _srGrid[idx] = 0.05 + 0.20 * w;
+      _shsGrid[idx] = 1.0 + 2.0 * w;
+    }
   }
 
   for (let y = 0; y < H; y++) {
@@ -212,16 +217,17 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   // Shade tolerance: short plants are adapted to capture diffuse understory light.
   // Scales inversely with actual height — groundcover & forbs benefit most, trees get nothing.
   // Suppressed in drought-stressed environments where open canopy makes shade adaptation irrelevant.
-  const isShaded = cell.lightLevel < SIM.BASE_LIGHT * 0.8;
+  const lightInput = plant.effectiveLight;
+  const isShaded = lightInput < SIM.BASE_LIGHT * 0.8;
   const heightFactor = Math.max(0, 1 - plant.height / 5.0);
   const shadeStrength = Math.max(0.3, 1.0 - cellEnv.droughtStress * 0.8);
-  const shadeTolerance = isShaded ? 1.0 + heightFactor * 2.5 * shadeStrength : 1.0;
+  const shadeTolerance = isShaded ? 1.0 + heightFactor * 1.5 * shadeStrength : 1.0;
 
   // Broad-leaf shade adaptation: large, thin leaves capture diffuse light efficiently.
   // Only applies in shade; benefits forbs (high leafSize) over grasses in understory.
   const leafEfficiency = isShaded ? 1.0 + plant.genome.leafSize * heightFactor * 1.0 * shadeStrength : 1.0;
 
-  const rawEnergy = (cell.lightLevel + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
+  const rawEnergy = (lightInput + heightLightBonus) * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE * shadeTolerance * leafEfficiency;
 
   // Root-gated nutrient access: absolute depth determines access (not relative to archetype max)
   const rootAccess = SIM.NUTRIENT_ROOT_ACCESS_MIN
@@ -229,7 +235,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   const nutrientBonus = 1 + cell.nutrients * rootAccess * SIM.NUTRIENT_GROWTH_BONUS;
 
   let energyProduced = rawEnergy * waterFraction * nutrientBonus;
-  plant.lastLightReceived = cell.lightLevel;
+  plant.lastLightReceived = lightInput;
 
   // Trait tradeoff modifier: genome × environment interaction
   const traitMod = computeTraitModifier(plant.genome, cellEnv);
@@ -357,11 +363,13 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
       for (let mx = plant.x - mateR; mx <= plant.x + mateR; mx++) {
         if (!inBounds(mx, my, world.width, world.height)) continue;
         const mc = world.grid[my][mx];
-        if (mc.plantId === null || mc.plantId === plant.id) continue;
-        const mate = world.plants.get(mc.plantId);
-        if (mate && mate.alive && mate.speciesId === plant.speciesId) {
-          mateGenome = mate.genome;
-          break outer;
+        for (const mid of cellPlantIds(mc)) {
+          if (mid === plant.id) continue;
+          const mate = world.plants.get(mid);
+          if (mate && mate.alive && mate.speciesId === plant.speciesId) {
+            mateGenome = mate.genome;
+            break outer;
+          }
         }
       }
     }
@@ -447,9 +455,10 @@ function phaseUpdatePlants(world: World): void {
         const nx = plant.x + dx, ny = plant.y + dy;
         if (!inBounds(nx, ny, world.width, world.height)) continue;
         const nc = world.grid[ny][nx];
-        if (nc.plantId === null) continue;
-        const n = world.plants.get(nc.plantId);
-        if (n && n.alive) archetypeSet |= (1 << archetype(n.genome));
+        for (const nid of cellPlantIds(nc)) {
+          const n = world.plants.get(nid);
+          if (n && n.alive) archetypeSet |= (1 << archetype(n.genome));
+        }
       }
       // Exclude self-archetype: trees among trees get 0 bonus, forbs among trees get bonus
       archetypeSet &= ~(1 << archetype(plant.genome));
@@ -570,8 +579,8 @@ function phaseGermination(world: World): void {
         }
       }
 
-      // Germinate if cell is empty and has enough water
-      if (cell.plantId !== null || cell.seeds.length === 0) continue;
+      // Germinate if cell has space and has enough water
+      if (!cellHasSpace(cell) || cell.seeds.length === 0) continue;
 
       // Weighted lottery — each qualifying seed's chance proportional to energy
       let totalEnergy = 0;
@@ -631,11 +640,12 @@ function phaseGermination(world: World): void {
           if (jx === x && jy === y) continue;
           if (!inBounds(jx, jy, world.width, world.height)) continue;
           const jc = world.grid[jy][jx];
-          if (jc.plantId === null) continue;
-          const jn = world.plants.get(jc.plantId);
-          if (jn && jn.alive) {
-            if (classifySubtype(jn.genome) === childSubtype) conspecificCount++;
-            if (archetype(jn.genome) === childArch) archConspecific++;
+          for (const jid of cellPlantIds(jc)) {
+            const jn = world.plants.get(jid);
+            if (jn && jn.alive) {
+              if (classifySubtype(jn.genome) === childSubtype) conspecificCount++;
+              if (archetype(jn.genome) === childArch) archConspecific++;
+            }
           }
         }
       }
@@ -689,10 +699,11 @@ function phaseGermination(world: World): void {
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         healthEMA: 1.0, peakEnergy: 2.0,
-        generation: winner.generation, parentId: null, offspringCount: 0,
+        generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0,
       };
       world.plants.set(childId, child);
-      cell.plantId = childId;
+      setCellPlant(cell, Tier.Ground, childId);
+      cell.plantId = cellPrimaryPlantId(cell);
       cell.lastSpeciesId = finalSpeciesId;
 
       world.germinationEvents.push({
@@ -718,7 +729,8 @@ function phaseDecomposition(world: World): void {
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS,
       cell.nutrients + dNutrient + plant.height * dNutrientH);
     cell.nutrients = Math.min(TERRAIN_PROPS[cell.terrainType].nutrientMax, cell.nutrients);
-    cell.plantId = null;
+    clearCellPlant(cell, plant.id);
+    cell.plantId = cellPrimaryPlantId(cell);
     toRemove.push(plant.id);
   }
   for (const id of toRemove) {
@@ -743,6 +755,8 @@ export function tickWorld(world: World, hooks?: TimingHooks): void {
   hooks?.begin('environment');  phaseEnvironment(world);       hooks?.end('environment');
   hooks?.begin('rechargeWater'); phaseRechargeWater(world);    hooks?.end('rechargeWater');
   hooks?.begin('calculateLight'); phaseCalculateLight(world);  hooks?.end('calculateLight');
+  hooks?.begin('tierAssignment'); phaseTierAssignment(world);  hooks?.end('tierAssignment');
+  hooks?.begin('tierLight');    phaseTierLight(world);         hooks?.end('tierLight');
   hooks?.begin('updatePlants'); phaseUpdatePlants(world);      hooks?.end('updatePlants');
   hooks?.begin('herbivores');   phaseHerbivores(world);        hooks?.end('herbivores');
   hooks?.begin('death');        phaseDeath(world);             hooks?.end('death');

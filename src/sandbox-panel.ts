@@ -7,6 +7,7 @@ import { classifySubtype } from './types/subtypes';
 import { speciesColorToRgb } from './ui-utils';
 import { World, Genome, TerrainType } from './types';
 import { Controls } from './controls';
+import { cellIsEmpty, cellPrimaryPlantId, clearCellPlant, setCellPlant, Tier } from './simulation/tiers';
 
 interface CustomSpecies {
   name: string;
@@ -281,7 +282,8 @@ export function createSandboxPanel(
     for (const plant of world.plants.values()) {
       if (speciesIds.has(plant.speciesId)) {
         const cell = world.grid[plant.y][plant.x];
-        if (cell.plantId === plant.id) cell.plantId = null;
+        clearCellPlant(cell, plant.id);
+        cell.plantId = cellPrimaryPlantId(cell);
         world.plants.delete(plant.id);
       }
     }
@@ -303,7 +305,8 @@ export function createSandboxPanel(
   clearAllBtn.addEventListener('click', () => {
     for (const plant of world.plants.values()) {
       const cell = world.grid[plant.y][plant.x];
-      if (cell.plantId === plant.id) cell.plantId = null;
+      clearCellPlant(cell, plant.id);
+      cell.plantId = cellPrimaryPlantId(cell);
     }
     world.plants.clear();
     customSpecies.clear();
@@ -361,7 +364,7 @@ export function createSandboxPanel(
   function handlePlacement(x: number, y: number): void {
     const cell = world.grid[y][x];
     if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) return;
-    if (cell.plantId !== null) return;
+    if (!cellIsEmpty(cell)) return;
 
     const genome = { ...currentGenome };
 
@@ -398,7 +401,8 @@ export function createSandboxPanel(
     const id = world.nextPlantId++;
     const plant = createPlant(id, x, y, genome, speciesId, speciesId);
     world.plants.set(id, plant);
-    cell.plantId = id;
+    setCellPlant(cell, Tier.Ground, id);
+    cell.plantId = cellPrimaryPlantId(cell);
     cell.lastSpeciesId = speciesId;
 
     rebuildPlacedList();

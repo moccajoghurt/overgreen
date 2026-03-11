@@ -26,25 +26,32 @@ export function updateInspector(world: World, controls: Controls): void {
   else if (overlayVal === WeatherOverlay.Diseased) text += `  [DISEASED]\n`;
   else if (overlayVal === WeatherOverlay.Blighted) text += `  [BLIGHTED]\n`;
 
-  if (cell.plantId !== null) {
-    const plant = world.plants.get(cell.plantId);
-    if (plant) {
-      const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
-      const w = plant.genome.woodiness;
-      const arcLabel = w < 0.25 ? 'Herb' : w < 0.5 ? 'Shrubby' : w < 0.75 ? 'Woody' : 'Tree';
-      text += `\n[Plant #${plant.id}]  ${spName}  (${arcLabel})  Age: ${plant.age}\n`;
-      text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
-      text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
-      text += `Energy: ${plant.energy.toFixed(1)}\n`;
-      text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} SI=${plant.genome.seedInvestment.toFixed(2)} SM=${plant.genome.seedSize.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)} WS=${plant.genome.waterStorage.toFixed(2)} Lon=${plant.genome.longevity.toFixed(2)}\n`;
-      const wsCap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
-      text += `Stored Water: ${plant.storedWater.toFixed(1)} / ${wsCap.toFixed(1)}\n`;
-      text += `\nLight: ${plant.lastLightReceived.toFixed(2)}  Water: ${plant.lastWaterAbsorbed.toFixed(2)}\n`;
-      text += `Energy +${plant.lastEnergyProduced.toFixed(2)}  Maint -${plant.lastMaintenanceCost.toFixed(2)}`;
-      const net = plant.lastEnergyProduced - plant.lastMaintenanceCost;
-      text += `  Net ${net >= 0 ? '+' : ''}${net.toFixed(2)}`;
-    }
-  } else {
+  // Show all tier plants
+  const tierLabels = ['Ground', 'Understory', 'Canopy'];
+  const tierIds = [cell.groundId, cell.understoryId, cell.canopyId];
+  let hasAnyPlant = false;
+  for (let t = tierIds.length - 1; t >= 0; t--) {
+    const pid = tierIds[t];
+    if (pid === null) continue;
+    const plant = world.plants.get(pid);
+    if (!plant) continue;
+    hasAnyPlant = true;
+    const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
+    const w = plant.genome.woodiness;
+    const arcLabel = w < 0.25 ? 'Herb' : w < 0.5 ? 'Shrubby' : w < 0.75 ? 'Woody' : 'Tree';
+    text += `\n[${tierLabels[t]}] Plant #${plant.id}  ${spName}  (${arcLabel})  Age: ${plant.age}\n`;
+    text += `Gen: ${plant.generation}  Parent: ${plant.parentId ?? 'founder'}  Offspring: ${plant.offspringCount}\n`;
+    text += `Height: ${plant.height.toFixed(1)}  Root: ${plant.rootDepth.toFixed(1)}  Leaf: ${plant.leafArea.toFixed(1)}\n`;
+    text += `Energy: ${plant.energy.toFixed(1)}\n`;
+    text += `Genome: R=${plant.genome.rootPriority.toFixed(2)} H=${plant.genome.heightPriority.toFixed(2)} L=${plant.genome.leafSize.toFixed(2)} SI=${plant.genome.seedInvestment.toFixed(2)} SM=${plant.genome.seedSize.toFixed(2)} D=${plant.genome.defense.toFixed(2)} W=${plant.genome.woodiness.toFixed(2)} WS=${plant.genome.waterStorage.toFixed(2)} Lon=${plant.genome.longevity.toFixed(2)}\n`;
+    const wsCap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
+    text += `Stored Water: ${plant.storedWater.toFixed(1)} / ${wsCap.toFixed(1)}\n`;
+    text += `Light: ${plant.lastLightReceived.toFixed(2)}  EffLight: ${plant.effectiveLight.toFixed(2)}  Water: ${plant.lastWaterAbsorbed.toFixed(2)}\n`;
+    text += `Energy +${plant.lastEnergyProduced.toFixed(2)}  Maint -${plant.lastMaintenanceCost.toFixed(2)}`;
+    const net = plant.lastEnergyProduced - plant.lastMaintenanceCost;
+    text += `  Net ${net >= 0 ? '+' : ''}${net.toFixed(2)}`;
+  }
+  if (!hasAnyPlant) {
     text += '\nNo plant on this cell.';
     if (cell.lastSpeciesId !== null) {
       const lastName = world.speciesNames.get(cell.lastSpeciesId!) ?? `Sp ${cell.lastSpeciesId}`;

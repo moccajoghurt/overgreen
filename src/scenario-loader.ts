@@ -3,6 +3,7 @@ import { createEnvironment, assignClimateZones } from './simulation/terrain';
 import { createPlant } from './simulation/plants';
 import { applyTerrainDefaults } from './simulation/terrain-defaults';
 import { classifySubtype } from './types/subtypes';
+import { cellIsEmpty, setCellPlant, cellPrimaryPlantId, Tier } from './simulation/tiers';
 
 /**
  * Load a scenario into an existing world by mutating it in-place.
@@ -54,6 +55,9 @@ export function loadScenario(world: World, scenario: Scenario): void {
         nutrients: 1 + Math.random() * 3,
         lightLevel: SIM.BASE_LIGHT,
         plantId: null as number | null,
+        canopyId: null as number | null,
+        understoryId: null as number | null,
+        groundId: null as number | null,
         lastSpeciesId: null as number | null,
         seeds: [],
       };
@@ -104,7 +108,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (pos.x < 0 || pos.x >= w || pos.y < 0 || pos.y >= h) continue;
       const cell = world.grid[pos.y][pos.x];
       if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) continue;
-      if (cell.plantId !== null) continue;
+      if (!cellIsEmpty(cell)) continue;
 
       const id = world.nextPlantId++;
       const plant = createPlant(id, pos.x, pos.y, sp.genome, sp.id, sp.id);
@@ -114,7 +118,8 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (pos.healthEMA !== undefined) plant.healthEMA = pos.healthEMA;
       if (pos.forceLow) plant.forceLow = true;
       world.plants.set(id, plant);
-      cell.plantId = id;
+      setCellPlant(cell, Tier.Ground, id);
+      cell.plantId = cellPrimaryPlantId(cell);
       cell.lastSpeciesId = sp.id;
     }
   }

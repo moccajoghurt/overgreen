@@ -2,6 +2,7 @@ import { SIM, TerrainType, WeatherOverlay, Environment, Season, ClimateZone } fr
 import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
 import { RendererState, GRID, lerp } from './state';
+import { cellPrimaryPlantId } from '../simulation/tiers';
 
 /** Snow multiplier per climate zone: 0 = no snow, 1 = full snow */
 const ZONE_SNOW_MULT: Record<ClimateZone, number> = {
@@ -152,8 +153,9 @@ export function updateTerrainColors(state: RendererState): void {
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
       const cell = world.grid[y][x];
-      if (cell.plantId == null) continue;
-      const plant = world.plants.get(cell.plantId);
+      const vegPlantId = cellPrimaryPlantId(cell);
+      if (vegPlantId == null) continue;
+      const plant = world.plants.get(vegPlantId);
       if (!plant) continue;
       const subtype = world.speciesSubtypes.get(plant.speciesId)
         ?? classifySubtype(plant.genome);

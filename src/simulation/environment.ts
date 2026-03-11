@@ -7,6 +7,7 @@ import {
 import { NEIGHBORS, parseKey, inBounds, randomIntRange, decayMap } from './neighbors';
 import { genomeDistance } from './plants';
 import { updateEffectiveEnv } from './trait-effects';
+import { cellPrimaryPlantId, cellPlantIds } from './tiers';
 
 interface SeasonTargets {
   water: number; light: number;
@@ -139,13 +140,14 @@ export function spawnFire(world: World): void {
     const x = Math.floor(Math.random() * world.width);
     const y = Math.floor(Math.random() * world.height);
     const cell = world.grid[y][x];
-    if (cell.plantId === null || cell.waterLevel > 2.0) continue;
+    const ignitionId = cellPrimaryPlantId(cell);
+    if (ignitionId === null || cell.waterLevel > 2.0) continue;
     if (cell.terrainType === TerrainType.River) continue;
     if (Math.random() > ZONE_FIRE_WEIGHT[cell.climateZone]) continue;
 
     const fire = { cells: new Map([[`${x},${y}`, 4]]), ticksRemaining: randomIntRange(8, 17) };
     world.environment.fires.push(fire);
-    const ignitionPlant = world.plants.get(cell.plantId!);
+    const ignitionPlant = world.plants.get(ignitionId);
     if (ignitionPlant && Math.random() < fireSurvivalChance(ignitionPlant)) {
       ignitionPlant.leafArea *= (1 - SIM.FIRE_SURVIVAL_LEAF_LOSS);
       ignitionPlant.energy *= (1 - SIM.FIRE_SURVIVAL_ENERGY_LOSS);
@@ -161,27 +163,32 @@ export function spawnFire(world: World): void {
 
 function killPlantByFire(world: World, x: number, y: number): void {
   const cell = world.grid[y][x];
-  if (cell.plantId === null) return;
-  const plant = world.plants.get(cell.plantId);
-  if (plant && plant.alive) {
-    world.fireDeathEvents.push({
-      id: plant.id,
-      x: plant.x, y: plant.y,
-      height: plant.height, rootDepth: plant.rootDepth,
-      leafArea: plant.leafArea, speciesId: plant.speciesId,
-      genome: { ...plant.genome },
-    });
-    plant.alive = false;
-    plant.causeOfDeath = 'fire';
-    world.deathEvents.push({
-      id: plant.id,
-      speciesId: plant.speciesId,
-      cause: 'fire',
-      age: plant.age,
-      offspringCount: plant.offspringCount,
-      generation: plant.generation,
-    });
-    plant.energy = 0;
+  let anyKilled = false;
+  for (const pid of cellPlantIds(cell)) {
+    const plant = world.plants.get(pid);
+    if (plant && plant.alive) {
+      world.fireDeathEvents.push({
+        id: plant.id,
+        x: plant.x, y: plant.y,
+        height: plant.height, rootDepth: plant.rootDepth,
+        leafArea: plant.leafArea, speciesId: plant.speciesId,
+        genome: { ...plant.genome },
+      });
+      plant.alive = false;
+      plant.causeOfDeath = 'fire';
+      world.deathEvents.push({
+        id: plant.id,
+        speciesId: plant.speciesId,
+        cause: 'fire',
+        age: plant.age,
+        offspringCount: plant.offspringCount,
+        generation: plant.generation,
+      });
+      plant.energy = 0;
+      anyKilled = true;
+    }
+  }
+  if (anyKilled) {
     cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + 2.0);
     cell.waterLevel = Math.max(0, cell.waterLevel - 1.5);
   }
@@ -218,8 +225,9 @@ function advanceFires(world: World): void {
 
           const cell = world.grid[ny][nx];
           if (cell.terrainType === TerrainType.River) continue;
-          if (cell.plantId === null) continue;
-          const plant = world.plants.get(cell.plantId);
+          const spreadPlantId = cellPrimaryPlantId(cell);
+          if (spreadPlantId === null) continue;
+          const plant = world.plants.get(spreadPlantId);
           if (!plant || !plant.alive) continue;
 
           const waterResist = cell.waterLevel / SIM.MAX_WATER;
@@ -281,7 +289,8 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
   if (forceAt) {
     // Debug: force-spawn at specific location
     const cell = world.grid[forceAt.y][forceAt.x];
-    let targetPlant = cell.plantId !== null ? world.plants.get(cell.plantId) : undefined;
+    const forceId = cellPrimaryPlantId(cell);
+    let targetPlant = forceId !== null ? world.plants.get(forceId) : undefined;
     if (!targetPlant || !targetPlant.alive) {
       // Find any nearby alive plant
       for (const plant of world.plants.values()) {
@@ -301,8 +310,9 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
     const x = Math.floor(Math.random() * world.width);
     const y = Math.floor(Math.random() * world.height);
     const cell = world.grid[y][x];
-    if (cell.plantId === null) continue;
-    const plant = world.plants.get(cell.plantId);
+    const candidateId = cellPrimaryPlantId(cell);
+    if (candidateId === null) continue;
+    const plant = world.plants.get(candidateId);
     if (!plant || !plant.alive) continue;
 
     // Scan radius for uniformity
@@ -314,12 +324,13 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
     for (let sy = minY; sy <= maxY; sy++) {
       for (let sx = minX; sx <= maxX; sx++) {
         const sc = world.grid[sy][sx];
-        if (sc.plantId === null) continue;
-        const sp = world.plants.get(sc.plantId);
-        if (!sp || !sp.alive) continue;
-        total++;
-        if (genomeDistance(plant.genome, sp.genome) < 0.20) {
-          similar++;
+        for (const sid of cellPlantIds(sc)) {
+          const sp = world.plants.get(sid);
+          if (!sp || !sp.alive) continue;
+          total++;
+          if (genomeDistance(plant.genome, sp.genome) < 0.20) {
+            similar++;
+          }
         }
       }
     }
@@ -330,7 +341,7 @@ export function spawnDisease(world: World, forceAt?: { x: number; y: number }): 
       bestUniformity = uniformity;
       bestX = x;
       bestY = y;
-      bestPlantId = cell.plantId;
+      bestPlantId = candidateId;
     }
   }
 
@@ -376,16 +387,21 @@ function advanceDiseases(world: World): void {
           if (disease.cells.has(nKey)) continue;
 
           const cell = world.grid[ny][nx];
-          if (cell.plantId === null) continue;
-          const plant = world.plants.get(cell.plantId);
-          if (!plant || !plant.alive) continue;
+          // Check any plant in the cell for disease susceptibility
+          let bestSusceptPlant: Plant | null = null;
+          let bestSuscept = 0;
+          for (const pid of cellPlantIds(cell)) {
+            const p = world.plants.get(pid);
+            if (!p || !p.alive) continue;
+            const d = genomeDistance(disease.targetGenome, p.genome);
+            if (d >= SIM.DISEASE_DISTANCE_THRESHOLD) continue;
+            const s = Math.max(0, 1 - d / SIM.DISEASE_DISTANCE_THRESHOLD);
+            if (s > bestSuscept) { bestSuscept = s; bestSusceptPlant = p; }
+          }
+          if (!bestSusceptPlant) continue;
 
-          const dist = genomeDistance(disease.targetGenome, plant.genome);
-          if (dist >= SIM.DISEASE_DISTANCE_THRESHOLD) continue;
-
-          const susceptibility = Math.max(0, 1 - dist / SIM.DISEASE_DISTANCE_THRESHOLD);
-          const spreadChance = SIM.DISEASE_SPREAD_BASE * susceptibility * susceptibility;
-          const defenseResist = 1 - plant.genome.defense * SIM.DEFENSE_DISEASE_RESIST;
+          const spreadChance = SIM.DISEASE_SPREAD_BASE * bestSuscept * bestSuscept;
+          const defenseResist = 1 - bestSusceptPlant.genome.defense * SIM.DEFENSE_DISEASE_RESIST;
           if (Math.random() < spreadChance * defenseResist) {
             const cellDur = SIM.DISEASE_CELL_DURATION_MIN +
               Math.floor(Math.random() * (SIM.DISEASE_CELL_DURATION_MAX - SIM.DISEASE_CELL_DURATION_MIN));

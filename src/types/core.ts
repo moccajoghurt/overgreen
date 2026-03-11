@@ -67,6 +67,7 @@ export interface Plant {
   parentId: number | null;
   offspringCount: number;
   forceLow?: boolean;
+  effectiveLight: number;
 }
 
 export interface Cell {
@@ -80,6 +81,9 @@ export interface Cell {
   nutrients: number;
   lightLevel: number;
   plantId: number | null;
+  canopyId: number | null;
+  understoryId: number | null;
+  groundId: number | null;
   lastSpeciesId: number | null;
   seeds: Seed[];
 }

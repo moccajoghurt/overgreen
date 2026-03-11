@@ -8,6 +8,7 @@ import {
 } from './state';
 import { computePlantTint } from './plant-colors';
 import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
+import { cellPrimaryPlantId } from '../simulation/tiers';
 
 const SUBTYPE_COUNT = 40;
 const HEALTH_COUNT = 3; // Thriving, Stressed, Dying
@@ -160,9 +161,12 @@ function ingestEvents(state: RendererState): void {
       if (flyingSeeds.length >= MAX_SEEDS) break;
       let parentHeight = 1.0;
       const cell = world.grid[evt.parentY]?.[evt.parentX];
-      if (cell?.plantId != null) {
-        const parent = world.plants.get(cell.plantId);
-        if (parent?.alive) parentHeight = parent.height;
+      if (cell) {
+        const parentId = cellPrimaryPlantId(cell);
+        if (parentId != null) {
+          const parent = world.plants.get(parentId);
+          if (parent?.alive) parentHeight = parent.height;
+        }
       }
       const startY = Math.max(0.3, parentHeight * 0.7);
       const isGrass = evt.woodiness < 0.4;
