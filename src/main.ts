@@ -50,7 +50,7 @@ const hookPhase = createHookPhase({
   },
 });
 
-// Natural colors during hook — species colors activate on reveal
+// Start with natural colors
 renderer.setColorMode('natural');
 
 // ── Performance tracking ──

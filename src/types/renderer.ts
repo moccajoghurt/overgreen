@@ -1,6 +1,6 @@
 import type { TimingHooks } from '../perf';
 
-export type ColorMode = 'natural' | 'species' | 'water' | 'light' | 'nutrients' | 'fertility' | 'health';
+export type ColorMode = 'natural' | 'water' | 'light' | 'nutrients' | 'fertility' | 'health';
 
 export function isHeatmapMode(mode: ColorMode): boolean {
   return mode === 'water' || mode === 'light' || mode === 'nutrients' || mode === 'fertility' || mode === 'health';

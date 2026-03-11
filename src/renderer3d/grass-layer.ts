@@ -452,7 +452,7 @@ export function createGrassLayer(
       } else {
       // Compute tint (reuses same cache as accent plants)
       const tint = computePlantTint(
-        state, plant.id, plant.speciesId, plant.genome,
+        state, plant.id, plant.genome,
       );
 
       tr = tint.r;

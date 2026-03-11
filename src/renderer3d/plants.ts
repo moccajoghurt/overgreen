@@ -136,7 +136,7 @@ function computeFinalTint(
     return { tr: r, tg: g, tb: b };
   }
 
-  const tint = computePlantTint(state, plantId, speciesId, genome);
+  const tint = computePlantTint(state, plantId, genome);
   let tr = tint.r, tg = tint.g, tb = tint.b;
 
   // Disease overlay
@@ -306,14 +306,6 @@ function renderDyingBurning(
           const [hr, hg, hb] = heatmapColor(mode, nt);
           tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
         }
-      }
-    } else if (state.colorMode === 'species') {
-      // Species mode: tint the dying plant too
-      const sc = world.speciesColors.get(dp.speciesId);
-      if (sc) {
-        tr *= lerp(0.4 + sc.r * 0.8, 0.45, p);
-        tg *= lerp(0.4 + sc.g * 0.8, 0.30, p);
-        tb *= lerp(0.4 + sc.b * 0.8, 0.12, p);
       }
     }
 
