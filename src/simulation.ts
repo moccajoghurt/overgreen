@@ -92,6 +92,7 @@ const _heightGrid = new Float32Array(_gridSize);
 const _srGrid = new Float32Array(_gridSize);
 const _shsGrid = new Float32Array(_gridSize);
 const _diseasedGrid = new Uint8Array(_gridSize);
+const _archetypeMask = new Uint8Array(_gridSize);
 
 function phaseCalculateLight(world: World): void {
   const W = world.width;
@@ -281,10 +282,13 @@ function calculateMaintenance(plant: Plant, _world: World, isDiseased: boolean, 
   return maintenance;
 }
 
-function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants): void {
+function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm: ZoneModifiers, pc: PlantConstants, cellEnv: CellEnvironment): void {
   const growthEff = pc.growthEfficiency;
   const capRoot = pc.maxRootDepth;
-  const capHeight = pc.maxHeight;
+  // Wind stunting (krummholz effect): high wind exposure limits maximum height.
+  // Flexible low-woodiness plants resist stunting better than rigid woody plants.
+  const windStunt = Math.max(0.3, 1 - cellEnv.windExposure * plant.genome.woodiness * 0.9);
+  const capHeight = pc.maxHeight * windStunt;
   const capLeaf = pc.maxLeafArea;
   const seedCost = pc.seedEnergyCost;
   const seedRangeMax = pc.seedRangeMax;
@@ -421,6 +425,13 @@ function phaseUpdatePlants(world: World): void {
     }
   }
 
+  // Pre-compute per-cell archetype bitmasks for facilitation check
+  _archetypeMask.fill(0);
+  for (const p of world.plants.values()) {
+    if (!p.alive) continue;
+    _archetypeMask[p.y * W + p.x] |= (1 << archetype(p.genome));
+  }
+
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
     const cell = world.grid[plant.y][plant.x];
@@ -454,11 +465,7 @@ function phaseUpdatePlants(world: World): void {
       for (const [dx, dy] of NEIGHBORS) {
         const nx = plant.x + dx, ny = plant.y + dy;
         if (!inBounds(nx, ny, world.width, world.height)) continue;
-        const nc = world.grid[ny][nx];
-        for (const nid of cellPlantIds(nc)) {
-          const n = world.plants.get(nid);
-          if (n && n.alive) archetypeSet |= (1 << archetype(n.genome));
-        }
+        archetypeSet |= _archetypeMask[ny * W + nx];
       }
       // Exclude self-archetype: trees among trees get 0 bonus, forbs among trees get bonus
       archetypeSet &= ~(1 << archetype(plant.genome));
@@ -518,7 +525,7 @@ function phaseUpdatePlants(world: World): void {
 
     const zmPlant = world.environment.zoneModifiers[cell.climateZone];
     if (plant.energy > 1.0) {
-      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc);
+      allocateGrowthAndSeeds(plant, plant.energy - 1.0, world, zmPlant, pc, cellEnv);
     }
 
     plant.age++;

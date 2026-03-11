@@ -3,6 +3,7 @@ import { tickWorld, clearFrameEvents } from '../src/simulation';
 import { loadScenario } from '../src/scenario-loader';
 import { SCENARIOS } from '../src/scenarios';
 import { SIM } from '../src/types';
+import { classifySubtype, SUBTYPE_NAMES } from '../src/types/subtypes';
 import { PerfTracker } from '../src/perf';
 import {
   createAccumulator, accumulateTick, computeSnapshot,
@@ -100,6 +101,20 @@ for (let t = 1; t <= totalTicks; t++) {
       allSpecies.push({ id, name: world.speciesNames.get(id) ?? `Sp ${id}`, count: entry.total, terrain: entry.terrain });
     }
     (snap as any).speciesDetail = allSpecies;
+
+    // Subtype counts per terrain
+    const subtypeTerrain: Record<string, Record<string, number>> = {};
+    for (const p of world.plants.values()) {
+      if (!p.alive) continue;
+      const cell = world.grid[p.y][p.x];
+      const tName = terrainNames[cell.terrainType] || 'unknown';
+      const stId = classifySubtype(p.genome);
+      const stName = SUBTYPE_NAMES[stId] || `Subtype${stId}`;
+      if (!subtypeTerrain[tName]) subtypeTerrain[tName] = {};
+      subtypeTerrain[tName][stName] = (subtypeTerrain[tName][stName] || 0) + 1;
+    }
+    (snap as any).subtypesByTerrain = subtypeTerrain;
+
     snapshots.push(snap);
     accumulator = createAccumulator();
 
