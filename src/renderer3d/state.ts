@@ -38,8 +38,8 @@ export const MAX_PER_SUBTYPE_HEALTH = 3000; // stressed/dying meshes (most plant
 export const enum HealthState { Thriving = 0, Stressed = 1, Dying = 2 }
 
 export function healthStateFromEMA(ema: number): HealthState {
-  if (ema > 0.7) return HealthState.Thriving;
-  if (ema > 0.5) return HealthState.Stressed;
+  if (ema > 0.85) return HealthState.Thriving;
+  if (ema > 0.35) return HealthState.Stressed;
   return HealthState.Dying;
 }
 
