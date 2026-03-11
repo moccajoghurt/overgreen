@@ -340,8 +340,8 @@ export async function createRenderer3D(
     // or periodically every 30 ticks for gradual growth. Checked AFTER updatePlants
     // so mesh counts reflect the current tick. Always render on first frame.
     if (isNewTick) {
-      let shadowDirty = isFirstFrame || world.tick % 30 === 0;
-      if (!shadowDirty && tickDelta <= 1) {
+      let shadowDirty = isFirstFrame || world.tick % 30 < tickDelta;
+      if (!shadowDirty) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
           const total = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i]
             + state.subtypeLiveCountsStressed[i] + state.subtypeLiveCountsStressedLow[i]
