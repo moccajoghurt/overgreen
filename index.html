@@ -149,7 +149,7 @@
       border-top: 1px solid #333;
     }
     #charts-wrapper {
-      flex: 7; display: flex; flex-direction: column; min-width: 0;
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
     }
     #chart-tabs {
       display: flex; gap: 0; flex-shrink: 0; background: #1a1a1a;
@@ -163,29 +163,8 @@
     }
     .chart-tab:hover { color: #aaa; }
     .chart-tab.active { color: #8f8; border-bottom-color: #8f8; }
-    #genomes-container, #lineage-container, #population-container, #traits-container {
+    #genomes-container, #lineage-container {
       flex: 1; position: relative; overflow: hidden;
-    }
-    #genomes-container, #lineage-container { overflow: hidden; }
-    #population-container canvas, #traits-container canvas { width: 100%; height: 100%; display: block; }
-    #ticker-container {
-      flex: 3; overflow-y: auto;
-      border-left: 1px solid #333;
-      padding: 6px; font-size: 11px; line-height: 1.4;
-    }
-    #ticker-list .event {
-      padding: 2px 0; display: flex; align-items: baseline; gap: 4px;
-    }
-    #ticker-list .event-dot {
-      display: inline-block; width: 6px; height: 6px;
-      border-radius: 50%; flex-shrink: 0; margin-top: 3px;
-    }
-    #ticker-list .event-new {
-      animation: ticker-fade 0.6s ease-out;
-    }
-    @keyframes ticker-fade {
-      from { background: rgba(136,255,136,0.12); }
-      to { background: transparent; }
     }
 
     /* ── Hook phase ── */
@@ -373,17 +352,9 @@
       <div id="chart-tabs">
         <button class="chart-tab active" data-chart="genomes">Species</button>
         <button class="chart-tab" data-chart="lineage">Lineage</button>
-        <button class="chart-tab" data-chart="population">Population</button>
-        <button class="chart-tab" data-chart="traits">Traits</button>
       </div>
       <div id="genomes-container"></div>
       <div id="lineage-container" style="display:none"></div>
-      <div id="population-container" style="display:none"></div>
-      <div id="traits-container" style="display:none"></div>
-    </div>
-    <div id="ticker-container">
-      <div style="color:#8f8; font-size:12px; margin-bottom:4px;">Events</div>
-      <div id="ticker-list"></div>
     </div>
   </div>
   <script type="module" src="/src/main.ts"></script>

@@ -4,11 +4,8 @@ import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { updateInspector } from './inspector';
 import { createHistory, recordTick, resetHistory } from './history';
-import { createPopulationChart } from './population-chart';
-import { createTraitChart } from './trait-chart';
 import { createGenomePanel } from './genome-panel';
 import { createLineagePanel } from './lineage-panel';
-import { createEventTicker } from './event-ticker';
 import { createCommentary } from './commentary';
 import { createDiagnosticLogger } from './diagnostic-logger';
 import { createSandboxPanel } from './sandbox-panel';
@@ -134,9 +131,6 @@ const diagLogger = createDiagnosticLogger();
 };
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const lineagePanel = createLineagePanel(document.getElementById('lineage-container')!, container, renderer);
-const chart = createPopulationChart(document.getElementById('population-container')!);
-const traitChart = createTraitChart(document.getElementById('traits-container')!);
-const ticker = createEventTicker(document.getElementById('ticker-list')!);
 const commentary = createCommentary(container);
 const sandboxPanel = createSandboxPanel(
   document.getElementById('sandbox-panel')!,
@@ -279,14 +273,11 @@ function resetAllState(): void {
   resetHistory(history);
   lastEventSeq = 0;
   diagLogger.reset();
-  ticker.reset();
   commentary.reset();
   speciesLabels.reset();
   genomePanel.reset();
   lineagePanel.reset();
   systemsOverlay.reset();
-  chart.reset();
-  traitChart.reset();
   renderer.rebuildTerrain();
   renderer.rebuildWater();
   terrainLabels.rebuild(world);
@@ -299,7 +290,7 @@ function resetAllState(): void {
 
 // Tab switching
 const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
-const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #lineage-container, #population-container, #traits-container');
+const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #lineage-container');
 chartTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     chartTabs.forEach(t => t.classList.remove('active'));
@@ -349,13 +340,10 @@ function updateUI(): void {
   }
   genomePanel.update(world);
   lineagePanel.update(world);
-  chart.update(history, world.speciesColors);
-  traitChart.update(history);
-  ticker.update(history, world.speciesColors);
   commentary.update(history, world.speciesColors, world, renderer);
   sandboxPanel.update(world);
   speciesLabels.update(world, history);
-  systemsOverlay.update(world);
+  systemsOverlay.update(world, history);
 }
 
 

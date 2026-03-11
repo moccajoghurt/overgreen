@@ -1,10 +1,13 @@
-import { World, TerrainType, SEASON_NAMES, CLIMATE_ZONE_COUNT } from './types';
+import { World, History, TerrainType, SEASON_NAMES, CLIMATE_ZONE_COUNT } from './types';
 import { getEffectiveEnv } from './simulation/trait-effects';
+import { createPopulationChart } from './population-chart';
+import { createTraitChart } from './trait-chart';
+import { createEventTicker } from './event-ticker';
 
 export interface SystemsOverlay {
   show(): void;
   hide(): void;
-  update(world: World): void;
+  update(world: World, history: History): void;
   toggle(): void;
   isVisible(): boolean;
   reset(): void;
@@ -164,7 +167,7 @@ const TERRAIN_COUNT = 6;
 export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   const el = document.createElement('div');
   el.style.cssText = `
-    position:absolute;top:8px;right:8px;width:340px;
+    position:absolute;top:8px;right:8px;width:480px;
     max-height:calc(100% - 16px);overflow-y:auto;
     background:rgba(0,0,0,0.85);color:#ccc;
     font:11px/1.5 monospace;padding:10px 12px;
@@ -265,6 +268,51 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
   pop.body.appendChild(popSpark);
   el.appendChild(pop.wrap);
 
+  // ── Population History chart ──
+  const popChartSec = makeSection('POPULATION HISTORY', '#8cb4ff');
+  const popChartContainer = document.createElement('div');
+  popChartContainer.style.cssText = 'width:100%;height:140px;position:relative;overflow:hidden;';
+  popChartSec.body.appendChild(popChartContainer);
+  el.appendChild(popChartSec.wrap);
+  const popChart = createPopulationChart(popChartContainer);
+
+  // ── Trait History chart ──
+  const traitChartSec = makeSection('TRAIT HISTORY', '#b080d0');
+  const traitChartContainer = document.createElement('div');
+  traitChartContainer.style.cssText = 'width:100%;height:140px;position:relative;overflow:hidden;';
+  traitChartSec.body.appendChild(traitChartContainer);
+  el.appendChild(traitChartSec.wrap);
+  const traitChartInst = createTraitChart(traitChartContainer);
+
+  // ── Event Log ──
+  const tickerSec = makeSection('EVENT LOG', '#8f8');
+  const tickerContainer = document.createElement('div');
+  tickerContainer.className = 'sys-ticker';
+  tickerContainer.style.cssText = 'width:100%;height:160px;overflow-y:auto;font-size:11px;line-height:1.4;scrollbar-width:thin;scrollbar-color:#444 transparent;';
+  tickerSec.body.appendChild(tickerContainer);
+  el.appendChild(tickerSec.wrap);
+  const tickerInst = createEventTicker(tickerContainer);
+
+  // Ticker CSS (scoped to .sys-ticker)
+  const tickerStyle = document.createElement('style');
+  tickerStyle.textContent = `
+    .sys-ticker .event {
+      padding: 2px 0; display: flex; align-items: baseline; gap: 4px;
+    }
+    .sys-ticker .event-dot {
+      display: inline-block; width: 6px; height: 6px;
+      border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+    }
+    .sys-ticker .event-new {
+      animation: sys-ticker-fade 0.6s ease-out;
+    }
+    @keyframes sys-ticker-fade {
+      from { background: rgba(136,255,136,0.12); }
+      to { background: transparent; }
+    }
+  `;
+  el.appendChild(tickerStyle);
+
   // ── History ring buffers ──
   const histPop = new RingBuf();
   const histSpecies = new RingBuf();
@@ -303,9 +351,12 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     histDirty = true;
     histPop.reset(); histSpecies.reset(); histNetEnergy.reset();
     histAvgWater.reset(); histHerbPop.reset();
+    popChart.reset();
+    traitChartInst.reset();
+    tickerInst.reset();
   }
 
-  function update(world: World): void {
+  function update(world: World, history: History): void {
     if (!visible) return;
     const now = performance.now();
     if (now - lastUpdateMs < 200) return;
@@ -487,6 +538,11 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     drawSparkline(energySpark, histNetEnergy, '#e89040', true);
     drawSparkline(waterSpark, histAvgWater, '#4a90d9');
     drawSparkline(herbSpark, histHerbPop, '#a0826a');
+
+    // ── Charts & Ticker ──
+    popChart.update(history, world.speciesColors);
+    traitChartInst.update(history);
+    tickerInst.update(history, world.speciesColors);
 
     // ── Tier proportional bar ──
     const total = canopy + understory + ground + empty;
