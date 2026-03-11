@@ -120,9 +120,10 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
   { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.20, description: 'wind strips foliage on broad-leaved plants' },
 
-  // Defense — costly but essential where disease thrives
+  // Defense — costly but essential where disease thrives; spines protect from sun in heat
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
   { trait: 'defense',        envVar: null,              coefficient: -0.25, description: 'metabolic cost of defensive tissue' },
+  { trait: 'defense',        envVar: 'heatStress',      coefficient: +0.25, description: 'spines and waxy coating provide sun/heat protection' },
 
   // Water storage — critical in drought, liability in frost/wetland/wind
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
@@ -146,12 +147,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'rootPriority',   envVar: 'windExposure',   coefficient: -0.20, description: 'deep taproots wind-levered in thin exposed soil' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.40, description: 'root drowning' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.30, inverse: true, description: 'shallow roots thrive in saturated soil' },
+  { trait: 'rootPriority',   envVar: 'heatStress',     coefficient: -0.25, description: 'root zone overheating in hot exposed soil' },
 
   // Height priority — competitive light positioning, but wind destroys tall plants
   { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
   { trait: 'heightPriority', envVar: 'soilFertility',  coefficient: +0.30, description: 'tall plants compete for light on fertile soil' },
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
+  { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.50, description: 'tall columnar form radiates heat efficiently' },
 
   // Seed investment — colonizers exploit harsh niches via rapid reproduction
   { trait: 'seedInvestment', envVar: 'windExposure',   coefficient: +0.20, description: 'wind seed dispersal' },
