@@ -327,7 +327,6 @@ export function createWorld(width: number, height: number): World {
         waterRechargeRate: SIM.BASE_WATER_RECHARGE * (0.7 + Math.random() * 0.6),
         nutrients: 1 + Math.random() * 3,
         lightLevel: SIM.BASE_LIGHT,
-        plantId: null,
         canopyId: null,
         understoryId: null,
         groundId: null,

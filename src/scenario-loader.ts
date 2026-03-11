@@ -3,7 +3,7 @@ import { createEnvironment, assignClimateZones } from './simulation/terrain';
 import { createPlant } from './simulation/plants';
 import { applyTerrainDefaults } from './simulation/terrain-defaults';
 import { classifySubtype } from './types/subtypes';
-import { cellIsEmpty, setCellPlant, cellPrimaryPlantId, Tier } from './simulation/tiers';
+import { cellIsEmpty, setCellPlant, Tier } from './simulation/tiers';
 
 /**
  * Load a scenario into an existing world by mutating it in-place.
@@ -119,7 +119,6 @@ export function loadScenario(world: World, scenario: Scenario): void {
       if (pos.forceLow) plant.forceLow = true;
       world.plants.set(id, plant);
       setCellPlant(cell, Tier.Ground, id);
-      cell.plantId = cellPrimaryPlantId(cell);
       cell.lastSpeciesId = sp.id;
     }
   }

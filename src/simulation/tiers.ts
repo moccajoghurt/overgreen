@@ -45,7 +45,7 @@ export function clearCellPlant(cell: Cell, plantId: number): void {
   if (cell.groundId === plantId) cell.groundId = null;
 }
 
-/** Backward-compat: return the "primary" plant (tallest tier occupied). */
+/** Return the "primary" plant (tallest tier occupied). */
 export function cellPrimaryPlantId(cell: Cell): number | null {
   return cell.canopyId ?? cell.understoryId ?? cell.groundId;
 }
@@ -106,13 +106,6 @@ export function phaseTierAssignment(world: World): void {
     });
   }
 
-  // Sync plantId for backward compatibility
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const cell = world.grid[y][x];
-      cell.plantId = cellPrimaryPlantId(cell);
-    }
-  }
 }
 
 /**

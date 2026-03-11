@@ -703,7 +703,6 @@ function phaseGermination(world: World): void {
       };
       world.plants.set(childId, child);
       setCellPlant(cell, Tier.Ground, childId);
-      cell.plantId = cellPrimaryPlantId(cell);
       cell.lastSpeciesId = finalSpeciesId;
 
       world.germinationEvents.push({
@@ -730,7 +729,6 @@ function phaseDecomposition(world: World): void {
       cell.nutrients + dNutrient + plant.height * dNutrientH);
     cell.nutrients = Math.min(TERRAIN_PROPS[cell.terrainType].nutrientMax, cell.nutrients);
     clearCellPlant(cell, plant.id);
-    cell.plantId = cellPrimaryPlantId(cell);
     toRemove.push(plant.id);
   }
   for (const id of toRemove) {

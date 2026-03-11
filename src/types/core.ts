@@ -80,7 +80,6 @@ export interface Cell {
   waterRechargeRate: number;
   nutrients: number;
   lightLevel: number;
-  plantId: number | null;
   canopyId: number | null;
   understoryId: number | null;
   groundId: number | null;

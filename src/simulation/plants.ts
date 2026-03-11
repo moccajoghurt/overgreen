@@ -4,7 +4,7 @@ import {
 } from '../types';
 import { generateSpeciesName } from '../species-names';
 import { classifySubtype } from '../types/subtypes';
-import { cellIsEmpty, setCellPlant, cellPrimaryPlantId, Tier } from './tiers';
+import { cellIsEmpty, setCellPlant, Tier } from './tiers';
 
 function hsl2rgb(h: number, s: number, l: number): SpeciesColor {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -130,7 +130,6 @@ export function seedSinglePlant(world: World): void {
   world.plants.set(id, plant);
   const cell = world.grid[cy][cx];
   setCellPlant(cell, Tier.Ground, id);
-  cell.plantId = cellPrimaryPlantId(cell);
   cell.lastSpeciesId = speciesId;
   world.subtypeSpecies.set(subtype, speciesId);
 }
@@ -197,7 +196,6 @@ export function seedInitialPlants(world: World, _count: number): void {
           const plant = createPlant(id, px, py, genome, speciesId, speciesId);
           world.plants.set(id, plant);
           setCellPlant(cell, Tier.Ground, id);
-          cell.plantId = cellPrimaryPlantId(cell);
           cell.lastSpeciesId = speciesId;
           break;
         }

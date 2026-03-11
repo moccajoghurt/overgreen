@@ -7,7 +7,7 @@ import { classifySubtype } from './types/subtypes';
 import { speciesColorToRgb } from './ui-utils';
 import { World, Genome, TerrainType } from './types';
 import { Controls } from './controls';
-import { cellIsEmpty, cellPrimaryPlantId, clearCellPlant, setCellPlant, Tier } from './simulation/tiers';
+import { cellIsEmpty, clearCellPlant, setCellPlant, Tier } from './simulation/tiers';
 
 interface CustomSpecies {
   name: string;
@@ -283,7 +283,6 @@ export function createSandboxPanel(
       if (speciesIds.has(plant.speciesId)) {
         const cell = world.grid[plant.y][plant.x];
         clearCellPlant(cell, plant.id);
-        cell.plantId = cellPrimaryPlantId(cell);
         world.plants.delete(plant.id);
       }
     }
@@ -306,7 +305,6 @@ export function createSandboxPanel(
     for (const plant of world.plants.values()) {
       const cell = world.grid[plant.y][plant.x];
       clearCellPlant(cell, plant.id);
-      cell.plantId = cellPrimaryPlantId(cell);
     }
     world.plants.clear();
     customSpecies.clear();
@@ -402,7 +400,6 @@ export function createSandboxPanel(
     const plant = createPlant(id, x, y, genome, speciesId, speciesId);
     world.plants.set(id, plant);
     setCellPlant(cell, Tier.Ground, id);
-    cell.plantId = cellPrimaryPlantId(cell);
     cell.lastSpeciesId = speciesId;
 
     rebuildPlacedList();
