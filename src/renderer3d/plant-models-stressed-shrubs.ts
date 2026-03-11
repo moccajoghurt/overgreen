@@ -5,14 +5,6 @@ import { mat, addCanopy, addTrunk, jitter } from './plant-models';
 // Slots: EvergreenShrub(12), DeciduousShrub(13), Mediterranean(14), Thorny(15),
 //        DesertShrub(16), Mangrove(17), FloweringShrub(34), Aromatic(35)
 
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat(0xff00ff));
-  m.position.y = 0.15;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD stressed builders ──
 
 function buildEvergreenShrubStressed(): THREE.Group {
@@ -397,7 +389,6 @@ function buildMangroveStressed(): THREE.Group {
 function buildFloweringShrubStressed(): THREE.Group {
   const g = new THREE.Group();
   // Stressed hibiscus — no flowers, sparser yellowed dome
-  const stemMat = mat(0x5a4a30);
   const stressLeaf = [0x88993a, 0x99aa44, 0xa0a840, 0x8a9a3a, 0xaaaa55];
   const cc = () => stressLeaf[Math.floor(Math.random() * stressLeaf.length)];
 

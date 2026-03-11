@@ -1,5 +1,5 @@
 import { World, TerrainType, SEASON_NAMES, CLIMATE_ZONE_COUNT } from './types';
-import { getEffectiveEnv, CellEnvironment } from './simulation/trait-effects';
+import { getEffectiveEnv } from './simulation/trait-effects';
 
 export interface SystemsOverlay {
   show(): void;
@@ -30,17 +30,6 @@ function makeSection(title: string, color: string): { wrap: HTMLDivElement; body
   wrap.appendChild(body);
 
   return { wrap, body };
-}
-
-function row(...parts: string[]): HTMLDivElement {
-  const r = document.createElement('div');
-  r.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 14px;';
-  for (const text of parts) {
-    const sp = document.createElement('span');
-    sp.textContent = text;
-    r.appendChild(sp);
-  }
-  return r;
 }
 
 type Spans = Record<string, HTMLSpanElement>;

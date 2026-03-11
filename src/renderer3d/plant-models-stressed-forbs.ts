@@ -5,14 +5,6 @@ import { mat, matDS, addCanopy, addTrunk, jitter } from './plant-models';
 // Slots: Wildflower(24), TallHerb(25), Fern(26), Vine(27),
 //        Clover(28), Moss(29), TropicalHerb(38), DesertAnnual(39)
 
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat(0xff00ff));
-  m.position.y = 0.1;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD stressed builders ──
 
 function buildWildflowerStressed(): THREE.Group {

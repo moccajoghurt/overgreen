@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { World, Renderer, Season, ColorMode } from './types';
 import type { TimingHooks } from './perf';
-import { RendererState, GRID, HALF, MAX_PER_SUBTYPE, MAX_PER_SUBTYPE_HEALTH, HealthState } from './renderer3d/state';
+import { RendererState, GRID, HALF, MAX_PER_SUBTYPE, MAX_PER_SUBTYPE_HEALTH } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
 import { updatePlants, updateSeeds } from './renderer3d/plants';
 import { updateWeatherParticles } from './renderer3d/weather';

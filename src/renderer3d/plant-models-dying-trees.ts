@@ -5,14 +5,6 @@ import { mat, matDS, addCanopy, addTrunk, jitter } from './plant-models';
 // Exposed trunk + fork, only 1-2 sparse leaf clusters, bare branch stubs
 // Slots: Oak(6), Magnolia(7), Conifer(8), Tropical(9), Palm(10), Birch(11), Cypress(32), Acacia(33)
 
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), mat(0x8a5a5a));
-  m.position.y = 0.25;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD dying builders ──
 
 function buildOakDying(): THREE.Group {

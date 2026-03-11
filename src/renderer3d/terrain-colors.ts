@@ -307,7 +307,6 @@ export function updateTerrainColors(state: RendererState): void {
   // ── Per-cell vertex writing ──
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
-      const cell = world.grid[row][col];
       const cellIdx = row * GRID + col;
 
       const cTL = row * cornerSize + col;

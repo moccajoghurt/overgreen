@@ -27,12 +27,6 @@ export function grassBlade(h: number, w: number, bend: number, twist = 0): THREE
   return geo;
 }
 
-/** Radial density/height falloff for ground-cover models. Returns 1.0 at center, 0.0 at edge. */
-function gcFalloff(x: number, z: number, radius: number): number {
-  const d2 = (x * x + z * z) / (radius * radius);
-  return d2 >= 1.0 ? 0.0 : 1 - d2;
-}
-
 /** Material helper — roughness is cosmetic for gallery; sim only reads color channel. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mat(color: number, extra?: Record<string, any>): THREE.MeshStandardMaterial {
@@ -193,7 +187,6 @@ function buildOak(): THREE.Group {
   const g = new THREE.Group();
 
   // Stout gnarled trunk with prominent root flare
-  const trunkMat = mat(0x5a3a1a);
   // Root flare — wide at base
   const flareGeo = new THREE.CylinderGeometry(0.18, 0.35, 0.25, 8);
   const flare = new THREE.Mesh(flareGeo, mat(0x4a2a10));
@@ -1390,7 +1383,6 @@ function buildCaudiciform(): THREE.Group {
 function buildEuphorbia(): THREE.Group {
   const g = new THREE.Group();
   // Candelabra euphorbia — woody trunk, multi-tone succulent stems, yellow-green cyathia tips
-  const trunkMat = mat(0x6a5535);
   const stemDark = mat(0x4a7a3a);
   const stemMid = mat(0x5a8a4a);
   const stemLight = mat(0x6a9a55);
@@ -2727,10 +2719,6 @@ function buildPampasGrass(): THREE.Group {
   const leafColors = [matDS(0x6aaa55), matDS(0x5d9948), matDS(0x78bb60), matDS(0x608a40)];
   const lc = () => leafColors[Math.floor(Math.random() * leafColors.length)];
 
-  // Plume palette — creamy white to warm ivory, double-sided
-  const plumeColors = [matDS(0xede5d8), matDS(0xf2ece4), matDS(0xe5ddd0), matDS(0xe8e0d5)];
-  const pc = () => plumeColors[Math.floor(Math.random() * plumeColors.length)];
-
   // Dense fountain of arching leaves from tight base
   const leafCount = 55;
   const crownR = 0.06;
@@ -3160,7 +3148,6 @@ function buildFloweringShrub(): THREE.Group {
   // Hibiscus — dense green dome with large showy red/pink flowers
 
   // Multi-stem base — 5 thin stems emerging from soil
-  const stemMat = mat(0x5a4a30);
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
     const r = 0.04 + Math.random() * 0.02;
@@ -3683,7 +3670,6 @@ function buildTropicalHerbLow(): THREE.Group {
   const g = new THREE.Group();
   // 12 meshes: 4 stems + 4 bract clusters + 4 leaves — flowers dominate
   const stemMat = mat(0x557744);
-  const leafMat = matDS(0x338833);
   const bractColors = [mat(0xff2211), mat(0xff4422), mat(0xee1100), mat(0xff6622)];
   const bractYellow = mat(0xffcc22);
   // 4 flower stalks spread across cell

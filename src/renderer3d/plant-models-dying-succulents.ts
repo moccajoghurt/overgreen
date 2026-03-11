@@ -5,14 +5,6 @@ import { mat, addCanopy, addTrunk, jitter } from './plant-models';
 // Slots: Saguaro(18), Aloe(19), Caudiciform(20), Euphorbia(21),
 //        IcePlant(22), Epiphytic(23), BarrelCactus(36), Jade(37)
 
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat(0x8a5a5a));
-  m.position.y = 0.15;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD dying builders ──
 
 function buildSaguaroDying(): THREE.Group {
@@ -77,7 +69,6 @@ function buildSaguaroDying(): THREE.Group {
 function buildAloeDying(): THREE.Group {
   const g = new THREE.Group();
   // Dying aloe — leaves collapsed flat, tips heavily browned, outer leaves dead
-  const deadBrown = mat(0x8a7a55);
   const dryTan = mat(0x9a8a60);
   const darkDead = mat(0x6a5a3a);
 
@@ -671,8 +662,6 @@ function buildEuphorbiaDyingLow(): THREE.Group {
 function buildIcePlantDyingLow(): THREE.Group {
   const g = new THREE.Group();
   // Low-LOD dying ice plant — 3 small brown blobs + 4 bare patches
-  const deadBrown = mat(0x8a7a55);
-  const dryTan = mat(0x9a8a60);
   const patchMat = mat(0x7a6a4a);
 
   // 2 surviving clump blobs — small and flattened

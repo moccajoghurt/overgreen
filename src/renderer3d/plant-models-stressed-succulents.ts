@@ -5,14 +5,6 @@ import { mat, addCanopy, addTrunk, jitter } from './plant-models';
 // Slots: Saguaro(18), Aloe(19), Caudiciform(20), Euphorbia(21),
 //        IcePlant(22), Epiphytic(23), BarrelCactus(36), Jade(37)
 
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat(0xff00ff));
-  m.position.y = 0.15;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD stressed builders ──
 
 function buildSaguaroStressed(): THREE.Group {
@@ -208,7 +200,6 @@ function buildCaudiciformStressed(): THREE.Group {
 function buildEuphorbiaStressed(): THREE.Group {
   const g = new THREE.Group();
   // Stressed euphorbia — thinner stems, muted colors, no cyathia tips, slight lean
-  const trunkMat = mat(0x5a4a30);
   const stemDark = mat(0x4a6a3a);
   const stemMid = mat(0x5a7a45);
   const stemLight = mat(0x6a8a50);

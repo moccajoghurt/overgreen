@@ -4,8 +4,8 @@ import { TRAITS } from './trait-defs';
 
 export function createLineagePanel(
   container: HTMLElement,
-  mapContainer: HTMLElement,
-  renderer: Renderer,
+  _mapContainer: HTMLElement,
+  _renderer: Renderer,
 ) {
   let lastRenderedTick = -1;
   let sortBy: 'count' | string = 'count';

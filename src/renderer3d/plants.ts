@@ -11,7 +11,6 @@ import { classifySubtype, SHADER_GRASS_SUBTYPES } from '../types/subtypes';
 import { cellPrimaryPlantId } from '../simulation/tiers';
 
 const SUBTYPE_COUNT = 40;
-const HEALTH_COUNT = 3; // Thriving, Stressed, Dying
 
 /** Get the correct mesh arrays for a given health state × LOD combination. */
 function getMeshArrays(state: RendererState, health: HealthState, low: boolean): {
@@ -489,7 +488,7 @@ function incrementalUpdate(
   const lodDistSq = state.lodDistSq;
 
   // Helper: swap-remove a plant from its current mesh set
-  function swapRemove(id: number, entry: { subtype: number; idx: number; low: boolean; health: HealthState }): void {
+  function swapRemove(_id: number, entry: { subtype: number; idx: number; low: boolean; health: HealthState }): void {
     const { subtype, idx, low, health } = entry;
     const ma = getMeshArrays(state, health, low);
     const ba = getBufferArrays(health, low,

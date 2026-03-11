@@ -4,22 +4,12 @@ import { mat, matDS, addCanopy, addTrunk, jitter } from './plant-models';
 // ── Stressed tree variants: 30% foliage removed, slight droop, yellow-olive palette ──
 // Slots: Oak(6), Magnolia(7), Conifer(8), Tropical(9), Palm(10), Birch(11), Cypress(32), Acacia(33)
 
-/** Placeholder — magenta cube marks un-authored builders */
-function stub(): THREE.Group {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), mat(0xff00ff));
-  m.position.y = 0.25;
-  g.add(m);
-  return g;
-}
-
 // ── Hi-LOD stressed builders ──
 
 function buildOakStressed(): THREE.Group {
   const g = new THREE.Group();
 
   // Trunk and root flare — same as healthy, slightly grayer bark
-  const trunkMat = mat(0x5a3a1a);
   const flareGeo = new THREE.CylinderGeometry(0.18, 0.35, 0.25, 8);
   const flare = new THREE.Mesh(flareGeo, mat(0x4a2a10));
   flare.position.y = 0.125;
