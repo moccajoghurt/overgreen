@@ -49,12 +49,38 @@ npx tsx scripts/balance-tuning/extract-metrics.ts results/niche-matrix-baseline.
 
 Outputs: population health, diversity (richness, Shannon, Gini), niche specialization (differentiation, dominance, per-niche breakdown), archetype balance, and 8 pass/fail health checks.
 
+### `sensitivity-analysis.ts`
+OAT (one-at-a-time) sensitivity analysis. Varies one SIM/GRASS constant at a time (±25%, ±50%), runs population-dynamics for each, outputs which parameters move which metrics most. Tests 29 parameters in ~30 seconds.
+
+```bash
+npx tsx scripts/balance-tuning/sensitivity-analysis.ts              # all params, ranked by impact
+npx tsx scripts/balance-tuning/sensitivity-analysis.ts --top 10     # show top 10 most sensitive
+npx tsx scripts/balance-tuning/sensitivity-analysis.ts --param FDS  # single param detail
+```
+
+Outputs: sensitivity ranking, full metric deltas (surviving/niche, dominance %, extinctions, monopolized niches, unique dominants, archetype spread), and a direction guide ("↑ param → ↑/↓ diversity").
+
+## Planned Scripts
+
+### `parameter-sweep.ts`
+Full-sim automated sweep. Takes a list of parameter×value combos, runs headless experiments for each, extracts metrics, outputs comparison table. Wraps `run-experiment.ts` + `extract-metrics.ts` in a loop. Add `--seeds N` for stochastic robustness (multiple random seeds per combo).
+
+### `trajectory-analysis.ts`
+Reads experiment JSON snapshots over time (not just final). Detects: equilibrium reached vs. still drifting, oscillation amplitude, late extinctions, boom-bust cycles, population stability windows.
+
+### `compare-runs.ts`
+Side-by-side diff of two or more result files. Delta table for all metrics, highlights regressions/improvements, flags health checks that flipped. Useful for catching regressions when changing coefficients.
+
 ## Workflow
 
 1. Run `balance-matrix.ts` and `fitness-landscape.ts` for quick trait engine sanity checks (pure math, instant)
-2. Run full simulation experiments via `scripts/run-experiment.ts` with the niche-matrix scenario
-3. Extract metrics with `extract-metrics.ts` to get quantitative balance scores
-4. Edit coefficients in `src/simulation/trait-effects.ts`, re-run experiments, compare metrics
-5. Use `population-dynamics.ts` as a fast (but approximate) competitive dynamics sanity check
+2. Run `sensitivity-analysis.ts` to identify which parameters matter most
+3. Run full simulation experiments via `scripts/run-experiment.ts` with the niche-matrix scenario
+4. Extract metrics with `extract-metrics.ts` to get quantitative balance scores
+5. Compare runs with `compare-runs.ts` to check for regressions
+6. Use `trajectory-analysis.ts` to verify populations reach equilibrium
+7. Edit coefficients in `src/simulation/trait-effects.ts`, re-run experiments, compare metrics
+8. Use `population-dynamics.ts` as a fast (but approximate) competitive dynamics sanity check
+9. Use `parameter-sweep.ts` for systematic exploration of sensitive parameters
 
-**Key insight:** The pure-math tools (balance-matrix, fitness-landscape) test the trait engine in isolation. The real sim adds spatial dynamics, evolution, tier displacement, and temporal effects that can't be captured analytically. Always validate with real experiments.
+**Key insight:** The pure-math tools (balance-matrix, fitness-landscape, sensitivity-analysis) test the trait engine in isolation. The real sim adds spatial dynamics, evolution, tier displacement, and temporal effects that can't be captured analytically. Always validate with real experiments.

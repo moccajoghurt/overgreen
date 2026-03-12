@@ -271,6 +271,9 @@ function lerpVal(a: number, b: number, t: number): number {
 // so cache never needs clearing. Bounded at ~10K entries (101×101 bins).
 const _constantsCache = new Map<number, PlantConstants>();
 
+/** Clear the getPlantConstants cache (needed when SIM/GRASS constants are mutated for sensitivity analysis). */
+export function clearPlantConstantsCache(): void { _constantsCache.clear(); }
+
 /** Linearly interpolate all plant constants between herbaceous (w=0) and woody (w=1) endpoints. */
 export function getPlantConstants(genome: import('./core').Genome): PlantConstants {
   const w = Math.max(0, Math.min(1, genome.woodiness));
