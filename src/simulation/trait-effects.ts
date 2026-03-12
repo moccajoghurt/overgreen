@@ -115,6 +115,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.seasonality      = base.seasonality;                  // static
     }
   }
+  recompileTraitEffects();
 }
 
 // ── Layer 2: Trait Tradeoff Table ──
@@ -409,6 +410,109 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
     const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
     modifier += t1 * t2 * envVal * e.coefficient;
+  }
+  return modifier;
+}
+
+// ── Compiled Trait Effects (fast path) ──
+// Groups TRAIT_EFFECTS entries by their trait signature, pre-multiplies
+// envVal × coefficient per niche. The TRAIT_EFFECTS table stays readable
+// and editable — this layer just "compiles" it into a numeric form.
+
+const GENOME_TRAITS: GenomeTrait[] = [
+  'leafSize', 'defense', 'waterStorage', 'woodiness',
+  'rootPriority', 'heightPriority', 'seedInvestment', 'longevity',
+];
+const TRAIT_TO_IDX = new Map<string, number>();
+for (let i = 0; i < GENOME_TRAITS.length; i++) TRAIT_TO_IDX.set(GENOME_TRAITS[i], i);
+
+// Reusable buffer for genome trait values (avoids per-plant allocation)
+const _traitBuf = new Float64Array(8);
+
+interface CompiledGroup {
+  traitIdx: number;
+  trait2Idx: number;     // -1 if no trait2
+  inverse: boolean;
+  inverse2: boolean;
+  peaked: number;        // NaN if not peaked
+  nicheCoeffs: Float64Array;  // [NICHE_COUNT], pre-multiplied envVal × coefficient
+}
+
+let _compiledGroups: CompiledGroup[] = [];
+
+function groupKey(e: TraitEffect): string {
+  let k = e.inverse ? `!${e.trait}` : e.trait as string;
+  if (e.peaked !== undefined) k = `^${e.peaked}:${k}`;
+  if (e.trait2 !== undefined) k += `*${e.inverse2 ? '!' : ''}${e.trait2}`;
+  return k;
+}
+
+function compileTraitEffects(): void {
+  const nicheCount = CLIMATE_ZONE_COUNT * TERRAIN_COUNT;
+
+  // Group entries by trait signature
+  const groupMap = new Map<string, { entries: TraitEffect[], rep: TraitEffect }>();
+  for (const e of TRAIT_EFFECTS) {
+    const key = groupKey(e);
+    let g = groupMap.get(key);
+    if (!g) { g = { entries: [], rep: e }; groupMap.set(key, g); }
+    g.entries.push(e);
+  }
+
+  _compiledGroups = [];
+  for (const [, group] of groupMap) {
+    const rep = group.rep;
+    const cg: CompiledGroup = {
+      traitIdx: TRAIT_TO_IDX.get(rep.trait)!,
+      trait2Idx: rep.trait2 !== undefined ? TRAIT_TO_IDX.get(rep.trait2)! : -1,
+      inverse: !!rep.inverse,
+      inverse2: !!rep.inverse2,
+      peaked: rep.peaked !== undefined ? rep.peaked : NaN,
+      nicheCoeffs: new Float64Array(nicheCount),
+    };
+
+    for (let ni = 0; ni < nicheCount; ni++) {
+      const env = EFFECTIVE_ENV[ni];
+      let sum = 0;
+      for (const e of group.entries) {
+        const envVal = e.envVar !== null ? env[e.envVar] : 1;
+        sum += envVal * e.coefficient;
+      }
+      cg.nicheCoeffs[ni] = sum;
+    }
+
+    _compiledGroups.push(cg);
+  }
+}
+
+// Initialize on module load
+compileTraitEffects();
+
+/** Recompile after seasonal environment changes. Called from updateEffectiveEnv. */
+export function recompileTraitEffects(): void {
+  compileTraitEffects();
+}
+
+/** Fast compiled version of computeTraitModifier — uses pre-grouped, pre-multiplied coefficients. */
+export function computeTraitModifierFast(genome: Genome, nicheIdx: number): number {
+  _traitBuf[0] = genome.leafSize;
+  _traitBuf[1] = genome.defense;
+  _traitBuf[2] = genome.waterStorage;
+  _traitBuf[3] = genome.woodiness;
+  _traitBuf[4] = genome.rootPriority;
+  _traitBuf[5] = genome.heightPriority;
+  _traitBuf[6] = genome.seedInvestment;
+  _traitBuf[7] = genome.longevity;
+
+  let modifier = 0;
+  for (let i = 0; i < _compiledGroups.length; i++) {
+    const cg = _compiledGroups[i];
+    const ec = cg.nicheCoeffs[nicheIdx];
+    if (ec === 0) continue;
+    let t1 = cg.inverse ? 1 - _traitBuf[cg.traitIdx] : _traitBuf[cg.traitIdx];
+    if (cg.peaked === cg.peaked) t1 = Math.max(0, 1 - 2 * Math.abs(t1 - cg.peaked)); // NaN !== NaN skips non-peaked
+    const t2 = cg.trait2Idx >= 0 ? (cg.inverse2 ? 1 - _traitBuf[cg.trait2Idx] : _traitBuf[cg.trait2Idx]) : 1;
+    modifier += t1 * t2 * ec;
   }
   return modifier;
 }

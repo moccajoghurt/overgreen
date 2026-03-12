@@ -1,5 +1,5 @@
 import { Cell, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, World, getPlantConstants, ZoneModifiers } from '../types';
-import { getEffectiveEnv, computeTraitModifier, CellEnvironment, getEnvIdx, NICHE_COUNT } from './trait-effects';
+import { getEffectiveEnv, computeTraitModifierFast, CellEnvironment, getEnvIdx, NICHE_COUNT } from './trait-effects';
 import { NEIGHBORS, inBounds } from './neighbors';
 import {
   mutateGenome, crossoverGenome,
@@ -22,7 +22,7 @@ const SUBTYPE_COUNT = 40;
 const _nicheSubtypeCounts = new Uint16Array(NICHE_COUNT * SUBTYPE_COUNT);
 const _nicheTotalPlants = new Uint16Array(NICHE_COUNT);
 
-function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean, pc: PlantConstants, cellEnv: CellEnvironment): number {
+function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDiseased: boolean, pc: PlantConstants, cellEnv: CellEnvironment, nicheIdx: number): number {
   const effectiveLeaf = Math.pow(plant.leafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
   const heightLightBonus = plant.height / pc.maxHeight * pc.heightLightBonus;
 
@@ -50,7 +50,7 @@ function photosynthesize(plant: Plant, cell: Cell, waterFraction: number, isDise
   plant.lastLightReceived = lightInput;
 
   // Trait tradeoff modifier: genome × environment interaction
-  const traitMod = computeTraitModifier(plant.genome, cellEnv);
+  const traitMod = computeTraitModifierFast(plant.genome, nicheIdx);
   plant.lastTraitModifier = traitMod;
   energyProduced *= Math.max(0.15, 1.0 + traitMod);
 
@@ -279,10 +279,11 @@ export function phaseUpdatePlants(world: World): void {
     const estTicks = Math.ceil(baseEstTicks / vigorEst);
     const establishing = plant.age < estTicks;
 
+    const nicheIdx = getEnvIdx(cell.climateZone, cell.terrainType);
     const cellEnv = getEffectiveEnv(cell.climateZone, cell.terrainType);
 
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
-    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc, cellEnv);
+    let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc, cellEnv, nicheIdx);
 
     // Facilitation: DIFFERENT archetypes in neighborhood boost photosynthesis.
     // Excludes own archetype — minority archetypes in a pocket benefit most.
@@ -301,9 +302,8 @@ export function phaseUpdatePlants(world: World): void {
       energyProduced *= 1.0 + archetypeCount * SIM.FACILITATION_BONUS;
 
       // Accumulate subtype counts for frequency-dependent selection
-      const fdsNiche = getEnvIdx(cell.climateZone, cell.terrainType);
-      _nicheSubtypeCounts[fdsNiche * SUBTYPE_COUNT + (plant.subtype ?? 0)]++;
-      _nicheTotalPlants[fdsNiche]++;
+      _nicheSubtypeCounts[nicheIdx * SUBTYPE_COUNT + (plant.subtype ?? 0)]++;
+      _nicheTotalPlants[nicheIdx]++;
     }
 
     const maintenance = calculateMaintenance(plant, world, isDiseased, pc);
