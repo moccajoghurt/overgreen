@@ -98,9 +98,15 @@ const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 
-const colorModeSelect = document.getElementById('color-mode-select') as HTMLSelectElement;
-colorModeSelect.addEventListener('change', () => {
-  renderer.setColorMode(colorModeSelect.value as ColorMode);
+// Heatmap button row — 1-click color mode switching
+const heatmapRow = document.getElementById('heatmap-row')!;
+heatmapRow.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('.heatmap-btn') as HTMLElement | null;
+  if (!btn) return;
+  const mode = btn.dataset.color as ColorMode;
+  heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
+  btn.classList.add('active');
+  renderer.setColorMode(mode);
 });
 const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => speciesLabels.setVisible(on));
 const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));

@@ -55,6 +55,16 @@
     .view-drawer { display: flex; flex-direction: column; gap: 2px; }
     .view-drawer.hidden { display: none; }
 
+    /* Heatmap buttons */
+    .heatmap-row { display: flex; flex-wrap: wrap; gap: 3px; }
+    .heatmap-btn {
+      padding: 3px 6px; font-size: 11px;
+      background: #2a2a2a; color: #777; border: 1px solid #444;
+      border-radius: 3px; cursor: pointer; font-family: monospace;
+    }
+    .heatmap-btn:hover { color: #aaa; border-color: #666; }
+    .heatmap-btn.active { background: #2a3a2a; color: #8f8; border-color: #4a7a4a; }
+
     /* Map buttons */
     .map-buttons { display: flex; flex-direction: column; gap: 3px; }
     .map-btn {
@@ -297,19 +307,17 @@
         View
         <button class="view-expand-btn" id="btn-view-expand">+</button>
       </div>
+      <div class="heatmap-row" id="heatmap-row">
+        <button class="heatmap-btn active" data-color="natural" title="Natural colors">Natural</button>
+        <button class="heatmap-btn" data-color="species" title="Species colors">Species</button>
+        <button class="heatmap-btn" data-color="water" title="Water level">Water</button>
+        <button class="heatmap-btn" data-color="light" title="Light level">Light</button>
+        <button class="heatmap-btn" data-color="nutrients" title="Nutrients">Nutr</button>
+        <button class="heatmap-btn" data-color="fertility" title="Fertility">Fert</button>
+        <button class="heatmap-btn" data-color="health" title="Plant health">Health</button>
+      </div>
       <label class="view-label"><input type="checkbox" id="toggle-hover" checked /> Hover species</label>
       <div class="view-drawer hidden" id="view-drawer">
-        <label class="view-label">Color
-          <select id="color-mode-select" style="background:#333;color:#ccc;border:1px solid #555;font-family:monospace;font-size:12px;padding:2px 4px;border-radius:3px;cursor:pointer;">
-            <option value="natural">Natural</option>
-            <option value="species">Species</option>
-            <option value="water">Water</option>
-            <option value="light">Light</option>
-            <option value="nutrients">Nutrients</option>
-            <option value="fertility">Fertility</option>
-            <option value="health">Health</option>
-          </select>
-        </label>
         <label class="view-label"><input type="checkbox" id="toggle-species-cards" /> Species cards</label>
         <label class="view-label"><input type="checkbox" id="toggle-terrain" /> Terrain overlay</label>
         <label class="view-label"><input type="checkbox" id="toggle-climate" /> Climate overlay</label>
