@@ -115,6 +115,22 @@ for (let t = 1; t <= totalTicks; t++) {
     }
     (snap as any).subtypesByTerrain = subtypeTerrain;
 
+    // Subtype counts per niche (terrain × climate zone)
+    const zoneNames = ['Temperate', 'Tropical', 'Mediterranean', 'Desert'];
+    const subtypesByNiche: Record<string, Record<string, number>> = {};
+    for (const p of world.plants.values()) {
+      if (!p.alive) continue;
+      const cell = world.grid[p.y][p.x];
+      const tName = terrainNames[cell.terrainType] || 'unknown';
+      const zName = zoneNames[cell.climateZone] || 'unknown';
+      const niche = `${zName}/${tName}`;
+      const stId = classifySubtype(p.genome);
+      const stName = SUBTYPE_NAMES[stId] || `Subtype${stId}`;
+      if (!subtypesByNiche[niche]) subtypesByNiche[niche] = {};
+      subtypesByNiche[niche][stName] = (subtypesByNiche[niche][stName] || 0) + 1;
+    }
+    (snap as any).subtypesByNiche = subtypesByNiche;
+
     snapshots.push(snap);
     accumulator = createAccumulator();
 

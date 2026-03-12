@@ -51,6 +51,28 @@ const CARRYING_CAPACITY = 400;
 const MUTATION_FRAC = 0.03;
 const MIN_POP = 0.5;
 
+// ── Longevity-dependent mortality (replaces flat TURNOVER=0.15) ──
+// Short-lived grass (maxAge=750): 13.3% + fragility
+// Long-lived tree (maxAge=2500): 4.0% + fragility
+const MORTALITY_SCALE = 100;
+const MIN_MORTALITY = 0.02;
+
+// ── r/K mortality tradeoff ──
+// r-strategists (high seedInvestment) have thinner energy margins → more
+// vulnerable to drought, herbivory, and stochastic stress. In the real sim
+// this emerges from reduced growth/reserves; here we model it directly.
+const SEED_INVEST_MORTALITY = 0.12;
+
+// ── Diminishing returns on seed quantity ──
+// In the real sim, seeds need empty cells nearby. Most seeds from r-strategists
+// land on occupied cells and die. Power scaling models spatial bottleneck.
+const SEED_SCALING_EXP = 0.7;
+
+// ── Seed size establishment probability ──
+// Larger seeds start with more energy → better seedling survival.
+const ESTABLISHMENT_BASE = 0.3;
+const ESTABLISHMENT_RANGE = 0.7;
+
 // ── Arg parsing ──
 
 const args = process.argv.slice(2);
@@ -144,6 +166,8 @@ interface SubtypeProps {
   seedProductionRate: number;
   maxAge: number;
   arch: number;
+  establishment: number;
+  deathRate: number;
 }
 
 const subtypeProps: (SubtypeProps | null)[] = new Array(SUBTYPE_COUNT).fill(null);
@@ -182,9 +206,13 @@ for (let s = 0; s < SUBTYPE_COUNT; s++) {
     traitMod.set(ni, computeTraitModifier(g, EFFECTIVE_ENV[getEnvIdx(n.cz, n.tt)]));
   }
 
+  const establishment = ESTABLISHMENT_BASE + g.seedSize * ESTABLISHMENT_RANGE;
+  const deathRate = Math.max(MIN_MORTALITY, MORTALITY_SCALE / pc.maxAge + SEED_INVEST_MORTALITY * g.seedInvestment);
+
   subtypeProps[s] = {
     genome: g, traitMod, matureHeight, matureLeafArea: matureLeaf,
     maintenanceCost: maintenance, seedProductionRate, maxAge: pc.maxAge, arch,
+    establishment, deathRate,
   };
 }
 
@@ -244,31 +272,50 @@ function runNiche(ni: number, fdsStrength: number): NicheResult {
       else if (h >= GROUND_THRESHOLD) understoryPop += p;
     }
 
-    let canopyLeafCoverage = 0, understoryLeafCoverage = 0;
+    // ── Spatial light model ──
+    // In the real sim, not all cells have trees. Ground plants in open cells
+    // get full light. We model this by computing the fraction of "cells"
+    // covered by each tier and giving uncovered plants full light.
+    const fullLight = SIM.BASE_LIGHT;
+
+    // Fraction of cells covered by canopy/understory (each individual occupies ~1 cell)
+    const canopyCoverage = Math.min(1.0, canopyPop / CARRYING_CAPACITY);
+    const understoryCoverage = Math.min(1.0, understoryPop / CARRYING_CAPACITY);
+
+    // Compute leaf density per tier (for shading calculation)
+    let canopyLeafDensity = 0, understoryLeafDensity = 0;
     if (canopyPop > 0) {
       for (const { s, h, pop: p } of heightSorted) {
-        if (h >= CANOPY_THRESHOLD) canopyLeafCoverage += subtypeProps[s]!.matureLeafArea * p;
+        if (h >= CANOPY_THRESHOLD) canopyLeafDensity += subtypeProps[s]!.matureLeafArea * p;
       }
-      canopyLeafCoverage /= Math.max(canopyPop, CARRYING_CAPACITY * 0.5);
+      canopyLeafDensity /= canopyPop; // avg leaf area per canopy plant
     }
     if (understoryPop > 0) {
       for (const { s, h, pop: p } of heightSorted) {
-        if (h >= GROUND_THRESHOLD && h < CANOPY_THRESHOLD) understoryLeafCoverage += subtypeProps[s]!.matureLeafArea * p;
+        if (h >= GROUND_THRESHOLD && h < CANOPY_THRESHOLD) understoryLeafDensity += subtypeProps[s]!.matureLeafArea * p;
       }
-      understoryLeafCoverage /= Math.max(understoryPop, CARRYING_CAPACITY * 0.5);
+      understoryLeafDensity /= understoryPop;
     }
 
-    const canopyLight = SIM.BASE_LIGHT;
-    const understoryLight = Math.max(MIN_TIER_LIGHT, canopyLight * (1 - canopyLeafCoverage * CANOPY_FILTER_COEFF));
-    const groundLight = Math.max(MIN_TIER_LIGHT, understoryLight * (1 - understoryLeafCoverage * UNDERSTORY_FILTER_COEFF));
+    // Light under canopy and under understory
+    const shadedByCanopy = Math.max(MIN_TIER_LIGHT, fullLight * (1 - canopyLeafDensity * CANOPY_FILTER_COEFF));
+    const shadedByUnderstory = Math.max(MIN_TIER_LIGHT, fullLight * (1 - understoryLeafDensity * UNDERSTORY_FILTER_COEFF));
+
+    // Canopy plants: always full light
+    // Understory plants: mix of open (no canopy above) and shaded (under canopy)
+    const understoryLight = canopyCoverage * shadedByCanopy + (1 - canopyCoverage) * fullLight;
+    // Ground plants: can be under canopy, under understory, or in open cells
+    const coveredFraction = Math.min(1.0, canopyCoverage + understoryCoverage);
+    const deepShade = Math.max(MIN_TIER_LIGHT, shadedByCanopy * (1 - understoryLeafDensity * UNDERSTORY_FILTER_COEFF));
+    const groundLight = coveredFraction * deepShade + (1 - coveredFraction) * fullLight;
 
     const tierLight: Map<number, number> = new Map();
     for (const { s, h } of heightSorted) {
-      tierLight.set(s, h >= CANOPY_THRESHOLD ? canopyLight : h >= GROUND_THRESHOLD ? understoryLight : groundLight);
+      tierLight.set(s, h >= CANOPY_THRESHOLD ? fullLight : h >= GROUND_THRESHOLD ? understoryLight : groundLight);
     }
 
-    // ── Compute per-subtype fitness (used for competitive allocation) ──
-    const fitness: number[] = new Array(SUBTYPE_COUNT).fill(0);
+    // ── Compute per-subtype energy surplus ──
+    const surplus: number[] = new Array(SUBTYPE_COUNT).fill(0);
 
     for (const s of viable) {
       if (pop[s] < MIN_POP) continue;
@@ -280,25 +327,12 @@ function runNiche(ni: number, fdsStrength: number): NicheResult {
       const effectiveLeaf = Math.pow(props.matureLeafArea, SIM.LEAF_EFFICIENCY_EXPONENT);
       const rawEnergy = light * effectiveLeaf * SIM.PHOTOSYNTHESIS_RATE;
       const energy = rawEnergy * Math.max(0.15, 1.0 + traitMod);
-      const surplus = energy - props.maintenanceCost;
-
-      // Stress mortality reduces effective fitness
-      let survivalMult = 1.0;
-      if (traitMod < SIM.STRESS_MORTALITY_THRESHOLD) survivalMult = 1.0 - SIM.STRESS_MORTALITY_RATE;
-
-      // Fitness = net energy surplus × survival, can be negative (= declining)
-      fitness[s] = surplus * survivalMult;
+      surplus[s] = energy - props.maintenanceCost;
     }
 
-    // ── Replicator dynamics with FDS ──
-    // Instead of Lotka-Volterra (too slow to differentiate), use replicator dynamics:
-    // each subtype's share of the next generation is proportional to its fitness.
-    // This models the real sim's spatial competition: fitter plants win cells.
-    //
-    // The total population is held at carrying capacity. The question is just
-    // "what fraction does each subtype get?"
-
-    // Compute effective reproductive fitness per subtype
+    // ── Reproductive fitness with diminishing seed returns ──
+    // In the real sim, most seeds land on occupied cells. sqrt scaling models
+    // this spatial bottleneck: doubling seed count less than doubles success.
     const reproFitness: number[] = new Array(SUBTYPE_COUNT).fill(0);
     let totalReproFitness = 0;
 
@@ -306,63 +340,59 @@ function runNiche(ni: number, fdsStrength: number): NicheResult {
       if (pop[s] < MIN_POP) continue;
 
       const props = subtypeProps[s]!;
+      if (surplus[s] <= 0) continue; // no surplus → no reproduction
 
-      // Base fitness from energy surplus
-      let f = fitness[s];
+      // Seed production with diminishing returns (sqrt scaling)
+      let f = surplus[s] * Math.pow(props.seedProductionRate, SEED_SCALING_EXP);
 
-      // Stress: strongly negative trait mod → major penalty
-      const traitMod = props.traitMod.get(ni) ?? -1;
-      if (traitMod < SIM.STRESS_MORTALITY_THRESHOLD) {
-        f *= (1.0 - SIM.STRESS_MORTALITY_RATE); // 10% death rate compounds
-      }
-
-      // Scale by seed production (r-strategists produce more offspring)
-      f *= props.seedProductionRate;
+      // Seed quality: larger seeds establish better
+      f *= props.establishment;
 
       // FDS: frequency-dependent selection on reproduction
       const freq = pop[s] / totalPop;
       const fdsMult = Math.max(0.3, Math.min(2.0, 1.0 - (freq - 1.0 / SUBTYPE_COUNT) * fdsStrength));
       f *= fdsMult;
 
-      // Negative fitness → can't reproduce, population declines via mortality
       reproFitness[s] = Math.max(0, f);
       totalReproFitness += reproFitness[s] * pop[s];
     }
 
+    // ── Longevity-based mortality + stress → survivors and freed slots ──
     const newPop: number[] = new Array(SUBTYPE_COUNT).fill(0);
-
-    // Turnover rate: fraction of population replaced each generation
-    const TURNOVER = 0.15;
+    let totalDeaths = 0;
 
     for (const s of viable) {
       if (pop[s] < MIN_POP) continue;
 
       const props = subtypeProps[s]!;
-
-      // Survivors: most of the population persists
-      const ageMortality = 1.0 / props.maxAge;
       const traitMod = props.traitMod.get(ni) ?? -1;
+
+      // Per-subtype death rate: short-lived species turn over fast
       const stressMort = traitMod < SIM.STRESS_MORTALITY_THRESHOLD ? SIM.STRESS_MORTALITY_RATE : 0;
-      const survivors = pop[s] * (1.0 - TURNOVER) * (1.0 - ageMortality) * (1.0 - stressMort);
+      const survivalRate = (1.0 - props.deathRate) * (1.0 - stressMort);
+      const survivors = pop[s] * survivalRate;
+      const deaths = pop[s] - survivors;
 
-      // New recruits: proportional to fitness share of total reproduction
-      let recruits = 0;
-      if (totalReproFitness > 0 && reproFitness[s] > 0) {
-        const share = (reproFitness[s] * pop[s]) / totalReproFitness;
-        recruits = CARRYING_CAPACITY * TURNOVER * share;
-      }
+      totalDeaths += deaths;
+      newPop[s] = survivors;
+    }
 
-      let nextPop = survivors + recruits;
+    // ── Recruits compete for freed slots (deaths = available space) ──
+    for (const s of viable) {
+      if (pop[s] < MIN_POP || reproFitness[s] <= 0 || totalReproFitness <= 0) continue;
 
-      // Mutation
+      const share = (reproFitness[s] * pop[s]) / totalReproFitness;
+      let recruits = totalDeaths * share;
+
+      // Mutation: some recruits become neighboring subtypes
       if (recruits > 0 && mutationNeighbors[s].length > 0) {
         const mutants = recruits * MUTATION_FRAC;
-        nextPop -= mutants;
+        recruits -= mutants;
         const perNeighbor = mutants / mutationNeighbors[s].length;
         for (const neighbor of mutationNeighbors[s]) newPop[neighbor] += perNeighbor;
       }
 
-      newPop[s] += Math.max(0, nextPop);
+      newPop[s] += recruits;
     }
 
     let maxDelta = 0;

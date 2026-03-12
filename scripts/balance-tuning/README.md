@@ -40,10 +40,21 @@ npx tsx scripts/balance-tuning/population-dynamics.ts --sweep       # sweep FDS 
 
 Outputs: per-niche equilibrium populations, diversity summary, subtype presence, diagnostics (monopolized niches, extinct subtypes, archetype balance). Sweep mode shows how FDS strength affects diversity vs. competitive exclusion.
 
+### `extract-metrics.ts`
+Reads experiment result JSON files and computes quantitative balance metrics. Defines pass/fail health checks for niche specialization.
+
+```bash
+npx tsx scripts/balance-tuning/extract-metrics.ts results/niche-matrix-baseline.json
+```
+
+Outputs: population health, diversity (richness, Shannon, Gini), niche specialization (differentiation, dominance, per-niche breakdown), archetype balance, and 8 pass/fail health checks.
+
 ## Workflow
 
-1. Edit coefficients or add interactions in `src/simulation/trait-effects.ts`
-2. Run `fitness-landscape.ts` to check stability (primary tool)
-3. Run `balance-matrix.ts` for a different view of niche rankings
-4. Run `population-dynamics.ts` to check competitive dynamics with FDS
-5. Iterate until satisfied, then run full simulation experiments to validate
+1. Run `balance-matrix.ts` and `fitness-landscape.ts` for quick trait engine sanity checks (pure math, instant)
+2. Run full simulation experiments via `scripts/run-experiment.ts` with the niche-matrix scenario
+3. Extract metrics with `extract-metrics.ts` to get quantitative balance scores
+4. Edit coefficients in `src/simulation/trait-effects.ts`, re-run experiments, compare metrics
+5. Use `population-dynamics.ts` as a fast (but approximate) competitive dynamics sanity check
+
+**Key insight:** The pure-math tools (balance-matrix, fitness-landscape) test the trait engine in isolation. The real sim adds spatial dynamics, evolution, tier displacement, and temporal effects that can't be captured analytically. Always validate with real experiments.
