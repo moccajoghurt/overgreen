@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { World, Renderer, Season, ColorMode } from './types';
+import { World, Renderer, Season, ColorMode, Genome } from './types';
 import type { TimingHooks } from './perf';
 import { RendererState, GRID, HALF, MAX_PER_SUBTYPE, MAX_PER_SUBTYPE_HEALTH } from './renderer3d/state';
 import { updateTerrainColors } from './renderer3d/terrain-colors';
@@ -215,6 +215,10 @@ export async function createRenderer3D(
     lastPlantTick: -1,
     animSpeed: 1,
     lastPlantColorMode: 'natural',
+    traitColorTrait: 'rootPriority' as keyof Genome,
+    lastTraitColorTrait: 'rootPriority' as keyof Genome,
+    traitMin: 0,
+    traitMax: 1,
     plantsDirty: false,
     highlightedSpecies: null,
     highlightedLineageRoot: null,
@@ -485,6 +489,10 @@ export async function createRenderer3D(
     setPlantHeatmap(isHeatmapMode(mode));
   }
 
+  function setTraitColorTrait(trait: keyof Genome): void {
+    state.traitColorTrait = trait;
+  }
+
   function setHighlightedSpecies(ids: Set<number> | null): void {
     state.highlightedSpecies = ids;
   }
@@ -553,5 +561,5 @@ export async function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setHighlightedSpecies, setHighlightedLineageRoot, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
+  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setTraitColorTrait, setHighlightedSpecies, setHighlightedLineageRoot, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }

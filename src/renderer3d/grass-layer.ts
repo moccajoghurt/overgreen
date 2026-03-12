@@ -381,6 +381,7 @@ export function createGrassLayer(
   // ── Track dirty state to skip redundant updates ──
   let lastTick = -1;
   let lastColorMode = '';
+  let lastTraitColorTrait = '';
   let lastHighlightedSpecies: Set<number> | null = null;
   let lastHighlightedLineageRoot: number | null = null;
 
@@ -391,13 +392,15 @@ export function createGrassLayer(
     // Check if update is needed
     const tickChanged = world.tick !== lastTick;
     const colorModeChanged = state.colorMode !== lastColorMode;
+    const traitChanged = state.colorMode === 'trait' && state.traitColorTrait !== lastTraitColorTrait;
     const highlightChanged = state.highlightedSpecies !== lastHighlightedSpecies
       || state.highlightedLineageRoot !== lastHighlightedLineageRoot;
 
-    if (!tickChanged && !colorModeChanged && !highlightChanged && !state.plantsDirty) return;
+    if (!tickChanged && !colorModeChanged && !traitChanged && !highlightChanged && !state.plantsDirty) return;
 
     lastTick = world.tick;
     lastColorMode = state.colorMode;
+    lastTraitColorTrait = state.traitColorTrait;
     lastHighlightedSpecies = state.highlightedSpecies;
     lastHighlightedLineageRoot = state.highlightedLineageRoot;
 
@@ -444,6 +447,11 @@ export function createGrassLayer(
           else { tr = 0.5; tg = 0.5; tb = 0.5; }
         } else if (mode === 'health') {
           [tr, tg, tb] = heatmapColor('health', plant.healthEMA);
+        } else if (mode === 'trait') {
+          const raw = plant.genome[state.traitColorTrait];
+          const range = state.traitMax - state.traitMin;
+          const nt = range > 0.001 ? (raw - state.traitMin) / range : 0.5;
+          [tr, tg, tb] = heatmapColor('trait', nt);
         } else {
           const cell = world.grid[plant.y][plant.x];
           const value = mode === 'fertility' ? fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax)

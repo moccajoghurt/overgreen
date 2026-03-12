@@ -14,6 +14,7 @@ import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createZoneLabelsOverlay } from './zone-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
 import type { ColorMode } from './types/renderer';
+import type { Genome } from './types/core';
 import { loadScenario } from './scenario-loader';
 import { SCENARIOS } from './scenarios';
 import { genesis } from './scenarios/genesis';
@@ -100,6 +101,7 @@ const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 
 // Heatmap button row — 1-click color mode switching
 const heatmapRow = document.getElementById('heatmap-row')!;
+const traitSelector = document.getElementById('trait-selector') as HTMLSelectElement;
 heatmapRow.addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('.heatmap-btn') as HTMLElement | null;
   if (!btn) return;
@@ -107,6 +109,10 @@ heatmapRow.addEventListener('click', (e) => {
   heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
   btn.classList.add('active');
   renderer.setColorMode(mode);
+  traitSelector.style.display = mode === 'trait' ? '' : 'none';
+});
+traitSelector.addEventListener('change', () => {
+  renderer.setTraitColorTrait(traitSelector.value as keyof Genome);
 });
 const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => speciesLabels.setVisible(on));
 const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));

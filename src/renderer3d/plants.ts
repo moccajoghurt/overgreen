@@ -131,6 +131,13 @@ function computeFinalTint(
       const [r, g, b] = heatmapColor('health', plant ? plant.healthEMA : 0.5);
       return { tr: r, tg: g, tb: b };
     }
+    if (mode === 'trait') {
+      const raw = genome[state.traitColorTrait];
+      const range = state.traitMax - state.traitMin;
+      const t = range > 0.001 ? (raw - state.traitMin) / range : 0.5;
+      const [r, g, b] = heatmapColor('trait', t);
+      return { tr: r, tg: g, tb: b };
+    }
     const cell = state.world.grid[y][x];
     const value = mode === 'fertility' ? fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax)
       : mode === 'water' ? cell.waterRechargeRate
@@ -303,6 +310,12 @@ function renderDyingBurning(
         else { tr = 0.5 * shrink; tg = 0.5 * shrink; tb = 0.5 * shrink; }
       } else if (mode === 'health') {
         const [hr, hg, hb] = heatmapColor('health', dp.healthEMA ?? 0);
+        tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
+      } else if (mode === 'trait') {
+        const raw = dp.genome[state.traitColorTrait];
+        const range = state.traitMax - state.traitMin;
+        const nt = range > 0.001 ? (raw - state.traitMin) / range : 0.5;
+        const [hr, hg, hb] = heatmapColor('trait', nt);
         tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;
       } else {
         const cell = world.grid[dp.y]?.[dp.x];
@@ -858,10 +871,11 @@ export function updatePlants(state: RendererState): void {
   const hasAnimations = growingPlants.size > 0 || dyingPlants.size > 0
     || burningPlants.size > 0 || flyingSeeds.length > 0;
   const colorModeChanged = state.colorMode !== state.lastPlantColorMode;
+  const traitChanged = state.colorMode === 'trait' && state.traitColorTrait !== state.lastTraitColorTrait;
   const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies
     || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot;
   if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty
-      && !state.forceFullRebuild && !colorModeChanged) return;
+      && !state.forceFullRebuild && !colorModeChanged && !traitChanged) return;
 
   state.plantsDirty = false;
   state.lastHighlightedSpecies = state.highlightedSpecies;
@@ -872,10 +886,24 @@ export function updatePlants(state: RendererState): void {
     : 1;
   state.lastPlantTick = world.tick;
 
-  // Invalidate color cache when colorMode changes
-  if (colorModeChanged) {
+  // Invalidate color cache when colorMode or trait changes
+  if (colorModeChanged || traitChanged) {
     state.plantColorCache.clear();
     state.lastPlantColorMode = state.colorMode;
+    state.lastTraitColorTrait = state.traitColorTrait;
+  }
+
+  // Compute trait min/max for auto-ranging when in trait mode
+  if (state.colorMode === 'trait') {
+    let mn = 1, mx = 0;
+    const key = state.traitColorTrait;
+    for (const plant of world.plants.values()) {
+      const v = plant.genome[key];
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+    }
+    state.traitMin = mn;
+    state.traitMax = mx;
   }
 
   // Pre-extract instance buffer arrays for each subtype (3 health states × 2 LODs)
@@ -899,7 +927,7 @@ export function updatePlants(state: RendererState): void {
   ] as const;
 
   // Decision: which path to take?
-  const needsFullRebuild = state.forceFullRebuild || hoverChanged || colorModeChanged;
+  const needsFullRebuild = state.forceFullRebuild || hoverChanged || colorModeChanged || traitChanged;
 
   if (needsFullRebuild) {
     ingestEvents(state);

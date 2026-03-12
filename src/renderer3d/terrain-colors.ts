@@ -42,13 +42,15 @@ function computeSnowCoverage(env: Environment): number {
 export function updateTerrainColors(state: RendererState): void {
   const { world, colorArray, colorAttr } = state;
 
+  const colorModeChanged = state.colorMode !== state.lastTerrainColorMode;
+  const traitChanged = state.colorMode === 'trait' && state.traitColorTrait !== state.lastTraitColorTrait;
+
   if (world.tick === state.lastTerrainTick
-    && state.colorMode === state.lastTerrainColorMode) return;
+    && !colorModeChanged && !traitChanged) return;
 
   // Throttle in fast mode: when multiple ticks ran since last render,
   // only update terrain colors every 5 ticks
-  const colorModeChanged = state.colorMode !== state.lastTerrainColorMode;
-  if (state.lastTerrainTick >= 0 && !colorModeChanged) {
+  if (state.lastTerrainTick >= 0 && !colorModeChanged && !traitChanged) {
     const tickDelta = world.tick - state.lastTerrainTick;
     if (tickDelta > 1 && world.tick % 5 !== 0) return;
   }
@@ -151,6 +153,24 @@ export function updateTerrainColors(state: RendererState): void {
             cellBaseR[idx] = r; cellBaseG[idx] = g; cellBaseB[idx] = b;
           } else {
             // No plants: neutral gray
+            cellBaseR[idx] = 0.30; cellBaseG[idx] = 0.28; cellBaseB[idx] = 0.26;
+          }
+          continue;
+        }
+        // Trait mode: average genome trait of plants in cell (gray if empty)
+        if (mode === 'trait') {
+          let sum = 0, count = 0;
+          for (const pid of cellPlantIds(cell)) {
+            const p = world.plants.get(pid);
+            if (p) { sum += p.genome[state.traitColorTrait]; count++; }
+          }
+          if (count > 0) {
+            const avg = sum / count;
+            const range = state.traitMax - state.traitMin;
+            const nt = range > 0.001 ? (avg - state.traitMin) / range : 0.5;
+            const [r, g, b] = heatmapColor('trait', nt);
+            cellBaseR[idx] = r; cellBaseG[idx] = g; cellBaseB[idx] = b;
+          } else {
             cellBaseR[idx] = 0.30; cellBaseG[idx] = 0.28; cellBaseB[idx] = 0.26;
           }
           continue;

@@ -150,6 +150,10 @@ export interface RendererState {
   lastTerrainColorMode: ColorMode;
   lastPlantTick: number;
   lastPlantColorMode: ColorMode;
+  traitColorTrait: keyof Genome;
+  lastTraitColorTrait: keyof Genome;
+  traitMin: number;
+  traitMax: number;
   plantsDirty: boolean;
   highlightedSpecies: Set<number> | null;
   highlightedLineageRoot: number | null;

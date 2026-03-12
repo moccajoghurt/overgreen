@@ -86,6 +86,15 @@ export function heatmapColor(mode: ColorMode, t: number): [number, number, numbe
       t,
     );
   }
+  if (mode === 'trait') {
+    // cool blue (low) → green (mid) → warm red (high) — stays saturated throughout
+    return gradient3(
+      [0.15, 0.30, 0.85],
+      [0.20, 0.75, 0.20],
+      [0.85, 0.15, 0.10],
+      t,
+    );
+  }
   // nutrients: dark gray (depleted) → olive (moderate) → vivid green (rich)
   return gradient3(
     [0.30, 0.25, 0.25],  // dark gray-brown

@@ -510,20 +510,27 @@ function phaseUpdatePlants(world: World): void {
     plant.lastMaintenanceCost = maintenance;
 
     // Update health EMA — smoothed energy ratio for visual health state
-    // Track peak energy for long-term decline detection
-    // Decay peak slowly so normal seed/growth spending doesn't trigger false stress
-    plant.peakEnergy *= 0.99;
-    plant.peakEnergy = Math.max(plant.peakEnergy, plant.energy);
+    // During establishing, reset peakEnergy so it doesn't stay inflated by
+    // germination reserves (2-3 energy). After establishing, track normally
+    // from a realistic baseline (~1.0 operating energy).
+    if (establishing) {
+      plant.peakEnergy = plant.energy;
+    } else {
+      plant.peakEnergy *= 0.99;
+      plant.peakEnergy = Math.max(plant.peakEnergy, plant.energy);
+    }
     let healthTarget: number;
-    if (maintenance > 0.01) {
+    if (establishing) {
+      // Establishing seedlings aren't producing yet by design — don't penalize health
+      healthTarget = 1.0;
+    } else if (maintenance > 0.01) {
       const prodRatio = Math.min(energyProduced / maintenance, 1.5);
-      // Energy relative to historical peak — gives slow visible decline over 100+ ticks
       const peakRatio = plant.peakEnergy > 1.0
         ? Math.min(plant.energy / plant.peakEnergy, 1.0)
         : 1.0;
       healthTarget = Math.min(prodRatio, peakRatio);
     } else {
-      healthTarget = establishing ? 0.5 : 1.0;
+      healthTarget = 1.0;
     }
     // Floor: low absolute energy forces visual decline regardless of ratios
     const energyFloor = Math.min(plant.energy / 0.6, 1.0);

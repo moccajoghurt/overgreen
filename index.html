@@ -315,7 +315,19 @@
         <button class="heatmap-btn" data-color="nutrients" title="Nutrients">Nutr</button>
         <button class="heatmap-btn" data-color="fertility" title="Fertility">Fert</button>
         <button class="heatmap-btn" data-color="health" title="Plant health">Health</button>
+        <button class="heatmap-btn" data-color="trait" title="Genome trait values">Trait</button>
       </div>
+      <select id="trait-selector" style="display:none; margin-top:3px; width:100%; font-size:11px; font-family:monospace; background:#2a2a2a; color:#8f8; border:1px solid #4a7a4a; border-radius:3px; padding:2px 4px;">
+        <option value="rootPriority">Root Priority</option>
+        <option value="heightPriority">Height Priority</option>
+        <option value="leafSize">Leaf Size</option>
+        <option value="seedInvestment">Seed Investment</option>
+        <option value="seedSize">Seed Size</option>
+        <option value="defense">Defense</option>
+        <option value="woodiness">Woodiness</option>
+        <option value="waterStorage">Water Storage</option>
+        <option value="longevity">Longevity</option>
+      </select>
       <label class="view-label"><input type="checkbox" id="toggle-hover" checked /> Hover species</label>
       <div class="view-drawer hidden" id="view-drawer">
         <label class="view-label"><input type="checkbox" id="toggle-species-cards" /> Species cards</label>
