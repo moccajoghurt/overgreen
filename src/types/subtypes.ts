@@ -96,8 +96,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Bunchgrass: hill-adapted tussock — deep fibrous roots, compact, persistent, big seeds
   scores[2] = g.rootPriority * 0.25 + g.seedSize * 0.20 + (1 - g.heightPriority) * 0.20 + g.longevity * 0.15 + g.seedInvestment * 0.20;
 
-  // Bamboo: high woodiness (within grass range)
-  scores[3] = g.woodiness * 0.6 + g.heightPriority * 0.3 + (1 - g.leafSize) * 0.1;
+  // Bamboo: woody rhizomatous clumping grass — tall persistent culms, vegetative spread
+  scores[3] = g.woodiness * 0.20 + g.rootPriority * 0.25 + g.heightPriority * 0.25 + g.longevity * 0.20 + (1 - g.seedInvestment) * 0.10;
 
   // Spreading: high seedInvestment (stolons), short-lived colonizer
   scores[4] = g.seedInvestment * 0.45 + g.leafSize * 0.15 + (1 - g.heightPriority) * 0.3 + (1 - g.longevity) * 0.1;
@@ -105,8 +105,8 @@ function classifyGrass(g: Genome): SubtypeId {
   // Sedge: wetland grass — shallow roots, efficient leaves
   scores[5] = (1 - g.rootPriority) * 0.35 + g.leafSize * 0.3 + g.heightPriority * 0.2 + (1 - g.waterStorage) * 0.15;
 
-  // Pampas: tall ornamental, feathery plumes
-  scores[6] = g.heightPriority * 0.4 + g.seedInvestment * 0.25 + g.longevity * 0.2 + g.leafSize * 0.15;
+  // Pampas: tall defended tussock grass — razor-edged silica leaves, deep roots
+  scores[6] = g.defense * 0.35 + g.heightPriority * 0.25 + g.rootPriority * 0.25 + g.longevity * 0.10 + (1 - g.leafSize) * 0.05;
 
   // Desert Grass: arid-adapted, water-storing deep-rooted drought miner
   scores[7] = g.waterStorage * 0.35 + g.rootPriority * 0.20 + (1 - g.leafSize) * 0.20 + (1 - g.seedInvestment) * 0.15 + g.longevity * 0.10;
@@ -168,8 +168,8 @@ function classifyShrub(g: Genome): SubtypeId {
   // Thorny: high defense, large-leaved (real brambles have big compound leaves)
   scores[3] = g.defense * 0.50 + g.leafSize * 0.25 + (1 - g.heightPriority) * 0.15 + g.rootPriority * 0.10;
 
-  // Desert: high waterStorage (within shrub range), sparse
-  scores[4] = g.waterStorage * 0.4 + (1 - g.leafSize) * 0.3 + g.rootPriority * 0.15 + (1 - g.defense) * 0.15;
+  // Desert/Saltbush: deep-rooted halophytic shrub — taproot water mining, small leaves, undefended
+  scores[4] = g.rootPriority * 0.30 + (1 - g.leafSize) * 0.25 + g.longevity * 0.20 + (1 - g.defense) * 0.15 + (1 - g.heightPriority) * 0.10;
 
   // Mangrove: wetland shrub — shallow roots, tall, lush
   scores[5] = (1 - g.rootPriority) * 0.3 + g.heightPriority * 0.3 + g.leafSize * 0.2 + (1 - g.waterStorage) * 0.2;
@@ -242,8 +242,8 @@ function classifyForb(g: Genome): SubtypeId {
   // Moss: ultra-low, moisture-loving
   scores[5] = (1 - g.heightPriority) * 0.3 + g.rootPriority * 0.25 + (1 - g.seedInvestment) * 0.25 + g.waterStorage * 0.2;
 
-  // Tropical Herb: lush broadleaf, wet-adapted
-  scores[6] = g.leafSize * 0.35 + g.waterStorage * 0.25 + g.heightPriority * 0.2 + g.rootPriority * 0.2;
+  // Tropical Herb: lush defended broadleaf — chemical defense against tropical herbivores, vegetative spread
+  scores[6] = g.leafSize * 0.30 + g.defense * 0.25 + g.heightPriority * 0.20 + (1 - g.seedInvestment) * 0.15 + g.longevity * 0.10;
 
   // Desert Annual: ephemeral, high seed output, shallow-rooted
   scores[7] = (1 - g.longevity) * 0.3 + g.seedInvestment * 0.25 + (1 - g.waterStorage) * 0.25 + (1 - g.rootPriority) * 0.2;

@@ -359,30 +359,19 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize', inverse: true, trait2: 'heightPriority', envVar: 'droughtStress', coefficient: +0.40,
     description: 'narrow leaves reduce transpiration on tall plants in drought' },
 
-  // === Bamboo: woody tall grass in tropics ===
-  { trait: 'woodiness', trait2: 'heightPriority', envVar: 'tropicality', coefficient: +0.45,
-    description: 'woody culms compete for canopy access in tropical bamboo forests' },
+  // === Fleshy rosette succulents in warm climates ===
+  // Stabilizes: Aloe (leafy water-storing rosettes thrive in warm humid environments)
+  { trait: 'leafSize', trait2: 'waterStorage', envVar: 'tropicality', coefficient: +0.35,
+    description: 'fleshy-leaved rosette succulents photosynthesize efficiently in warm climates' },
 
   // === Climbing/vining strategy ===
   // Stabilizes: Vine
   { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'diseasePressure', coefficient: +0.30,
     description: 'climbing plants escape ground-level fungal pathogens' },
 
-  // === Tropical herb: lush fleshy understory ===
-  { trait: 'leafSize', trait2: 'waterStorage', envVar: 'tropicality', coefficient: +0.35,
-    description: 'lush fleshy-leaved herbs thrive in humid tropical understory' },
-  { trait: 'waterStorage', trait2: 'rootPriority', envVar: 'tropicality', coefficient: +0.35,
-    description: 'fleshy-rooted tropical herbs store water and nutrients in tuberous roots' },
-
   // === Bramble: thorny + leafy in seasonal forests ===
   { trait: 'defense', trait2: 'leafSize', envVar: 'seasonality', coefficient: +0.25,
     description: 'thorny shrubs with large compound leaves dominate seasonal forest margins' },
-
-  // === Saltbush: halophytic desert shrub ===
-  { trait: 'waterStorage', trait2: 'rootPriority', envVar: 'extremeAridity', coefficient: +0.45,
-    description: 'halophytic shrubs combine root water mining with salt-tolerant tissue storage' },
-  { trait: 'waterStorage', trait2: 'leafSize', inverse2: true, envVar: 'extremeAridity', coefficient: +0.50,
-    description: 'fleshy-stemmed leafless shrubs store water efficiently in extreme desert' },
 
   // === Flowering shrub: reproductive + leafy in tropics ===
   { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: +0.30,
@@ -395,12 +384,6 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // === Iceplant/spreading succulent ===
   { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'heatStress', coefficient: +0.30,
     description: 'ephemeral succulent ground cover spreads rapidly in hot exposed environments' },
-
-  // === Pampas: tall seeding grasses ===
-  { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'extremeAridity', coefficient: +0.35,
-    description: 'tall seed heads disperse in arid wind — pampas/savanna grass strategy' },
-  { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'windExposure', coefficient: +0.40,
-    description: 'tall grasses with plume-like seed heads exploit wind dispersal on open terrain' },
 ];
 
 /** Niche index for a terrain×climate combination. */
