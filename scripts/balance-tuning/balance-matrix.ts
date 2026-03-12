@@ -5,13 +5,13 @@
  * evaluates computeTraitModifier() in every terrain×climate niche.
  * No simulation required — runs in milliseconds.
  *
- * Usage: npx tsx scripts/balance-matrix.ts
+ * Usage: npx tsx scripts/balance-tuning/balance-matrix.ts
  */
 
-import { Genome, TerrainType, archetype } from '../src/types/core';
-import { ClimateZone, CLIMATE_ZONE_COUNT } from '../src/types/environment';
-import { classifySubtype, SUBTYPE_NAMES } from '../src/types/subtypes';
-import { EFFECTIVE_ENV, computeTraitModifier, getEnvIdx } from '../src/simulation/trait-effects';
+import { Genome, TerrainType, archetype } from '../../src/types/core';
+import { ClimateZone, CLIMATE_ZONE_COUNT } from '../../src/types/environment';
+import { classifySubtype, SUBTYPE_NAMES } from '../../src/types/subtypes';
+import { EFFECTIVE_ENV, computeTraitModifier, getEnvIdx } from '../../src/simulation/trait-effects';
 
 // ── Constants ──
 

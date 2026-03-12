@@ -338,6 +338,69 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // Cypress/columnar: tall + woody, narrow form in drought
   { trait: 'heightPriority', trait2: 'woodiness', envVar: 'droughtStress', coefficient: +0.40,
     description: 'tall columnar wood escapes ground-level heat and accesses light' },
+
+  // ── Within-archetype differentiation interactions ──
+  // These create fitness peaks at specific genome profiles to separate sibling subtypes.
+  // Without these, hill-climbing collapses siblings to one dominant subtype per archetype.
+
+  // === r-strategy: short-lived prolific reproducers ===
+  // Stabilizes: Wildflower, Clover, Ryegrass, Birch, Desert Annual
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'seasonality', coefficient: +0.25,
+    description: 'annual/biennial strategy: reproduce in growing season before winter kills' },
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'soilFertility', coefficient: +0.20,
+    description: 'weedy colonizers exploit fertile soil with rapid reproduction' },
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'extremeAridity', coefficient: +0.40,
+    description: 'desert ephemerals germinate, flower, and set seed in brief rain windows' },
+
+  // === Narrow-leaved / evergreen advantage ===
+  // Stabilizes: Cypress, Conifer, Bamboo
+  { trait: 'leafSize', inverse: true, trait2: 'longevity', envVar: 'frostRisk', coefficient: +0.40,
+    description: 'small evergreen needles/scales persist through winter without regrowth cost' },
+  { trait: 'leafSize', inverse: true, trait2: 'heightPriority', envVar: 'droughtStress', coefficient: +0.40,
+    description: 'narrow leaves reduce transpiration on tall plants in drought' },
+
+  // === Bamboo: woody tall grass in tropics ===
+  { trait: 'woodiness', trait2: 'heightPriority', envVar: 'tropicality', coefficient: +0.45,
+    description: 'woody culms compete for canopy access in tropical bamboo forests' },
+
+  // === Climbing/vining strategy ===
+  // Stabilizes: Vine
+  { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'diseasePressure', coefficient: +0.30,
+    description: 'climbing plants escape ground-level fungal pathogens' },
+
+  // === Tropical herb: lush fleshy understory ===
+  { trait: 'leafSize', trait2: 'waterStorage', envVar: 'tropicality', coefficient: +0.35,
+    description: 'lush fleshy-leaved herbs thrive in humid tropical understory' },
+  { trait: 'waterStorage', trait2: 'rootPriority', envVar: 'tropicality', coefficient: +0.35,
+    description: 'fleshy-rooted tropical herbs store water and nutrients in tuberous roots' },
+
+  // === Bramble: thorny + leafy in seasonal forests ===
+  { trait: 'defense', trait2: 'leafSize', envVar: 'seasonality', coefficient: +0.25,
+    description: 'thorny shrubs with large compound leaves dominate seasonal forest margins' },
+
+  // === Saltbush: halophytic desert shrub ===
+  { trait: 'waterStorage', trait2: 'rootPriority', envVar: 'extremeAridity', coefficient: +0.45,
+    description: 'halophytic shrubs combine root water mining with salt-tolerant tissue storage' },
+  { trait: 'waterStorage', trait2: 'leafSize', inverse2: true, envVar: 'extremeAridity', coefficient: +0.50,
+    description: 'fleshy-stemmed leafless shrubs store water efficiently in extreme desert' },
+
+  // === Flowering shrub: reproductive + leafy in tropics ===
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: +0.30,
+    description: 'flowering shrubs with lush foliage thrive in pollinator-rich tropical environments' },
+
+  // === Deciduous/moderate shrub: peaked traits in seasonal ===
+  { trait: 'leafSize', peaked: 0.5, trait2: 'seedInvestment', envVar: 'seasonality', coefficient: +0.30,
+    description: 'deciduous shrubs with moderate foliage reproduce in seasonal gaps' },
+
+  // === Iceplant/spreading succulent ===
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'heatStress', coefficient: +0.30,
+    description: 'ephemeral succulent ground cover spreads rapidly in hot exposed environments' },
+
+  // === Pampas: tall seeding grasses ===
+  { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'extremeAridity', coefficient: +0.35,
+    description: 'tall seed heads disperse in arid wind — pampas/savanna grass strategy' },
+  { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'windExposure', coefficient: +0.40,
+    description: 'tall grasses with plume-like seed heads exploit wind dispersal on open terrain' },
 ];
 
 /** Niche index for a terrain×climate combination. */

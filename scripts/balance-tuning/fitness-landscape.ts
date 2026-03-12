@@ -7,13 +7,13 @@
  *
  * This answers: "Is subtype X a stable evolutionary attractor in niche Y?"
  *
- * Usage: npx tsx scripts/fitness-landscape.ts
+ * Usage: npx tsx scripts/balance-tuning/fitness-landscape.ts
  */
 
-import { Genome, TerrainType, archetype, Archetype } from '../src/types/core';
-import { ClimateZone, CLIMATE_ZONE_COUNT } from '../src/types/environment';
-import { classifySubtype, SUBTYPE_NAMES } from '../src/types/subtypes';
-import { EFFECTIVE_ENV, computeTraitModifier, getEnvIdx } from '../src/simulation/trait-effects';
+import { Genome, TerrainType, archetype, Archetype } from '../../src/types/core';
+import { ClimateZone, CLIMATE_ZONE_COUNT } from '../../src/types/environment';
+import { classifySubtype, SUBTYPE_NAMES } from '../../src/types/subtypes';
+import { EFFECTIVE_ENV, computeTraitModifier, getEnvIdx } from '../../src/simulation/trait-effects';
 
 // ── Constants ──
 

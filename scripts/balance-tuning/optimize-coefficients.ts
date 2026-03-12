@@ -5,16 +5,16 @@
  * Since computeTraitModifier is LINEAR in the coefficients (for fixed genomes/envs),
  * this is a convex optimization: gradient descent on hinge-loss ranking constraints.
  *
- * Usage: npx tsx scripts/optimize-coefficients.ts
+ * Usage: npx tsx scripts/balance-tuning/optimize-coefficients.ts
  */
 
-import { Genome, TerrainType, archetype } from '../src/types/core';
-import { ClimateZone, CLIMATE_ZONE_COUNT } from '../src/types/environment';
-import { classifySubtype, SUBTYPE_NAMES } from '../src/types/subtypes';
+import { Genome, TerrainType, archetype } from '../../src/types/core';
+import { ClimateZone, CLIMATE_ZONE_COUNT } from '../../src/types/environment';
+import { classifySubtype, SUBTYPE_NAMES } from '../../src/types/subtypes';
 import {
   EFFECTIVE_ENV, computeTraitModifier, getEnvIdx,
   diagnoseTraitEffects, CellEnvironment,
-} from '../src/simulation/trait-effects';
+} from '../../src/simulation/trait-effects';
 
 // ── Constants ──
 
