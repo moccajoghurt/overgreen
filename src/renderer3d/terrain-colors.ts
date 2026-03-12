@@ -1,4 +1,4 @@
-import { SIM, TerrainType, WeatherOverlay, Environment, Season, ClimateZone } from '../types';
+import { SIM, TERRAIN_PROPS, TerrainType, WeatherOverlay, Environment, Season, ClimateZone } from '../types';
 import { isHeatmapMode } from '../types/renderer';
 import { Archetype } from '../types/core';
 import { classifySubtype, subtypeArchetype } from '../types/subtypes';
@@ -157,15 +157,15 @@ export function updateTerrainColors(state: RendererState): void {
         }
         let value: number;
         if (mode === 'fertility') {
-          const w = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
-          value = fertilityValue(w, cell.lightLevel, cell.nutrients);
+          value = fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax);
         } else if (mode === 'water') {
           // Show recharge rate: the terrain's water-providing capacity
           value = cell.waterRechargeRate;
         } else if (mode === 'light') {
           value = cell.lightLevel;
         } else {
-          value = cell.nutrients;
+          // Show nutrient cap: the terrain's nutrient-holding capacity
+          value = TERRAIN_PROPS[cell.terrainType].nutrientMax;
         }
         const t = mode === 'fertility' ? value : normalizeResource(mode, value);
         const [r, g, b] = heatmapColor(mode, t);

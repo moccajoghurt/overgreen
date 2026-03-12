@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GRID_WIDTH, WeatherOverlay } from '../types';
+import { GRID_WIDTH, TERRAIN_PROPS, WeatherOverlay } from '../types';
 import { isHeatmapMode } from '../types/renderer';
 import {
   RendererState, GRID, HALF, MAX_SEEDS, MAX_DYING,
@@ -132,10 +132,10 @@ function computeFinalTint(
       return { tr: r, tg: g, tb: b };
     }
     const cell = state.world.grid[y][x];
-    const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+    const value = mode === 'fertility' ? fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax)
       : mode === 'water' ? cell.waterRechargeRate
       : mode === 'light' ? cell.lightLevel
-      : cell.nutrients;
+      : TERRAIN_PROPS[cell.terrainType].nutrientMax;
     const t = mode === 'fertility' ? value : normalizeResource(mode, value);
     const [r, g, b] = heatmapColor(mode, t);
     return { tr: r, tg: g, tb: b };
@@ -307,10 +307,10 @@ function renderDyingBurning(
       } else {
         const cell = world.grid[dp.y]?.[dp.x];
         if (cell) {
-          const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+          const value = mode === 'fertility' ? fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax)
             : mode === 'water' ? cell.waterRechargeRate
             : mode === 'light' ? cell.lightLevel
-            : cell.nutrients;
+            : TERRAIN_PROPS[cell.terrainType].nutrientMax;
           const nt = mode === 'fertility' ? value : normalizeResource(mode, value);
           const [hr, hg, hb] = heatmapColor(mode, nt);
           tr = hr * shrink; tg = hg * shrink; tb = hb * shrink;

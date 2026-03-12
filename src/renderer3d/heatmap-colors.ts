@@ -2,7 +2,7 @@ import type { ColorMode } from '../types/renderer';
 
 /** Normalize a resource value to 0–1 based on mode.
  *  - Water: recharge rate, soil baseline (0.4) → midpoint
- *  - Nutrients: bonus plateaus ~6, so /6 → 1.0 at "plenty"
+ *  - Nutrients: terrain nutrient cap, soil max (10) → 1.0
  *  - Light: t³ gamma spreads the 0.7–1.0 cluster where most values sit */
 export function normalizeResource(mode: ColorMode, value: number): number {
   if (mode === 'light') {
@@ -11,16 +11,15 @@ export function normalizeResource(mode: ColorMode, value: number): number {
   }
   if (mode === 'water') return Math.min(1, Math.max(0, value / 0.8));
   // nutrients
-  return Math.min(1, Math.max(0, value / 6));
+  return Math.min(1, Math.max(0, value / 10));
 }
 
-/** Fertility = average of all three health-calibrated resources. 0 = barren, 1 = fertile.
- *  Average is more forgiving than min — a dense shaded forest with good water/nutrients
- *  shows as moderate rather than infertile. */
-export function fertilityValue(water: number, light: number, nutrients: number): number {
-  const w = Math.min(1, Math.max(0, water / 5));
+/** Fertility = average of terrain capacity resources. 0 = barren, 1 = fertile.
+ *  Water uses recharge rate, nutrients use terrain cap, light is direct. */
+export function fertilityValue(waterRecharge: number, light: number, nutrientMax: number): number {
+  const w = Math.min(1, Math.max(0, waterRecharge / 0.8));
   const l = Math.min(1, Math.max(0, light));
-  const n = Math.min(1, Math.max(0, nutrients / 6));
+  const n = Math.min(1, Math.max(0, nutrientMax / 10));
   return (w + l + n) / 3;
 }
 

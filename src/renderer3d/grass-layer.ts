@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GRID_WIDTH, WeatherOverlay } from '../types';
+import { GRID_WIDTH, TERRAIN_PROPS, WeatherOverlay } from '../types';
 import { isHeatmapMode } from '../types/renderer';
 import { RendererState, GRID, HALF, plantHash, easeOutCubic, lerp } from './state';
 import { computePlantTint } from './plant-colors';
@@ -446,10 +446,10 @@ export function createGrassLayer(
           [tr, tg, tb] = heatmapColor('health', plant.healthEMA);
         } else {
           const cell = world.grid[plant.y][plant.x];
-          const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
+          const value = mode === 'fertility' ? fertilityValue(cell.waterRechargeRate, cell.lightLevel, TERRAIN_PROPS[cell.terrainType].nutrientMax)
             : mode === 'water' ? cell.waterRechargeRate
             : mode === 'light' ? cell.lightLevel
-            : cell.nutrients;
+            : TERRAIN_PROPS[cell.terrainType].nutrientMax;
           const ht = mode === 'fertility' ? value : normalizeResource(mode, value);
           [tr, tg, tb] = heatmapColor(mode, ht);
         }
