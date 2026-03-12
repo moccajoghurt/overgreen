@@ -20,7 +20,7 @@ You are one iteration of an autonomous Ralph loop. You have NO memory of previou
 Each iteration, choose ONE of these approaches based on the current state:
 
 ### Tactical fix (default)
-A single coefficient tweak, classifier adjustment, or germination filter. Good when the problem is clearly scoped and the fix is obvious.
+A single coefficient tweak, classifier adjustment, or trait-effect row. Good when the problem is clearly scoped and the fix is obvious.
 
 ### Structural change (escalate when stuck)
 A new environment variable, new mechanic, or system rework. **Choose this when:**
@@ -48,11 +48,16 @@ Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid)
 ## What you can do
 
 - Add new environment variables to `CellEnvironment` and `deriveCellEnv` (this is the primary way to give the trait engine new axes of differentiation)
-- Add trait-effect rows to the `TRAIT_EFFECTS` table
+- Add trait-effect rows to the `TRAIT_EFFECTS` table — including **trait interactions** (`trait × trait2 × envVar`) to create multiple fitness peaks per niche, and **peaked traits** (`peaked: center`) for "moderate X is optimal" selection pressure
 - Add or rework classifiers in `src/types/subtypes.ts`
-- Add germination filters or other mechanics in `src/simulation.ts`
 - Tweak constants and tuning values
 - Rework or delete existing systems that aren't working
+
+## What you must NOT do
+
+- **Never add archetype-specific germination blocks** (e.g. "succulents can only germinate on Arid"). If an archetype shouldn't thrive somewhere, add trait-effect rows that make that genome profile unviable — stress mortality handles the rest. Hard germination blocks bypass natural selection.
+- **Never add alternative coexistence mechanisms** (e.g. per-niche traitMod averaging, ENV_SIMILARITY matrices). Frequency-dependent selection (FDS) is already implemented in `simulation.ts` and handles multi-subtype coexistence. Tune `FDS_STRENGTH` if needed, but don't replace or duplicate the mechanism.
+- **Never branch on terrain type or climate zone in plant logic** — all differentiation flows through continuous environment variables and the trait engine. See CLAUDE.md.
 
 ## Key Files
 
