@@ -39,6 +39,7 @@ const TICK = parseInt(getArg(args, '--tick', '300'), 10);
 const CAMERAS_ARG = getArg(args, '--cameras', '');
 const POS_ARG = getArg(args, '--pos', '');
 const TARGET_ARG = getArg(args, '--target', '');
+const HEATMAP = getArg(args, '--heatmap', '');
 const WARMUP = parseInt(getArg(args, '--warmup', '120'), 10);
 const WIDTH = parseInt(getArg(args, '--width', '1280'), 10);
 const HEIGHT = parseInt(getArg(args, '--height', '960'), 10);
@@ -103,6 +104,15 @@ try {
     if (btn && btn.textContent.trim().includes('PAUSED')) btn.click();
   });
   await new Promise(r => setTimeout(r, 300));
+
+  // Activate heatmap mode if requested
+  if (HEATMAP) {
+    await page.evaluate((mode) => {
+      const select = document.getElementById('color-mode-select');
+      if (select) { select.value = mode; select.dispatchEvent(new Event('change')); }
+    }, HEATMAP);
+    await new Promise(r => setTimeout(r, 200));
+  }
 
   const stats = await getWorldStats(page);
   console.log(`Tick ${stats.tick}: ${stats.plants} plants, ${stats.species.length} species`);

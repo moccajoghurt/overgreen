@@ -133,7 +133,7 @@ function computeFinalTint(
     }
     const cell = state.world.grid[y][x];
     const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
-      : mode === 'water' ? cell.waterLevel
+      : mode === 'water' ? cell.waterRechargeRate
       : mode === 'light' ? cell.lightLevel
       : cell.nutrients;
     const t = mode === 'fertility' ? value : normalizeResource(mode, value);
@@ -308,7 +308,7 @@ function renderDyingBurning(
         const cell = world.grid[dp.y]?.[dp.x];
         if (cell) {
           const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
-            : mode === 'water' ? cell.waterLevel
+            : mode === 'water' ? cell.waterRechargeRate
             : mode === 'light' ? cell.lightLevel
             : cell.nutrients;
           const nt = mode === 'fertility' ? value : normalizeResource(mode, value);

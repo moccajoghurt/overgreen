@@ -447,7 +447,7 @@ export function createGrassLayer(
         } else {
           const cell = world.grid[plant.y][plant.x];
           const value = mode === 'fertility' ? fertilityValue(cell.waterLevel, cell.lightLevel, cell.nutrients)
-            : mode === 'water' ? cell.waterLevel
+            : mode === 'water' ? cell.waterRechargeRate
             : mode === 'light' ? cell.lightLevel
             : cell.nutrients;
           const ht = mode === 'fertility' ? value : normalizeResource(mode, value);

@@ -114,6 +114,7 @@ export function updateTerrainColors(state: RendererState): void {
   // ── Heatmap override: replace terrain colors with resource gradient ──
   if (heatmap) {
     const mode = state.colorMode;
+
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const cell = world.grid[y][x];
@@ -159,8 +160,8 @@ export function updateTerrainColors(state: RendererState): void {
           const w = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
           value = fertilityValue(w, cell.lightLevel, cell.nutrients);
         } else if (mode === 'water') {
-          // River cells show as max water
-          value = cell.terrainType === TerrainType.River ? 10 : cell.waterLevel;
+          // Show recharge rate: the terrain's water-providing capacity
+          value = cell.waterRechargeRate;
         } else if (mode === 'light') {
           value = cell.lightLevel;
         } else {

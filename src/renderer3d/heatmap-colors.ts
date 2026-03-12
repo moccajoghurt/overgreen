@@ -1,8 +1,7 @@
 import type { ColorMode } from '../types/renderer';
 
 /** Normalize a resource value to 0–1 based on mode.
- *  Calibrated to plant health, not theoretical maximums:
- *  - Water: plants thrive at ~5, so /5 → 1.0 at "plenty"
+ *  - Water: recharge rate, soil baseline (0.4) → midpoint
  *  - Nutrients: bonus plateaus ~6, so /6 → 1.0 at "plenty"
  *  - Light: t³ gamma spreads the 0.7–1.0 cluster where most values sit */
 export function normalizeResource(mode: ColorMode, value: number): number {
@@ -10,7 +9,7 @@ export function normalizeResource(mode: ColorMode, value: number): number {
     const raw = Math.min(1, Math.max(0, value));
     return raw * raw * raw;
   }
-  if (mode === 'water') return Math.min(1, Math.max(0, value / 5));
+  if (mode === 'water') return Math.min(1, Math.max(0, value / 0.8));
   // nutrients
   return Math.min(1, Math.max(0, value / 6));
 }
