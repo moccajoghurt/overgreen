@@ -152,12 +152,15 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense',        envVar: 'soilFertility',   coefficient: -0.30, description: 'on fertile soil, fast undefended growth outcompetes slow defended growth' },
   { trait: 'defense',        envVar: 'waterlogging',    coefficient: -0.25, description: 'waterlogged soil leaches defensive chemicals; low herbivory pressure' },
 
-  // Water storage — critical in drought, liability in frost/wetland/wind
+  // Water storage — critical in drought, liability everywhere else
+  { trait: 'waterStorage',   envVar: null,              coefficient: -0.15, description: 'metabolic cost of maintaining water-storing tissue (vacuoles, mucilage)' },
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
   { trait: 'waterStorage',   envVar: 'heatStress',     coefficient: +0.25, description: 'evaporative cooling' },
   { trait: 'waterStorage',   envVar: 'frostRisk',      coefficient: -0.40, description: 'succulent tissue freezes' },
   { trait: 'waterStorage',   envVar: 'waterlogging',   coefficient: -0.50, description: 'redundant in saturated soil' },
   { trait: 'waterStorage',   envVar: 'windExposure',   coefficient: -0.35, description: 'wind desiccation of exposed succulent tissue' },
+  { trait: 'waterStorage',   envVar: 'soilFertility',  coefficient: -0.35, description: 'on fertile moist soil, water storage is wasted tissue — fast growers win' },
+  { trait: 'waterStorage',   envVar: 'diseasePressure', coefficient: -0.30, description: 'fleshy water-storing tissue is disease- and rot-prone in humid environments' },
 
   // Woodiness — structural support enables efficient photosynthesis, but rigid structures suffer in wind/water
   { trait: 'woodiness',      envVar: null,             coefficient: +0.12, description: 'structural support for canopy' },
@@ -223,52 +226,118 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'seasonality',    coefficient: -0.20, description: 'large leaves costly to regrow each spring; vulnerable to late frosts' },
   { trait: 'waterStorage',   envVar: 'seasonality',    coefficient: -0.15, description: 'freeze-thaw cycles damage succulent water-storing tissue' },
 
-  // ── Trait interaction terms ──
-  // These create multiple fitness peaks within the same niche by rewarding specific
-  // COMBINATIONS of traits. A linear sum of single-trait effects has at most one peak;
-  // trait×trait products create saddle points that split evolution into distinct strategies.
+  // ── Universal tradeoff interactions ──
+  // These force specialization by penalizing "max everything" strategies.
+  // With N tradeoffs, evolution must CHOOSE which traits to invest in,
+  // creating 2^N potential strategy niches instead of one global optimum.
 
-  // Arid/drought specialization: two competing succulent strategies
+  // Can't invest heavily in BOTH big leaves AND tall stems — carbon allocation tradeoff
+  { trait: 'leafSize', trait2: 'heightPriority', envVar: null, coefficient: -0.25,
+    description: 'carbon allocation: leaf area vs stem elongation compete for photosynthate' },
+  // Can't max defense AND reproduction — energy budget tradeoff
+  { trait: 'defense', trait2: 'seedInvestment', envVar: null, coefficient: -0.25,
+    description: 'energy budget: chemical defense vs flowering/fruiting compete for resources' },
+  // Can't invest maximally below-ground AND above-ground
+  { trait: 'rootPriority', trait2: 'heightPriority', envVar: null, coefficient: -0.20,
+    description: 'allocation: root growth vs shoot growth compete for meristem activity' },
+  // K-strategy vs r-strategy: can't be both long-lived AND hyper-reproductive
+  { trait: 'longevity', trait2: 'seedInvestment', envVar: null, coefficient: -0.25,
+    description: 'K/r tradeoff: structural reinforcement vs reproductive output' },
+  // Big defended leaves are metabolically extravagant — choose leaves OR armor
+  { trait: 'leafSize', trait2: 'defense', envVar: null, coefficient: -0.15,
+    description: 'defended leaves are doubly expensive: leaf tissue + defensive compounds per unit area' },
+  // Tall water-storing plants are structurally unstable — choose height OR storage
+  { trait: 'heightPriority', trait2: 'waterStorage', envVar: null, coefficient: -0.20,
+    description: 'heavy water-storing tissue in tall stems creates structural instability' },
+  // Deep roots + water storage is redundant — two solutions to the same problem
+  { trait: 'rootPriority', trait2: 'waterStorage', envVar: null, coefficient: -0.15,
+    description: 'deep water access and internal water storage are redundant drought strategies' },
+
+  // ── Environment-specific trait interactions ──
+  // These determine WHICH specialization wins in each environment.
+
+  // === Arid/drought: succulent strategies ===
   // Rosette succulent (Aloe): leafy + water-storing, undefended
   { trait: 'leafSize', trait2: 'waterStorage', envVar: 'droughtStress', coefficient: +0.80,
     description: 'fleshy rosette leaves store water and photosynthesize in drought' },
   // Armored succulent (Barrel Cactus/Saguaro): defended + water-storing, leafless
   { trait: 'defense', trait2: 'waterStorage', envVar: 'droughtStress', coefficient: +0.80,
     description: 'armored water-storing body survives extreme drought exposure' },
-  // These are mutually exclusive: high leafSize×waterStorage vs high defense×waterStorage
-  // push genomes toward either the Aloe or Barrel Cactus classifier profile
 
-  // Tropical forest specialization: two competing tree strategies
+  // === Arid/drought: non-succulent strategies ===
+  // Acacia/Saltbush: deep roots mine groundwater instead of storing it
+  { trait: 'rootPriority', trait2: 'waterStorage', inverse2: true, envVar: 'extremeAridity', coefficient: +0.70,
+    description: 'deep taproots reach water table — alternative to succulent water storage in desert' },
+  // Acacia: thorny colonizer with deep roots
+  { trait: 'defense', trait2: 'rootPriority', envVar: 'extremeAridity', coefficient: +0.90,
+    description: 'thorny deep-rooted trees tap groundwater in arid environments' },
+  // Desert Grass/annual: small-leaved, seedy, non-succulent ephemeral
+  { trait: 'seedInvestment', trait2: 'waterStorage', inverse2: true, envVar: 'extremeAridity', coefficient: +0.50,
+    description: 'ephemeral seed strategy — reproduce quickly without water storage investment' },
+
+  // === Tropical forest strategies ===
   // Canopy tree (Tropical): tall + defensive, broad-leaved
   { trait: 'heightPriority', trait2: 'defense', envVar: 'tropicality', coefficient: +0.70,
     description: 'tall defended canopy trees dominate tropical forests' },
   // Pioneer/colonizer (Birch/Palm): tall + reproductive, fast turnover
   { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'tropicality', coefficient: +0.50,
     description: 'fast-growing gap colonizers thrive in tropical disturbance cycles' },
+  // Palm: tall canopy without deep roots — aerial/prop root strategy
+  { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'tropicality', coefficient: +0.40,
+    description: 'overhead canopy with shallow lateral roots exploits tropical surface nutrients' },
+  // Fern/Magnolia: leaf-invested perennial, not seed-invested
+  { trait: 'leafSize', trait2: 'seedInvestment', inverse2: true, envVar: 'tropicality', coefficient: +0.35,
+    description: 'vegetative growth over reproduction in stable tropical understory' },
 
-  // Arid tree specialization: two competing strategies
-  // Acacia: defended + deep-rooted, small-leaved
-  { trait: 'defense', trait2: 'rootPriority', envVar: 'extremeAridity', coefficient: +0.90,
-    description: 'thorny deep-rooted trees tap groundwater in arid environments' },
-  // Cypress/columnar: tall + woody, narrow form
-  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'droughtStress', coefficient: +0.40,
-    description: 'tall columnar wood escapes ground-level heat and accesses light' },
+  // === Temperate strategies ===
+  // Oak/deep-rooted perennial: deep roots + long-lived in seasonal climate
+  { trait: 'rootPriority', trait2: 'longevity', envVar: 'winterHarshness', coefficient: +0.40,
+    description: 'deep-rooted perennials survive winter via established root networks' },
+  // Birch/pioneer: reproductive + short-lived in seasonal climate
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, envVar: 'winterHarshness', coefficient: +0.35,
+    description: 'short-lived pioneers colonize gaps after winter dieback in seasonal forests' },
 
-  // Wetland specialization: two competing strategies
-  // Mangrove/shallow-root shrub: tall + shallow-rooted, flood-adapted
+  // === Wetland strategies ===
+  // Mangrove/tall wetland: tall + shallow-rooted, flood-adapted
   { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.60,
-    description: 'prop-root shrubs grow above waterline without deep roots' },
+    description: 'prop-root plants grow above waterline without deep roots' },
   // Sedge/rush: leafy + shallow-rooted, ground-level
   { trait: 'leafSize', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.50,
     description: 'leafy shallow-rooted plants exploit saturated surface soil' },
+  // Fern/perennial wetland: leafy + long-lived in waterlogged soil
+  { trait: 'leafSize', trait2: 'longevity', envVar: 'waterlogging', coefficient: +0.35,
+    description: 'perennial broadleaf plants dominate stable wetland understory' },
 
-  // Mediterranean specialization: fire-adapted vs drought-tolerant
-  // Mediterranean shrub: woody + water-storing (thick bark, drought-hardy)
-  { trait: 'woodiness', trait2: 'waterStorage', envVar: 'heatStress', coefficient: +0.50,
-    description: 'woody drought-hardy scrub with thick bark survives Mediterranean summers' },
-  // Aromatic/compact shrub: defensive + long-lived (chemical defense, persistence)
+  // === Hill/exposed strategies ===
+  // Bunchgrass/Clover: deep-rooted compact on windswept terrain
+  { trait: 'rootPriority', trait2: 'heightPriority', inverse2: true, envVar: 'windExposure', coefficient: +0.45,
+    description: 'deep-rooted low-growing plants anchor against wind on exposed terrain' },
+  // Wildflower: ground-level flowering on exposed terrain
+  { trait: 'seedInvestment', trait2: 'heightPriority', inverse2: true, envVar: 'windExposure', coefficient: +0.30,
+    description: 'low-growing prolific seeders colonize wind-scoured gaps' },
+
+  // === Mediterranean/heat shrub strategies ===
+  // Aromatic: compact, defended, persistent
   { trait: 'defense', trait2: 'longevity', envVar: 'heatStress', coefficient: +0.40,
     description: 'aromatic defensive chemistry deters herbivores in open dry scrubland' },
+  // Mediterranean shrub: small-leaved, long-lived woody scrub
+  { trait: 'longevity', trait2: 'heightPriority', inverse2: true, envVar: 'heatStress', coefficient: +0.35,
+    description: 'persistent compact shrubs survive Mediterranean summer heat' },
+  // Woody drought-hardy (thick bark)
+  { trait: 'woodiness', trait2: 'waterStorage', envVar: 'heatStress', coefficient: +0.50,
+    description: 'woody drought-hardy scrub with thick bark survives Mediterranean summers' },
+
+  // === Fertile soil strategies ===
+  // Wildflower/Clover: ground-level flowering on fertile soil
+  { trait: 'seedInvestment', trait2: 'heightPriority', inverse2: true, envVar: 'soilFertility', coefficient: +0.30,
+    description: 'prolific ground-level flowering exploits fertile soil nutrients' },
+  // Fern/perennial broadleaf: leaf-invested on fertile soil
+  { trait: 'leafSize', trait2: 'longevity', envVar: 'soilFertility', coefficient: +0.30,
+    description: 'perennial broadleaf plants build persistent canopy on fertile soil' },
+
+  // Cypress/columnar: tall + woody, narrow form in drought
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'droughtStress', coefficient: +0.40,
+    description: 'tall columnar wood escapes ground-level heat and accesses light' },
 ];
 
 /** Niche index for a terrain×climate combination. */
