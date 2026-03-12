@@ -124,14 +124,14 @@ function classifyTree(g: Genome): SubtypeId {
   // Oak: wide leafSize, balanced, long-lived
   scores[0] = g.leafSize * 0.45 + g.rootPriority * 0.15 + (1 - g.seedInvestment) * 0.15 + g.defense * 0.15 + g.longevity * 0.1;
 
-  // Magnolia: ancient long-lived broadleaf tree
-  scores[1] = g.longevity * 0.35 + g.leafSize * 0.25 + (1 - g.seedInvestment) * 0.2 + (1 - g.heightPriority) * 0.2;
+  // Magnolia: ancient long-lived broadleaf tree, non-defensive (soft wood, no thorns)
+  scores[1] = g.longevity * 0.25 + g.leafSize * 0.25 + (1 - g.seedInvestment) * 0.2 + (1 - g.heightPriority) * 0.2 + (1 - g.defense) * 0.1;
 
   // Conifer: tall + narrow (high heightPriority, low leafSize), long-lived
   scores[2] = g.heightPriority * 0.45 + (1 - g.leafSize) * 0.25 + (1 - g.rootPriority) * 0.2 + g.longevity * 0.1;
 
-  // Tropical: disease-resistant canopy tree — tall, broad-leaved
-  scores[3] = g.defense * 0.3 + g.heightPriority * 0.3 + g.leafSize * 0.25 + (1 - g.rootPriority) * 0.15;
+  // Tropical: disease-resistant canopy tree — defensive, tall, broad-leaved
+  scores[3] = g.defense * 0.35 + g.heightPriority * 0.25 + g.leafSize * 0.30 + (1 - g.rootPriority) * 0.10;
 
   // Palm: tall, unbranched feel (high height, low root, low defense)
   scores[4] = g.heightPriority * 0.35 + (1 - g.rootPriority) * 0.25 + (1 - g.defense) * 0.2 + (1 - g.leafSize) * 0.2;
@@ -139,11 +139,11 @@ function classifyTree(g: Genome): SubtypeId {
   // Birch: pioneer (high seedInvestment, thin), short-lived
   scores[5] = g.seedInvestment * 0.45 + (1 - g.rootPriority) * 0.15 + g.heightPriority * 0.15 + (1 - g.defense) * 0.15 + (1 - g.longevity) * 0.1;
 
-  // Cypress: tall columnar evergreen, dense wood
-  scores[6] = g.heightPriority * 0.4 + (1 - g.leafSize) * 0.25 + g.longevity * 0.2 + g.woodiness * 0.15;
+  // Cypress: tall columnar evergreen, small scale-like leaves, dense wood
+  scores[6] = g.heightPriority * 0.35 + (1 - g.leafSize) * 0.30 + g.longevity * 0.20 + g.woodiness * 0.15;
 
-  // Acacia: wide flat-topped, thorny, arid-adapted
-  scores[7] = g.defense * 0.3 + (1 - g.waterStorage) * 0.25 + g.leafSize * 0.25 + g.seedInvestment * 0.2;
+  // Acacia: thorny, deep-rooted, small-leaved arid colonizer
+  scores[7] = g.defense * 0.3 + g.rootPriority * 0.25 + (1 - g.leafSize) * 0.25 + g.seedInvestment * 0.2;
 
   let best = 0;
   for (let i = 1; i < 8; i++) if (scores[i] > scores[best]) best = i;
@@ -165,8 +165,8 @@ function classifyShrub(g: Genome): SubtypeId {
   // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy
   scores[2] = g.woodiness * 0.3 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.25 + g.longevity * 0.2;
 
-  // Thorny: high defense
-  scores[3] = g.defense * 0.6 + (1 - g.leafSize) * 0.2 + g.rootPriority * 0.2;
+  // Thorny: high defense, large-leaved (real brambles have big compound leaves)
+  scores[3] = g.defense * 0.50 + g.leafSize * 0.25 + (1 - g.heightPriority) * 0.15 + g.rootPriority * 0.10;
 
   // Desert: high waterStorage (within shrub range), sparse
   scores[4] = g.waterStorage * 0.4 + (1 - g.leafSize) * 0.3 + g.rootPriority * 0.15 + (1 - g.defense) * 0.15;

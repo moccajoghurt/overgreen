@@ -362,7 +362,7 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     plantable: true,
     succulentGermination: true,
     shrubGermination: true,
-    treeGermination: false,
+    treeGermination: true,
   },
 };
 

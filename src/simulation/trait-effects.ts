@@ -120,9 +120,12 @@ type EnvVar = keyof CellEnvironment;
 
 interface TraitEffect {
   trait: GenomeTrait;
+  trait2?: GenomeTrait;    // second trait for interaction terms (trait × trait2 × env)
   envVar: EnvVar | null;
   coefficient: number;
-  inverse?: boolean; // use (1 - traitVal) instead of traitVal
+  inverse?: boolean;       // use (1 - traitVal) instead of traitVal
+  inverse2?: boolean;      // use (1 - trait2Val)
+  peaked?: number;         // tent function: max(0, 1 - 2*|trait - peaked|)
   description: string;
 }
 
@@ -189,7 +192,6 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'longevity',      envVar: 'frostRisk',       coefficient: -0.10, description: 'frost damages accumulated long-lived tissue' },
 
   // ── Tropicality axis — separates tropical from other climates ──
-  // Tropical rainforest rewards: big leaves, defensive chemistry, tall canopy competition
   { trait: 'leafSize',       envVar: 'tropicality',     coefficient: +0.50, description: 'lush foliage thrives in warm humid conditions' },
   { trait: 'defense',        envVar: 'tropicality',     coefficient: +0.40, description: 'chemical defenses essential against tropical herbivores and pathogens' },
   { trait: 'heightPriority', envVar: 'tropicality',     coefficient: +0.35, description: 'intense canopy competition in tropical forests' },
@@ -197,21 +199,82 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'rootPriority',   envVar: 'tropicality',     coefficient: -0.20, description: 'shallow lateral roots outperform taproots in tropical soils' },
 
   // ── Winter harshness axis — separates temperate from other climates ──
-  // Temperate winter rewards: woody tissue, deciduous strategy, frost hardiness
   { trait: 'woodiness',      envVar: 'winterHarshness', coefficient: +0.40, description: 'woody perennials survive winter dormancy' },
   { trait: 'waterStorage',   envVar: 'winterHarshness', coefficient: -0.45, description: 'succulent tissue destroyed by freeze-thaw cycles' },
   { trait: 'longevity',      envVar: 'winterHarshness', coefficient: +0.25, description: 'long-lived perennials amortize winter survival investment' },
   { trait: 'leafSize',       envVar: 'winterHarshness', coefficient: -0.25, description: 'deciduous leaf loss — large leaves are costly to regrow each spring' },
+
+  // ── Trait interaction terms ──
+  // These create multiple fitness peaks within the same niche by rewarding specific
+  // COMBINATIONS of traits. A linear sum of single-trait effects has at most one peak;
+  // trait×trait products create saddle points that split evolution into distinct strategies.
+
+  // Arid/drought specialization: two competing succulent strategies
+  // Rosette succulent (Aloe): leafy + water-storing, undefended
+  { trait: 'leafSize', trait2: 'waterStorage', envVar: 'droughtStress', coefficient: +0.80,
+    description: 'fleshy rosette leaves store water and photosynthesize in drought' },
+  // Armored succulent (Barrel Cactus/Saguaro): defended + water-storing, leafless
+  { trait: 'defense', trait2: 'waterStorage', envVar: 'droughtStress', coefficient: +0.80,
+    description: 'armored water-storing body survives extreme drought exposure' },
+  // These are mutually exclusive: high leafSize×waterStorage vs high defense×waterStorage
+  // push genomes toward either the Aloe or Barrel Cactus classifier profile
+
+  // Tropical forest specialization: two competing tree strategies
+  // Canopy tree (Tropical): tall + defensive, broad-leaved
+  { trait: 'heightPriority', trait2: 'defense', envVar: 'tropicality', coefficient: +0.70,
+    description: 'tall defended canopy trees dominate tropical forests' },
+  // Pioneer/colonizer (Birch/Palm): tall + reproductive, fast turnover
+  { trait: 'heightPriority', trait2: 'seedInvestment', envVar: 'tropicality', coefficient: +0.50,
+    description: 'fast-growing gap colonizers thrive in tropical disturbance cycles' },
+
+  // Arid tree specialization: two competing strategies
+  // Acacia: defended + deep-rooted, small-leaved
+  { trait: 'defense', trait2: 'rootPriority', envVar: 'extremeAridity', coefficient: +0.90,
+    description: 'thorny deep-rooted trees tap groundwater in arid environments' },
+  // Cypress/columnar: tall + woody, narrow form
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'droughtStress', coefficient: +0.40,
+    description: 'tall columnar wood escapes ground-level heat and accesses light' },
+
+  // Wetland specialization: two competing strategies
+  // Mangrove/shallow-root shrub: tall + shallow-rooted, flood-adapted
+  { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.60,
+    description: 'prop-root shrubs grow above waterline without deep roots' },
+  // Sedge/rush: leafy + shallow-rooted, ground-level
+  { trait: 'leafSize', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.50,
+    description: 'leafy shallow-rooted plants exploit saturated surface soil' },
+
+  // Mediterranean specialization: fire-adapted vs drought-tolerant
+  // Mediterranean shrub: woody + water-storing (thick bark, drought-hardy)
+  { trait: 'woodiness', trait2: 'waterStorage', envVar: 'heatStress', coefficient: +0.50,
+    description: 'woody drought-hardy scrub with thick bark survives Mediterranean summers' },
+  // Aromatic/compact shrub: defensive + long-lived (chemical defense, persistence)
+  { trait: 'defense', trait2: 'longevity', envVar: 'heatStress', coefficient: +0.40,
+    description: 'aromatic defensive chemistry deters herbivores in open dry scrubland' },
 ];
+
+/** Niche index for a terrain×climate combination. */
+export function getEnvIdx(climateZone: number, terrainType: number): number {
+  return climateZone * TERRAIN_COUNT + terrainType;
+}
+
+export const NICHE_COUNT = CLIMATE_ZONE_COUNT * TERRAIN_COUNT;
+
+/** Evaluate a single trait value, handling inverse and peaked modes. */
+function evalTrait(genome: Genome, trait: GenomeTrait, inverse?: boolean, peaked?: number): number {
+  const raw = inverse ? 1 - genome[trait] : genome[trait];
+  if (peaked !== undefined) return Math.max(0, 1 - 2 * Math.abs(raw - peaked));
+  return raw;
+}
 
 /** Compute the aggregate production modifier from genome × environment interaction. */
 export function computeTraitModifier(genome: Genome, env: CellEnvironment): number {
   let modifier = 0;
   for (let i = 0; i < TRAIT_EFFECTS.length; i++) {
     const e = TRAIT_EFFECTS[i];
-    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
+    const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
+    const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
-    modifier += traitVal * envVal * e.coefficient;
+    modifier += t1 * t2 * envVal * e.coefficient;
   }
   return modifier;
 }
@@ -222,10 +285,15 @@ export function diagnoseTraitEffects(genome: Genome, env: CellEnvironment): Arra
   traitVal: number; envVal: number; contribution: number; description: string;
 }> {
   return TRAIT_EFFECTS.map(e => {
-    const traitVal = e.inverse ? 1 - genome[e.trait] : genome[e.trait];
+    const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
+    const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
+    const traitVal = t1 * t2;
+    const traitLabel = e.trait2
+      ? `${e.inverse ? '(1-' + e.trait + ')' : e.trait}×${e.inverse2 ? '(1-' + e.trait2 + ')' : e.trait2}`
+      : (e.inverse ? `(1-${e.trait})` : e.trait);
     return {
-      trait: e.inverse ? `(1-${e.trait})` : e.trait,
+      trait: traitLabel,
       envVar: e.envVar,
       coefficient: e.coefficient,
       traitVal,

@@ -82,6 +82,7 @@ export function createPlant(id: number, x: number, y: number, genome: Genome, sp
     lastLightReceived: 0, lastWaterAbsorbed: 0,
     lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false, storedWater: 0, healthEMA: 1.0, peakEnergy: 3.0,
     generation: 0, parentId: null, offspringCount: 0, effectiveLight: 0, lastTraitModifier: 0,
+    subtype: classifySubtype(genome),
   };
 }
 

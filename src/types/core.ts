@@ -69,6 +69,7 @@ export interface Plant {
   forceLow?: boolean;
   effectiveLight: number;
   lastTraitModifier: number;
+  subtype: number;
 }
 
 export interface Cell {

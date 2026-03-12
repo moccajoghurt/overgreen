@@ -1,10 +1,10 @@
-import { Cell, ClimateZone, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
-import { getEffectiveEnv, computeTraitModifier, CellEnvironment } from './simulation/trait-effects';
+import { Cell, Genome, GRID_WIDTH, Plant, PlantConstants, Seed, SIM, TERRAIN_PROPS, TerrainType, World, getPlantConstants, ZoneModifiers } from './types';
+import { getEffectiveEnv, computeTraitModifier, CellEnvironment, getEnvIdx, NICHE_COUNT } from './simulation/trait-effects';
 import type { TimingHooks } from './perf';
 import { NEIGHBORS, inBounds } from './simulation/neighbors';
 import {
   mutateGenome, crossoverGenome,
-  Archetype, archetype,
+  archetype,
   generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
@@ -93,6 +93,15 @@ const _srGrid = new Float32Array(_gridSize);
 const _shsGrid = new Float32Array(_gridSize);
 const _diseasedGrid = new Uint8Array(_gridSize);
 const _archetypeMask = new Uint8Array(_gridSize);
+
+// ── Subtype frequency-dependent selection (FDS) ──
+// Per-niche (terrain×climate) subtype population counts, computed each tick.
+// Dominant subtypes get a seed production penalty; rare subtypes get a boost.
+// This maintains multi-subtype coexistence within each niche.
+const SUBTYPE_COUNT = 40;
+const FDS_STRENGTH = 2.5; // how strongly frequency penalizes dominant subtypes
+const _nicheSubtypeCounts = new Uint16Array(NICHE_COUNT * SUBTYPE_COUNT);
+const _nicheTotalPlants = new Uint16Array(NICHE_COUNT);
 
 function phaseCalculateLight(world: World): void {
   const W = world.width;
@@ -338,7 +347,17 @@ function allocateGrowthAndSeeds(plant: Plant, surplus: number, world: World, zm:
 
   // Redirect unused growth budget to seed production at 50% efficiency
   const unusedGrowth = Math.max(0, growthBudget - usedGrowthBudget);
-  const totalSeedBudget = seedBudget + unusedGrowth * 0.5;
+  // Frequency-dependent selection: dominant subtypes in a niche produce fewer seeds,
+  // rare subtypes produce more. Maintains multi-subtype coexistence.
+  const fdsCell = world.grid[plant.y][plant.x];
+  const fdsNiche = getEnvIdx(fdsCell.climateZone, fdsCell.terrainType);
+  const fdsTotal = _nicheTotalPlants[fdsNiche];
+  let fdsMult = 1.0;
+  if (fdsTotal > 10) {
+    const freq = _nicheSubtypeCounts[fdsNiche * SUBTYPE_COUNT + (plant.subtype ?? 0)] / fdsTotal;
+    fdsMult = Math.max(0.3, Math.min(2.0, 1.0 - (freq - 1.0 / SUBTYPE_COUNT) * FDS_STRENGTH));
+  }
+  const totalSeedBudget = (seedBudget + unusedGrowth * 0.5) * fdsMult;
 
   // Seed size scaling — small seeds: cheap & far, large seeds: expensive & close
   const seedSizeMult = SIM.SEED_SIZE_MULT_MIN + plant.genome.seedSize * SIM.SEED_SIZE_MULT_RANGE;
@@ -418,6 +437,10 @@ function phaseUpdatePlants(world: World): void {
   // Build flat disease grid to avoid string-key lookups per plant
   const W = world.width;
   _diseasedGrid.fill(0);
+
+  // Reset subtype FDS counters for this tick
+  _nicheSubtypeCounts.fill(0);
+  _nicheTotalPlants.fill(0);
   for (const disease of world.environment.diseases) {
     for (const [key] of disease.cells) {
       const i = key.indexOf(',');
@@ -474,6 +497,11 @@ function phaseUpdatePlants(world: World): void {
       const archetypeCount = (archetypeSet & 1) + ((archetypeSet >> 1) & 1)
         + ((archetypeSet >> 2) & 1) + ((archetypeSet >> 3) & 1) + ((archetypeSet >> 4) & 1);
       energyProduced *= 1.0 + archetypeCount * 0.25;
+
+      // Accumulate subtype counts for frequency-dependent selection
+      const fdsNiche = getEnvIdx(cell.climateZone, cell.terrainType);
+      _nicheSubtypeCounts[fdsNiche * SUBTYPE_COUNT + (plant.subtype ?? 0)]++;
+      _nicheTotalPlants[fdsNiche]++;
     }
 
     const maintenance = calculateMaintenance(plant, world, isDiseased, pc);
@@ -610,43 +638,13 @@ function phaseGermination(world: World): void {
       // Germinate if cell has space and has enough water
       if (!cellHasSpace(cell) || cell.seeds.length === 0) continue;
 
-      // Weighted lottery — each qualifying seed's chance proportional to energy
+      // Weighted lottery — each qualifying seed's chance proportional to energy.
+      // No hard archetype blocks: the trait engine's negative modifiers make
+      // poorly-adapted archetypes unviable via stress mortality instead.
       let totalEnergy = 0;
       const qualifying: number[] = [];
       for (let i = 0; i < cell.seeds.length; i++) {
         const seed = cell.seeds[i];
-        // Succulent germination restrictions:
-        // - Only on terrains marked succulentGermination (Hill, Arid)
-        // - In wet climates (Temperate, Tropical), further restricted to Arid only
-        if (archetype(seed.genome) === Archetype.Succulent) {
-          if (!TERRAIN_PROPS[cell.terrainType].succulentGermination) continue;
-          if ((cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)
-            && cell.terrainType !== TerrainType.Arid) continue;
-        }
-        // Shrub germination restrictions:
-        // - Blocked on Hill terrain in Temperate/Tropical climates
-        // - Woody shrub seedlings are killed by persistent cold/humid wind before establishment
-        // - Allowed on Hill in Mediterranean/Desert (garrigue/scrubland conditions)
-        if (archetype(seed.genome) === Archetype.Shrub) {
-          if (!TERRAIN_PROPS[cell.terrainType].shrubGermination
-            && (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Tropical)) {
-            continue;
-          }
-        }
-        // Tree germination restrictions:
-        // - Hill: blocked in Temperate/Desert (cloud forest & Mediterranean cypress ok)
-        // - Arid: blocked in Temperate/Desert/Mediterranean (only Tropical ok for Acacia)
-        // - Exposed wind and extreme drought prevent tree establishment
-        if (archetype(seed.genome) === Archetype.Tree) {
-          if (!TERRAIN_PROPS[cell.terrainType].treeGermination) {
-            if (cell.climateZone === ClimateZone.Temperate || cell.climateZone === ClimateZone.Desert) {
-              continue;
-            }
-            if (cell.terrainType === TerrainType.Arid && cell.climateZone === ClimateZone.Mediterranean) {
-              continue;
-            }
-          }
-        }
         const waterThreshold = seed.seedGerminationWater;
         if (cell.waterLevel >= waterThreshold) {
           qualifying.push(i);
@@ -752,6 +750,7 @@ function phaseGermination(world: World): void {
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         healthEMA: 1.0, peakEnergy: 2.0,
         generation: winner.generation, parentId: null, offspringCount: 0, effectiveLight: 0, lastTraitModifier: 0,
+        subtype: childSubtype,
       };
       world.plants.set(childId, child);
       setCellPlant(cell, Tier.Ground, childId);
