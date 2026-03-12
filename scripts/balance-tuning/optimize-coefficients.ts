@@ -24,8 +24,6 @@ const TRAIT_KEYS: (keyof Genome)[] = [
   'rootPriority', 'heightPriority', 'leafSize', 'seedInvestment',
   'seedSize', 'defense', 'woodiness', 'waterStorage', 'longevity',
 ];
-const GRID_VALUES = [0.01, 0.5, 0.99];
-const GRID_SIZE = 3 ** 9;
 
 const log = (s: string) => process.stderr.write(s + '\n');
 const out = (s: string) => process.stdout.write(s + '\n');
@@ -135,106 +133,122 @@ function makeGenome(vals: number[]): Genome {
   };
 }
 
-function clampToArchetype(g: Genome, arch: number): Genome | null {
-  const c = { ...g };
-  switch (arch) {
-    case 0: // Grass
-      c.woodiness = Math.min(c.woodiness, 0.39);
-      c.leafSize = Math.min(c.leafSize, 0.49);
-      c.waterStorage = Math.min(c.waterStorage, 0.54);
-      break;
-    case 1: // Shrub
-      c.woodiness = Math.max(0.4, Math.min(0.7, c.woodiness));
-      c.waterStorage = Math.min(c.waterStorage, 0.54);
-      break;
-    case 2: // Succulent
-      c.waterStorage = Math.max(0.55, c.waterStorage);
-      break;
-    case 3: // Tree
-      c.woodiness = Math.max(0.71, c.woodiness);
-      c.waterStorage = Math.min(c.waterStorage, 0.54);
-      break;
-    case 4: // Forb
-      c.woodiness = Math.min(c.woodiness, 0.39);
-      c.leafSize = Math.max(0.5, c.leafSize);
-      c.waterStorage = Math.min(c.waterStorage, 0.54);
-      break;
-  }
-  if (archetype(c) !== arch) return null;
-  return c;
-}
+// ── Step 1: Prototype genomes per subtype ──
+// Derived analytically from classifier weights in subtypes.ts.
+// Each genome maximizes its subtype's classifier score while respecting archetype gates.
+// Key: traits with positive weight → HIGH (0.95), inverse weight → LOW (0.05), unused → neutral (0.50).
 
-// ── Step 1: Generate centroid genomes per subtype ──
+log('Building prototype representative genomes...');
 
-log('Generating centroid representative genomes...');
+//                             root  height leaf  seed  seedSz def   wood  wst   lon
+const PROTOTYPES: Record<number, number[]> = {
+  // ── Grasses (wood<0.4, leaf<0.5, wst<0.55) ──
+  // Turfgrass: (1-h)×.45 + (1-r)×.15 + (1-w)×.20 + (1-l)×.1 + (1-lon)×.1
+  0:  [0.05, 0.05, 0.05, 0.50, 0.50, 0.50, 0.05, 0.05, 0.05],
+  // Tallgrass: h×.6 + l×.2 + si×.1 + lon×.1
+  1:  [0.50, 0.95, 0.49, 0.50, 0.50, 0.05, 0.05, 0.05, 0.95],
+  // Bunchgrass: r×.25 + sz×.20 + (1-h)×.20 + lon×.15 + si×.20
+  2:  [0.95, 0.05, 0.05, 0.95, 0.95, 0.05, 0.05, 0.05, 0.95],
+  // Bamboo: w×.20 + r×.25 + h×.25 + lon×.20 + (1-si)×.10
+  3:  [0.95, 0.95, 0.05, 0.05, 0.50, 0.05, 0.39, 0.05, 0.95],
+  // Ryegrass/Spreading: si×.45 + l×.15 + (1-h)×.3 + (1-lon)×.1
+  4:  [0.95, 0.05, 0.49, 0.95, 0.05, 0.05, 0.05, 0.05, 0.05],
+  // Sedge: (1-r)×.35 + l×.3 + h×.2 + (1-wst)×.15
+  5:  [0.05, 0.95, 0.49, 0.05, 0.05, 0.05, 0.05, 0.05, 0.50],
+  // Pampas (30): def×.35 + h×.25 + r×.25 + lon×.10 + (1-l)×.05
+  30: [0.95, 0.95, 0.05, 0.05, 0.50, 0.95, 0.05, 0.05, 0.95],
+  // Desert Grass (31): wst×.35 + r×.20 + (1-l)×.20 + (1-si)×.15 + lon×.10
+  31: [0.95, 0.05, 0.05, 0.05, 0.50, 0.05, 0.05, 0.54, 0.95],
 
-const traitSums: number[][] = Array.from({ length: SUBTYPE_COUNT }, () => new Array(9).fill(0));
-const subtypeCounts: number[] = new Array(SUBTYPE_COUNT).fill(0);
+  // ── Trees (wood>0.7, wst<0.55) ──
+  // Oak: l×.45 + r×.15 + (1-si)×.15 + def×.15 + lon×.1
+  6:  [0.95, 0.50, 0.95, 0.05, 0.50, 0.95, 0.80, 0.05, 0.95],
+  // Magnolia: lon×.25 + l×.25 + (1-si)×.2 + (1-h)×.2 + (1-def)×.1
+  7:  [0.50, 0.05, 0.95, 0.05, 0.50, 0.05, 0.80, 0.05, 0.95],
+  // Conifer: h×.45 + (1-l)×.25 + (1-r)×.2 + lon×.1
+  8:  [0.05, 0.95, 0.05, 0.05, 0.50, 0.50, 0.80, 0.05, 0.95],
+  // Tropical: def×.35 + h×.25 + l×.30 + (1-r)×.10
+  9:  [0.05, 0.95, 0.95, 0.05, 0.50, 0.95, 0.80, 0.05, 0.50],
+  // Palm: h×.35 + (1-r)×.25 + (1-def)×.2 + (1-l)×.2
+  10: [0.05, 0.95, 0.05, 0.50, 0.50, 0.05, 0.80, 0.05, 0.50],
+  // Birch: si×.45 + (1-r)×.15 + h×.15 + (1-def)×.15 + (1-lon)×.1
+  11: [0.05, 0.95, 0.50, 0.95, 0.50, 0.05, 0.80, 0.05, 0.05],
+  // Cypress (32): h×.35 + (1-l)×.30 + lon×.20 + w×.15
+  32: [0.95, 0.95, 0.05, 0.05, 0.50, 0.50, 0.95, 0.05, 0.95],
+  // Acacia (33): def×.3 + r×.25 + (1-l)×.25 + si×.2
+  33: [0.95, 0.05, 0.05, 0.95, 0.50, 0.95, 0.80, 0.05, 0.05],
 
-for (let arch = 0; arch < 5; arch++) {
-  for (let gi = 0; gi < GRID_SIZE; gi++) {
-    const vals: number[] = [];
-    let idx = gi;
-    for (let t = 0; t < 9; t++) {
-      vals.push(GRID_VALUES[idx % 3]);
-      idx = Math.floor(idx / 3);
-    }
-    const raw = makeGenome(vals);
-    const clamped = clampToArchetype(raw, arch);
-    if (!clamped) continue;
+  // ── Shrubs (wood 0.4-0.7, wst<0.55) ──
+  // Holly/Evergreen: def×.3 + l×.25 + (1-si)×.2 + (1-h)×.15 + lon×.1
+  12: [0.50, 0.05, 0.95, 0.05, 0.50, 0.95, 0.55, 0.05, 0.95],
+  // Hazel/Deciduous: peaked(l=.5)×.25 + peaked(h=.5)×.25 + si×.2 + (1-def)×.2 + (1-lon)×.1
+  13: [0.50, 0.50, 0.50, 0.95, 0.50, 0.05, 0.55, 0.05, 0.05],
+  // Mediterranean: w×.3 + (1-l)×.25 + wst×.25 + lon×.2
+  14: [0.05, 0.50, 0.05, 0.05, 0.50, 0.05, 0.70, 0.54, 0.95],
+  // Bramble/Thorny: def×.50 + l×.25 + (1-h)×.15 + r×.10
+  15: [0.95, 0.05, 0.95, 0.05, 0.50, 0.95, 0.55, 0.05, 0.50],
+  // Saltbush: r×.30 + (1-l)×.25 + lon×.20 + (1-def)×.15 + (1-h)×.10
+  16: [0.95, 0.05, 0.05, 0.50, 0.50, 0.05, 0.55, 0.05, 0.95],
+  // Mangrove: (1-r)×.3 + h×.3 + l×.2 + (1-wst)×.2
+  17: [0.05, 0.95, 0.95, 0.50, 0.50, 0.05, 0.55, 0.05, 0.05],
+  // Flowering Shrub (34): si×.4 + l×.25 + (1-def)×.2 + lon×.15
+  34: [0.05, 0.50, 0.95, 0.95, 0.50, 0.05, 0.55, 0.05, 0.95],
+  // Aromatic (35): (1-h)×.3 + def×.25 + lon×.25 + (1-l)×.2
+  35: [0.50, 0.05, 0.05, 0.05, 0.50, 0.95, 0.55, 0.05, 0.95],
 
-    const subId = classifySubtype(clamped) as number;
-    const gVals = TRAIT_KEYS.map(k => clamped[k]);
-    for (let t = 0; t < 9; t++) traitSums[subId][t] += gVals[t];
-    subtypeCounts[subId]++;
-  }
-}
+  // ── Succulents (wst>=0.55) ──
+  // Saguaro: h×.5 + (1-l)×.2 + wst×.2 + lon×.1
+  18: [0.50, 0.95, 0.05, 0.05, 0.50, 0.50, 0.50, 0.95, 0.95],
+  // Aloe: l×.5 + (1-h)×.3 + wst×.2
+  19: [0.50, 0.05, 0.95, 0.05, 0.50, 0.05, 0.50, 0.95, 0.50],
+  // Caudiciform: wst×.35 + (1-def)×.25 + (1-h)×.15 + r×.15 + (1-l)×.10
+  20: [0.95, 0.05, 0.05, 0.50, 0.50, 0.05, 0.50, 0.95, 0.50],
+  // Euphorbia: h×.3 + si×.25 + def×.25 + (1-r)×.2
+  21: [0.05, 0.95, 0.50, 0.95, 0.50, 0.95, 0.50, 0.60, 0.50],
+  // Ice Plant: (1-h)×.35 + si×.25 + (1-r)×.3 + (1-lon)×.1
+  22: [0.05, 0.05, 0.50, 0.95, 0.50, 0.05, 0.50, 0.60, 0.05],
+  // Epiphytic: (1-r)×.4 + (1-h)×.3 + l×.3
+  23: [0.05, 0.05, 0.95, 0.05, 0.50, 0.05, 0.50, 0.60, 0.50],
+  // Barrel Cactus (36): def×.35 + (1-h)×.25 + wst×.25 + r×.15
+  36: [0.95, 0.05, 0.05, 0.05, 0.50, 0.95, 0.50, 0.95, 0.50],
+  // Jade (37): lon×.3 + l×.25 + (1-h)×.25 + r×.2
+  37: [0.95, 0.05, 0.95, 0.05, 0.50, 0.05, 0.50, 0.60, 0.95],
 
-// Build centroid genomes, verify classification
+  // ── Forbs (wood<0.4, leaf>=0.5, wst<0.55) ──
+  // Wildflower: si×.35 + (1-h)×.25 + l×.2 + (1-def)×.2
+  24: [0.05, 0.05, 0.95, 0.95, 0.50, 0.05, 0.10, 0.05, 0.50],
+  // Tall Herb: h×.5 + l×.2 + lon×.15 + r×.15
+  25: [0.95, 0.95, 0.95, 0.05, 0.50, 0.05, 0.10, 0.05, 0.95],
+  // Fern: l×.4 + r×.2 + lon×.2 + (1-si)×.2
+  26: [0.95, 0.05, 0.95, 0.05, 0.50, 0.05, 0.10, 0.05, 0.95],
+  // Vine: si×.3 + (1-r)×.3 + h×.2 + (1-def)×.2
+  27: [0.05, 0.95, 0.50, 0.95, 0.50, 0.05, 0.10, 0.05, 0.50],
+  // Clover: (1-h)×.35 + si×.25 + r×.2 + (1-lon)×.2
+  28: [0.95, 0.05, 0.50, 0.95, 0.50, 0.05, 0.10, 0.05, 0.05],
+  // Moss: (1-h)×.3 + r×.25 + (1-si)×.25 + wst×.2
+  29: [0.95, 0.05, 0.50, 0.05, 0.50, 0.05, 0.10, 0.54, 0.50],
+  // Tropical Herb (38): l×.30 + def×.25 + h×.20 + (1-si)×.15 + lon×.10
+  38: [0.50, 0.95, 0.95, 0.05, 0.50, 0.95, 0.10, 0.05, 0.95],
+  // Desert Annual (39): (1-lon)×.3 + si×.25 + (1-wst)×.25 + (1-r)×.2
+  39: [0.05, 0.50, 0.50, 0.95, 0.50, 0.05, 0.10, 0.05, 0.05],
+};
+
 const repGenomes: (Genome | null)[] = new Array(SUBTYPE_COUNT).fill(null);
+let misclassified = 0;
 
-for (let s = 0; s < SUBTYPE_COUNT; s++) {
-  if (subtypeCounts[s] === 0) {
-    log(`WARNING: No grid genomes classify as ${SUBTYPE_NAMES[s]} (#${s})`);
-    continue;
+for (const [idStr, vals] of Object.entries(PROTOTYPES)) {
+  const id = Number(idStr);
+  const g = makeGenome(vals);
+  const classified = classifySubtype(g) as number;
+  if (classified !== id) {
+    log(`  WARNING: Prototype for ${SUBTYPE_NAMES[id]} (#${id}) classifies as ${SUBTYPE_NAMES[classified]} (#${classified})`);
+    misclassified++;
   }
-  const centroid = makeGenome(traitSums[s].map((v, t) => v / subtypeCounts[s]));
-  const classifiedAs = classifySubtype(centroid) as number;
-  if (classifiedAs === s) {
-    repGenomes[s] = centroid;
-  } else {
-    // Centroid doesn't classify correctly — find nearest grid genome that does
-    log(`  Centroid of ${SUBTYPE_NAMES[s]} classifies as ${SUBTYPE_NAMES[classifiedAs]}, using grid fallback`);
-    // Pick the grid genome closest to centroid that classifies correctly
-    let bestDist = Infinity;
-    for (let arch = 0; arch < 5; arch++) {
-      for (let gi = 0; gi < GRID_SIZE; gi++) {
-        const vals: number[] = [];
-        let idx2 = gi;
-        for (let t = 0; t < 9; t++) {
-          vals.push(GRID_VALUES[idx2 % 3]);
-          idx2 = Math.floor(idx2 / 3);
-        }
-        const raw = makeGenome(vals);
-        const clamped = clampToArchetype(raw, arch);
-        if (!clamped) continue;
-        if ((classifySubtype(clamped) as number) !== s) continue;
-        // Distance to centroid
-        let dist = 0;
-        const cVals = TRAIT_KEYS.map(k => clamped[k]);
-        for (let t = 0; t < 9; t++) dist += (cVals[t] - centroid[TRAIT_KEYS[t]]) ** 2;
-        if (dist < bestDist) {
-          bestDist = dist;
-          repGenomes[s] = clamped;
-        }
-      }
-    }
-    if (!repGenomes[s]) log(`  FAILED: No fallback for ${SUBTYPE_NAMES[s]}`);
-  }
+  repGenomes[id] = g;
 }
 
 const activeSubtypes = repGenomes.map((g, i) => g ? i : -1).filter(i => i >= 0);
-log(`Representative genomes: ${activeSubtypes.length}/${SUBTYPE_COUNT}`);
+log(`Prototype genomes: ${activeSubtypes.length}/${SUBTYPE_COUNT} (${misclassified} misclassified)`);
 
 // ── Step 2: Extract features (coefficient-independent) ──
 
