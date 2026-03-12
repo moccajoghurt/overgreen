@@ -384,6 +384,7 @@ export function createGrassLayer(
   let lastTraitColorTrait = '';
   let lastHighlightedSpecies: Set<number> | null = null;
   let lastHighlightedLineageRoot: number | null = null;
+  let lastHighlightedPlantId: number | null = null;
 
   // ── updateCellData: per-tick CPU update ──
   function updateCellData(state: RendererState): void {
@@ -394,7 +395,8 @@ export function createGrassLayer(
     const colorModeChanged = state.colorMode !== lastColorMode;
     const traitChanged = state.colorMode === 'trait' && state.traitColorTrait !== lastTraitColorTrait;
     const highlightChanged = state.highlightedSpecies !== lastHighlightedSpecies
-      || state.highlightedLineageRoot !== lastHighlightedLineageRoot;
+      || state.highlightedLineageRoot !== lastHighlightedLineageRoot
+      || state.highlightedPlantId !== lastHighlightedPlantId;
 
     if (!tickChanged && !colorModeChanged && !traitChanged && !highlightChanged && !state.plantsDirty) return;
 
@@ -403,6 +405,7 @@ export function createGrassLayer(
     lastTraitColorTrait = state.traitColorTrait;
     lastHighlightedSpecies = state.highlightedSpecies;
     lastHighlightedLineageRoot = state.highlightedLineageRoot;
+    lastHighlightedPlantId = state.highlightedPlantId;
 
     // Set heatmap uniform for shader
     uniforms.uHeatmap.value = isHeatmapMode(state.colorMode) ? 1.0 : 0.0;
@@ -484,8 +487,16 @@ export function createGrassLayer(
         tb = lerp(tb, 0.15, 0.4);
       }
 
-      // Highlighted species/lineage glow / dim
-      if (state.highlightedLineageRoot !== null) {
+      // Highlighted plant/species/lineage glow / dim
+      if (state.highlightedPlantId !== null) {
+        if (plant.id === state.highlightedPlantId) {
+          tr = Math.min(tr * 1.4, 1.5);
+          tg = Math.min(tg * 1.4, 1.5);
+          tb = Math.min(tb * 1.4, 1.5);
+        } else {
+          tr *= 0.55; tg *= 0.55; tb *= 0.55;
+        }
+      } else if (state.highlightedLineageRoot !== null) {
         if (plant.lineageRoot === state.highlightedLineageRoot) {
           tr = Math.min(tr * 1.4, 1.5);
           tg = Math.min(tg * 1.4, 1.5);

@@ -17,6 +17,7 @@ export interface Renderer {
   setTraitColorTrait(trait: keyof Genome): void;
   setHighlightedSpecies(ids: Set<number> | null): void;
   setHighlightedLineageRoot(rootId: number | null): void;
+  setHighlightedPlant(plantId: number | null): void;
   markPlantsDirty(): void;
   rebuildTerrain(): void;
   rebuildWater(): void;

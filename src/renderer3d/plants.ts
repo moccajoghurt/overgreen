@@ -158,8 +158,16 @@ function computeFinalTint(
     tb = lerp(tb, 0.15, 0.4);
   }
 
-  // Highlighted species/lineage glow / dim
-  if (state.highlightedLineageRoot !== null) {
+  // Highlighted plant/species/lineage glow / dim
+  if (state.highlightedPlantId !== null) {
+    if (plantId === state.highlightedPlantId) {
+      tr = Math.min(tr * 1.4, 1.5);
+      tg = Math.min(tg * 1.4, 1.5);
+      tb = Math.min(tb * 1.4, 1.5);
+    } else {
+      tr *= 0.55; tg *= 0.55; tb *= 0.55;
+    }
+  } else if (state.highlightedLineageRoot !== null) {
     if (lineageRoot === state.highlightedLineageRoot) {
       tr = Math.min(tr * 1.4, 1.5);
       tg = Math.min(tg * 1.4, 1.5);
@@ -873,13 +881,15 @@ export function updatePlants(state: RendererState): void {
   const colorModeChanged = state.colorMode !== state.lastPlantColorMode;
   const traitChanged = state.colorMode === 'trait' && state.traitColorTrait !== state.lastTraitColorTrait;
   const hoverChanged = state.highlightedSpecies !== state.lastHighlightedSpecies
-    || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot;
+    || state.highlightedLineageRoot !== state.lastHighlightedLineageRoot
+    || state.highlightedPlantId !== state.lastHighlightedPlantId;
   if (!hasTicked && !hasAnimations && !hoverChanged && !state.plantsDirty
       && !state.forceFullRebuild && !colorModeChanged && !traitChanged) return;
 
   state.plantsDirty = false;
   state.lastHighlightedSpecies = state.highlightedSpecies;
   state.lastHighlightedLineageRoot = state.highlightedLineageRoot;
+  state.lastHighlightedPlantId = state.highlightedPlantId;
   // Fast-forward animations proportionally when multiple ticks ran this frame
   state.animSpeed = hasTicked && state.lastPlantTick >= 0
     ? Math.max(1, world.tick - state.lastPlantTick)

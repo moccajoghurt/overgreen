@@ -222,8 +222,10 @@ export async function createRenderer3D(
     plantsDirty: false,
     highlightedSpecies: null,
     highlightedLineageRoot: null,
+    highlightedPlantId: null,
     lastHighlightedSpecies: null,
     lastHighlightedLineageRoot: null,
+    lastHighlightedPlantId: null,
     plantColorCache: new Map(),
     nextSnapshots: new Map(),
     subtypePlantIds: Array.from({ length: 40 }, () => new Int32Array(MAX_PER_SUBTYPE)),
@@ -506,6 +508,10 @@ export async function createRenderer3D(
     state.highlightedLineageRoot = rootId;
   }
 
+  function setHighlightedPlant(plantId: number | null): void {
+    state.highlightedPlantId = plantId;
+  }
+
   function markPlantsDirty(): void { state.plantsDirty = true; }
 
   function rebuildTerrain(): void {
@@ -566,5 +572,5 @@ export async function createRenderer3D(
     state.waterSurface = waterSurface;
   }
 
-  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setTraitColorTrait, setHighlightedSpecies, setHighlightedLineageRoot, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
+  return { render, cellAt, plantAt, projectToScreen, moveTo, setColorMode, setTraitColorTrait, setHighlightedSpecies, setHighlightedLineageRoot, setHighlightedPlant, markPlantsDirty, rebuildTerrain, rebuildWater, canvas: webgl.domElement, camera, mapControls: controls };
 }

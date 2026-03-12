@@ -451,10 +451,16 @@ function loop(now: number): void {
     const renderStart = performance.now();
     let highlightSet: Set<number> | null = null;
     const hoveredPlant = controls.hoveredPlantId !== null ? world.plants.get(controls.hoveredPlantId) : null;
-    if (controls.hoverLineageEnabled && hoveredPlant?.alive) {
+    if (controls.hoverPlantEnabled && hoveredPlant?.alive) {
+      renderer.setHighlightedPlant(hoveredPlant.id);
+      renderer.setHighlightedLineageRoot(null);
+      renderer.setHighlightedSpecies(null);
+    } else if (controls.hoverLineageEnabled && hoveredPlant?.alive) {
+      renderer.setHighlightedPlant(null);
       renderer.setHighlightedLineageRoot(hoveredPlant.lineageRoot);
       renderer.setHighlightedSpecies(null);
     } else {
+      renderer.setHighlightedPlant(null);
       renderer.setHighlightedLineageRoot(null);
       if (controls.hoverEnabled && controls.hoveredSpecies !== null) {
         highlightSet = new Set([controls.hoveredSpecies]);
