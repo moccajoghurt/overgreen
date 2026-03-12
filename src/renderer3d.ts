@@ -341,16 +341,21 @@ export async function createRenderer3D(
     hooks?.begin('terrainColors');  updateTerrainColors(state);     hooks?.end('terrainColors');
     hooks?.begin('plants');         updatePlants(state);            hooks?.end('plants');
 
-    // Re-render shadow map when per-subtype instance counts change (deaths/births),
-    // or periodically every 30 ticks for gradual growth. Checked AFTER updatePlants
-    // so mesh counts reflect the current tick. Always render on first frame.
-    if (isNewTick) {
-      let shadowDirty = isFirstFrame || world.tick % 30 < tickDelta;
+    // Re-render shadow map when rendered instance counts change (deaths/births/
+    // dying animation completion), or periodically every 30 ticks for gradual growth.
+    // Count check uses mesh.count (live + dying/burning anims) so phantom shadows
+    // are cleared when death animations finish. Runs every frame (not just new ticks)
+    // so animations completing while paused are caught immediately.
+    {
+      let shadowDirty = isFirstFrame;
+      if (!shadowDirty && isNewTick) {
+        shadowDirty = world.tick % 30 < tickDelta;
+      }
       if (!shadowDirty) {
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          const total = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i]
-            + state.subtypeLiveCountsStressed[i] + state.subtypeLiveCountsStressedLow[i]
-            + state.subtypeLiveCountsDying[i] + state.subtypeLiveCountsDyingLow[i];
+          const total = subtypeMeshes[i].count + subtypeMeshesLow[i].count
+            + subtypeMeshesStressed[i].count + subtypeMeshesStressedLow[i].count
+            + subtypeMeshesDying[i].count + subtypeMeshesDyingLow[i].count;
           if (total !== state.lastShadowCounts[i]) {
             shadowDirty = true;
             break;
@@ -360,9 +365,9 @@ export async function createRenderer3D(
       if (shadowDirty) {
         webgl.shadowMap.needsUpdate = true;
         for (let i = 0; i < subtypeMeshes.length; i++) {
-          state.lastShadowCounts[i] = state.subtypeLiveCounts[i] + state.subtypeLiveCountsLow[i]
-            + state.subtypeLiveCountsStressed[i] + state.subtypeLiveCountsStressedLow[i]
-            + state.subtypeLiveCountsDying[i] + state.subtypeLiveCountsDyingLow[i];
+          state.lastShadowCounts[i] = subtypeMeshes[i].count + subtypeMeshesLow[i].count
+            + subtypeMeshesStressed[i].count + subtypeMeshesStressedLow[i].count
+            + subtypeMeshesDying[i].count + subtypeMeshesDyingLow[i].count;
         }
       }
     }
