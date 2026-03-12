@@ -12,7 +12,7 @@ Make the trait engine in `src/simulation/trait-effects.ts` produce fitness ranki
 
 > You are the Architect. Your job is to be the creative, holistic thinker. Read these files: `RALPH-PROGRESS.md`, `target-matrix.md`, `CLAUDE.md`, `src/simulation/trait-effects.ts`, `src/types/subtypes.ts`. Then read the current `target-score.ts` output. Step back and think: what is the REAL problem? What approaches have been tried and failed? What hasn't been tried? Are we stuck in a local optimum of thinking? Write a strategic recommendation (max 1 page) — not coefficient values, but the high-level approach you'd take. Be bold. Question assumptions. Think from first principles.
 
-**Do this every 3 iterations**, or whenever you feel stuck. The Architect sees what you can't when you're deep in coefficient math.
+**Do this every iteration**, before you write any code. The Architect sees what you can't when you're deep in coefficient math.
 
 ## Scoreboard
 
