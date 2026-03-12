@@ -1,6 +1,6 @@
 # Balance Tuning Scripts
 
-Static analysis tools for tuning `trait-effects.ts` without running the full simulation. All scripts evaluate `computeTraitModifier(genome, env)` — a pure function — across representative genomes and niches.
+Tools for tuning `trait-effects.ts` without running the full simulation. The first three scripts evaluate `computeTraitModifier(genome, env)` — a pure function — across representative genomes and niches. The population dynamics script adds FDS and tier competition on top.
 
 ## Scripts
 
@@ -29,9 +29,21 @@ Gradient descent on trait-effect coefficients to satisfy pairwise ranking constr
 npx tsx scripts/balance-tuning/optimize-coefficients.ts
 ```
 
+### `population-dynamics.ts`
+Non-spatial population dynamics simulator. Combines trait engine + FDS + tier light competition in a replicator dynamics model. Answers: "Given these coefficients, which subtypes survive in each niche when they compete?"
+
+```bash
+npx tsx scripts/balance-tuning/population-dynamics.ts              # default FDS=2.5
+npx tsx scripts/balance-tuning/population-dynamics.ts --fds 1.0    # custom FDS
+npx tsx scripts/balance-tuning/population-dynamics.ts --sweep       # sweep FDS 0→3
+```
+
+Outputs: per-niche equilibrium populations, diversity summary, subtype presence, diagnostics (monopolized niches, extinct subtypes, archetype balance). Sweep mode shows how FDS strength affects diversity vs. competitive exclusion.
+
 ## Workflow
 
 1. Edit coefficients or add interactions in `src/simulation/trait-effects.ts`
 2. Run `fitness-landscape.ts` to check stability (primary tool)
 3. Run `balance-matrix.ts` for a different view of niche rankings
-4. Iterate until satisfied, then run full simulation experiments to validate
+4. Run `population-dynamics.ts` to check competitive dynamics with FDS
+5. Iterate until satisfied, then run full simulation experiments to validate
