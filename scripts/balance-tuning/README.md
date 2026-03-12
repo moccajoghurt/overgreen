@@ -60,16 +60,37 @@ npx tsx scripts/balance-tuning/sensitivity-analysis.ts --param FDS  # single par
 
 Outputs: sensitivity ranking, full metric deltas (surviving/niche, dominance %, extinctions, monopolized niches, unique dominants, archetype spread), and a direction guide ("↑ param → ↑/↓ diversity").
 
-## Planned Scripts
+### `compare-runs.ts`
+Side-by-side diff of two or more experiment result files. Delta table for all metrics, highlights regressions/improvements, flags health checks that flipped. Shows per-niche dominant changes and config differences.
 
-### `parameter-sweep.ts`
-Full-sim automated sweep. Takes a list of parameter×value combos, runs headless experiments for each, extracts metrics, outputs comparison table. Wraps `run-experiment.ts` + `extract-metrics.ts` in a loop. Add `--seeds N` for stochastic robustness (multiple random seeds per combo).
+```bash
+npx tsx scripts/balance-tuning/compare-runs.ts results/a.json results/b.json
+npx tsx scripts/balance-tuning/compare-runs.ts results/a.json results/b.json --baseline 1
+```
+
+Outputs: metric comparison with deltas (+/- indicators for better/worse), health check matrix with flip detection, per-niche dominant changes, config diff.
 
 ### `trajectory-analysis.ts`
-Reads experiment JSON snapshots over time (not just final). Detects: equilibrium reached vs. still drifting, oscillation amplitude, late extinctions, boom-bust cycles, population stability windows.
+Temporal analysis of experiment snapshots. Detects equilibrium vs. still drifting, oscillation, late extinctions, boom-bust cycles, per-niche stability.
 
-### `compare-runs.ts`
-Side-by-side diff of two or more result files. Delta table for all metrics, highlights regressions/improvements, flags health checks that flipped. Useful for catching regressions when changing coefficients.
+```bash
+npx tsx scripts/balance-tuning/trajectory-analysis.ts results/experiment.json
+npx tsx scripts/balance-tuning/trajectory-analysis.ts results/experiment.json --window 4 --verbose
+```
+
+Outputs: overall verdict (equilibrium/drifting/oscillating), population trajectory with sparkline, per-niche stability table, late extinctions (subtypes lost after midpoint), boom-bust cycles.
+
+### `parameter-sweep.ts`
+Full spatial simulation sweep over a SIM/GRASS constant. Runs the headless sim in-process for each value, extracts metrics, outputs comparison table. Supports `--seeds N` for stochastic robustness.
+
+```bash
+npx tsx scripts/balance-tuning/parameter-sweep.ts --param FDS_STRENGTH --values 1.0,1.5,2.0,2.5,3.0 --scenario experiment-niche-matrix
+npx tsx scripts/balance-tuning/parameter-sweep.ts --param PHOTOSYNTHESIS_RATE --range 0.3:0.7:0.1 --scenario experiment-niche-matrix
+npx tsx scripts/balance-tuning/parameter-sweep.ts --param FDS_STRENGTH --values 1,2,3 --scenario experiment-niche-matrix --seeds 3 --ticks 5000
+npx tsx scripts/balance-tuning/parameter-sweep.ts --list-params
+```
+
+Outputs: sweep results table (key metrics per value), health check matrix, best value recommendation. ~10s per value at 3000 ticks.
 
 ## Workflow
 
