@@ -36,7 +36,7 @@ export function updateInspector(world: World, controls: Controls): void {
     const plant = world.plants.get(pid);
     if (!plant) continue;
     hasAnyPlant = true;
-    const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
+    const spName = world.species.get(plant.speciesId)?.name ?? `Sp ${plant.speciesId}`;
     const w = plant.genome.woodiness;
     const arcLabel = w < 0.25 ? 'Herb' : w < 0.5 ? 'Shrubby' : w < 0.75 ? 'Woody' : 'Tree';
     text += `\n[${tierLabels[t]}] Plant #${plant.id}  ${spName}  (${arcLabel})  Age: ${plant.age}\n`;
@@ -54,7 +54,7 @@ export function updateInspector(world: World, controls: Controls): void {
   if (!hasAnyPlant) {
     text += '\nNo plant on this cell.';
     if (cell.lastSpeciesId !== null) {
-      const lastName = world.speciesNames.get(cell.lastSpeciesId!) ?? `Sp ${cell.lastSpeciesId}`;
+      const lastName = world.species.get(cell.lastSpeciesId!)?.name ?? `Sp ${cell.lastSpeciesId}`;
       text += `\nLast: ${lastName}`;
     }
   }
@@ -63,7 +63,7 @@ export function updateInspector(world: World, controls: Controls): void {
   if (cell.seeds.length > 0) {
     text += `\n\nDormant Seeds: ${cell.seeds.length}`;
     for (const seed of cell.seeds) {
-      const seedName = world.speciesNames.get(seed.speciesId) ?? `Sp ${seed.speciesId}`;
+      const seedName = world.species.get(seed.speciesId)?.name ?? `Sp ${seed.speciesId}`;
       text += `\n  ${seedName}  E:${seed.energy.toFixed(1)}  Age:${seed.age}`;
     }
   }

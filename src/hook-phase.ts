@@ -173,7 +173,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
 
     if (state === 'growing') {
       // Update stats overlay
-      const speciesCount = world.speciesNames.size;
+      const speciesCount = world.species.size;
       statsEl.textContent = `${world.plants.size} plants · ${speciesCount} species`;
 
       // Check reveal trigger: 3+ species and enough real time elapsed for camera pullback

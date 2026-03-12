@@ -1,4 +1,4 @@
-import { History, SpeciesColor, SimEvent, World, Renderer } from './types';
+import { History, SpeciesInfo, SimEvent, World, Renderer } from './types';
 import { speciesCentroid, speciesColorToRgb } from './ui-utils';
 import { createFloatingLabels } from './floating-labels';
 
@@ -49,7 +49,7 @@ function parseMessageCoords(message: string): { x: number; y: number } | null {
   return m ? { x: parseInt(m[1]), y: parseInt(m[2]) } : null;
 }
 
-function accentColor(event: SimEvent, speciesColors: Map<number, SpeciesColor>): string {
+function accentColor(event: SimEvent, species: Map<number, SpeciesInfo>): string {
   if (event.type === 'mass_extinction') return '#f44';
   if (event.type === 'fire_start' || event.type === 'fire_end') return '#f80';
   if (event.type === 'drought_start' || event.type === 'drought_end') return '#c90';
@@ -58,7 +58,7 @@ function accentColor(event: SimEvent, speciesColors: Map<number, SpeciesColor>):
   if (event.type === 'herbivore_crash') return '#a54';
   if (event.type === 'season_change') return '#8cf';
   if (event.speciesId != null) {
-    const sc = speciesColors.get(event.speciesId);
+    const sc = species.get(event.speciesId)?.color;
     if (sc) return speciesColorToRgb(sc);
   }
   return '#d4a030';
@@ -97,16 +97,16 @@ export function createCommentary(container: HTMLElement) {
   `;
   document.head.appendChild(style);
 
-  function makeItem(event: SimEvent, speciesColors: Map<number, SpeciesColor>): HTMLElement {
+  function makeItem(event: SimEvent, species: Map<number, SpeciesInfo>): HTMLElement {
     const item = document.createElement('div');
-    const accent = accentColor(event, speciesColors);
+    const accent = accentColor(event, species);
     item.style.cssText = ITEM_CSS.replace('__ACCENT__', accent);
     item.textContent = event.message;
     return item;
   }
 
-  function showGeneral(event: SimEvent, speciesColors: Map<number, SpeciesColor>): void {
-    const item = makeItem(event, speciesColors);
+  function showGeneral(event: SimEvent, species: Map<number, SpeciesInfo>): void {
+    const item = makeItem(event, species);
     topOverlay.appendChild(item);
     while (topOverlay.children.length > MAX_GENERAL) {
       topOverlay.firstChild!.remove();
@@ -116,12 +116,12 @@ export function createCommentary(container: HTMLElement) {
 
   function showPositioned(
     event: SimEvent,
-    speciesColors: Map<number, SpeciesColor>,
+    species: Map<number, SpeciesInfo>,
     gridX: number,
     gridY: number,
   ): void {
     if (!posLabels) return;
-    const item = makeItem(event, speciesColors);
+    const item = makeItem(event, species);
     const holdMs = (event.type === 'fire_start' || event.type === 'disease_start') ? 5000 : 3500;
     posLabels.showElement(item, gridX, gridY, holdMs);
   }
@@ -148,7 +148,7 @@ export function createCommentary(container: HTMLElement) {
 
   function update(
     history: History,
-    speciesColors: Map<number, SpeciesColor>,
+    species: Map<number, SpeciesInfo>,
     world: World,
     renderer: Renderer,
   ): void {
@@ -173,7 +173,7 @@ export function createCommentary(container: HTMLElement) {
         if (now - lastShowTime < COOLDOWN_MS) continue;
 
         if (isGeneral(evt)) {
-          showGeneral(evt, speciesColors);
+          showGeneral(evt, species);
         } else {
           // Try to find a position for this event
           let pos: { x: number; y: number } | null = null;
@@ -194,10 +194,10 @@ export function createCommentary(container: HTMLElement) {
           }
 
           if (pos) {
-            showPositioned(evt, speciesColors, pos.x, pos.y);
+            showPositioned(evt, species, pos.x, pos.y);
           } else {
             // Fallback to general (e.g. extinct species with no plants left)
-            showGeneral(evt, speciesColors);
+            showGeneral(evt, species);
           }
         }
 

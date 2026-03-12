@@ -127,7 +127,7 @@ export function updateTerrainColors(state: RendererState): void {
           if (pid != null) {
             const p = world.plants.get(pid);
             if (p) {
-              const sc = world.speciesColors.get(p.speciesId);
+              const sc = world.species.get(p.speciesId)?.color;
               if (sc) {
                 cellBaseR[idx] = sc.r; cellBaseG[idx] = sc.g; cellBaseB[idx] = sc.b;
               } else {
@@ -250,7 +250,7 @@ export function updateTerrainColors(state: RendererState): void {
       if (vegPlantId == null) continue;
       const plant = world.plants.get(vegPlantId);
       if (!plant) continue;
-      const subtype = world.speciesSubtypes.get(plant.speciesId)
+      const subtype = world.species.get(plant.speciesId)?.subtype
         ?? classifySubtype(plant.genome);
       const arch = subtypeArchetype(subtype);
       if (arch === Archetype.Succulent) continue;

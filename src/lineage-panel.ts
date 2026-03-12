@@ -176,10 +176,10 @@ export function createLineagePanel(
     for (const [rootId, b] of lineageBuckets) {
       data.push({
         rootId,
-        name: world.speciesNames.get(rootId) ?? `Sp ${rootId}`,
+        name: world.species.get(rootId)?.name ?? `Sp ${rootId}`,
         count: b.count,
         speciesCount: b.speciesIds.size,
-        color: world.speciesColors.get(rootId) ?? { r: 0.5, g: 0.5, b: 0.5 },
+        color: world.species.get(rootId)?.color ?? { r: 0.5, g: 0.5, b: 0.5 },
         avgGenome: {
           rootPriority: b.root / b.count,
           heightPriority: b.height / b.count,

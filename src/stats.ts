@@ -356,7 +356,7 @@ export function computeSnapshot(
     .slice(0, 5)
     .map(([speciesId, b]) => ({
       speciesId,
-      name: world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`,
+      name: world.species.get(speciesId)?.name ?? `Sp ${speciesId}`,
       count: b.count,
       avgGenome: {
         root: b.sumRoot / b.count,

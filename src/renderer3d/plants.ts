@@ -122,7 +122,7 @@ function computeFinalTint(
   if (isHeatmapMode(state.colorMode)) {
     const mode = state.colorMode;
     if (mode === 'species') {
-      const sc = state.world.speciesColors.get(speciesId);
+      const sc = state.world.species.get(speciesId)?.color;
       if (sc) return { tr: sc.r, tg: sc.g, tb: sc.b };
       return { tr: 0.5, tg: 0.5, tb: 0.5 };
     }
@@ -161,11 +161,9 @@ function computeFinalTint(
   // Highlighted plant/species/lineage glow / dim
   if (state.highlightedPlantId !== null) {
     if (plantId === state.highlightedPlantId) {
-      tr = Math.min(tr * 1.4, 1.5);
-      tg = Math.min(tg * 1.4, 1.5);
-      tb = Math.min(tb * 1.4, 1.5);
-    } else {
-      tr *= 0.55; tg *= 0.55; tb *= 0.55;
+      tr = Math.min(tr * 1.8, 1.8);
+      tg = Math.min(tg * 1.8, 1.8);
+      tb = Math.min(tb * 1.8, 1.8);
     }
   } else if (state.highlightedLineageRoot !== null) {
     if (lineageRoot === state.highlightedLineageRoot) {
@@ -245,7 +243,7 @@ function ingestEvents(state: RendererState): void {
   for (const evt of world.fireDeathEvents) {
     fireDeathIds.add(evt.id);
     if (burningPlants.size >= MAX_DYING) continue;
-    const subtype = world.speciesSubtypes?.get(evt.speciesId) ?? classifySubtype(evt.genome);
+    const subtype = world.species.get(evt.speciesId)?.subtype ?? classifySubtype(evt.genome);
     const prevSnap = state.prevSnapshots.get(evt.id);
     burningPlants.set(evt.id, {
       x: evt.x, y: evt.y,
@@ -313,7 +311,7 @@ function renderDyingBurning(
     if (isHeatmapMode(state.colorMode)) {
       const mode = state.colorMode;
       if (mode === 'species') {
-        const sc = world.speciesColors.get(dp.speciesId);
+        const sc = world.species.get(dp.speciesId)?.color;
         if (sc) { tr = sc.r * shrink; tg = sc.g * shrink; tb = sc.b * shrink; }
         else { tr = 0.5 * shrink; tg = 0.5 * shrink; tb = 0.5 * shrink; }
       } else if (mode === 'health') {
@@ -418,7 +416,7 @@ function fullRebuild(
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
 
-    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    const subtype = world.species.get(plant.speciesId)?.subtype ?? classifySubtype(plant.genome);
 
     // Health state: pick mesh set
     const health = healthStateFromEMA(plant.healthEMA);
@@ -587,7 +585,7 @@ function incrementalUpdate(
   for (const evt of world.germinationEvents) {
     const plant = world.plants.get(evt.plantId);
     if (!plant?.alive) continue;
-    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    const subtype = world.species.get(plant.speciesId)?.subtype ?? classifySubtype(plant.genome);
     if (SHADER_GRASS_SUBTYPES.has(subtype)) continue;
 
     const wx = plant.x - HALF + 0.5;
@@ -613,7 +611,7 @@ function incrementalUpdate(
   newSnapshots.clear();
   for (const plant of world.plants.values()) {
     if (!plant.alive) continue;
-    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    const subtype = world.species.get(plant.speciesId)?.subtype ?? classifySubtype(plant.genome);
 
     const newHealth = healthStateFromEMA(plant.healthEMA);
 
@@ -773,7 +771,7 @@ function animationOnlyUpdate(
   for (const [pid, growing] of growingPlants) {
     const plant = world.plants.get(pid);
     if (!plant?.alive) { growingPlants.delete(pid); continue; }
-    const subtype = world.speciesSubtypes?.get(plant.speciesId) ?? classifySubtype(plant.genome);
+    const subtype = world.species.get(plant.speciesId)?.subtype ?? classifySubtype(plant.genome);
     if (SHADER_GRASS_SUBTYPES.has(subtype)) {
       growing.progress += state.animSpeed / GROWTH_ANIM_FRAMES;
       if (growing.progress >= 1) growingPlants.delete(pid);

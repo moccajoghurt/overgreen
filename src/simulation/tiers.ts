@@ -99,7 +99,7 @@ export function phaseTierAssignment(world: World): void {
     world.deathEvents.push({
       id: plant.id,
       speciesId: plant.speciesId,
-      cause: 'starvation',
+      cause: 'overcrowding',
       age: plant.age,
       offspringCount: plant.offspringCount,
       generation: plant.generation,

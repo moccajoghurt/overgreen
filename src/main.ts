@@ -357,7 +357,7 @@ function updateUI(): void {
   }
   genomePanel.update(world);
   lineagePanel.update(world);
-  commentary.update(history, world.speciesColors, world, renderer);
+  commentary.update(history, world.species, world, renderer);
   sandboxPanel.update(world);
   speciesLabels.update(world, history);
   systemsOverlay.update(world, history);

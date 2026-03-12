@@ -631,9 +631,9 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
     drawSparkline(herbSpark, histHerbPop, '#a0826a');
 
     // ── Charts & Ticker ──
-    popChart.update(history, world.speciesColors);
+    popChart.update(history, world.species);
     traitChartInst.update(history);
-    tickerInst.update(history, world.speciesColors);
+    tickerInst.update(history, world.species);
 
     // ── Tier proportional bar ──
     const total = canopy + understory + ground + empty;

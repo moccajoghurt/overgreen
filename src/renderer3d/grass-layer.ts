@@ -420,7 +420,7 @@ export function createGrassLayer(
       if (!plant.alive) continue;
 
       // Only shader-grass subtypes (0-4)
-      const subtype = world.speciesSubtypes?.get(plant.speciesId)
+      const subtype = world.species.get(plant.speciesId)?.subtype
         ?? classifySubtype(plant.genome);
       if (!SHADER_GRASS_SUBTYPES.has(subtype)) continue;
 
@@ -445,7 +445,7 @@ export function createGrassLayer(
       if (isHeatmapMode(state.colorMode)) {
         const mode = state.colorMode;
         if (mode === 'species') {
-          const sc = world.speciesColors.get(plant.speciesId);
+          const sc = world.species.get(plant.speciesId)?.color;
           if (sc) { tr = sc.r; tg = sc.g; tb = sc.b; }
           else { tr = 0.5; tg = 0.5; tb = 0.5; }
         } else if (mode === 'health') {
@@ -490,11 +490,9 @@ export function createGrassLayer(
       // Highlighted plant/species/lineage glow / dim
       if (state.highlightedPlantId !== null) {
         if (plant.id === state.highlightedPlantId) {
-          tr = Math.min(tr * 1.4, 1.5);
-          tg = Math.min(tg * 1.4, 1.5);
-          tb = Math.min(tb * 1.4, 1.5);
-        } else {
-          tr *= 0.55; tg *= 0.55; tb *= 0.55;
+          tr = Math.min(tr * 1.8, 1.8);
+          tg = Math.min(tg * 1.8, 1.8);
+          tb = Math.min(tb * 1.8, 1.8);
         }
       } else if (state.highlightedLineageRoot !== null) {
         if (plant.lineageRoot === state.highlightedLineageRoot) {

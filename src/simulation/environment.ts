@@ -420,7 +420,7 @@ function advanceDiseases(world: World): void {
 
     // Remove disease when expired and no cells remain
     if (disease.ticksRemaining <= 0 && disease.cells.size === 0) {
-      const spName = world.speciesNames.get(disease.patientZeroSpeciesId) ?? `Sp ${disease.patientZeroSpeciesId}`;
+      const spName = world.species.get(disease.patientZeroSpeciesId)?.name ?? `Sp ${disease.patientZeroSpeciesId}`;
       world.environmentEvents.push({
         type: 'disease_end',
         message: `Blight ended near (${disease.originX}, ${disease.originY}) — ${disease.killCount} ${spName} killed`,

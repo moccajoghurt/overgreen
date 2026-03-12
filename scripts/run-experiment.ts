@@ -98,7 +98,7 @@ for (let t = 1; t <= totalTicks; t++) {
       entry.terrain[tName] = (entry.terrain[tName] || 0) + 1;
     }
     for (const [id, entry] of spCounts) {
-      allSpecies.push({ id, name: world.speciesNames.get(id) ?? `Sp ${id}`, count: entry.total, terrain: entry.terrain });
+      allSpecies.push({ id, name: world.species.get(id)?.name ?? `Sp ${id}`, count: entry.total, terrain: entry.terrain });
     }
     (snap as any).speciesDetail = allSpecies;
 

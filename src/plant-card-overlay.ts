@@ -190,12 +190,12 @@ export function createPlantCardOverlay(
     plantY = plant.y;
 
     // Species color for border
-    const sc = world.speciesColors.get(plant.speciesId);
+    const sc = world.species.get(plant.speciesId)?.color;
     const rgb = sc ? speciesColorToRgb(sc) : '#888';
     card.style.borderLeftColor = rgb;
 
     // Header
-    const spName = world.speciesNames.get(plant.speciesId) ?? `Sp ${plant.speciesId}`;
+    const spName = world.species.get(plant.speciesId)?.name ?? `Sp ${plant.speciesId}`;
     const arch = archetypeLabel(plant.genome.woodiness);
     headerEl.textContent = `${spName}  #${plant.id}`;
     headerEl.style.color = rgb;

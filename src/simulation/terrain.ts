@@ -352,15 +352,13 @@ export function createWorld(width: number, height: number): World {
   return {
     width, height, grid, plants: new Map(), tick: 0,
     nextPlantId: 1, nextSpeciesId: 1,
-    speciesColors: new Map(), speciesNames: new Map(),
+    species: new Map(), subtypeSpecies: new Map(),
     seedLandingEvents: [], germinationEvents: [], fireDeathEvents: [], deathEvents: [],
     seedsAttempted: 0, seedPopulations: new Map(),
     environment: createEnvironment(), environmentEvents: [],
     herbivores: new Map(), nextHerbivoreId: 1,
     herbivoreDeathEvents: [], herbivoreBirthEvents: [],
     speciationEvents: [],
-    speciesSubtypes: new Map(),
-    subtypeSpecies: new Map(),
     heightChangedIds: new Set(),
   };
 }

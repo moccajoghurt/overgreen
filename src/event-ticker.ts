@@ -1,4 +1,4 @@
-import { History, SpeciesColor, SimEventType } from './types';
+import { History, SpeciesInfo, SimEventType } from './types';
 import { speciesColorToRgb } from './ui-utils';
 
 const MAX_DOM_EVENTS = 50;
@@ -26,7 +26,7 @@ const TYPE_STYLES: Record<SimEventType, string> = {
 export function createEventTicker(container: HTMLElement) {
   let lastSeq = 0;
 
-  function update(history: History, speciesColors: Map<number, SpeciesColor>): void {
+  function update(history: History, species: Map<number, SpeciesInfo>): void {
     const events = history.events;
     if (history.eventSeq === lastSeq) return;
 
@@ -44,7 +44,7 @@ export function createEventTicker(container: HTMLElement) {
 
       let dotHtml = '';
       if (evt.speciesId != null) {
-        const sc = speciesColors.get(evt.speciesId);
+        const sc = species.get(evt.speciesId)?.color;
         const rgb = sc ? speciesColorToRgb(sc) : '#888';
         dotHtml = `<span class="event-dot" style="background:${rgb}"></span>`;
       }

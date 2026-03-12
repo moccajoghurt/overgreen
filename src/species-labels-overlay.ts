@@ -458,9 +458,9 @@ export function createSpeciesLabelsOverlay(
       const pos = speciesCentroid(world, sid);
       if (!pos) continue;
 
-      const sc = world.speciesColors.get(sid);
-      const rgb = sc ? speciesColorToRgb(sc) : '#888';
-      const name = world.speciesNames.get(sid) ?? `Sp ${sid}`;
+      const sp = world.species.get(sid);
+      const rgb = sp ? speciesColorToRgb(sp.color) : '#888';
+      const name = sp?.name ?? `Sp ${sid}`;
       const rec = history.species.get(sid);
       const genText = rec
         ? `Gen ${rec.maxGeneration} · ${rec.totalOffspring} offspring`
@@ -491,9 +491,9 @@ export function createSpeciesLabelsOverlay(
 
     // Draw sparklines, population area, and update genome bars for all visible labels
     for (const [sid, entry] of labels) {
-      const sc = world.speciesColors.get(sid);
-      const fillCol = sc ? speciesColorToRgba(sc, 0.3) : 'rgba(136,136,136,0.3)';
-      const strokeCol = sc ? speciesColorToRgba(sc, 0.7) : 'rgba(136,136,136,0.7)';
+      const sp = world.species.get(sid);
+      const fillCol = sp ? speciesColorToRgba(sp.color, 0.3) : 'rgba(136,136,136,0.3)';
+      const strokeCol = sp ? speciesColorToRgba(sp.color, 0.7) : 'rgba(136,136,136,0.7)';
       drawPopulationArea(entry.popCtx, sid, history, fillCol, strokeCol);
       drawSparkline(entry.sparkCtx, sid, history);
       updateGenomeBars(entry, sid, history);
@@ -530,9 +530,9 @@ export function createSpeciesLabelsOverlay(
         const cx = cent.sumX / cent.count;
         const cy = cent.sumY / cent.count;
 
-        const sc = world.speciesColors.get(rootId);
-        const rgb = sc ? speciesColorToRgb(sc) : '#888';
-        const rootName = world.speciesNames.get(rootId) ?? `Sp ${rootId}`;
+        const sp = world.species.get(rootId);
+        const rgb = sp ? speciesColorToRgb(sp.color) : '#888';
+        const rootName = sp?.name ?? `Sp ${rootId}`;
 
         // Aggregate gen/offspring across member species
         let bestGen = 0, totalOffspring = 0;
@@ -592,8 +592,8 @@ export function createSpeciesLabelsOverlay(
         }
 
         // Population chart from lineage-level history
-        const popFill = sc ? speciesColorToRgba(sc, 0.3) : 'rgba(136,136,136,0.3)';
-        const popStroke = sc ? speciesColorToRgba(sc, 0.7) : 'rgba(136,136,136,0.7)';
+        const popFill = sp ? speciesColorToRgba(sp.color, 0.3) : 'rgba(136,136,136,0.3)';
+        const popStroke = sp ? speciesColorToRgba(sp.color, 0.7) : 'rgba(136,136,136,0.7)';
         drawLineagePopulationArea(entry.popCtx, rootId, history, popFill, popStroke);
 
         // Sparklines from lineage-level history

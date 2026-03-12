@@ -35,7 +35,7 @@ export function resetHistory(history: History): void {
 }
 
 function spName(world: World, speciesId: number): string {
-  return world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`;
+  return world.species.get(speciesId)?.name ?? `Sp ${speciesId}`;
 }
 
 function pushEvent(history: History, event: SimEvent): void {

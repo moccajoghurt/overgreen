@@ -16,6 +16,13 @@ export interface SpeciesColor {
   b: number;
 }
 
+export interface SpeciesInfo {
+  id: number;
+  name: string;
+  color: SpeciesColor;
+  subtype: number;
+}
+
 export interface Genome {
   rootPriority: number;
   heightPriority: number;
@@ -97,8 +104,8 @@ export interface World {
   tick: number;
   nextPlantId: number;
   nextSpeciesId: number;
-  speciesColors: Map<number, SpeciesColor>;
-  speciesNames: Map<number, string>;
+  species: Map<number, SpeciesInfo>;
+  subtypeSpecies: Map<number, number>;  // subtypeId → speciesId
   seedLandingEvents: SeedLandingEvent[];
   germinationEvents: GerminationEvent[];
   fireDeathEvents: FireDeathEvent[];
@@ -112,15 +119,13 @@ export interface World {
   herbivoreDeathEvents: HerbivoreDeathEvent[];
   herbivoreBirthEvents: HerbivoreBirthEvent[];
   speciationEvents: SpeciationEvent[];
-  speciesSubtypes: Map<number, number>;
-  subtypeSpecies: Map<number, number>;  // subtypeId → speciesId
   heightChangedIds: Set<number>;        // plant ids whose height changed this tick
 }
 
 export interface DeathEvent {
   id: number;
   speciesId: number;
-  cause: 'starvation' | 'age' | 'fire' | 'disease' | 'stress';
+  cause: 'starvation' | 'age' | 'fire' | 'disease' | 'stress' | 'overcrowding';
   age: number;
   offspringCount: number;
   generation: number;

@@ -227,9 +227,9 @@ export function createGenomePanel(
     const sorted = [...buckets.entries()].sort((a, b) => b[1].count - a[1].count);
     const data = sorted.map(([speciesId, b]) => ({
       speciesId,
-      name: world.speciesNames.get(speciesId) ?? `Sp ${speciesId}`,
+      name: world.species.get(speciesId)?.name ?? `Sp ${speciesId}`,
       count: b.count,
-      color: world.speciesColors.get(speciesId) ?? { r: 0.5, g: 0.5, b: 0.5 },
+      color: world.species.get(speciesId)?.color ?? { r: 0.5, g: 0.5, b: 0.5 },
       avgGenome: {
         rootPriority: b.root / b.count,
         heightPriority: b.height / b.count,

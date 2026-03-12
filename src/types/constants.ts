@@ -171,6 +171,34 @@ export const SIM = {
   SEED_DECAY_RATE: 0.01,
   SEED_GERMINATION_WATER: 2.0,
   SEED_MAX_PER_CELL: 8,
+
+  // Facilitation
+  FACILITATION_BONUS: 0.25,         // photosynthesis boost per distinct neighbor archetype
+
+  // Shade adaptation
+  SHADE_HEIGHT_CUTOFF: 5.0,         // height above which shade tolerance drops to 0
+  SHADE_THRESHOLD: 0.8,             // fraction of BASE_LIGHT below which shade tolerance activates
+  SHADE_FLOOR: 0.3,                 // minimum shade tolerance strength under drought
+  SHADE_LEAF_EFFICIENCY: 1.5,       // leafSize scaling for diffuse light capture in shade
+
+  // Health EMA
+  HEALTH_EMA_DECLINE_ALPHA: 0.25,   // smoothing speed for health decline
+  HEALTH_EMA_RECOVERY_ALPHA: 0.12,  // smoothing speed for health recovery
+  ENERGY_FLOOR_THRESHOLD: 0.6,      // energy below this forces visual decline
+
+  // Visual senescence (health EMA age floor)
+  VISUAL_SENESCENCE_ONSET: 0.85,    // fraction of maxAge when visual senescence begins
+
+  // Wind stunting
+  WIND_STUNT_WOODINESS: 2.0,        // wind × woodiness scaling for height cap reduction
+  WIND_STUNT_LEAF_SIZE: 1.5,        // wind × leafSize scaling for leaf area cap reduction
+
+  // Janzen-Connell effect
+  JC_SUBTYPE_COEFF: 3.0,            // penalty strength near same-subtype adults
+  JC_ARCHETYPE_COEFF: 1.0,          // penalty strength near same-archetype adults
+
+  // Frequency-dependent selection
+  FDS_STRENGTH: 2.5,                // how strongly frequency penalizes dominant subtypes
 } as const;
 
 export const GRASS = {
@@ -292,9 +320,6 @@ export interface TerrainProperties {
   vigorDampen: number;
   nutrientMax: number;
   plantable: boolean;
-  succulentGermination: boolean;
-  shrubGermination: boolean;
-  treeGermination: boolean;
 }
 
 export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
@@ -305,9 +330,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: SIM.SOIL_VIGOR_DAMPEN,
     nutrientMax: SIM.MAX_NUTRIENTS,
     plantable: true,
-    succulentGermination: false,
-    shrubGermination: true,
-    treeGermination: true,
   },
   [TerrainType.River]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -316,9 +338,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: 0,
     nutrientMax: SIM.MAX_NUTRIENTS,
     plantable: false,
-    succulentGermination: false,
-    shrubGermination: true,
-    treeGermination: true,
   },
   [TerrainType.Rock]: {
     waterTable: SIM.SOIL_WATER_TABLE,
@@ -327,9 +346,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: 0,
     nutrientMax: SIM.ROCK_NUTRIENT_MAX,
     plantable: false,
-    succulentGermination: false,
-    shrubGermination: true,
-    treeGermination: true,
   },
   [TerrainType.Hill]: {
     waterTable: SIM.HILL_WATER_TABLE,
@@ -338,9 +354,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: SIM.HILL_VIGOR_DAMPEN,
     nutrientMax: SIM.HILL_NUTRIENT_MAX,
     plantable: true,
-    succulentGermination: true,
-    shrubGermination: false,
-    treeGermination: false,
   },
   [TerrainType.Wetland]: {
     waterTable: SIM.WETLAND_WATER_TABLE,
@@ -349,9 +362,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: SIM.WETLAND_VIGOR_DAMPEN,
     nutrientMax: SIM.WETLAND_NUTRIENT_MAX,
     plantable: true,
-    succulentGermination: false,
-    shrubGermination: true,
-    treeGermination: true,
   },
   [TerrainType.Arid]: {
     waterTable: SIM.ARID_WATER_TABLE,
@@ -360,9 +370,6 @@ export const TERRAIN_PROPS: Record<TerrainType, TerrainProperties> = {
     vigorDampen: SIM.ARID_VIGOR_DAMPEN,
     nutrientMax: SIM.ARID_NUTRIENT_MAX,
     plantable: true,
-    succulentGermination: true,
-    shrubGermination: true,
-    treeGermination: true,
   },
 };
 

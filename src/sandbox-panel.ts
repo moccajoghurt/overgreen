@@ -225,7 +225,7 @@ export function createSandboxPanel(
 
     if (matchId !== null) {
       const sp = customSpecies.get(matchId)!;
-      const color = world.speciesColors.get(matchId);
+      const color = world.species.get(matchId)?.color;
       previewDot.style.background = color ? speciesColorToRgb(color) : '#888';
       previewName.textContent = sp.name;
     } else {
@@ -336,7 +336,7 @@ export function createSandboxPanel(
 
       const dot = document.createElement('div');
       dot.className = 'sb-placed-dot';
-      const color = world.speciesColors.get(sid);
+      const color = world.species.get(sid)?.color;
       dot.style.background = color ? speciesColorToRgb(color) : '#888';
       row.appendChild(dot);
 
@@ -387,12 +387,10 @@ export function createSandboxPanel(
         speciesId = world.nextSpeciesId++;
         const color = generateSpeciesColor(speciesId);
         const name = generateSpeciesName(genome, speciesId, subtype);
-        world.speciesColors.set(speciesId, color);
-        world.speciesNames.set(speciesId, name);
-        world.speciesSubtypes.set(speciesId, subtype);
+        world.species.set(speciesId, { id: speciesId, name, color, subtype });
         world.subtypeSpecies.set(subtype, speciesId);
       }
-      customSpecies.set(speciesId, { name: world.speciesNames.get(speciesId)!, genome, placedCount: 1 });
+      customSpecies.set(speciesId, { name: world.species.get(speciesId)!.name, genome, placedCount: 1 });
     }
 
     // Create plant

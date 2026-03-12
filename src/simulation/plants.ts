@@ -122,9 +122,13 @@ export function seedSinglePlant(world: World): void {
   };
   const speciesId = world.nextSpeciesId++;
   const subtype = classifySubtype(genome);
-  world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-  world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
-  world.speciesSubtypes.set(speciesId, subtype);
+  world.species.set(speciesId, {
+    id: speciesId,
+    name: generateSpeciesName(genome, speciesId, subtype),
+    color: generateSpeciesColor(speciesId),
+    subtype,
+  });
+  world.subtypeSpecies.set(subtype, speciesId);
 
   const id = world.nextPlantId++;
   const plant = createPlant(id, cx, cy, genome, speciesId, speciesId);
@@ -132,7 +136,6 @@ export function seedSinglePlant(world: World): void {
   const cell = world.grid[cy][cx];
   setCellPlant(cell, Tier.Ground, id);
   cell.lastSpeciesId = speciesId;
-  world.subtypeSpecies.set(subtype, speciesId);
 }
 
 export function seedInitialPlants(world: World, _count: number): void {
@@ -175,9 +178,12 @@ export function seedInitialPlants(world: World, _count: number): void {
       let speciesId = world.subtypeSpecies.get(subtype);
       if (speciesId === undefined) {
         speciesId = world.nextSpeciesId++;
-        world.speciesColors.set(speciesId, generateSpeciesColor(speciesId));
-        world.speciesNames.set(speciesId, generateSpeciesName(genome, speciesId, subtype));
-        world.speciesSubtypes.set(speciesId, subtype);
+        world.species.set(speciesId, {
+          id: speciesId,
+          name: generateSpeciesName(genome, speciesId, subtype),
+          color: generateSpeciesColor(speciesId),
+          subtype,
+        });
         world.subtypeSpecies.set(subtype, speciesId);
       }
 

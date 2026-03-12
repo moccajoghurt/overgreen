@@ -20,9 +20,7 @@ export function loadScenario(world: World, scenario: Scenario): void {
   world.tick = 0;
   world.plants.clear();
   world.herbivores.clear();
-  world.speciesColors.clear();
-  world.speciesNames.clear();
-  world.speciesSubtypes.clear();
+  world.species.clear();
   world.subtypeSpecies.clear();
   world.seedLandingEvents.length = 0;
   world.germinationEvents.length = 0;
@@ -97,10 +95,8 @@ export function loadScenario(world: World, scenario: Scenario): void {
   // 5. Place species
   let maxSpeciesId = 0;
   for (const sp of scenario.species) {
-    world.speciesColors.set(sp.id, sp.color);
-    world.speciesNames.set(sp.id, sp.name);
     const subtype = sp.subtype ?? classifySubtype(sp.genome);
-    world.speciesSubtypes.set(sp.id, subtype);
+    world.species.set(sp.id, { id: sp.id, name: sp.name, color: sp.color, subtype });
     world.subtypeSpecies.set(subtype, sp.id);
     if (sp.id > maxSpeciesId) maxSpeciesId = sp.id;
 

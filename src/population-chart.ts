@@ -1,4 +1,4 @@
-import { History, SpeciesColor, SEASON_LENGTH, YEAR_LENGTH } from './types';
+import { History, SpeciesInfo, SEASON_LENGTH, YEAR_LENGTH } from './types';
 import { speciesColorToRgba, niceStep } from './ui-utils';
 
 const TOP_N = 8;
@@ -45,7 +45,7 @@ export function createPopulationChart(container: HTMLElement) {
   ro.observe(container);
   resize();
 
-  function update(history: History, speciesColors: Map<number, SpeciesColor>): void {
+  function update(history: History, species: Map<number, SpeciesInfo>): void {
     const snaps = history.snapshots;
     if (snaps.length === 0) return;
 
@@ -171,7 +171,7 @@ export function createPopulationChart(container: HTMLElement) {
     // Draw from last species to first (so bottom = largest species draws on top)
     for (let s = chartSpecies.length - 1; s >= 0; s--) {
       const speciesId = chartSpecies[s];
-      const sc = speciesColors.get(speciesId);
+      const sc = species.get(speciesId)?.color;
 
       ctx.beginPath();
       // Top edge (this species' cumulative line)
