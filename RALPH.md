@@ -34,8 +34,9 @@ Structural changes are higher risk but higher reward. They may produce messy exp
 Count the iterations from git log. On every 5th iteration (5, 10, 15, 20...), BEFORE picking a task:
 1. Read the Stuck Problems section — which problems have been there longest?
 2. Ask: "Am I making progress on the hard problems, or just polishing the easy ones?"
-3. If a problem has survived 3+ iterations of tactical fixes, it needs a structural change this iteration
-4. Write your strategic assessment in the progress file before proceeding
+3. **Paradigm check:** "Am I stuck because coefficients are wrong, or because the trait engine can't express what I need?" If multiple niches share the same root cause, the fix is probably a new trait interaction or environment variable — not more coefficient tuning.
+4. If a problem has survived 3+ iterations of tactical fixes, it needs a structural change this iteration
+5. Write your strategic assessment in the progress file before proceeding
 
 ---
 
