@@ -487,6 +487,7 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       ['droughtStress'], ['frostRisk'], ['diseasePressure'],
       ['windExposure'], ['waterlogging'], ['heatStress'],
       ['soilFertility'], ['extremeAridity'],
+      ['tropicality'], ['winterHarshness'],
     ] as const) {
       const v = avg[key];
       const bar = stressBars[key];
@@ -506,7 +507,10 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       const grouped = new Map<string, { posSum: number; negSum: number; label: string; color: string }>();
       let totalMod = 0;
       for (const e of effects) {
-        const rawTrait = e.trait.startsWith('(1-') ? e.trait.slice(3, -1) : e.trait;
+        let rawTrait = e.trait;
+        const crossIdx = rawTrait.indexOf('×');
+        if (crossIdx !== -1) rawTrait = rawTrait.slice(0, crossIdx);
+        if (rawTrait.startsWith('(1-')) rawTrait = rawTrait.slice(3, -1);
         let g = grouped.get(rawTrait);
         if (!g) {
           const def = traitLookup.get(rawTrait);
