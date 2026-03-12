@@ -1,125 +1,156 @@
-## Loop Protocol
+# Ralph Loop: Reach the Target Matrix
 
-You are one iteration of an autonomous Ralph loop. You have NO memory of previous iterations — your only link to the past is the filesystem.
+**You are in an iterative loop.** You may have done prior work — check `RALPH-PROGRESS.md` and recent git history before starting. Build on previous iterations, don't restart from zero.
 
-**Start of iteration:**
-1. `git log --oneline -20` — see what previous iterations did
-2. Read `RALPH-PROGRESS.md` (if it exists) — previous iteration left you notes
-3. Read the Stuck Problems table. **If any problem has iterations stuck ≥ 3, you must do a structural change for it this iteration.** A structural change means adding a new environment variable, a new mechanic, or a system rework — not a coefficient tweak, classifier adjustment, or germination filter.
-4. Otherwise, pick a tactical fix for the highest-priority problem.
+## Your Mission
 
-**End of iteration:**
-5. Commit your changes with a descriptive message
-6. Update `RALPH-PROGRESS.md` (see Progress File Format below)
-7. If ALL 16 niches pass (dominant subtypes match, Shannon H ≥ 2.5): output RALPH_COMPLETE
+Make the Overgreen plant ecosystem simulator produce population distributions that match `target-matrix.md`. 16 niches (4 climates × 4 terrains, excluding River/Rock), 40 plant subtypes. Each niche specifies which subtypes should be Dominant, Common, Minor, or Absent.
 
----
+**You are a researcher, not a tuner.** Your job is to understand WHY the system can or can't produce the target distribution, and to design architectural solutions when tuning alone fails. You have full permission to modify any part of the codebase.
 
-## Decision Framework
+## The System (read these files to understand)
 
-Each iteration, choose ONE of these approaches based on the current state:
+- `src/simulation/trait-effects.ts` — Layer 1 (terrain×climate → environment variables) + Layer 2 (trait×envVar→modifier table, 65 rows currently)
+- `src/types/subtypes.ts` — 40 subtypes classified from 9 genome traits via weighted scoring
+- `src/simulation/growth.ts` — FDS (frequency-dependent selection), photosynthesis, reproduction
+- `src/simulation/tiers.ts` — Vertical competition (canopy/understory/ground)
+- `src/types/core.ts` — Genome interface (9 traits), archetype function
+- `src/simulation.ts` — Tick loop (9 phases)
+- `target-matrix.md` — The target
+- `CLAUDE.md` — Architecture rules (READ THIS FIRST)
 
-### Tactical fix (default)
-A single coefficient tweak, classifier adjustment, or trait-effect row. Good when the problem is clearly scoped and the fix is obvious.
+## Fast Feedback Tools
 
-### Structural change (escalate when stuck)
-A new environment variable, new mechanic, or system rework. **Choose this when:**
-- The same problem appears in `RALPH-PROGRESS.md` Stuck Problems for 3+ iterations
-- Multiple niches share the same root cause (e.g., "climate zones don't differentiate" affects all 16 niches)
-- You find yourself wanting to add another special-case filter to work around a missing environmental axis
+Use these in order of speed. Do NOT run full sim experiments for every change.
 
-Structural changes are higher risk but higher reward. They may produce messy experiment results on the first iteration — that's expected. The next iteration can tune the coefficients. Don't avoid structural changes just because the first experiment won't be clean.
+1. **Pure math (milliseconds):**
+   - `npx tsx scripts/balance-tuning/target-score.ts` — **Single compliance score.** Run this after every change. Shows overall %, per-gate breakdown, and per-niche violations. Add `--verbose` for common-gate details. **This is your scoreboard.**
+   - `npx tsx scripts/balance-tuning/balance-matrix.ts` — 40×16 trait modifier grid. Shows top-5 per niche. Use this to understand WHY the score is what it is.
+   - `npx tsx scripts/balance-tuning/fitness-landscape.ts` — Hill-climb stability. Shows if subtypes are evolutionary attractors.
+   - `npx tsx scripts/balance-tuning/optimize-coefficients.ts` — Gradient descent on coefficients to satisfy target ranking constraints. If this can't converge, the current architecture lacks the expressiveness to reach the target.
 
-### Strategic review (every 5 iterations)
-Count the iterations from git log. On every 5th iteration (5, 10, 15, 20...), BEFORE picking a task:
-1. Read the Stuck Problems section — which problems have been there longest?
-2. Ask: "Am I making progress on the hard problems, or just polishing the easy ones?"
-3. **Paradigm check:** "Am I stuck because coefficients are wrong, or because the trait engine can't express what I need?" If multiple niches share the same root cause, the fix is probably a new trait interaction or environment variable — not more coefficient tuning.
-4. If a problem has survived 3+ iterations of tactical fixes, it needs a structural change this iteration
-5. Write your strategic assessment in the progress file before proceeding
+2. **Full sim validation (10-30 seconds):**
+   - `npx tsx scripts/run-experiment.ts experiment-niche-matrix --ticks 3000 --out results/ralph-iter-N.json`
+   - `npx tsx scripts/balance-tuning/extract-metrics.ts results/ralph-iter-N.json`
+   - `npx tsx scripts/balance-tuning/compare-runs.ts results/ralph-iter-A.json results/ralph-iter-B.json`
+   - `npx tsx scripts/balance-tuning/trajectory-analysis.ts results/ralph-iter-N.json`
 
----
+3. **Parameter sweep (minutes):**
+   - `npx tsx scripts/balance-tuning/parameter-sweep.ts --param X --values ... --scenario experiment-niche-matrix`
 
-## Goal
+## Success Criteria
 
-Build a plant ecosystem sim that realistically models how diverse environments form. This sim should teach people why temperate forests look different from deserts, why wetlands have different species than hilltops.
+Run `npx tsx scripts/balance-tuning/target-score.ts` to get a single compliance number. Current baseline: **68.9%**.
 
-Achieve the 16-niche target matrix below: 4 terrains (Soil, Hill, Wetland, Arid) × 4 climates (Temperate, Tropical, Mediterranean, Desert). Each niche should produce its realistic community of coexisting plant subtypes.
+The score breaks down into 4 gates (weighted):
+- **Absent gate (35%):** "Absent" subtypes must NOT appear in the top-5 for that niche. No palms in temperate forest. Currently 92.6%.
+- **Dominant gate (35%):** "Dominant" subtypes should appear in the niche's top-3. Currently **24.2%** — this is the main problem.
+- **Common gate (20%):** "Common" subtypes should have positive modifiers. Currently 91.5%.
+- **Minor gate (10%):** "Minor" subtypes shouldn't be strongly penalized. Currently 96.8%.
 
-## What you can do
+**Prioritize fixing the dominant gate** — it's by far the weakest. But don't regress the absent gate to do it. Consider tackling the absent violations first (they're the most egregious ecological errors), then focus on getting dominant subtypes into their correct niches.
 
-- Add new environment variables to `CellEnvironment` and `deriveCellEnv` (this is the primary way to give the trait engine new axes of differentiation)
-- Add trait-effect rows to the `TRAIT_EFFECTS` table — including **trait interactions** (`trait × trait2 × envVar`) to create multiple fitness peaks per niche, and **peaked traits** (`peaked: center`) for "moderate X is optimal" selection pressure
-- Add or rework classifiers in `src/types/subtypes.ts`
-- Tweak constants and tuning values
-- Rework or delete existing systems that aren't working
+Validate with a full sim run every time you believe you've made a breakthrough.
 
-## What you must NOT do
+## The Core Problem (understand this before touching code)
 
-- **Never add archetype-specific germination blocks** (e.g. "succulents can only germinate on Arid"). If an archetype shouldn't thrive somewhere, add trait-effect rows that make that genome profile unviable — stress mortality handles the rest. Hard germination blocks bypass natural selection.
-- **Never add alternative coexistence mechanisms** (e.g. per-niche traitMod averaging, ENV_SIMILARITY matrices). Frequency-dependent selection (FDS) is already implemented in `simulation.ts` and handles multi-subtype coexistence. Tune `FDS_STRENGTH` if needed, but don't replace or duplicate the mechanism.
-- **Never branch on terrain type or climate zone in plant logic** — all differentiation flows through continuous environment variables and the trait engine. See CLAUDE.md.
+The trait engine maps 9 genome traits × 12 environment variables → single fitness modifier. Subtype classification maps those same 9 traits → one of 8 subtypes per archetype. The problem:
 
-## Key Files
+**Within an archetype, subtypes with similar genome profiles get similar fitness scores.** Example: Oak (high leafSize, defense, rootPriority) and Magnolia (high leafSize, longevity, low defense) — if the dominant environment terms are leafSize×soilFertility, they both score high on fertile soil and there's nothing to make Oak beat Magnolia in temperate but Magnolia beat Oak in tropical.
 
-- `src/simulation/trait-effects.ts` — environment physics + trait effect coefficients (primary tuning lever)
-- `src/simulation/tiers.ts` — vertical tier thresholds + light filtering
-- `src/types/subtypes.ts` — subtype classifiers (how genomes map to named plant types)
-- `src/types/constants.ts` — SIM constants + terrain properties
-- Read `CLAUDE.md` for architectural rules before making changes
+The environment variables don't create enough **within-archetype niche separation**. The trait engine needs distinct "fitness landscapes" where the genome profile that classifies as "Oak" also happens to score well in temperate soil, while the profile that classifies as "Magnolia" scores well in tropical soil.
 
-## Rules
+## Strategic Rules
 
-- **Performance: current Ticks/sec should roughly stay the same** The experiment runner reports `perfStats.ticksPerSecond` in every JSON output. Log it. If a change drastically tanks perf, simplify the design, optimize performance or revert — the sim must stay fast enough for rapid iteration.
-- **Never run experiment commands in the background** (no `run_in_background`). Always run them in the foreground so results are available immediately.
+### 1. Journal your thinking
 
-## Experiments
+Before AND after each iteration, append to `RALPH-PROGRESS.md`:
 
-4 experiments, each 80×80 with 35×35 pockets (1,225 cells). Default: 5,000 ticks, snapshot every 1000. You may adjust `--ticks` up or down as needed — use fewer for quick smoke tests, more for convergence validation.
-
-**Run all 4 in parallel** to save time (use `--out` and `&` + `wait`):
-
-```bash
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad --ticks 5000 --interval 1000 --out results/quad.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-tropical --ticks 5000 --interval 1000 --out results/tropical.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-mediterranean --ticks 5000 --interval 1000 --out results/mediterranean.json &
-npx tsx --max-semi-space-size=128 --max-old-space-size=4096 scripts/run-experiment.ts experiment-terrain-quad-desert --ticks 5000 --interval 1000 --out results/desert.json &
-wait
+```
+## Iteration N — [date/time]
+### Hypothesis
+What I think the problem is and what I'm trying.
+### What I did
+Concrete changes made.
+### Results
+balance-matrix output comparison, what improved, what regressed.
+### Assessment
+Is this approach working? Should I continue or pivot?
 ```
 
-| Experiment                              | Climate       | Niches                        |
-| --------------------------------------- | ------------- | ----------------------------- |
-| `experiment-terrain-quad`               | Temperate     | Soil/Hill/Wetland/Arid × Temp |
-| `experiment-terrain-quad-tropical`      | Tropical      | Soil/Hill/Wetland/Arid × Trop |
-| `experiment-terrain-quad-mediterranean` | Mediterranean | Soil/Hill/Wetland/Arid × Med  |
-| `experiment-terrain-quad-desert`        | Desert        | Soil/Hill/Wetland/Arid × Des  |
+### 2. Recognize dead ends early
 
-Success = dominant subtypes match the target matrix per niche, ≥8 subtypes coexist per niche (Shannon H ≥ 2.5).
+If you've spent 3+ iterations adjusting coefficients in the trait-effects table without meaningful progress on the success criteria, STOP. Write in your journal WHY it's not working. Consider:
 
----
+- Are the environment variables too coarse to separate the subtypes that need separating?
+- Are 9 genome traits enough dimensions to create 8 distinct fitness profiles per archetype across 16 niches?
+- Is the subtype classifier fighting the trait engine (genome that classifies as "Palm" might have the wrong traits to score well in palm-appropriate niches)?
+- Would a new environment variable, genome trait, or architectural pattern solve the problem more elegantly than more coefficients?
 
-## Progress File Format
+### 3. Think in dimensions, not coefficients
 
-`RALPH-PROGRESS.md` must end with these two sections (in addition to iteration notes above them):
+The right move is often NOT "change coefficient X from 0.3 to 0.5" but rather:
 
-```markdown
-## Stuck Problems
+- "Add a new environment variable `canopyDensity` that separates forest niches from open niches"
+- "Add a genome trait `temperatureTolerance` that lets the classifier separate cold-adapted from heat-adapted trees"
+- "Create a new trait interaction term that gives the Oak genome profile a distinct advantage on temperate soil"
 
-| Problem | Iterations stuck | Root cause hypothesis | Suggested structural change |
-|---------|-----------------|----------------------|----------------------------|
-| <description> | <count> | <why> | <new env var, mechanic, or system rework> |
+### 4. Respect the architecture
 
-## What I would do next iteration
-<one sentence>
-```
+- NEVER add `if (subtype === X)` or `if (terrain === Y)` branches in plant physics
+- ALL differentiation must flow through continuous environment variables and the trait table
+- New traits and environment variables are welcome if they're ecologically meaningful
+- The trait table can grow — but keep it principled (each row should have a real ecological justification)
 
-Rules for the Stuck Problems table:
-- Add new problems with count 1, increment each iteration if still present, remove when solved
-- The "Suggested structural change" column must always contain a structural idea (new env var, new mechanic, system rework) — never a coefficient tweak or classifier adjustment
-- The table is your long-term memory. Keep it in this exact format with this exact heading.
+### 5. Performance matters
 
----
+The sim runs at ~12ms/tick with ~1500 plants. The trait engine is already compiled to ~25 groups with Float64Array lookups. If you add complexity:
 
-## Target Matrix
+- New genome traits: basically free (one more float per plant, one more buffer slot)
+- New environment variables: basically free (pre-computed per niche)
+- New trait-effect rows: cheap if they fold into existing compiled groups
+- New sim phases or per-plant loops: expensive, justify carefully
 
-See [`target-matrix.md`](target-matrix.md) for the full 16-niche target matrix.
+### 6. Alignment check
+
+The subtype classifier and the trait engine must be **aligned**: the genome that classifies as "Oak" must also be the genome that scores highest in Oak-appropriate niches. If they diverge, either fix the classifier weights or fix the trait engine — don't fight both.
+
+Run `fitness-landscape.ts` to check alignment. If a subtype is "unstable" (hill-climbing pushes its genome to reclassify as a different subtype), that's a structural problem that no amount of coefficient tuning will fix.
+
+## What You're Allowed to Do
+
+Everything. This is not a tuning exercise. You're designing an ecosystem simulator. Specifically:
+
+- Add new genome traits (update Genome interface, classifiers, trait table, compiled path)
+- Add new environment variables (update CellEnvironment, deriveCellEnv, terrain/climate physics)
+- Redesign how the trait engine works (as long as it stays data-driven, no hardcoded branches)
+- Restructure the subtype classifier
+- Modify Layer 1 (terrain/climate physics values)
+- Change SIM constants
+- Add new balance-tuning scripts
+- Modify existing scripts
+- Create entirely new architectural patterns
+
+## What You Must NOT Do
+
+- Add `if (terrain === X)` or `if (subtype === Y)` branches in simulation physics
+- Break the renderer (don't change SubtypeId values or SUBTYPE_NAMES without updating renderers)
+- Create configurations that make the sim unplayably slow (<5 FPS at 2000 plants)
+- Ignore CLAUDE.md rules
+- Skip journaling — if you lose track of what you've tried, you'll go in circles
+
+## How to Start
+
+1. Read `CLAUDE.md`, `target-matrix.md`, and the key source files listed above
+2. Run `target-score.ts` — get the current compliance number
+3. Run `balance-matrix.ts` — understand which niches are wrong and why
+4. Run `fitness-landscape.ts` — understand subtype stability
+5. Write your initial assessment in `RALPH-PROGRESS.md`: what's wrong, what's the highest-leverage fix
+6. Pick the highest-leverage intervention and implement it
+7. Run `target-score.ts` after every change — did the number go up?
+8. When you see real progress, validate with a full sim run
+
+## Completion
+
+When you believe the target matrix is substantially met (primary + secondary gates passing), output:
+<promise>RALPH_COMPLETE</promise>
