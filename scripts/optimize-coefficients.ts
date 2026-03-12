@@ -519,5 +519,207 @@ for (let r = 0; r < ROW_COUNT; r++) {
   out(`  [${String(r).padStart(2)}] coefficient: ${coeff.padStart(6)},  // ${rowDescriptions[r].description}`);
 }
 
+// Section E: Inseparable subtype pairs diagnostic
+out('');
+out('═══════════════════════════════════════════════════════════════════════════');
+out('  INSEPARABLE SUBTYPE PAIRS');
+out('  Pairs the optimizer cannot rank correctly — need new trait×env rows');
+out('  or environment variables to separate them.');
+out('═══════════════════════════════════════════════════════════════════════════');
+out('');
+
+// Collect all violated constraints with their violation magnitude
+interface ViolatedPair {
+  niche: string;
+  highName: string;
+  lowName: string;
+  highTier: string;
+  lowTier: string;
+  highScore: number;
+  lowScore: number;
+  gap: number; // actual score(high) - score(low), negative = wrong order
+  highArch: number;
+  lowArch: number;
+}
+
+const ARCH_NAMES = ['Grass', 'Shrub', 'Succulent', 'Tree', 'Forb'];
+const violated: ViolatedPair[] = [];
+
+for (let ci = 0; ci < constraints.length; ci++) {
+  const c = constraints[ci];
+  const sHigh = score(c.highId, c.nicheIdx, bestCoeffs);
+  const sLow = score(c.lowId, c.nicheIdx, bestCoeffs);
+  if (sHigh - sLow < c.margin) {
+    const t = TARGETS[c.nicheIdx];
+    const highTier = t.dominant.includes(c.highId) ? 'DOM' :
+                     t.common.includes(c.highId) ? 'COM' : 'MIN';
+    const lowTier = t.dominant.includes(c.lowId) ? 'DOM' :
+                    t.common.includes(c.lowId) ? 'COM' :
+                    t.minor.includes(c.lowId) ? 'MIN' : 'ABS';
+    violated.push({
+      niche: t.label,
+      highName: SUBTYPE_NAMES[c.highId],
+      lowName: SUBTYPE_NAMES[c.lowId],
+      highTier, lowTier,
+      highScore: sHigh,
+      lowScore: sLow,
+      gap: sHigh - sLow,
+      highArch: repGenomes[c.highId] ? archetype(repGenomes[c.highId]!) : -1,
+      lowArch: repGenomes[c.lowId] ? archetype(repGenomes[c.lowId]!) : -1,
+    });
+  }
+}
+
+// Sort by gap (worst violations first = most negative gap relative to margin)
+violated.sort((a, b) => a.gap - b.gap);
+
+// E1: Worst individual violations (top 30)
+out(`  Total violated constraints: ${violated.length}/${constraints.length}`);
+out('');
+out('  ── Worst 30 violations (should-be-higher > should-be-lower) ──');
+out('');
+out(`  ${pad('Niche', 12)} ${pad('Should rank higher', 22)} ${pad('Should rank lower', 22)} ${'Gap'.padStart(7)}  Note`);
+out(`  ${'─'.repeat(12)} ${'─'.repeat(22)} ${'─'.repeat(22)} ${'─'.repeat(7)}  ${'─'.repeat(30)}`);
+
+for (let i = 0; i < Math.min(30, violated.length); i++) {
+  const v = violated[i];
+  const sameArch = v.highArch === v.lowArch && v.highArch >= 0;
+  const note = sameArch ? `same archetype (${ARCH_NAMES[v.highArch]})` :
+               v.gap < 0 ? 'WRONG ORDER' : 'too close';
+  out(
+    `  ${pad(v.niche, 12)} ${pad(`${v.highName} [${v.highTier}]`, 22)} ${pad(`${v.lowName} [${v.lowTier}]`, 22)} ${fmt(v.gap, 7)}  ${note}`
+  );
+}
+
+// E2: Aggregate by subtype pair — which pairs fail across multiple niches?
+out('');
+out('  ── Subtype pairs that fail in multiple niches ──');
+out('  (same pair violated in 2+ niches = structurally inseparable)');
+out('');
+
+const pairKey = (a: string, b: string) => `${a}|||${b}`;
+const pairNiches = new Map<string, { niches: string[]; high: string; low: string; sameArch: boolean; archName: string }>();
+
+for (const v of violated) {
+  const key = pairKey(v.highName, v.lowName);
+  if (!pairNiches.has(key)) {
+    const sameArch = v.highArch === v.lowArch && v.highArch >= 0;
+    pairNiches.set(key, {
+      niches: [], high: v.highName, low: v.lowName,
+      sameArch, archName: sameArch ? ARCH_NAMES[v.highArch] : '',
+    });
+  }
+  pairNiches.get(key)!.niches.push(v.niche);
+}
+
+const multiNichePairs = [...pairNiches.values()]
+  .filter(p => p.niches.length >= 2)
+  .sort((a, b) => b.niches.length - a.niches.length);
+
+if (multiNichePairs.length === 0) {
+  out('  (none — all violations are niche-specific)');
+} else {
+  out(`  ${pad('Higher-tier', 18)} ${pad('Lower-tier', 18)} ${'#'.padStart(3)}  Niches`);
+  out(`  ${'─'.repeat(18)} ${'─'.repeat(18)} ${'─'.repeat(3)}  ${'─'.repeat(40)}`);
+  for (const p of multiNichePairs.slice(0, 30)) {
+    const archNote = p.sameArch ? ` [${p.archName}]` : '';
+    out(`  ${pad(p.high, 18)} ${pad(p.low, 18)} ${String(p.niches.length).padStart(3)}  ${p.niches.join(', ')}${archNote}`);
+  }
+}
+
+// E3: Aggregate by archetype pair — are same-archetype pairs the bottleneck?
+out('');
+out('  ── Violations by archetype pair ──');
+out('  (same-archetype pairs share genome space → hard to separate with coefficients)');
+out('');
+
+const archPairCounts = new Map<string, number>();
+let sameArchTotal = 0;
+let crossArchTotal = 0;
+
+for (const v of violated) {
+  if (v.highArch < 0 || v.lowArch < 0) continue;
+  const key = `${ARCH_NAMES[v.highArch]} vs ${ARCH_NAMES[v.lowArch]}`;
+  archPairCounts.set(key, (archPairCounts.get(key) || 0) + 1);
+  if (v.highArch === v.lowArch) sameArchTotal++;
+  else crossArchTotal++;
+}
+
+const sortedArchPairs = [...archPairCounts.entries()].sort((a, b) => b[1] - a[1]);
+for (const [pair, count] of sortedArchPairs) {
+  const pct = ((count / violated.length) * 100).toFixed(1);
+  out(`  ${pad(pair, 28)} ${String(count).padStart(5)} violations  (${pct}%)`);
+}
+
+out('');
+out(`  Same-archetype violations:  ${sameArchTotal} (${((sameArchTotal / violated.length) * 100).toFixed(1)}%)`);
+out(`  Cross-archetype violations: ${crossArchTotal} (${((crossArchTotal / violated.length) * 100).toFixed(1)}%)`);
+
+// E4: Per-niche violation count — which niches are hardest?
+out('');
+out('  ── Violations per niche ──');
+out('');
+
+const nicheViolCounts = new Map<string, { total: number; sameArch: number }>();
+for (const v of violated) {
+  if (!nicheViolCounts.has(v.niche)) nicheViolCounts.set(v.niche, { total: 0, sameArch: 0 });
+  const entry = nicheViolCounts.get(v.niche)!;
+  entry.total++;
+  if (v.highArch === v.lowArch && v.highArch >= 0) entry.sameArch++;
+}
+
+const sortedNiches = [...nicheViolCounts.entries()].sort((a, b) => b[1].total - a[1].total);
+out(`  ${pad('Niche', 16)} ${'Total'.padStart(6)} ${'Same-arch'.padStart(10)}`);
+out(`  ${'─'.repeat(16)} ${'─'.repeat(6)} ${'─'.repeat(10)}`);
+for (const [niche, counts] of sortedNiches) {
+  out(`  ${pad(niche, 16)} ${String(counts.total).padStart(6)} ${String(counts.sameArch).padStart(10)}`);
+}
+
+// E5: Actionable suggestions
+out('');
+out('  ── Suggested new trait×env rows ──');
+out('  Each suggestion targets a group of inseparable pairs.');
+out('');
+
+// Find which traits differ most between frequently-violated same-archetype pairs
+const traitDiffAccum = new Map<string, { diffs: Float64Array; count: number; pairs: string[] }>();
+
+for (const v of violated) {
+  if (v.highArch !== v.lowArch || v.highArch < 0) continue;
+  const archKey = ARCH_NAMES[v.highArch];
+  if (!traitDiffAccum.has(archKey)) {
+    traitDiffAccum.set(archKey, { diffs: new Float64Array(9), count: 0, pairs: [] });
+  }
+  const entry = traitDiffAccum.get(archKey)!;
+  const hId = nameToId.get(v.highName)!;
+  const lId = nameToId.get(v.lowName)!;
+  const hG = repGenomes[hId]!;
+  const lG = repGenomes[lId]!;
+  for (let t = 0; t < 9; t++) {
+    entry.diffs[t] += Math.abs(hG[TRAIT_KEYS[t]] - lG[TRAIT_KEYS[t]]);
+  }
+  entry.count++;
+  const pairStr = `${v.highName}/${v.lowName}`;
+  if (!entry.pairs.includes(pairStr)) entry.pairs.push(pairStr);
+}
+
+for (const [archName, entry] of traitDiffAccum) {
+  // Normalize diffs
+  const avgDiffs = TRAIT_KEYS.map((k, t) => ({
+    trait: k,
+    avgDiff: entry.diffs[t] / entry.count,
+  }));
+  avgDiffs.sort((a, b) => b.avgDiff - a.avgDiff);
+
+  const topTraits = avgDiffs.filter(d => d.avgDiff > 0.05).slice(0, 3);
+  if (topTraits.length === 0) continue;
+
+  out(`  ${archName} (${entry.count} violations, ${entry.pairs.length} unique pairs):`);
+  out(`    Most-different traits: ${topTraits.map(t => `${t.trait} (Δ${t.avgDiff.toFixed(2)})`).join(', ')}`);
+  out(`    → Add interaction rows: ${topTraits.map(t => `${t.trait} × envVar`).join(', ')}`);
+  out(`    Sample pairs: ${entry.pairs.slice(0, 5).join(', ')}`);
+  out('');
+}
+
 out('');
 log('Done.');

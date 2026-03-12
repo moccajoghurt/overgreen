@@ -29,6 +29,7 @@ export interface CellEnvironment {
   extremeAridity: number;
   tropicality: number;
   winterHarshness: number;
+  seasonality: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -70,6 +71,8 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     tropicality:      cp.heat * cp.humidity,
     // Temp=0.42, Med=0.10, Desert=0.03, Trop=0.00
     winterHarshness:  cp.coldness * (1 - cp.heat),
+    // Temp=0.69, Med=0.31, Desert=0.27, Trop=0.09
+    seasonality:      (cp.coldness * 0.8 + (1 - cp.heat) * 0.3) * (1 - tp.exposure * 0.15),
   };
 }
 
@@ -109,6 +112,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.extremeAridity   = Math.max(0, eff.droughtStress - 0.35); // derived from seasonal drought
       eff.tropicality      = base.tropicality;                  // static (climate-only)
       eff.winterHarshness  = base.winterHarshness;              // static (climate-only)
+      eff.seasonality      = base.seasonality;                  // static
     }
   }
 }
@@ -141,11 +145,12 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
   { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.20, description: 'wind strips foliage on broad-leaved plants' },
 
-  // Defense — costly but essential where disease thrives; spines protect from sun in heat
+  // Defense — costly metabolic investment, essential where disease/herbivory thrives
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
-  { trait: 'defense',        envVar: null,              coefficient: -0.25, description: 'metabolic cost of defensive tissue' },
-  { trait: 'defense',        envVar: 'heatStress',      coefficient: +0.25, description: 'spines and waxy coating provide sun/heat protection' },
-  { trait: 'defense',        envVar: 'droughtStress',   coefficient: +0.35, description: 'thorns and thick bark reduce water loss in drought' },
+  { trait: 'defense',        envVar: null,              coefficient: -0.35, description: 'metabolic cost of alkaloids, spines, and lignified tissue' },
+  { trait: 'defense',        envVar: 'heatStress',      coefficient: +0.10, description: 'waxy coating provides minor heat protection' },
+  { trait: 'defense',        envVar: 'soilFertility',   coefficient: -0.30, description: 'on fertile soil, fast undefended growth outcompetes slow defended growth' },
+  { trait: 'defense',        envVar: 'waterlogging',    coefficient: -0.25, description: 'waterlogged soil leaches defensive chemicals; low herbivory pressure' },
 
   // Water storage — critical in drought, liability in frost/wetland/wind
   { trait: 'waterStorage',   envVar: 'droughtStress',  coefficient: +0.70, description: 'drought buffer' },
@@ -173,23 +178,30 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.30, inverse: true, description: 'shallow roots thrive in saturated soil' },
   { trait: 'rootPriority',   envVar: 'heatStress',     coefficient: -0.25, description: 'root zone overheating in hot exposed soil' },
 
-  // Height priority — competitive light positioning, but wind destroys tall plants
-  { trait: 'heightPriority', envVar: null,             coefficient: +0.06, description: 'competitive light positioning' },
-  { trait: 'heightPriority', envVar: 'soilFertility',  coefficient: +0.30, description: 'tall plants compete for light on fertile soil' },
+  // Height priority — competitive light positioning, but costly in drought/frost/wind
+  { trait: 'heightPriority', envVar: null,             coefficient: +0.04, description: 'competitive light positioning' },
+  { trait: 'heightPriority', envVar: 'soilFertility',  coefficient: +0.20, description: 'tall plants compete for light on fertile soil' },
   { trait: 'heightPriority', envVar: 'windExposure',   coefficient: -0.35, description: 'wind damage to tall plants' },
   { trait: 'heightPriority', envVar: 'waterlogging',   coefficient: +0.30, description: 'flood escape' },
-  { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.50, description: 'tall columnar form radiates heat efficiently' },
-  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +1.30, description: 'tall plants escape lethal ground-level heat in extreme desert' },
+  { trait: 'heightPriority', envVar: 'heatStress',     coefficient: +0.20, description: 'tall columnar form radiates heat' },
+  { trait: 'heightPriority', envVar: 'extremeAridity',  coefficient: +0.50, description: 'tall plants escape ground-level heat in extreme desert' },
+  { trait: 'heightPriority', envVar: 'droughtStress',   coefficient: -0.40, description: 'tall plants need more water transported through longer xylem' },
+  { trait: 'heightPriority', envVar: 'frostRisk',       coefficient: -0.25, description: 'tall structures exposed to frost; low growth forms trap insulating snow' },
 
-  // Seed investment — colonizers exploit harsh niches via rapid reproduction
+  // Seed investment — r-strategy colonizers vs K-strategy persisters
+  { trait: 'seedInvestment', envVar: null,              coefficient: -0.20, description: 'flowering and fruiting diverts energy from growth and maintenance' },
   { trait: 'seedInvestment', envVar: 'windExposure',   coefficient: +0.20, description: 'wind seed dispersal' },
-  { trait: 'seedInvestment', envVar: null,              coefficient: -0.06, description: 'reproductive allocation reduces somatic performance' },
+  { trait: 'seedInvestment', envVar: 'soilFertility',  coefficient: +0.25, description: 'abundant resources make high reproductive investment viable — weedy r-strategy' },
+  { trait: 'seedInvestment', envVar: 'droughtStress',  coefficient: -0.30, description: 'fruiting requires water; drought kills developing seeds' },
+  { trait: 'seedInvestment', envVar: 'frostRisk',      coefficient: -0.25, description: 'frost kills flowers and developing seeds; narrow reproductive windows' },
 
-  // Longevity — persistence advantage but costly in harsh environments
-  { trait: 'longevity',      envVar: null,              coefficient: +0.01, description: 'persistence advantage' },
-  { trait: 'longevity',      envVar: 'diseasePressure', coefficient: +0.08, description: 'evolved immune system in disease-rich environments' },
-  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: +0.05, description: 'established perennial root networks resist drought' },
-  { trait: 'longevity',      envVar: 'frostRisk',       coefficient: -0.10, description: 'frost damages accumulated long-lived tissue' },
+  // Longevity — perennial persistence vs annual/ephemeral turnover
+  { trait: 'longevity',      envVar: null,              coefficient: -0.10, description: 'maintaining long-lived tissue (structural reinforcement, DNA repair) is expensive' },
+  { trait: 'longevity',      envVar: 'diseasePressure', coefficient: +0.20, description: 'long-lived plants accumulate pathogen resistance' },
+  { trait: 'longevity',      envVar: 'droughtStress',   coefficient: +0.20, description: 'established perennial root networks persist through drought cycles' },
+  { trait: 'longevity',      envVar: 'frostRisk',       coefficient: +0.15, description: 'perennials survive winters via dormancy and bark insulation' },
+  { trait: 'longevity',      envVar: 'soilFertility',   coefficient: -0.25, description: 'on fertile soil, fast-growing annuals outcompete slow perennials' },
+  { trait: 'longevity',      envVar: 'extremeAridity', inverse: true, coefficient: +0.30, description: 'short-lived ephemerals exploit brief desert rain windows' },
 
   // ── Tropicality axis — separates tropical from other climates ──
   { trait: 'leafSize',       envVar: 'tropicality',     coefficient: +0.50, description: 'lush foliage thrives in warm humid conditions' },
@@ -203,6 +215,13 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'waterStorage',   envVar: 'winterHarshness', coefficient: -0.45, description: 'succulent tissue destroyed by freeze-thaw cycles' },
   { trait: 'longevity',      envVar: 'winterHarshness', coefficient: +0.25, description: 'long-lived perennials amortize winter survival investment' },
   { trait: 'leafSize',       envVar: 'winterHarshness', coefficient: -0.25, description: 'deciduous leaf loss — large leaves are costly to regrow each spring' },
+
+  // ── Seasonality axis — separates deciduous/annual from evergreen/perennial ──
+  { trait: 'longevity',      envVar: 'seasonality',    coefficient: +0.30, description: 'perennials survive seasonal dormancy; amortize winter survival structures' },
+  { trait: 'woodiness',      envVar: 'seasonality',    coefficient: +0.25, description: 'woody tissue persists through seasons; herbaceous must regrow each spring' },
+  { trait: 'seedInvestment', envVar: 'seasonality',    coefficient: -0.20, description: 'narrow reproductive windows waste high seed allocation in seasonal climates' },
+  { trait: 'leafSize',       envVar: 'seasonality',    coefficient: -0.20, description: 'large leaves costly to regrow each spring; vulnerable to late frosts' },
+  { trait: 'waterStorage',   envVar: 'seasonality',    coefficient: -0.15, description: 'freeze-thaw cycles damage succulent water-storing tissue' },
 
   // ── Trait interaction terms ──
   // These create multiple fitness peaks within the same niche by rewarding specific
