@@ -22,6 +22,7 @@ import { createHookPhase } from './hook-phase';
 import { PerfTracker } from './perf';
 import { createPerfPanel } from './perf-panel';
 import { createSystemsOverlay } from './systems-overlay';
+import { createPlantCardOverlay } from './plant-card-overlay';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -98,6 +99,7 @@ function setupViewCheckbox(id: string, onToggle: (checked: boolean) => void) {
 const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
+const plantCard = createPlantCardOverlay(container, renderer);
 
 // Heatmap button row — 1-click color mode switching
 const heatmapRow = document.getElementById('heatmap-row')!;
@@ -289,6 +291,7 @@ function resetAllState(): void {
   diagLogger.reset();
   commentary.reset();
   speciesLabels.reset();
+  plantCard.reset();
   genomePanel.reset();
   lineagePanel.reset();
   systemsOverlay.reset();
@@ -462,7 +465,7 @@ function loop(now: number): void {
     renderer.render(controls.selectedCell, perfHooks);
     if (!hookPhase.active) {
       const hoveredPlantPos = hoveredPlant?.alive ? { x: hoveredPlant.x, y: hoveredPlant.y } : null;
-      speciesLabels.setHoveredSpecies(controls.hoverLineageEnabled ? null : controls.hoveredSpecies, hoveredPlantPos);
+      speciesLabels.setHoveredSpecies(controls.hoverEnabled && !controls.hoverLineageEnabled ? controls.hoveredSpecies : null, hoveredPlantPos);
       speciesLabels.setHoveredLineageRoot(
         controls.hoverLineageEnabled && hoveredPlant?.alive
           ? hoveredPlant.lineageRoot
@@ -471,6 +474,8 @@ function loop(now: number): void {
       speciesLabels.updatePositions();
       terrainLabels.updatePositions();
       zoneLabels.updatePositions();
+      plantCard.update(world, controls.hoverPlantEnabled ? controls.hoveredPlantId : null);
+      plantCard.updatePosition();
     }
     perfTracker.end('renderTotal');
     // Smooth render time estimate for adaptive tick budgeting

@@ -11,6 +11,7 @@ export interface Controls {
   hoveredSpecies: number | null;
   hoveredPlantId: number | null;
   hoverEnabled: boolean;
+  hoverPlantEnabled: boolean;
   hoverLineageEnabled: boolean;
   mode: 'inspect' | 'place';
   onPlaceClick: ((x: number, y: number) => void) | null;
@@ -38,7 +39,8 @@ export function initControls(
     selectedCell: null,
     hoveredSpecies: null,
     hoveredPlantId: null,
-    hoverEnabled: true,
+    hoverEnabled: false,
+    hoverPlantEnabled: true,
     hoverLineageEnabled: false,
     mode: 'inspect',
     onPlaceClick: null,
@@ -98,7 +100,7 @@ export function initControls(
   });
 
   canvas.addEventListener('mousemove', (e) => {
-    if (!controls.hoverEnabled && !controls.hoverLineageEnabled) { controls.hoveredSpecies = null; return; }
+    if (!controls.hoverEnabled && !controls.hoverPlantEnabled && !controls.hoverLineageEnabled) { controls.hoveredSpecies = null; controls.hoveredPlantId = null; return; }
     const rect = canvas.getBoundingClientRect();
     const hit = renderer.plantAt(e.clientX - rect.left, e.clientY - rect.top);
     controls.hoveredSpecies = hit ? hit.speciesId : null;
@@ -114,6 +116,11 @@ export function initControls(
   hoverToggle.addEventListener('change', () => {
     controls.hoverEnabled = hoverToggle.checked;
     if (!controls.hoverEnabled) { controls.hoveredSpecies = null; controls.hoveredPlantId = null; }
+  });
+
+  const hoverPlantToggle = document.getElementById('toggle-hover-plant') as HTMLInputElement;
+  hoverPlantToggle.addEventListener('change', () => {
+    controls.hoverPlantEnabled = hoverPlantToggle.checked;
   });
 
   const hoverLineageToggle = document.getElementById('toggle-hover-lineage') as HTMLInputElement;
