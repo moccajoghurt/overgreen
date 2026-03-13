@@ -11,6 +11,9 @@ function hash(a: number, b: number): number {
 
 const SX = 7919, SY = 6271;
 
+// ── Hill randomization seed — change to generate different hill variants ──
+const HILL_SEED = 3;
+
 function noise2d(x: number, y: number, scale: number): number {
   const sx = (x + SX) / scale;
   const sy = (y + SY) / scale;
@@ -143,14 +146,23 @@ function inEllipse(x: number, y: number, cx: number, cy: number,
   return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) <= 1.0;
 }
 
-// ── Rock outcrops — granite tors on ridge crests ──
-const rockClusters = [
-  { cx: 10, cy: 18, r: 3.0 },    // western ridge summit tor
-  { cx: 8, cy: 35, r: 2.5 },     // western ridge second peak
-  { cx: 62, cy: 14, r: 3.5 },    // eastern crag — high on the ridge
-  { cx: 58, cy: 30, r: 2.0 },    // eastern ridge spur outcrop
-  { cx: 38, cy: 2, r: 2.0 },     // northern saddle — boulder field at ridge crest, above moor
+// ── Hillside drainage gullies (Kerbtäler) — small ravines feeding the brook ──
+const gullies = [
+  buildSegs([{ x: 8, y: 22 }, { x: 15, y: 25 }, { x: 22, y: 27 }]),    // west ridge, upper
+  buildSegs([{ x: 5, y: 32 }, { x: 12, y: 33 }, { x: 18, y: 34 }]),    // west ridge, mid
+  buildSegs([{ x: 6, y: 42 }, { x: 13, y: 40 }, { x: 20, y: 38 }]),    // west ridge, lower
+  buildSegs([{ x: 10, y: 55 }, { x: 17, y: 52 }, { x: 24, y: 48 }]),   // west spur
+  buildSegs([{ x: 72, y: 18 }, { x: 64, y: 22 }, { x: 56, y: 25 }]),   // east ridge, upper
+  buildSegs([{ x: 70, y: 35 }, { x: 62, y: 33 }, { x: 55, y: 32 }]),   // east ridge, mid
 ];
+
+function gullyDepression(x: number, y: number): number {
+  for (const g of gullies) {
+    const d = distStream(x, y, g);
+    if (d < 4.0) return (1 - d / 4.0) * 0.07;
+  }
+  return 0;
+}
 
 // ── Helper functions ──
 
@@ -179,41 +191,48 @@ function isStreamCell(x: number, y: number): boolean {
   return false;
 }
 
-function isInRock(x: number, y: number): boolean {
-  for (const c of rockClusters) {
-    const d = Math.hypot(x - c.cx, y - c.cy);
-    const warp = fbm(x * 3 + c.cx, y * 3 + c.cy, 4) * 2.0;
-    if (d < c.r + warp - 1.5) return true;
-  }
-  return false;
-}
-
 // ── Elevation ──
 
 function baseElevation(x: number, y: number): number {
-  // U-shaped valley: low center around x=38, steep rises to ridges
-  // Valley floor ~30 cells wide (x=22 to x=55)
-  const cx = 38;
-  const distFromCenter = Math.abs(x - cx);
+  // Asymmetric valley: center shifted east, west side steeper (geological asymmetry)
+  const cx = 42;
+  const distFromCenter = x < cx ? (cx - x) : (x - cx);
 
-  // Sigmoid-like curve: flat valley floor, steep shoulder, flattening at ridge
+  // West side rises faster (steeper, weather-facing), east side gentler
   let valleyProfile: number;
+  const westSide = x < cx;
   if (distFromCenter < 15) {
-    // Valley floor: gentle
-    valleyProfile = (distFromCenter / 40) * (distFromCenter / 40) * 0.15;
+    const steepness = westSide ? 0.18 : 0.13;
+    valleyProfile = (distFromCenter / 40) * (distFromCenter / 40) * steepness;
   } else {
-    // Steep slope to ridge: cubic acceleration
     const slope = (distFromCenter - 15) / 25;
-    valleyProfile = 0.15 * (15 / 40) * (15 / 40) + slope * slope * 0.35;
+    const knee = westSide ? 0.18 * (15 / 40) * (15 / 40) : 0.13 * (15 / 40) * (15 / 40);
+    valleyProfile = knee + slope * slope * (westSide ? 0.40 : 0.30);
   }
 
-  // North-south descent: brook needs gradient (north is higher)
-  const nsSlope = (1 - y / 80) * 0.13;
+  // North-south descent with noise perturbation (pool-riffle variation)
+  const s = HILL_SEED;
+  const nsBase = (1 - y / 80) * 0.13;
+  const nsSlope = nsBase * (0.85 + fbm(x + s * 300, y + s * 300, 25) * 0.3);
 
-  // Natural variation
-  const noise = (fbm(x, y, 14) - 0.5) * 0.10;
+  // Valley floor undulation — gentle swells only on flat ground
+  const floorUndulation = (distFromCenter < 15)
+    ? noise2d(x + s * 200, y + s * 150, 20) * 0.05
+    : 0;
 
-  return Math.max(0.15, Math.min(0.85, 0.22 + valleyProfile + nsSlope + noise));
+  // Seed-dependent rolling hills — multi-scale noise for natural German forest terrain
+  const rolling = fbm(x + s * 137, y + s * 89, 16) * 0.14;
+  const medium = noise2d(x + s * 53, y + s * 41, 9) * 0.10;
+  const detail = (fbm(x + s * 23, y + s * 17, 6) - 0.5) * 0.11;
+
+  // Ridge-scale roughness — small saddles/shoulders on hilltops only
+  const ridgeDetail = noise2d(x + s * 71, y + s * 97, 3.5) * 0.04 * Math.min(1, valleyProfile * 4);
+
+  // Hillside gullies — subtle erosion creases
+  const gully = gullyDepression(x, y);
+
+  return Math.max(0.15, Math.min(0.85,
+    0.22 + valleyProfile + nsSlope + floorUndulation + rolling + medium + detail + ridgeDetail - gully));
 }
 
 // ── Terrain ──
@@ -288,62 +307,6 @@ function getTerrain(x: number, y: number): ScenarioCell {
     }
   }
 
-  // ── Rock outcrops — on ridge crests ──
-  if (isInRock(x, y)) {
-    return { x, y, terrain: TerrainType.Rock, elevation: elev + 0.15 };
-  }
-
-  // ── Western ridge — wide, enclosing ──
-  if (x <= 20 && y >= 5 && y <= 65) {
-    const ridgeSpine = 8;
-    const ridgeDist = Math.abs(x - ridgeSpine);
-    const ridgeNoise = fbm(x + 400, y + 400, 5);
-    // Wider zone for convincing ridge
-    if (ridgeDist + ridgeNoise * 3 < 9.0) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.58 + ridgeNoise * 0.15 };
-    }
-  }
-
-  // ── Eastern heights — extends further south ──
-  if (x >= 55 && y <= 55) {
-    const ridgeSpine = 65;
-    const ridgeDist = Math.abs(x - ridgeSpine);
-    const ridgeNoise = fbm(x + 500, y + 500, 5);
-    if (ridgeDist + ridgeNoise * 3 < 8.0) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.55 + ridgeNoise * 0.12 };
-    }
-  }
-
-  // ── Northern shoulder — solid arc connecting ridges ──
-  if (y <= 12) {
-    const shoulderNoise = fbm(x + 600, y + 600, 6);
-    const shoulderCenter = 5; // y-center of shoulder
-    const yDist = Math.abs(y - shoulderCenter);
-    if (x > 18 && x < 56 && yDist + shoulderNoise * 3 < 5.5) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.48 + shoulderNoise * 0.10 };
-    }
-  }
-
-  // ── Southern ridge spurs — frame the valley exit (widened) ──
-  // Western spur curving south
-  if (x <= 28 && y >= 60 && y <= 78) {
-    const spurSpine = 14 + (y - 60) * 0.3; // spur curves inward toward center
-    const spurDist = Math.abs(x - spurSpine);
-    const spurNoise = fbm(x + 700, y + 700, 5);
-    if (spurDist + spurNoise * 2 < 6.0) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.45 + spurNoise * 0.10 };
-    }
-  }
-  // Eastern spur — wider, extends further
-  if (x >= 54 && y >= 52 && y <= 78) {
-    const spurSpine = 66 - (y - 52) * 0.25; // curves inward
-    const spurDist = Math.abs(x - spurSpine);
-    const spurNoise = fbm(x + 800, y + 800, 5);
-    if (spurDist + spurNoise * 2 < 5.5) {
-      return { x, y, terrain: TerrainType.Hill, elevation: 0.45 + spurNoise * 0.08 };
-    }
-  }
-
   // ── Forest clearings — elongated meadows with rich soil ──
   for (const c of clearings) {
     if (inEllipse(x, y, c.cx, c.cy, c.rx, c.ry, c.angle)) {
@@ -378,29 +341,11 @@ function getTerrain(x: number, y: number): ScenarioCell {
  * Lindenvale — a temperate forest valley.
  *
  * A brook born from a hillside spring winds through ancient woodland, its
- * course tracing meanders around root plates and rock. It passes sunlit
- * clearings, descends through a fen where an eastern tributary joins,
- * and settles into an oblong forest lake. On the northern saddle between
- * the enclosing ridges, a raised bog (Hochmoor) — elongated along the
- * east-west saddle axis — crowns the plateau, fed only by rain.
- * Granite tors break the ridgelines. The south opens between broad
- * converging spurs into deep, unbroken forest.
- *
- * Terrain layout (80x80):
- *   - Western ridge: broad hill chain with granite tors (x=0-20, y=5-65)
- *   - Eastern heights: wooded hills (x=55-79, y<55)
- *   - Northern shoulder: solid connecting arc (y<12)
- *   - Southern spurs: widened ridge extensions framing the valley exit (y>55)
- *   - Main brook: hillside spring (18,14) -> sinuous meanders -> fen -> forest lake
- *   - Eastern tributary: descends with S-curve from heights -> joins at fen
- *   - Forest lake (Waldsee): oblong (39,53)+(43,55) with wetland fringe
- *   - The Hochmoor: raised bog at (38,7), elliptical E-W along saddle
- *   - The Niedermoor: valley-bottom fen at brook confluence (40,47)
- *   - Three elongated clearings: meadows with enriched soil
- *   - Riparian wetlands: wide Auen along streams, widening downstream
- *   - Rock outcrops: five clusters on ridge crests and summits
- *   - Slope-foot moisture zones at base of ridges
- *   - Stream elevation gradient: 0.45 at sources, 0.16 at valley exit
+ * course tracing meanders past sunlit clearings, descending through a fen
+ * where an eastern tributary joins, and settling into an oblong forest lake.
+ * On the northern saddle, a raised bog (Hochmoor) crowns the plateau.
+ * Rolling soil hills rise on both sides, shaped by noise-driven elevation
+ * with no terrain-type distinction — all non-water ground is pure forest soil.
  */
 export const lindenvale: Scenario = (() => {
   const size = 80;
@@ -416,7 +361,7 @@ export const lindenvale: Scenario = (() => {
     id: 'lindenvale',
     name: 'Lindenvale',
     description:
-      'A forested valley cradled between gentle ridges. A brook born from a hillside spring meanders through ancient woodland to a still forest lake. A raised moor crowns the northern saddle while a broad fen marks the confluence below. Two lineages — one reaching for light, one spreading through shadow — share the rich temperate floor.',
+      'A forested valley cradled between rolling hills. A brook born from a hillside spring meanders through ancient woodland to a still forest lake. A raised moor crowns the northern saddle while a broad fen marks the confluence below. Two lineages — one reaching for light, one spreading through shadow — share the rich temperate floor.',
     size,
     defaultTerrain: TerrainType.Soil,
     defaultElevation: 0.30,

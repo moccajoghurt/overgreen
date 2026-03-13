@@ -106,12 +106,12 @@ export async function getWorldStats(page) {
   return page.evaluate(() => ({
     tick: window.__world.tick,
     plants: window.__world.plants.size,
-    species: [...window.__world.speciesNames.entries()].map(([id, name]) => {
+    species: [...window.__world.species.entries()].map(([id, info]) => {
       let count = 0;
       for (const p of window.__world.plants.values()) {
         if (p.speciesId === id && p.alive) count++;
       }
-      return { id, name, count };
+      return { id, name: info.name, count };
     }).filter(s => s.count > 0),
   }));
 }
