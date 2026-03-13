@@ -31,6 +31,7 @@ export interface CellEnvironment {
   winterHarshness: number;
   seasonality: number;
   shallowSoil: number;
+  mediterraneity: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -76,6 +77,8 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     seasonality:      (cp.coldness * 0.8 + (1 - cp.heat) * 0.3) * (1 - tp.exposure * 0.15),
     // Soil=0.1, Hill=0.7, Wetland=0.3, Arid=0.6 — penalizes deep-rooted woody plants
     shallowSoil:      1 - tp.soilDepth,
+    // Med/Hill=0.280, Med/Soil=0.252, Med/Wetl=0.028 — peaks at moderate aridity + dry heat, suppressed in wetlands
+    mediterraneity:   cp.heat * (1 - cp.humidity) * (1 - cp.coldness) * Math.max(0, 1 - 2 * Math.abs(cp.aridity - 0.5)) * (1 - tp.waterlogging),
   };
 }
 
@@ -117,6 +120,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.winterHarshness  = base.winterHarshness;              // static (climate-only)
       eff.seasonality      = base.seasonality;                  // static
       eff.shallowSoil      = base.shallowSoil;                  // static (terrain-only)
+      eff.mediterraneity   = base.mediterraneity;                // static (climate-only)
     }
   }
   recompileTraitEffects();
@@ -342,6 +346,29 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'defense',
     envVar: 'tropicality', coefficient: -0.211,
     description: 'broadleaf defended forbs outcompeted in tropical canopy' },
+
+  // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
+  // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
+  // Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
+  { trait: 'woodiness', trait2: 'waterStorage',
+    envVar: 'mediterraneity', coefficient: +17.0,
+    description: 'woody drought-hardy scrub with water storage dominates Mediterranean climate' },
+  { trait: 'woodiness', trait2: 'waterStorage',
+    envVar: 'tropicality', coefficient: -9.06,
+    description: 'woody water-storers outcompeted in humid tropical canopy' },
+
+  // ── Med-leaf defended perennial — peaked(leaf=0.50) × defense × (1-seed) ──
+  // Aromatic (peaked=1.0, def=0.99, 1-seed=0.99 → 0.980) + Bunchgrass (0.961)
+  // Ryegrass (seed=0.99 → 0.010) excluded. extremeAridity compensator avoids Trop/Temp collateral.
+  // Zero-mean: 0.20×0.0857 = 0.292×0.0588 → 0.01714 = 0.01717 ✓
+  { trait: 'leafSize', trait2: 'defense', trait3: 'seedInvestment',
+    peaked: 0.50, inverse3: true,
+    envVar: 'mediterraneity', coefficient: +0.20,
+    description: 'moderate-leaved defended perennials thrive in Mediterranean scrubland' },
+  { trait: 'leafSize', trait2: 'defense', trait3: 'seedInvestment',
+    peaked: 0.50, inverse3: true,
+    envVar: 'extremeAridity', coefficient: -0.292,
+    description: 'moderate-leaved defended perennials struggle in extreme desert heat' },
 
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,

@@ -208,3 +208,58 @@ Structural blockers remain:
 - **Classifier changes backfire**: Making globally-weak subtypes (Mediterranean, Cypress, Palm) competitive creates ABSENT violations in non-target niches. Their genomes, when improved, become too universally strong.
 - **4-dominant niches with 3 slots**: Temp/Hill has 4 target dominants but only 3 slots. Even when all 4 are close, one must be excluded. Currently Wildflower is in, Bunchgrass (gap=0.002) barely out.
 - **Dominant gate fundamentally limited at ~37%**: 39 missing entries, 15+ have gaps >0.50, most blocked by absent subtypes in top positions or structurally impossible classifier conflicts. Reaching 70% dominant gate likely requires either (a) a fundamentally different approach to classifiers, or (b) adding new environment variables that create stronger climate-zone differentiation.
+
+## Iteration 5
+### Hypothesis — What I think the problem is
+Mediterranean subtype (mean=0.037) is structurally uncompetitive — never reaches top-3 in any niche. Its genome (hgt=0.99, wood=0.40, wStr=0.54) is forced by classifier (needs hgt=0.99 to beat Aromatic). No existing environment variable provides sufficient Mediterranean climate differentiation. Also, Aromatic barely misses top-3 in Med/Soil (rank 3 at 0.737, Holly at 0.774 blocks).
+
+### Changes — What I did
+1. **New environment variable: `mediterraneity`**
+   - Formula: `cp.heat × (1-cp.humidity) × (1-cp.coldness) × max(0, 1-2×|cp.aridity-0.5|) × (1-tp.waterlogging)`
+   - Values: Med/Hill=0.280, Med/Soil=0.252, Med/Wetl=0.028, Med/Arid=0.280
+   - Non-Med values: Temp≤0.036, Trop≤0.028, Des≤0.113. Mean=0.0857.
+   - Key design: (1-waterlogging) suppresses in wetlands to prevent Mediterranean from dominating Med/Wetl where it's only Minor.
+
+2. **Wood×waterStorage×mediterraneity — Mediterranean subtype laser target**
+   - `woodiness × waterStorage × mediterraneity × +17.0`
+   - `woodiness × waterStorage × tropicality × -9.06`
+   - Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
+   - Key design: wood×wStr is uniquely high for Mediterranean (0.40×0.54=0.216). All other subtypes ≤0.007. 30× selectivity ratio. This is possible because Mediterranean sits at the exact boundary: max shrub waterStorage (0.54) × min shrub woodiness (0.40).
+   - Effect: Mediterranean enters top-3 in Med/Soil (rank 2 at 0.830, up from rank 39 at 0.018). +1 dominant. Fern drops out of Med/Soil top-5 (+1 absent fix). Ryegrass drops out of Med/Arid top-5 (+1 absent fix).
+
+3. **Peaked(leaf=0.50)×defense×(1-seed)×mediterraneity — Aromatic boost**
+   - `peaked(leafSize, 0.50) × defense × (1-seedInvestment) × mediterraneity × +0.20`
+   - `peaked(leafSize, 0.50) × defense × (1-seedInvestment) × extremeAridity × -0.292`
+   - Zero-mean: 0.20×0.0857 = 0.292×0.0588 → 0.017 = 0.017 ✓
+   - Key design: peaked(0.50) targets Aromatic (leaf=0.50, peaked=1.0) while ignoring Holly (leaf=0.99, peaked=0.02). (1-seed) excludes Ryegrass (seed=0.99). extremeAridity compensator avoids Tropical/Temperate collateral (extremeAridity=0 in all Temp/Trop niches).
+   - Effect: Aromatic boosted to 0.802 in Med/Soil, above Holly (0.790). Med/Soil now has 3 dominants in top-3 (Mediterranean, Oak, Aromatic). Also swapped Bunchgrass for Wildflower in Temp/Hill (rank 3 at 0.603 vs Wildflower rank 4 at 0.598) — net zero on dominant gate but Bunchgrass was the closer target.
+
+### Failed approaches this iteration
+- **mediterraneity without (1-waterlogging)**: Mediterranean jumped to rank 1 in Med/Wetl (0.678), displacing Sedge from top-3 (-1 dominant). The wood×wStr boost of +0.877 applied uniformly to all Med niches including wetlands.
+- **peaked(0.50)×def×(1-seed) with tropicality compensator**: Tropical Herb (leaf=0.50, peaked=1.0) penalized -0.064 in Trop niches. Caused Clover ABSENT to enter Trop/Arid top-5 (-1 absent). Also Pampas entered Des/Wetl top-3 as ABSENT (-1 absent). Net zero despite gains.
+- **Increasing peaked coefficient to 0.50+**: Pampas (leaf=0.49, peaked=0.98) gets nearly identical boost as Bunchgrass/Aromatic, enters Med/Soil top-5 as ABSENT. Saltbush also rises. Coefficient 0.20 is the safe ceiling.
+
+### Key insights
+- **Boundary trait products**: wood×wStr is uniquely high for Mediterranean because it sits at the archetype boundary (max shrub wStr × min shrub wood). This creates a laser-targeted trait signature that no other subtype can match, enabling huge coefficients without collateral.
+- **Terrain-modulated climate variables**: Multiplying climate-only variables by terrain factors (e.g., 1-waterlogging) creates niche-specific rather than climate-blanket effects. Essential for subtypes that are dominant in one Med terrain but minor/absent in another.
+- **extremeAridity as surgical compensator**: extremeAridity is 0 in ALL Temperate and Tropical niches (droughtStress never exceeds 0.35 there). This makes it a zero-collateral compensator for Temp/Trop niches — only penalizes in extreme desert where subtypes are already very strong.
+
+### Results
+- **73.6% → 74.3%** (+0.7%)
+- Absent: 94.7% → 95.2% (410→412 of 433, +2)
+- Dominant: 37.1% → 38.7% (23→24 of 62, +1)
+- Common: 89.0% → 89.0% (73 of 82, unchanged)
+- Minor: 96.8% → 96.8% (61 of 63, unchanged)
+
+### Remaining gaps (38 missing dominant entries)
+Closest to fixing:
+- Temp/Hill: Wildflower (rank 4, gap 0.005) — swapped with Bunchgrass (now rank 3)
+- Med/Hill: Bunchgrass (rank 5, gap 0.069) — Caudiciform ABSENT at rank 1 blocks
+- Med/Wetl: Fern (rank 8, gap 0.084) — Desert Annual ABSENT at rank 2 blocks
+- Des/Wetl: Sedge (rank 11, gap 0.040) — ALL top-3 still non-dominant
+- Med/Soil: Cypress (rank 21, gap 0.300) — only remaining missing dominant in Med/Soil
+
+Structural blockers:
+- **Temp/Hill 4-dominant ceiling**: 4 dominants for 3 slots. Bunchgrass now in (was Wildflower). Ryegrass (common, rank 2) blocks both from being top-3 simultaneously.
+- **Med/Hill dominated by ABSENT subtypes**: Caudiciform (rank 1), Tropical Herb (rank 4) both ABSENT. Any Caudiciform suppression term spills into other hill niches via shallowSoil compensator.
+- **Des/Wetl fundamentally broken**: All env values near-zero. No lever to differentiate dominants from absent subtypes. All modifiers clustered 0.10-0.21.
