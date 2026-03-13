@@ -486,6 +486,17 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'droughtStress', coefficient: +0.956,
     description: 'deep-rooted trees mine water reserves in drought conditions' },
 
+  // ── Tall succulent wetland suppression — waterStorage × heightPriority × waterlogging ──
+  // Euphorbia (ws=0.55, hgt=0.99) in Des/Wetl: 0.55×0.99×0.405×(-1.50)=-0.330 → pushes from #1
+  // Sedge (ws=0.01): negligible. Tallgrass (ws=0.01): negligible. Palm (ws=0.01): negligible.
+  // Zero-mean: 1.50×0.144 = 3.673×0.0588 → 0.216 = 0.216 ✓
+  { trait: 'waterStorage', trait2: 'heightPriority',
+    envVar: 'waterlogging', coefficient: -1.50,
+    description: 'tall succulent tissue drowns in waterlogged soil — root rot and stem collapse' },
+  { trait: 'waterStorage', trait2: 'heightPriority',
+    envVar: 'extremeAridity', coefficient: +3.673,
+    description: 'tall columnar succulents escape ground heat in extreme arid conditions' },
+
 ];
 
 /** Niche index for a terrain×climate combination. */
