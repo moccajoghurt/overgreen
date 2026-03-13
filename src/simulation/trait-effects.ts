@@ -31,6 +31,7 @@ export interface CellEnvironment {
   winterHarshness: number;
   seasonality: number;
   shallowSoil: number;
+  mediterraneity: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -76,6 +77,8 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     seasonality:      (cp.coldness * 0.8 + (1 - cp.heat) * 0.3) * (1 - tp.exposure * 0.15),
     // Soil=0.1, Hill=0.7, Wetland=0.3, Arid=0.6 — penalizes deep-rooted woody plants
     shallowSoil:      1 - tp.soilDepth,
+    // Med/Hill=0.280, Med/Soil=0.252, Med/Wetl=0.028 — peaks at moderate aridity + dry heat, suppressed in wetlands
+    mediterraneity:   cp.heat * (1 - cp.humidity) * (1 - cp.coldness) * Math.max(0, 1 - 2 * Math.abs(cp.aridity - 0.5)) * (1 - tp.waterlogging),
   };
 }
 
@@ -117,6 +120,7 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.winterHarshness  = base.winterHarshness;              // static (climate-only)
       eff.seasonality      = base.seasonality;                  // static
       eff.shallowSoil      = base.shallowSoil;                  // static (terrain-only)
+      eff.mediterraneity   = base.mediterraneity;                // static (climate-only)
     }
   }
   recompileTraitEffects();
@@ -130,10 +134,12 @@ type EnvVar = keyof CellEnvironment;
 interface TraitEffect {
   trait: GenomeTrait;
   trait2?: GenomeTrait;    // second trait for interaction terms (trait × trait2 × env)
+  trait3?: GenomeTrait;    // third trait for 3-way interactions (trait × trait2 × trait3 × env)
   envVar: EnvVar | null;
   coefficient: number;
   inverse?: boolean;       // use (1 - traitVal) instead of traitVal
   inverse2?: boolean;      // use (1 - trait2Val)
+  inverse3?: boolean;      // use (1 - trait3Val)
   peaked?: number;         // tent function: max(0, 1 - 2*|trait - peaked|)
   description: string;
 }
@@ -276,6 +282,109 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense', trait2: 'longevity', envVar: 'heatStress', coefficient: +0.40,
     description: 'aromatic defensive chemistry deters herbivores in open dry scrubland' },
 
+  // ── Short woody specialization — zero-mean pair (seasonality/shallowSoil) ──
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'seasonality', coefficient: +1.10,
+    inverse: true,
+    description: 'low compact woody shrubs and short trees persist through seasonal cycles' },
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'shallowSoil', coefficient: -0.906,
+    inverse: true,
+    description: 'short woody plants still need soil anchorage despite compact form' },
+
+  // ── Seed size — large seeds anchor in rocky shallow soil, small seeds wind-disperse ──
+  { trait: 'seedSize',        envVar: 'shallowSoil',    coefficient: +0.25, description: 'large heavy seeds anchor in cracks of rocky shallow soil' },
+  { trait: 'seedSize',        envVar: 'windExposure',   coefficient: -0.15, description: 'heavy seeds cannot wind-disperse on exposed terrain' },
+
+  // ── Seed+leaf climate axis — zero-mean paired terms for niche differentiation ──
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'winterHarshness', coefficient: +1.25,
+    description: 'flowering forbs spread seeds efficiently in harsh-winter meadows' },
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: -1.07,
+    description: 'vegetative reproduction outperforms seeding in stable tropical canopy' },
+
+  // ── 3-way interactions — surgical niche targeting ──
+
+  // Saguaro specialization: peaked(hgt=0.50) × defense × waterStorage in extreme desert
+  // Peaked at 0.50 targets only moderate-height succulents (Saguaro hgt=0.50)
+  // while ignoring short (Barrel hgt=0.01) and tall (Euphorbia hgt=0.99)
+  // Boosted to +15.0 to reach Med/Arid top-3 (extremeAridity=0.100 there)
+  // extremeAridity=0 in Med/Hill and Trop/Hill, avoiding ABSENT violations
+  // Zero-mean: 15.00×0.0588 = 4.027×0.219 → 0.882 = 0.882 ✓
+  { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
+    peaked: 0.50,
+    envVar: 'extremeAridity', coefficient: +15.00,
+    description: 'tall columnar armored succulents escape ground heat in extreme desert' },
+  { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
+    peaked: 0.50,
+    envVar: 'soilFertility', coefficient: -4.027,
+    description: 'tall columnar succulents are over-invested for fertile soil' },
+
+
+  // ── Defense × longevity climate axis — rewards armored perennials in drought, penalizes in tropics ──
+  // Zero-mean: 0.25×0.261 - 0.405×0.161 = 0.065 - 0.065 = 0.000
+  { trait: 'defense', trait2: 'longevity', envVar: 'droughtStress', coefficient: +0.25,
+    description: 'armored long-lived plants survive sustained drought exposure' },
+  { trait: 'defense', trait2: 'longevity', envVar: 'tropicality', coefficient: -0.405,
+    description: 'high-defense perennials over-invested for rapid tropical turnover' },
+
+  // ── Turfgrass arid suppression — peaked(leaf=0.01) × (1-woodiness) × defense ──
+  // Targets leaf=0.01 non-woody plants (Turfgrass peaked=1.0, 1-wood=0.99 → 0.970)
+  // Trees (wood=0.71, 1-wood=0.29) get only 30% effect. leaf=0.50 gets 2% effect.
+  // Zero-mean: 0.60×0.261 = 0.973×0.161 → 0.157 = 0.157 ✓
+  { trait: 'leafSize', trait2: 'woodiness', trait3: 'defense',
+    peaked: 0.01, inverse2: true,
+    envVar: 'droughtStress', coefficient: -0.60,
+    description: 'minimal-leaf non-woody armored plants cannot photosynthesize in drought' },
+  { trait: 'leafSize', trait2: 'woodiness', trait3: 'defense',
+    peaked: 0.01, inverse2: true,
+    envVar: 'tropicality', coefficient: +0.973,
+    description: 'minimal-leaf armored ground cover thrives in tropical understory' },
+
+  // ── Broadleaf defended seed-producer hill boost — zero-mean (shallowSoil/tropicality) ──
+  // Wildflower/Clover (seed=0.99, leaf=0.99, def=0.99) get +0.054 on hills (shallow=0.700)
+  // Bunchgrass (seed=0.01) gets nothing. Ryegrass (leaf=0.49) gets half.
+  // Zero-mean: 0.08×0.425 = 0.211×0.161 → 0.034 = 0.034 ✓
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'defense',
+    envVar: 'shallowSoil', coefficient: +0.08,
+    description: 'broadleaf defended seed-producers colonize rocky hillside meadows' },
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'defense',
+    envVar: 'tropicality', coefficient: -0.211,
+    description: 'broadleaf defended forbs outcompeted in tropical canopy' },
+
+  // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
+  // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
+  // Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
+  { trait: 'woodiness', trait2: 'waterStorage',
+    envVar: 'mediterraneity', coefficient: +17.0,
+    description: 'woody drought-hardy scrub with water storage dominates Mediterranean climate' },
+  { trait: 'woodiness', trait2: 'waterStorage',
+    envVar: 'tropicality', coefficient: -9.06,
+    description: 'woody water-storers outcompeted in humid tropical canopy' },
+
+  // ── Med-leaf defended perennial — peaked(leaf=0.50) × defense × (1-seed) ──
+  // Aromatic (peaked=1.0, def=0.99, 1-seed=0.99 → 0.980) + Bunchgrass (0.961)
+  // Ryegrass (seed=0.99 → 0.010) excluded. extremeAridity compensator avoids Trop/Temp collateral.
+  // Zero-mean: 0.20×0.0857 = 0.292×0.0588 → 0.01714 = 0.01717 ✓
+  { trait: 'leafSize', trait2: 'defense', trait3: 'seedInvestment',
+    peaked: 0.50, inverse3: true,
+    envVar: 'mediterraneity', coefficient: +0.20,
+    description: 'moderate-leaved defended perennials thrive in Mediterranean scrubland' },
+  { trait: 'leafSize', trait2: 'defense', trait3: 'seedInvestment',
+    peaked: 0.50, inverse3: true,
+    envVar: 'extremeAridity', coefficient: -0.292,
+    description: 'moderate-leaved defended perennials struggle in extreme desert heat' },
+
+  // ── Cypress wetland specialization — peaked(hgt=0.50) × (1-leaf) × wood × waterlogging ──
+  // Cypress (hgt=0.50, leaf=0.01, wood=0.71): peaked=1.0, (1-leaf)=0.99, wood=0.71 → 0.703
+  // Conifer (hgt=0.99): peaked=0.02 → 0.014. Acacia (hgt=0.01): peaked=0.02 → 0.014. Negligible collateral.
+  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 ✓
+  { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
+    peaked: 0.50, inverse2: true,
+    envVar: 'waterlogging', coefficient: +3.50,
+    description: 'moderate-height narrow-leaved trees thrive in flooded wetlands' },
+  { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
+    peaked: 0.50, inverse2: true,
+    envVar: 'shallowSoil', coefficient: -0.926,
+    description: 'moderate-height narrow-leaved trees need deep soil for anchorage' },
+
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,
     description: 'leaf+defense combo costly in cold: frost damages defended broadleaf tissue' },
@@ -330,8 +439,9 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
     const e = TRAIT_EFFECTS[i];
     const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
     const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
+    const t3 = e.trait3 !== undefined ? evalTrait(genome, e.trait3, e.inverse3) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
-    modifier += t1 * t2 * envVal * e.coefficient;
+    modifier += t1 * t2 * t3 * envVal * e.coefficient;
   }
   return modifier;
 }
@@ -343,19 +453,21 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
 
 const GENOME_TRAITS: GenomeTrait[] = [
   'leafSize', 'defense', 'waterStorage', 'woodiness',
-  'rootPriority', 'heightPriority', 'seedInvestment', 'longevity',
+  'rootPriority', 'heightPriority', 'seedInvestment', 'longevity', 'seedSize',
 ];
 const TRAIT_TO_IDX = new Map<string, number>();
 for (let i = 0; i < GENOME_TRAITS.length; i++) TRAIT_TO_IDX.set(GENOME_TRAITS[i], i);
 
 // Reusable buffer for genome trait values (avoids per-plant allocation)
-const _traitBuf = new Float64Array(8);
+const _traitBuf = new Float64Array(9);
 
 interface CompiledGroup {
   traitIdx: number;
   trait2Idx: number;     // -1 if no trait2
+  trait3Idx: number;     // -1 if no trait3
   inverse: boolean;
   inverse2: boolean;
+  inverse3: boolean;
   peaked: number;        // NaN if not peaked
   nicheCoeffs: Float64Array;  // [NICHE_COUNT], pre-multiplied envVal × coefficient
 }
@@ -366,6 +478,7 @@ function groupKey(e: TraitEffect): string {
   let k = e.inverse ? `!${e.trait}` : e.trait as string;
   if (e.peaked !== undefined) k = `^${e.peaked}:${k}`;
   if (e.trait2 !== undefined) k += `*${e.inverse2 ? '!' : ''}${e.trait2}`;
+  if (e.trait3 !== undefined) k += `*${e.inverse3 ? '!' : ''}${e.trait3}`;
   return k;
 }
 
@@ -387,8 +500,10 @@ function compileTraitEffects(): void {
     const cg: CompiledGroup = {
       traitIdx: TRAIT_TO_IDX.get(rep.trait)!,
       trait2Idx: rep.trait2 !== undefined ? TRAIT_TO_IDX.get(rep.trait2)! : -1,
+      trait3Idx: rep.trait3 !== undefined ? TRAIT_TO_IDX.get(rep.trait3)! : -1,
       inverse: !!rep.inverse,
       inverse2: !!rep.inverse2,
+      inverse3: !!rep.inverse3,
       peaked: rep.peaked !== undefined ? rep.peaked : NaN,
       nicheCoeffs: new Float64Array(nicheCount),
     };
@@ -425,6 +540,7 @@ export function computeTraitModifierFast(genome: Genome, nicheIdx: number): numb
   _traitBuf[5] = genome.heightPriority;
   _traitBuf[6] = genome.seedInvestment;
   _traitBuf[7] = genome.longevity;
+  _traitBuf[8] = genome.seedSize;
 
   let modifier = 0;
   for (let i = 0; i < _compiledGroups.length; i++) {
@@ -434,7 +550,8 @@ export function computeTraitModifierFast(genome: Genome, nicheIdx: number): numb
     let t1 = cg.inverse ? 1 - _traitBuf[cg.traitIdx] : _traitBuf[cg.traitIdx];
     if (cg.peaked === cg.peaked) t1 = Math.max(0, 1 - 2 * Math.abs(t1 - cg.peaked)); // NaN !== NaN skips non-peaked
     const t2 = cg.trait2Idx >= 0 ? (cg.inverse2 ? 1 - _traitBuf[cg.trait2Idx] : _traitBuf[cg.trait2Idx]) : 1;
-    modifier += t1 * t2 * ec;
+    const t3 = cg.trait3Idx >= 0 ? (cg.inverse3 ? 1 - _traitBuf[cg.trait3Idx] : _traitBuf[cg.trait3Idx]) : 1;
+    modifier += t1 * t2 * t3 * ec;
   }
   return modifier;
 }
@@ -447,11 +564,12 @@ export function diagnoseTraitEffects(genome: Genome, env: CellEnvironment): Arra
   return TRAIT_EFFECTS.map(e => {
     const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
     const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
+    const t3 = e.trait3 !== undefined ? evalTrait(genome, e.trait3, e.inverse3) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
-    const traitVal = t1 * t2;
-    const traitLabel = e.trait2
-      ? `${e.inverse ? '(1-' + e.trait + ')' : e.trait}×${e.inverse2 ? '(1-' + e.trait2 + ')' : e.trait2}`
-      : (e.inverse ? `(1-${e.trait})` : e.trait);
+    const traitVal = t1 * t2 * t3;
+    let traitLabel = e.inverse ? `(1-${e.trait})` : e.trait as string;
+    if (e.trait2) traitLabel += `×${e.inverse2 ? '(1-' + e.trait2 + ')' : e.trait2}`;
+    if (e.trait3) traitLabel += `×${e.inverse3 ? '(1-' + e.trait3 + ')' : e.trait3}`;
     return {
       trait: traitLabel,
       envVar: e.envVar,
