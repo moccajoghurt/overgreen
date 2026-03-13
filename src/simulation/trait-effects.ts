@@ -276,6 +276,16 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense', trait2: 'longevity', envVar: 'heatStress', coefficient: +0.40,
     description: 'aromatic defensive chemistry deters herbivores in open dry scrubland' },
 
+  // ── Seed size — large seeds anchor in rocky shallow soil, small seeds wind-disperse ──
+  { trait: 'seedSize',        envVar: 'shallowSoil',    coefficient: +0.25, description: 'large heavy seeds anchor in cracks of rocky shallow soil' },
+  { trait: 'seedSize',        envVar: 'windExposure',   coefficient: -0.15, description: 'heavy seeds cannot wind-disperse on exposed terrain' },
+
+  // ── Seed+leaf climate axis — zero-mean paired terms for niche differentiation ──
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'winterHarshness', coefficient: +1.20,
+    description: 'flowering forbs spread seeds efficiently in harsh-winter meadows' },
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: -1.00,
+    description: 'vegetative reproduction outperforms seeding in stable tropical canopy' },
+
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,
     description: 'leaf+defense combo costly in cold: frost damages defended broadleaf tissue' },
@@ -343,13 +353,13 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
 
 const GENOME_TRAITS: GenomeTrait[] = [
   'leafSize', 'defense', 'waterStorage', 'woodiness',
-  'rootPriority', 'heightPriority', 'seedInvestment', 'longevity',
+  'rootPriority', 'heightPriority', 'seedInvestment', 'longevity', 'seedSize',
 ];
 const TRAIT_TO_IDX = new Map<string, number>();
 for (let i = 0; i < GENOME_TRAITS.length; i++) TRAIT_TO_IDX.set(GENOME_TRAITS[i], i);
 
 // Reusable buffer for genome trait values (avoids per-plant allocation)
-const _traitBuf = new Float64Array(8);
+const _traitBuf = new Float64Array(9);
 
 interface CompiledGroup {
   traitIdx: number;
@@ -425,6 +435,7 @@ export function computeTraitModifierFast(genome: Genome, nicheIdx: number): numb
   _traitBuf[5] = genome.heightPriority;
   _traitBuf[6] = genome.seedInvestment;
   _traitBuf[7] = genome.longevity;
+  _traitBuf[8] = genome.seedSize;
 
   let modifier = 0;
   for (let i = 0; i < _compiledGroups.length; i++) {
