@@ -1,4 +1,4 @@
-import { World, TerrainType } from '../types';
+import { World } from '../types';
 import { GRID, ELEV_SCALE } from './state';
 
 // Deterministic pseudo-random from seed
@@ -13,15 +13,23 @@ interface RockCluster {
   centerRow: number;
 }
 
-/** BFS flood-fill to find connected clusters of a given terrain type */
-function findClusters(world: World, terrainType: TerrainType): RockCluster[] {
+/** BFS flood-fill to find connected clusters of cells above an elevation threshold */
+function findElevationClusters(
+  world: World,
+  threshold: number,
+  minSize: number,
+  exclude?: Set<string>,
+): RockCluster[] {
   const visited = new Uint8Array(GRID * GRID);
   const clusters: RockCluster[] = [];
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const idx = row * GRID + col;
-      if (visited[idx] || world.grid[row][col].terrainType !== terrainType) continue;
+      if (visited[idx]) continue;
+      const key = `${col},${row}`;
+      if (exclude?.has(key)) { visited[idx] = 1; continue; }
+      if (world.grid[row][col].elevation <= threshold) continue;
 
       // BFS
       const cells: { col: number; row: number }[] = [];
@@ -38,11 +46,16 @@ function findClusters(world: World, terrainType: TerrainType): RockCluster[] {
           const nr = cell.row + dr;
           if (nc < 0 || nc >= GRID || nr < 0 || nr >= GRID) continue;
           const ni = nr * GRID + nc;
-          if (visited[ni] || world.grid[nr][nc].terrainType !== terrainType) continue;
+          if (visited[ni]) continue;
+          const nkey = `${nc},${nr}`;
+          if (exclude?.has(nkey)) { visited[ni] = 1; continue; }
+          if (world.grid[nr][nc].elevation <= threshold) continue;
           visited[ni] = 1;
           queue.push({ col: nc, row: nr });
         }
       }
+
+      if (cells.length < minSize) continue;
 
       // Compute center
       let sumC = 0, sumR = 0;
@@ -132,13 +145,15 @@ function applyClusterHeights(
 export function createRockFormations(world: World): RockFormations {
   const heightOverlay = new Float32Array(GRID * GRID);
 
-  // Rocks: subtle bumps
-  const rockClusters = findClusters(world, TerrainType.Rock);
-  applyClusterHeights(heightOverlay, rockClusters, 0.2, 0.45, 0.2);
+  // Tier 2: peaks — dramatic raised formations
+  const peakClusters = findElevationClusters(world, 0.72, 4);
+  const peakCells = new Set<string>();
+  for (const c of peakClusters) for (const cell of c.cells) peakCells.add(`${cell.col},${cell.row}`);
+  applyClusterHeights(heightOverlay, peakClusters, 0.3, 0.9, 0.3);
 
-  // Hills: dramatic raised formations
-  const hillClusters = findClusters(world, TerrainType.Hill);
-  applyClusterHeights(heightOverlay, hillClusters, 0.3, 0.9, 0.3);
+  // Tier 1: ridges — moderate bumps
+  const ridgeClusters = findElevationClusters(world, 0.62, 3, peakCells);
+  applyClusterHeights(heightOverlay, ridgeClusters, 0.2, 0.45, 0.2);
 
   return { heightOverlay };
 }

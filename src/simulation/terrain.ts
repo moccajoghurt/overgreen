@@ -73,7 +73,6 @@ function generateRiver(
         cell.waterRechargeRate = SIM.RIVER_WATER_RECHARGE;
         cell.waterLevel = SIM.MAX_WATER;
         cell.nutrients = Math.min(SIM.MAX_NUTRIENTS, cell.nutrients + SIM.RIVER_NUTRIENT_BONUS);
-        cell.elevation = Math.max(0, cell.elevation - 0.2);
       }
     }
 
@@ -150,7 +149,6 @@ function generateBiomes(grid: Cell[][], elevation: number[][], w: number, h: num
 
       if (biome > 0.62) {
         cell.terrainType = TerrainType.Hill;
-        cell.elevation = Math.max(cell.elevation, 0.6 + (elevation[y][x] - 0.5) * 0.3);
         cell.waterRechargeRate *= SIM.HILL_WATER_PENALTY;
       } else if (biome < 0.35) {
         cell.terrainType = TerrainType.Arid;
@@ -207,8 +205,8 @@ function generateWetlands(
       const d = dist[y * w + x];
       if (d > maxDist - 1) continue;
       const elev = elevation[y][x];
-      if (elev >= 0.55) continue;
-      const prob = (1 - d / maxDist) * (1 - elev / 0.55);
+      if (elev >= 0.85) continue;
+      const prob = (1 - d / maxDist) * (1 - elev / 0.85);
       if (prob > 0.06) {
         cell.terrainType = TerrainType.Wetland;
         cell.waterRechargeRate = SIM.WETLAND_WATER_RECHARGE;
@@ -270,10 +268,6 @@ function assignTerrainProperties(
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
-      if (cell.terrainType === TerrainType.River
-        || cell.terrainType === TerrainType.Wetland
-        || cell.terrainType === TerrainType.Arid
-        || cell.terrainType === TerrainType.Hill) continue; // already set
       cell.elevation = elevation[y][x];
 
       if (cell.terrainType === TerrainType.Soil) {
