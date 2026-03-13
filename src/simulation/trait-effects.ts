@@ -307,14 +307,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // while ignoring short (Barrel hgt=0.01) and tall (Euphorbia hgt=0.99)
   // Boosted to +15.0 to reach Med/Arid top-3 (extremeAridity=0.100 there)
   // extremeAridity=0 in Med/Hill and Trop/Hill, avoiding ABSENT violations
-  // Zero-mean: 15.00×0.0588 = 4.027×0.219 → 0.882 = 0.882 ✓
+  // Zero-mean: 17.00×0.0588 = 4.565×0.219 → 1.000 = 1.000 ✓
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'extremeAridity', coefficient: +15.00,
+    envVar: 'extremeAridity', coefficient: +17.00,
     description: 'tall columnar armored succulents escape ground heat in extreme desert' },
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'soilFertility', coefficient: -4.027,
+    envVar: 'soilFertility', coefficient: -4.565,
     description: 'tall columnar succulents are over-invested for fertile soil' },
 
 
@@ -359,12 +359,12 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
   // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
-  // Zero-mean: 20.0×0.0857 = 10.65×0.161 → 1.714 = 1.715 ✓
+  // Zero-mean: 22.0×0.0857 = 11.71×0.161 → 1.885 = 1.885 ✓
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'mediterraneity', coefficient: +20.0,
+    envVar: 'mediterraneity', coefficient: +22.0,
     description: 'woody drought-hardy scrub with water storage dominates Mediterranean climate' },
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'tropicality', coefficient: -10.65,
+    envVar: 'tropicality', coefficient: -11.71,
     description: 'woody water-storers outcompeted in humid tropical canopy' },
 
   // ── Med-leaf defended perennial — peaked(leaf=0.50) × defense × (1-seed) ──
@@ -437,15 +437,40 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // ── Pioneer tree wetland boost — seed × (1-defense) × wood × waterlogging ──
   // Birch (seed=0.99, 1-def=0.99, wood=0.71) → 0.696. Flowering Shrub (seed=0.99, 1-def=0.50, wood=0.40) → 0.198.
   // All other trees have low seed or high defense, giving minimal effect.
-  // Zero-mean: 0.08×0.144 = 0.027×0.425 → 0.012 = 0.011 ✓
+  // Zero-mean: 0.30×0.144 = 0.102×0.425 → 0.043 = 0.043 ✓
   { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
     inverse2: true,
-    envVar: 'waterlogging', coefficient: +0.08,
+    envVar: 'waterlogging', coefficient: +0.30,
     description: 'pioneer trees with thin bark colonize dynamic wetland margins' },
   { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
     inverse2: true,
-    envVar: 'shallowSoil', coefficient: -0.027,
+    envVar: 'shallowSoil', coefficient: -0.102,
     description: 'pioneer trees need deep soil anchorage on hillsides' },
+
+  // ── Perennial non-seeder Mediterranean persistence — (1-seed) × long × med ──
+  // Bunchgrass (1-seed=0.99, long=0.99 → 0.980) vs Turfgrass (1-seed=0.01, long=0.01 → 0.0001)
+  // Ryegrass (1-seed=0.01 → 0.010) excluded. extremeAridity compensator avoids tropical collateral.
+  // Zero-mean: 0.25×0.0857 = 0.364×0.0588 → 0.0214 = 0.0214 ✓
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse: true,
+    envVar: 'mediterraneity', coefficient: +0.25,
+    description: 'perennial non-seeders persist through Mediterranean drought cycles' },
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse: true,
+    envVar: 'extremeAridity', coefficient: -0.364,
+    description: 'perennial non-seeders desiccate in extreme arid conditions' },
+
+  // ── Deep-rooted tree tropical suppression — root × wood × tropicality ──
+  // Oak (root=0.99, wood=0.71) → 0.703. Birch (root=0.99, wood=0.71) → 0.703
+  // Palm (root=0.01) → 0.007. Tropical (root=0.01) → 0.007. Conifer (root=0.01) → 0.007
+  // Compensator on winterHarshness boosts temperate trees where they're DOM
+  // Zero-mean: 1.55×0.161 = 0.956×0.261 → 0.250 = 0.249 ✓
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'tropicality', coefficient: -1.55,
+    description: 'deep-rooted trees outcompeted by shallow-rooted tropical species' },
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'droughtStress', coefficient: +0.956,
+    description: 'deep-rooted trees mine water reserves in drought conditions' },
 
 ];
 

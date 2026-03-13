@@ -520,3 +520,58 @@ DOM gate stuck at 48.4% (30/62). Need 14 more DOMs to reach 70%. Architect analy
 ### Remaining blockers
 - **DOM gate at 48.4%** is the binding constraint. Need structural changes beyond coefficient/classifier tuning to reach 70%.
 - **Potential future directions**: (a) new env variables that separate crowded niches, (b) 4-trait interactions in the engine, (c) subtype-specific trait modifiers (breaks current architecture), (d) rethinking the target matrix itself.
+
+## Iteration 11
+### Hypothesis — What I think the problem is
+DOM gate at 30/62 (48.4%) needs 14 more hits to reach 70%. Three structural barriers:
+1. **4-for-3 slot ceiling**: Most niches have 3-4 DOM targets for only 3 top-3 slots. Single-coefficient changes are zero-sum (one DOM in, another out).
+2. **ABS blockers in top-3**: Palm[ABS] in wetlands, Turfgrass[ABS] in Temp/Arid, Mangrove[ABS] in Trop/Soil, Fern/Epiphytic[ABS] in Trop/Arid occupy top-3 slots that DOMs need.
+3. **Shared trait signatures**: Many subtypes have near-identical trait products (Bunchgrass/Fern/Acacia all have root×def×long ≈ 0.970), making targeted terms cascade to unintended subtypes.
+
+### Changes — What I did
+Five changes applied and tested individually, keeping only those that produced net DOM gains:
+
+1. **Root×wood tropical suppression** (new term)
+   - `rootPriority × woodiness × tropicality × -1.55` — suppresses deep-rooted trees in tropics
+   - `rootPriority × woodiness × droughtStress × +0.956` — compensator boosts in drought
+   - Zero-mean: 1.55×0.161 = 0.956×0.261 → 0.250 ≈ 0.249 ✓
+   - Effect: +0.3% overall (78.4%→78.7%), no DOM change but improved absent gate
+
+2. **Pioneer tree wetland boost** (coefficient increase 0.08→0.30)
+   - `seed × (1-defense) × wood × waterlogging × +0.30` (was +0.08)
+   - `seed × (1-defense) × wood × shallowSoil × -0.102` (was -0.027)
+   - Effect: **+1 DOM** — Birch entered Temp/Wetl top-3 (passed Mangrove[com])
+
+3. **Saguaro 3-way coefficient bump** (15.0→17.0)
+   - `peaked(hgt=0.50) × defense × waterStorage × extremeAridity × +17.0`
+   - Compensator on soilFertility: -4.565
+   - Effect: Saguaro entered Med/Arid top-3 but displaced Mediterranean (DOM swap, net 0)
+
+4. **Mediterranean coefficient bump** (20.0→22.0)
+   - `woodiness × waterStorage × mediterraneity × +22.0`
+   - Compensator on tropicality: -11.71
+   - Effect: Combined with #3, Mediterranean re-entered Med/Arid top-3 alongside Saguaro and BC. **+1 DOM** (Desert Grass[com] displaced to #4)
+
+5. **Perennial non-seeder Mediterranean term** (new)
+   - `(1-seedInvestment) × longevity × mediterraneity × +0.25`
+   - `(1-seedInvestment) × longevity × extremeAridity × -0.364` (compensator)
+   - Zero-mean: 0.25×0.0857 = 0.364×0.0588 → 0.0214 ✓
+   - Effect: **+1 DOM** — Bunchgrass entered Med/Hill top-3 (passed Turfgrass[com])
+   - Trade-off: -1 ABS hit (Pampas entered Temp/Hill top-5)
+   - Note: tropicality compensator was tested first but cascaded badly (-1.5% crash) — penalized Magnolia/Fern in tropical niches. extremeAridity compensator is safe (only active in desert).
+
+### Approaches tested and rejected
+1. **Niche-weighted representative selection** in target-score.ts — tested at all weight levels (1.3/1.1/1.0/0.8), made score WORSE at every level (73.6%). Coefficients co-tuned with mean-modifier selection.
+2. **Root×wood×tropicality with winterHarshness compensator** — gained Magnolia in Trop/Soil but winterHarshness too strong in temperate (+0.491 for Oak), lost 4 DOMs net (76.6%).
+3. **(1-seed)×long×med with TROPICALITY compensator** — penalized many DOMs with high (1-seed)×long in tropical niches. Dropped from 79.8%→79.2%. Switched to extremeAridity compensator which is safe.
+4. **Saguaro 3-way at 15.5/16.0** — too small, gap didn't close. At 16.0, Saguaro entered but Mediterranean fell out (swap). Needed 17.0 + Med 22.0 combination to get both in.
+
+### Results
+- **Overall: 78.4% → 80.3%** (+1.9%)
+- DOM: 30→33 (+3)
+- ABS: 415→414 (-1, Pampas in Temp/Hill)
+- COM: 76→76 (unchanged)
+- MIN: 61→61 (unchanged)
+
+### Key insight
+The compensator env var choice is critical. tropicality and winterHarshness are dangerous compensators because they're high in important climate zones where DOMs need to perform. extremeAridity is the safest compensator — only active in desert niches where scores are generally inflated and subtypes are far from thresholds. soilFertility is next safest.
