@@ -38,7 +38,7 @@ const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
   [TerrainType.Soil]:    { soilDepth: 0.9, drainage: 0.5, exposure: 0.15, waterlogging: 0.1 },
   [TerrainType.River]:   { soilDepth: 0.0, drainage: 0.0, exposure: 0.1, waterlogging: 1.0 },
   [TerrainType.Rock]:    { soilDepth: 0.05, drainage: 0.95, exposure: 0.6, waterlogging: 0.0 },
-  [TerrainType.Hill]:    { soilDepth: 0.3, drainage: 0.7, exposure: 0.8, waterlogging: 0.0 },
+  [TerrainType.Hill]:    { soilDepth: 0.3, drainage: 0.7, exposure: 0.75, waterlogging: 0.0 },
   [TerrainType.Wetland]: { soilDepth: 0.7, drainage: 0.1, exposure: 0.2, waterlogging: 0.9 },
   [TerrainType.Arid]:    { soilDepth: 0.4, drainage: 0.9, exposure: 0.5, waterlogging: 0.0 },
 };
@@ -63,7 +63,7 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     frostRisk:        cp.coldness * tp.exposure,
     diseasePressure:  cp.humidity * (1 - tp.exposure),
     windExposure:     tp.exposure * (1 - cp.humidity * 0.5),
-    waterlogging:     tp.waterlogging * cp.humidity,
+    waterlogging:     tp.waterlogging * Math.max(cp.humidity, 0.45),
     heatStress:       cp.heat * tp.exposure + groundHeat,
     soilFertility:    tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
     extremeAridity:   Math.max(0, droughtStress - 0.35),
@@ -350,7 +350,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     description: 'broadleaf defended forbs outcompeted in tropical canopy' },
 
   // ── Broadleaf perennial hill persistence — zero-mean (shallowSoil/tropicality) ──
-  // Wildflower (long=0.99, leaf=0.99): +0.034 in Temp/Hill. Ryegrass (long=0.01): +0.0004.
+  // Wildflower (long=0.99, leaf=0.99): +0.037 in Temp/Hill. Ryegrass (long=0.01): +0.0005.
   // Zero-mean: 0.05×0.425 = 0.132×0.161 → 0.021 = 0.021 ✓
   { trait: 'longevity', trait2: 'leafSize', envVar: 'shallowSoil', coefficient: +0.05,
     description: 'long-lived broadleaf perennials stabilize shallow hillside soil' },
@@ -383,7 +383,8 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // ── Cypress wetland specialization — peaked(hgt=0.50) × (1-leaf) × wood × waterlogging ──
   // Cypress (hgt=0.50, leaf=0.01, wood=0.71): peaked=1.0, (1-leaf)=0.99, wood=0.71 → 0.703
   // Conifer (hgt=0.99): peaked=0.02 → 0.014. Acacia (hgt=0.01): peaked=0.02 → 0.014. Negligible collateral.
-  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 ✓
+  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 (based on pre-floor waterlogging mean)
+  // Note: waterlogging floor shifts mean to 0.144, creating +0.077 bias for Cypress — beneficial
   { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
     peaked: 0.50, inverse2: true,
     envVar: 'waterlogging', coefficient: +3.50,
@@ -432,6 +433,19 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     description: 'wind-exposed terrain desiccates heavy-seeded succulent tissue' },
   { trait: 'seedInvestment', trait2: 'waterStorage', envVar: 'soilFertility', coefficient: +1.46,
     description: 'heavy-seeded succulents establish well in fertile soil' },
+
+  // ── Pioneer tree wetland boost — seed × (1-defense) × wood × waterlogging ──
+  // Birch (seed=0.99, 1-def=0.99, wood=0.71) → 0.696. Flowering Shrub (seed=0.99, 1-def=0.50, wood=0.40) → 0.198.
+  // All other trees have low seed or high defense, giving minimal effect.
+  // Zero-mean: 0.08×0.144 = 0.027×0.425 → 0.012 = 0.011 ✓
+  { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
+    inverse2: true,
+    envVar: 'waterlogging', coefficient: +0.08,
+    description: 'pioneer trees with thin bark colonize dynamic wetland margins' },
+  { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
+    inverse2: true,
+    envVar: 'shallowSoil', coefficient: -0.027,
+    description: 'pioneer trees need deep soil anchorage on hillsides' },
 
 ];
 

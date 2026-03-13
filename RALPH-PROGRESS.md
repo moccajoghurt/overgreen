@@ -421,3 +421,63 @@ Computed alternative compensators for the Saguaro soilFertility -4.027 term. All
 2. **Classifier adjustments**: Aromatic genome has leaf=0.01 (should be ~0.50 for a Mediterranean shrub). Fixing this enables peaked(leaf=0.50)×mediterraneity terms to work.
 3. **Genome grid refinement**: 3^9 grid may miss critical genomes at intermediate values (e.g., 0.50). Increasing to 5^4 × 3^5 for key traits could find better representatives.
 4. **Terrain physics tuning**: Adjusting Hill/Wetland/Arid base physics could shift the landscape enough to unstick structural blockers.
+
+---
+
+## Iteration 9
+### Hypothesis — Structural physics changes can break past the coefficient ceiling
+Iteration 8 proved that coefficient tuning alone hits a ceiling at 76.6%. The dominant gate (45.2%, 28/62) needs structural changes to the environment physics layer, not just new trait×env table rows. Three specific structural approaches:
+
+1. **Waterlogging humidity floor**: Desert/Mediterranean wetlands have almost no waterlogging character (Des/Wetl=0.090 vs Trop/Wetl=0.810) because `waterlogging = tp.waterlogging × cp.humidity`. Real oases and spring-fed marshes retain standing water regardless of climate humidity. A `Math.max(humidity, 0.45)` floor would give these niches proper wetland character.
+
+2. **Hill exposure reduction**: Reducing Hill exposure from 0.80→0.75 slightly eases wind penalties that crush large-leaved forbs (Wildflower/Clover), improving their hill competitiveness without cascading as badly as coefficient changes.
+
+3. **Pioneer tree wetland boost**: Birch (seed=0.99, def=0.01, wood=0.71) is a pioneer tree that uniquely colonizes wetland margins. A `seed × (1-def) × wood × waterlogging` term targets Birch specifically without collateral (all other trees have high defense or low seed).
+
+### Approach
+Three changes applied sequentially, each tested independently:
+
+1. **Waterlogging floor** (`deriveCellEnv` line 66):
+   - Changed `tp.waterlogging * cp.humidity` → `tp.waterlogging * Math.max(cp.humidity, 0.45)`
+   - Effect: Med/Wetl waterlogging 0.270→0.405, Des/Wetl 0.090→0.405
+   - Result: 77.3% (+0.7pp), DOM 28→29, ABS 409→411
+   - Gained: Trop/Wetl Palm, Med/Wetl Cypress, Des/Wetl Sedge+Tallgrass (+4 DOM)
+   - Lost: Temp/Wetl Birch, Temp/Arid Saltbush, Med/Wetl Sedge (-3 DOM, net +1)
+   - Side effect: broke Cypress zero-mean pair (waterlogging mean shifted 0.113→0.144), but the resulting +0.077 Cypress mean bias was beneficial — "fixing" it dropped score to 74.8%
+
+2. **Hill exposure** (terrain physics):
+   - Changed Hill exposure 0.80→0.75
+   - Result: 77.6% (+0.3pp), ABS 412 (+1 fix)
+   - Removed Pampas ABS violation in Temp/Hill
+   - Wildflower gap narrowed from 0.011 to 0.003 but still 4-for-3 slot blocked
+
+3. **Pioneer tree wetland boost** (new TRAIT_EFFECTS entry):
+   - Added `seed × (1-def) × wood × waterlogging +0.08 / shallowSoil -0.027`
+   - Birch product: 0.696 (2x next largest collateral: Flowering Shrub 0.198)
+   - Result: 78.2% (+0.6pp), DOM 29→30 (Birch enters Temp/Wetl top-3)
+
+### Failed approaches within iteration 9
+- **Hill exposure 0.70**: Too aggressive, DOM crashed to 26/62 (cascaded through all Hill niches)
+- **Hill soilDepth 0.30→0.32**: Massive cascade through soilFertility, dropped to 75.5%
+- **Broadleaf hill boost 0.08→0.09/0.10**: Flipped Wildflower in but Bunchgrass out (4-for-3 zero-sum swap)
+- **Mediterranean term + (1-leaf) filter**: Theoretically should help Tropical tree by removing wood×wStr×tropicality collateral. In practice: exactly neutral (same 77.6%, same DOMs). The genome cascade absorbed the change.
+- **Cypress compensator "fix"**: Correcting the broken zero-mean (shallowSoil -0.926→-1.184) HURT because the imbalance was beneficial. Score dropped 77.6%→74.8%.
+
+### Key insights
+- **Waterlogging floor is botanically motivated**: Wetlands retain groundwater from terrain regardless of climate humidity — oases, spring-fed marshes, etc.
+- **Broken zero-mean can be beneficial**: When the waterlogging mean shifted, it created a positive Cypress bias that helped wetland DOMs. "Fixing" it removed the benefit.
+- **4-for-3 slot is a hard ceiling**: Temp/Hill has 4 DOMs (Bunchgrass, Turfgrass, Wildflower, Clover) for 3 slots. ANY term that helps one trades another out because the DOM subtypes have orthogonal trait profiles (short vs tall, perennial vs annual, broad vs narrow leaf).
+- **Surgical new terms work**: The pioneer tree boost (seed × (1-def) × wood) was extremely selective — only Birch gets meaningful effect among trees.
+
+### Results
+- **76.6% → 78.2%** (+1.6pp)
+- DOM: 28→30 (+2: Des/Wetl Sedge+Tallgrass, Trop/Wetl Palm, Med/Wetl Cypress, Temp/Wetl Birch gained; Temp/Arid Saltbush, Med/Wetl Sedge lost)
+- ABS: 409→412 (+3)
+- COM: 74→75 (+1)
+- Closest remaining DOM misses: Temp/Hill Wildflower (0.003), Med/Wetl Sedge (0.036), Temp/Hill Clover (0.039)
+
+### Remaining blockers
+- **Tropical niches** (11 missing DOMs): Holly/Oak/Mangrove dominate Trop/Soil instead of Palm/Magnolia/Tropical Herb/Fern. The Mediterranean wood×wStr×tropicality compensator crushes Tropical tree (product=0.383) — it gets -1.737 in Trop/Soil. Structural fix needed but (1-leaf) filter proved neutral.
+- **Temp/Arid** (3 missing): Saltbush, Aromatic, Desert Grass all need to be in top-3 but Bunchgrass/Clover/Ryegrass dominate.
+- **Med/Hill** (2 missing): Mediterranean and Aromatic subtypes can't break through grass dominance.
+- **Med/Arid** (2 missing): Mediterranean gap=0.584 — needs significant structural change.
