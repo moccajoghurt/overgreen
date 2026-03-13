@@ -54,3 +54,43 @@ Structural blockers:
 - Defense=0.99 universal attractor (mean +0.107 contribution)
 - Trees crushed by wind+shallowSoil on hills (woodiness=-1.40×wind, -0.80×shallow)
 - 8 never-stable subtypes from classifier vs fitness conflicts
+
+## Iteration 2
+### Hypothesis — What I think the problem is
+Short woody subtypes (Oak, Aromatic, Birch) can't outrank non-woody subtypes (Fern, Bunchgrass) in seasonal niches. Woodiness has existing seasonality term (+0.30) but it's not enough and applies equally to tall vs short woody plants. Need a term that specifically rewards **compact woody form** — (1-heightPriority)×woodiness — in seasonal environments, with zero-mean compensation via shallowSoil penalty.
+
+### Changes — What I did
+1. **Short woody specialization — zero-mean paired term (seasonality/shallowSoil)**
+   - `(1-heightPriority) × woodiness × seasonality × +1.10` — compact woody shrubs/short trees persist through seasonal cycles
+   - `(1-heightPriority) × woodiness × shallowSoil × -0.906` — short woody plants still need soil anchorage
+   - Zero-mean verification: 1.10×0.35 - 0.906×0.425 = 0.385 - 0.385 = 0.000 ✓
+   - **Key design:** Uses (1-heightPriority) to exclude tall trees (Conifer hgt=0.99) while helping short trees/shrubs (Oak, Birch, Aromatic all hgt=0.01). The seasonality axis differentiates Mediterranean/Temperate (high seasonality) from Tropical (low).
+   - **Effect:** +4 dominant entries. Oak and Aromatic enter top-3 in Med/Soil. Birch enters top-3 in Temp/Soil and Temp/Wetl.
+
+### Failed approaches this iteration
+- Mediterranean/Aromatic/Aloe classifier redesigns: crashed to 68.4% — changed rep genomes and created new absent violations
+- Peaked heightPriority×waterStorage×extremeAridity +5.00 for Saguaro: crashed to 67.6% — mean shift of +0.162 for Saguaro cascaded despite targeting only 4 niches
+- seed×leaf winterHarshness +1.40 / tropicality -1.20: marginal +0.1% but lost Bunchgrass in Temp/Hill and Temp/Arid (net zero on dominant)
+- Short-woody pair at +0.60/-0.494: worked (+1 Oak in Med/Soil) but coefficient too small to get Aromatic past Fern
+
+### Results
+- **69.8% → 71.7%** (+1.9%)
+- Absent: 92.1% → 92.1% (399 of 433, unchanged)
+- Dominant: 27.4% → 33.9% (17→21 of 62)
+- Common: 91.5% → 90.2% (75→74 of 82, lost 1)
+- Minor: 96.8% → 95.2% (61→60 of 63, lost 1)
+
+### Remaining gaps (41 missing dominant entries)
+Closest to fixing from diagnostic:
+- Med/Soil: Aromatic ✓ (fixed), Oak ✓ (fixed)
+- Temp/Soil: Birch ✓ (fixed), Hazel still missing
+- Temp/Wetl: Birch ✓ (fixed)
+- Med/Wetl: Fern (rank 8, gap 0.080)
+- Med/Hill: Bunchgrass (rank 5, gap 0.178)
+- Temp/Hill: Wildflower (rank 7, gap ~0.06), Clover (rank 4, gap ~0.04)
+
+Structural blockers remain:
+- Mediterranean subtype never-stable (always drifts to Saltbush)
+- Cypress very far from top-3 in its target wetland niches
+- Saguaro can't compete with Barrel Cactus in extreme arid (rootPriority advantage)
+- Palm has negative mean fitness (-0.112)

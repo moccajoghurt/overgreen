@@ -276,6 +276,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense', trait2: 'longevity', envVar: 'heatStress', coefficient: +0.40,
     description: 'aromatic defensive chemistry deters herbivores in open dry scrubland' },
 
+  // ── Short woody specialization — zero-mean pair (seasonality/shallowSoil) ──
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'seasonality', coefficient: +1.10,
+    inverse: true,
+    description: 'low compact woody shrubs and short trees persist through seasonal cycles' },
+  { trait: 'heightPriority', trait2: 'woodiness', envVar: 'shallowSoil', coefficient: -0.906,
+    inverse: true,
+    description: 'short woody plants still need soil anchorage despite compact form' },
+
   // ── Seed size — large seeds anchor in rocky shallow soil, small seeds wind-disperse ──
   { trait: 'seedSize',        envVar: 'shallowSoil',    coefficient: +0.25, description: 'large heavy seeds anchor in cracks of rocky shallow soil' },
   { trait: 'seedSize',        envVar: 'windExposure',   coefficient: -0.15, description: 'heavy seeds cannot wind-disperse on exposed terrain' },
