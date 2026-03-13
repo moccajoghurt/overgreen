@@ -94,3 +94,61 @@ Structural blockers remain:
 - Cypress very far from top-3 in its target wetland niches
 - Saguaro can't compete with Barrel Cactus in extreme arid (rootPriority advantage)
 - Palm has negative mean fitness (-0.112)
+
+## Iteration 3
+### Hypothesis — What I think the problem is
+Three targeted issues:
+1. **Saguaro blocked by Barrel Cactus in desert** — both succulents have defense=0.99, but Barrel Cactus (root=0.99, hgt=0.01) has higher mean fitness. Need peaked(hgt=0.50) to target only Saguaro (hgt=0.50) while ignoring Barrel (hgt=0.01) and Euphorbia (hgt=0.99).
+2. **Defensive perennials (def=0.99, long=0.99) underrewarded in drought** — Desert Grass, Saguaro benefit from armored longevity in dry niches but the engine doesn't reward this combination specifically.
+3. **Seed×leaf coefficient slightly too low** — Birch (seed=0.99, leaf=0.99) was barely above Saltbush in Temp/Soil by 0.005. Nudging the coefficient stabilizes the ranking.
+
+### Changes — What I did
+1. **3-trait interaction engine** — Added `trait3` support to TraitEffect interface, computeTraitModifier(), compiled fast path, and diagnostic labels. Enables peaked(trait1) × trait2 × trait3 × envVar for surgical subtype targeting.
+
+2. **Peaked Saguaro term — peaked(hgt=0.50) × defense × waterStorage × extremeAridity**
+   - `peaked(hgt, 0.50) × defense × waterStorage × extremeAridity × +5.00`
+   - `peaked(hgt, 0.50) × defense × waterStorage × soilFertility × -1.343`
+   - Zero-mean: 5.00×0.059 - 1.343×0.219 = 0.294 - 0.294 = 0.000 ✓
+   - **Key design:** peaked(0.50) gives Saguaro (hgt=0.50) value 1.0, while Barrel Cactus (hgt=0.01) and Euphorbia (hgt=0.99) get 0.02. With def×wStr as additional filters, only Saguaro gets the full 50× multiplier.
+   - **Effect:** Saguaro enters top-1 in Des/Hill and Des/Arid. +1 dominant (Saguaro in Des/Arid), +2 absent fixes.
+
+3. **Defense × longevity climate axis** — armored perennials in drought vs tropical
+   - `defense × longevity × droughtStress × +0.25`
+   - `defense × longevity × tropicality × -0.405`
+   - Zero-mean: 0.25×0.261 - 0.405×0.161 = 0.065 - 0.065 = 0.000 ✓
+   - **Effect:** Desert Grass (def=0.99, long=0.99) passes Caudiciform (def=0.50, long=0.01) in Des/Hill. +1 dominant (Desert Grass in Des/Hill). Minor gate +1.
+
+4. **Seed×leaf coefficient nudge** — winterHarshness +1.20→+1.25, tropicality -1.00→-1.07
+   - Stabilizes Birch above Saltbush in Temp/Soil (margin was 0.002 after defense×longevity term).
+   - **Effect:** Birch restored to top-3 in Temp/Soil. +1 dominant (Birch back).
+
+### Failed approaches this iteration
+- Wetland perennial term (leafSize×(1-seed)×(1-wood)×waterlogging) with multiple compensators:
+  - droughtStress compensator (+0.40/-0.172): crashed to 71.6% — droughtStress penalty crushed grasses/Desert Grass on hills (ds=0.630 on Des/Hill)
+  - diseasePressure compensator (+1.00/-0.428): crashed to 71.4% — dp=0.450 in Trop/Arid penalized Aloe (lost dominant), Bunchgrass in Temp/Arid also lost
+  - Peaked(leaf=0.99) variant: swaps Fern for Sedge in Med/Wetl (net zero) since peaked=0 for Sedge (leaf=0.49)
+  - Combined r-strategist suppression + peaked Fern: 72.5% — lost Aloe in Trop/Arid from seasonality compensator
+- longevity×leafSize winterHarshness/tropicality (+0.60/-0.514): crashed to 70.8% — too broad (affects Fern, Holly, Jade, Epiphytic equally), lost Birch, Bunchgrass, Aromatic, Aloe
+
+### Key insight — why wetland terms consistently fail
+Any term benefiting leaf=0.99 non-woody perennials in wetlands (waterlogging+) inevitably penalizes the same subtypes in other niches via the compensator. The affected group (Fern, Aloe, Epiphytic, Jade, Holly) overlaps heavily with target dominants in OTHER niches (Aloe in Trop/Arid, Fern in Trop/Soil). Every compensator variable (droughtStress, diseasePressure, seasonality, soilFertility) is high enough in at least one critical niche to cause collateral dominant/common losses that offset the Med/Wetl gain.
+
+### Results
+- **71.7% → 72.8%** (+1.1%)
+- Absent: 92.1% → 92.4% (399→400 of 433)
+- Dominant: 33.9% → 37.1% (21→23 of 62)
+- Common: 90.2% → 89.0% (74→73 of 82, lost 1)
+- Minor: 95.2% → 96.8% (60→61 of 63, gained 1)
+
+### Remaining gaps (39 missing dominant entries)
+Closest to fixing (gap < 0.12):
+- Temp/Hill: Wildflower (rank 5, gap 0.043), Clover (rank 6, gap 0.052) — but 4 dominants for 3 slots, Ryegrass (common) at rank 2 blocks both
+- Des/Wetl: Sedge (rank 12, gap 0.056) — ALL top-3 are ABSENT subtypes
+- Med/Wetl: Fern (rank 8, gap 0.078) — blocked by Desert Annual (ABSENT, rank 2, immune to trait terms)
+- Med/Hill: Bunchgrass (rank 5, gap 0.117) — Caudiciform (ABSENT, rank 1) and Turfgrass (common) block
+
+Structural blockers:
+- **Turfgrass dominance on Arid**: leaf=0.01, hgt=0.01 avoids all major penalties. Rank 1 ABSENT in Temp/Arid (0.973) and Med/Arid (1.197)
+- **Desert Wetland broken**: All top-3 are ABSENT (TropHerb, Bunchgrass, Turfgrass). Env values all near-zero, no lever available
+- **Swap problem**: Tight margins (0.002-0.010) mean any new term displaces existing dominant entries. 5+ wetland term variants all scored net zero or negative on dominant gate
+- **Mediterranean, Cypress, Palm**: Rep genomes have fundamentally weak profiles (mean 0.037, 0.109, -0.117). Need classifier changes, not trait-effects tuning

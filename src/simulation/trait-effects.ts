@@ -130,10 +130,12 @@ type EnvVar = keyof CellEnvironment;
 interface TraitEffect {
   trait: GenomeTrait;
   trait2?: GenomeTrait;    // second trait for interaction terms (trait × trait2 × env)
+  trait3?: GenomeTrait;    // third trait for 3-way interactions (trait × trait2 × trait3 × env)
   envVar: EnvVar | null;
   coefficient: number;
   inverse?: boolean;       // use (1 - traitVal) instead of traitVal
   inverse2?: boolean;      // use (1 - trait2Val)
+  inverse3?: boolean;      // use (1 - trait3Val)
   peaked?: number;         // tent function: max(0, 1 - 2*|trait - peaked|)
   description: string;
 }
@@ -289,10 +291,33 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'seedSize',        envVar: 'windExposure',   coefficient: -0.15, description: 'heavy seeds cannot wind-disperse on exposed terrain' },
 
   // ── Seed+leaf climate axis — zero-mean paired terms for niche differentiation ──
-  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'winterHarshness', coefficient: +1.20,
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'winterHarshness', coefficient: +1.25,
     description: 'flowering forbs spread seeds efficiently in harsh-winter meadows' },
-  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: -1.00,
+  { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'tropicality', coefficient: -1.07,
     description: 'vegetative reproduction outperforms seeding in stable tropical canopy' },
+
+  // ── 3-way interactions — surgical niche targeting ──
+
+  // Saguaro specialization: peaked(hgt=0.50) × defense × waterStorage in extreme desert
+  // Peaked at 0.50 targets only moderate-height succulents (Saguaro hgt=0.50)
+  // while ignoring short (Barrel hgt=0.01) and tall (Euphorbia hgt=0.99)
+  // Zero-mean: 5.00×0.059 - 1.343×0.219 = 0.294 - 0.294 = 0.000
+  { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
+    peaked: 0.50,
+    envVar: 'extremeAridity', coefficient: +5.00,
+    description: 'tall columnar armored succulents escape ground heat in extreme desert' },
+  { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
+    peaked: 0.50,
+    envVar: 'soilFertility', coefficient: -1.343,
+    description: 'tall columnar succulents are over-invested for fertile soil' },
+
+
+  // ── Defense × longevity climate axis — rewards armored perennials in drought, penalizes in tropics ──
+  // Zero-mean: 0.25×0.261 - 0.405×0.161 = 0.065 - 0.065 = 0.000
+  { trait: 'defense', trait2: 'longevity', envVar: 'droughtStress', coefficient: +0.25,
+    description: 'armored long-lived plants survive sustained drought exposure' },
+  { trait: 'defense', trait2: 'longevity', envVar: 'tropicality', coefficient: -0.405,
+    description: 'high-defense perennials over-invested for rapid tropical turnover' },
 
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,
@@ -348,8 +373,9 @@ export function computeTraitModifier(genome: Genome, env: CellEnvironment): numb
     const e = TRAIT_EFFECTS[i];
     const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
     const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
+    const t3 = e.trait3 !== undefined ? evalTrait(genome, e.trait3, e.inverse3) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
-    modifier += t1 * t2 * envVal * e.coefficient;
+    modifier += t1 * t2 * t3 * envVal * e.coefficient;
   }
   return modifier;
 }
@@ -372,8 +398,10 @@ const _traitBuf = new Float64Array(9);
 interface CompiledGroup {
   traitIdx: number;
   trait2Idx: number;     // -1 if no trait2
+  trait3Idx: number;     // -1 if no trait3
   inverse: boolean;
   inverse2: boolean;
+  inverse3: boolean;
   peaked: number;        // NaN if not peaked
   nicheCoeffs: Float64Array;  // [NICHE_COUNT], pre-multiplied envVal × coefficient
 }
@@ -384,6 +412,7 @@ function groupKey(e: TraitEffect): string {
   let k = e.inverse ? `!${e.trait}` : e.trait as string;
   if (e.peaked !== undefined) k = `^${e.peaked}:${k}`;
   if (e.trait2 !== undefined) k += `*${e.inverse2 ? '!' : ''}${e.trait2}`;
+  if (e.trait3 !== undefined) k += `*${e.inverse3 ? '!' : ''}${e.trait3}`;
   return k;
 }
 
@@ -405,8 +434,10 @@ function compileTraitEffects(): void {
     const cg: CompiledGroup = {
       traitIdx: TRAIT_TO_IDX.get(rep.trait)!,
       trait2Idx: rep.trait2 !== undefined ? TRAIT_TO_IDX.get(rep.trait2)! : -1,
+      trait3Idx: rep.trait3 !== undefined ? TRAIT_TO_IDX.get(rep.trait3)! : -1,
       inverse: !!rep.inverse,
       inverse2: !!rep.inverse2,
+      inverse3: !!rep.inverse3,
       peaked: rep.peaked !== undefined ? rep.peaked : NaN,
       nicheCoeffs: new Float64Array(nicheCount),
     };
@@ -453,7 +484,8 @@ export function computeTraitModifierFast(genome: Genome, nicheIdx: number): numb
     let t1 = cg.inverse ? 1 - _traitBuf[cg.traitIdx] : _traitBuf[cg.traitIdx];
     if (cg.peaked === cg.peaked) t1 = Math.max(0, 1 - 2 * Math.abs(t1 - cg.peaked)); // NaN !== NaN skips non-peaked
     const t2 = cg.trait2Idx >= 0 ? (cg.inverse2 ? 1 - _traitBuf[cg.trait2Idx] : _traitBuf[cg.trait2Idx]) : 1;
-    modifier += t1 * t2 * ec;
+    const t3 = cg.trait3Idx >= 0 ? (cg.inverse3 ? 1 - _traitBuf[cg.trait3Idx] : _traitBuf[cg.trait3Idx]) : 1;
+    modifier += t1 * t2 * t3 * ec;
   }
   return modifier;
 }
@@ -466,11 +498,12 @@ export function diagnoseTraitEffects(genome: Genome, env: CellEnvironment): Arra
   return TRAIT_EFFECTS.map(e => {
     const t1 = evalTrait(genome, e.trait, e.inverse, e.peaked);
     const t2 = e.trait2 !== undefined ? evalTrait(genome, e.trait2, e.inverse2) : 1;
+    const t3 = e.trait3 !== undefined ? evalTrait(genome, e.trait3, e.inverse3) : 1;
     const envVal = e.envVar !== null ? env[e.envVar] : 1;
-    const traitVal = t1 * t2;
-    const traitLabel = e.trait2
-      ? `${e.inverse ? '(1-' + e.trait + ')' : e.trait}×${e.inverse2 ? '(1-' + e.trait2 + ')' : e.trait2}`
-      : (e.inverse ? `(1-${e.trait})` : e.trait);
+    const traitVal = t1 * t2 * t3;
+    let traitLabel = e.inverse ? `(1-${e.trait})` : e.trait as string;
+    if (e.trait2) traitLabel += `×${e.inverse2 ? '(1-' + e.trait2 + ')' : e.trait2}`;
+    if (e.trait3) traitLabel += `×${e.inverse3 ? '(1-' + e.trait3 + ')' : e.trait3}`;
     return {
       trait: traitLabel,
       envVar: e.envVar,
