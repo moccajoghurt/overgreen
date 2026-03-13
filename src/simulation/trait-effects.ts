@@ -319,6 +319,30 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'defense', trait2: 'longevity', envVar: 'tropicality', coefficient: -0.405,
     description: 'high-defense perennials over-invested for rapid tropical turnover' },
 
+  // ── Turfgrass arid suppression — peaked(leaf=0.01) × (1-woodiness) × defense ──
+  // Targets leaf=0.01 non-woody plants (Turfgrass peaked=1.0, 1-wood=0.99 → 0.970)
+  // Trees (wood=0.71, 1-wood=0.29) get only 30% effect. leaf=0.50 gets 2% effect.
+  // Zero-mean: 0.60×0.261 = 0.973×0.161 → 0.157 = 0.157 ✓
+  { trait: 'leafSize', trait2: 'woodiness', trait3: 'defense',
+    peaked: 0.01, inverse2: true,
+    envVar: 'droughtStress', coefficient: -0.60,
+    description: 'minimal-leaf non-woody armored plants cannot photosynthesize in drought' },
+  { trait: 'leafSize', trait2: 'woodiness', trait3: 'defense',
+    peaked: 0.01, inverse2: true,
+    envVar: 'tropicality', coefficient: +0.973,
+    description: 'minimal-leaf armored ground cover thrives in tropical understory' },
+
+  // ── Broadleaf defended seed-producer hill boost — zero-mean (shallowSoil/tropicality) ──
+  // Wildflower/Clover (seed=0.99, leaf=0.99, def=0.99) get +0.054 on hills (shallow=0.700)
+  // Bunchgrass (seed=0.01) gets nothing. Ryegrass (leaf=0.49) gets half.
+  // Zero-mean: 0.08×0.425 = 0.211×0.161 → 0.034 = 0.034 ✓
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'defense',
+    envVar: 'shallowSoil', coefficient: +0.08,
+    description: 'broadleaf defended seed-producers colonize rocky hillside meadows' },
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'defense',
+    envVar: 'tropicality', coefficient: -0.211,
+    description: 'broadleaf defended forbs outcompeted in tropical canopy' },
+
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,
     description: 'leaf+defense combo costly in cold: frost damages defended broadleaf tissue' },

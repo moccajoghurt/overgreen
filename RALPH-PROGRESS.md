@@ -152,3 +152,59 @@ Structural blockers:
 - **Desert Wetland broken**: All top-3 are ABSENT (TropHerb, Bunchgrass, Turfgrass). Env values all near-zero, no lever available
 - **Swap problem**: Tight margins (0.002-0.010) mean any new term displaces existing dominant entries. 5+ wetland term variants all scored net zero or negative on dominant gate
 - **Mediterranean, Cypress, Palm**: Rep genomes have fundamentally weak profiles (mean 0.037, 0.109, -0.117). Need classifier changes, not trait-effects tuning
+
+## Iteration 4
+### Hypothesis — What I think the problem is
+Three issues targeted:
+1. **Palm classifier forces bad genome** — `(1-def)*0.20 + (1-leaf)*0.20` penalizes defense and leaf, which are the most rewarded traits globally. Result: mean=-0.117 (worst of all subtypes). Palm needs these penalties removed.
+2. **Turfgrass absent violations in desert/arid** — Turfgrass (leaf=0.01, def=0.99, root=0.99) avoids all penalties and collects universal defense/root bonuses, making it top-5 in 5+ niches where it should be absent. Need surgical suppression targeting only leaf=0.01 non-woody armored plants in drought.
+3. **Wildflower/Clover below top-3 in Temp/Hill** — Both are rank 5-6, gap 0.043-0.052. A broadleaf defended seed-producer bonus on shallow soil (hills) could push them up.
+
+### Changes — What I did
+1. **Palm classifier redesign** — removed `(1-defense)*0.20 + (1-leafSize)*0.20`, replaced with `longevity*0.20 + (1-seedInvestment)*0.15 + seedSize*0.10`. Allows optimizer to choose def=0.99 without classifier penalty. Mean improved from -0.117 to +0.140. Palm still not competitive in target niches (rank 34 in Trop/Soil) but improved absent gate by +3 (Conifer dropped out of Trop/Soil and Temp/Wetl top-5 as cascade).
+
+2. **Turfgrass arid suppression — peaked(leaf=0.01) × (1-woodiness) × defense**
+   - `peaked(leafSize, 0.01) × (1-woodiness) × defense × droughtStress × -0.60`
+   - `peaked(leafSize, 0.01) × (1-woodiness) × defense × tropicality × +0.973`
+   - Zero-mean: 0.60×0.261 = 0.973×0.161 = 0.157 ✓
+   - **Key design:** peaked(0.01) gives Turfgrass (leaf=0.01) value 1.0, leaf=0.50 gets 0.02. (1-woodiness) filter excludes trees (wood=0.71 → 0.29 = 30% effect). Tropicality compensator concentrates positive effect in Tropical niches where Turfgrass isn't problematic.
+   - **Effect:** Fixed 4+ Turfgrass absent violations (Des/Soil, Des/Hill, Med/Arid, Temp/Arid-Pampas). Turfgrass entered Trop/Hill top-5 (new absent violation via tropicality compensator, but Desert Annual dropped out — net zero).
+
+3. **Broadleaf seed-producer hill boost — zero-mean (shallowSoil/tropicality)**
+   - `seedInvestment × leafSize × defense × shallowSoil × +0.08`
+   - `seedInvestment × leafSize × defense × tropicality × -0.211`
+   - Zero-mean: 0.08×0.425 = 0.211×0.161 = 0.034 ✓
+   - **Effect:** Wildflower entered top-3 in Temp/Hill (+1 dominant). Bunchgrass dropped from rank 3 to rank 4 (-1 dominant). Net 0 dominant change but Bunchgrass gap narrowed to 0.002. Also fixed additional absent violations via combined cascade.
+
+### Failed approaches this iteration
+- **Mediterranean classifier** (1-hgt)*0.25 + wood*0.25 + def*0.20 + long*0.15 + (1-seed)*0.15: new genome (def=0.99, wood=0.70, mean=0.329) too globally competitive, entered Temp/Soil top-5 as ABSENT violation (-1 absent), displaced Aromatic from Med/Soil (-1 dominant)
+- **Cypress classifier** hgt*0.25 + root*0.25 + long*0.20 + (1-leaf)*0.15 + (1-seed)*0.15: new genome too strong globally, created Cypress ABSENT in Temp/Soil, lost Birch dominant
+- **Non-peaked (1-leaf)×def×droughtStress/waterlogging** at -0.15/+0.348: too broad — hit Bunchgrass (leaf=0.49) and Aromatic (leaf=0.50), lost 2 dominant entries despite fixing 3 absent
+- **peaked(leaf=0.01)×def×droughtStress/soilFertility** at -0.60/+0.715: soilFertility compensator boosted Turfgrass and Cypress too much on fertile soil (Temp/Soil +0.287). Cypress ABSENT violation, lost Birch dominant
+- **peaked(leaf=0.01)×def×droughtStress/waterlogging** at -0.60/+1.393: waterlogging compensator coefficient too extreme (1.393 × 0.810 waterlogging = concentrated +1.1 in Trop/Wetl). Created multiple absent violations in wetlands
+
+### Key insights — compensator variable selection
+The zero-mean compensator variable choice is critical:
+- **Low-mean variables** (waterlogging=0.1125) require huge compensating coefficients (1.4×), creating concentrated spikes in wetlands
+- **Correlated variables** (droughtStress/heatStress, droughtStress/windExposure) nearly cancel the penalty because both are high in the same niches
+- **Tropicality** (mean=0.161) is the best compensator for drought penalties: concentrated in Tropical niches (0.500) which have different subtype targets, near-zero elsewhere (0.027-0.058)
+
+### Results
+- **72.8% → 73.6%** (+0.8%)
+- Absent: 92.4% → 94.7% (400→410 of 433, +10 fixes -3 new = net +7)
+- Dominant: 37.1% → 37.1% (23 of 62, unchanged — Wildflower gained, Bunchgrass lost in Temp/Hill)
+- Common: 89.0% → 89.0% (73 of 82, unchanged)
+- Minor: 96.8% → 96.8% (61 of 63, unchanged)
+
+### Remaining gaps (39 missing dominant entries)
+Closest to fixing:
+- Temp/Hill: Bunchgrass (rank 4, gap 0.002!), Clover (rank 5, gap 0.009) — 4 dominants for 3 slots, Ryegrass (common, rank 2, gap=0.144) blocks
+- Des/Wetl: Sedge (rank 11, gap 0.052) — still ALL top-3 are non-dominant
+- Med/Wetl: Fern (rank 8, gap 0.079) — Desert Annual (ABSENT, rank 2) blocks
+- Med/Hill: Bunchgrass (rank 5, gap 0.122)
+- Temp/Arid: Saltbush (gap 0.213), Aromatic (gap 0.238)
+
+Structural blockers remain:
+- **Classifier changes backfire**: Making globally-weak subtypes (Mediterranean, Cypress, Palm) competitive creates ABSENT violations in non-target niches. Their genomes, when improved, become too universally strong.
+- **4-dominant niches with 3 slots**: Temp/Hill has 4 target dominants but only 3 slots. Even when all 4 are close, one must be excluded. Currently Wildflower is in, Bunchgrass (gap=0.002) barely out.
+- **Dominant gate fundamentally limited at ~37%**: 39 missing entries, 15+ have gaps >0.50, most blocked by absent subtypes in top positions or structurally impossible classifier conflicts. Reaching 70% dominant gate likely requires either (a) a fundamentally different approach to classifiers, or (b) adding new environment variables that create stronger climate-zone differentiation.

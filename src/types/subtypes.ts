@@ -133,8 +133,8 @@ function classifyTree(g: Genome): SubtypeId {
   // Tropical: disease-resistant canopy tree — defensive, tall, broad-leaved
   scores[3] = g.defense * 0.35 + g.heightPriority * 0.25 + g.leafSize * 0.30 + (1 - g.rootPriority) * 0.10;
 
-  // Palm: tall, unbranched feel (high height, low root, low defense)
-  scores[4] = g.heightPriority * 0.35 + (1 - g.rootPriority) * 0.25 + (1 - g.defense) * 0.2 + (1 - g.leafSize) * 0.2;
+  // Palm: tall monocot — high height, shallow roots, long-lived, vegetative spread
+  scores[4] = g.heightPriority * 0.30 + (1 - g.rootPriority) * 0.25 + g.longevity * 0.20 + (1 - g.seedInvestment) * 0.15 + g.seedSize * 0.10;
 
   // Birch: pioneer (high seedInvestment, thin), short-lived
   scores[5] = g.seedInvestment * 0.45 + (1 - g.rootPriority) * 0.15 + g.heightPriority * 0.15 + (1 - g.defense) * 0.15 + (1 - g.longevity) * 0.1;
