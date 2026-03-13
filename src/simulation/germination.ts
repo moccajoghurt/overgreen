@@ -143,7 +143,7 @@ export function phaseGermination(world: World): void {
         height: wpc.seedlingHeight * seedSizeVigor, rootDepth: wpc.seedlingRoot * seedSizeVigor, leafArea: wpc.seedlingLeaf * seedSizeVigor,
         energy: winner.energy, age: 0, alive: true,
         genome: winner.genome,
-        lastLightReceived: 0, lastWaterAbsorbed: 0,
+        lastLightReceived: 0, lastWaterAbsorbed: 0, lastWaterSatisfaction: 0,
         lastEnergyProduced: 0, lastMaintenanceCost: 0, isDiseased: false,
         storedWater: seedSizeVigor * winner.genome.waterStorage * SIM.WATER_STORAGE_SEEDLING_PROVISION,
         healthEMA: 1.0, peakEnergy: 2.0,

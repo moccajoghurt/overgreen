@@ -283,6 +283,7 @@ export function phaseUpdatePlants(world: World): void {
     const cellEnv = getEffectiveEnv(cell.climateZone, cell.terrainType);
 
     const waterFraction = establishing ? 0 : absorbWater(plant, cell, world);
+    plant.lastWaterSatisfaction = waterFraction;
     let energyProduced = establishing ? 0 : photosynthesize(plant, cell, waterFraction, isDiseased, pc, cellEnv, nicheIdx);
 
     // Facilitation: DIFFERENT archetypes in neighborhood boost photosynthesis.

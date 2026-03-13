@@ -213,20 +213,21 @@ export function createPlantCardOverlay(
     energyRow.barFill.style.background = plant.energy > 0 ? '#6a6' : '#c44';
     energyRow.valueEl.textContent = plant.energy.toFixed(1);
 
-    // Vitals — Water
-    const wsCap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
-    const wFrac = wsCap > 0 ? Math.min(1, plant.storedWater / wsCap) : 0;
-    waterRow.barFill.style.width = `${(wFrac * 100).toFixed(1)}%`;
-    waterRow.barFill.style.background = '#6bc';
-    waterRow.valueEl.textContent = wsCap > 0.01 ? `${plant.storedWater.toFixed(1)}/${wsCap.toFixed(1)}` : '—';
+    // Vitals — Water (satisfaction ratio: absorbed / needed)
+    const wSat = plant.lastWaterSatisfaction;
+    waterRow.barFill.style.width = `${(wSat * 100).toFixed(1)}%`;
+    waterRow.barFill.style.background = wSat > 0.5 ? '#6bc' : '#c86';
+    waterRow.valueEl.textContent = `${(wSat * 100).toFixed(0)}%`;
 
     // Economy
+    const wsCap = plant.genome.waterStorage * SIM.WATER_STORAGE_CAPACITY;
     const net = plant.lastEnergyProduced - plant.lastMaintenanceCost;
     const netColor = net >= 0 ? '#6c6' : '#e66';
     const netSign = net >= 0 ? '+' : '';
     econEl.innerHTML =
       `Light ${plant.lastLightReceived.toFixed(2)} → Eff ${plant.effectiveLight.toFixed(2)}`
       + `<br>Water ${plant.lastWaterAbsorbed.toFixed(2)}`
+      + (wsCap > 0.01 ? `  Tank ${plant.storedWater.toFixed(1)}/${wsCap.toFixed(1)}` : '')
       + `<br>Prod <span style="color:#6c6">+${plant.lastEnergyProduced.toFixed(2)}</span>`
       + `  Maint <span style="color:#e66">-${plant.lastMaintenanceCost.toFixed(2)}</span>`
       + `<br>Net <span style="color:${netColor}">${netSign}${net.toFixed(2)}</span>`

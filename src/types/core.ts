@@ -64,6 +64,7 @@ export interface Plant {
   causeOfDeath?: 'fire' | 'disease';
   lastLightReceived: number;
   lastWaterAbsorbed: number;
+  lastWaterSatisfaction: number;
   lastEnergyProduced: number;
   lastMaintenanceCost: number;
   isDiseased: boolean;
