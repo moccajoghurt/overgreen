@@ -359,12 +359,12 @@ const TRAIT_EFFECTS: TraitEffect[] = [
 
   // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
   // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
-  // Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
+  // Zero-mean: 20.0×0.0857 = 10.65×0.161 → 1.714 = 1.715 ✓
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'mediterraneity', coefficient: +17.0,
+    envVar: 'mediterraneity', coefficient: +20.0,
     description: 'woody drought-hardy scrub with water storage dominates Mediterranean climate' },
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'tropicality', coefficient: -9.06,
+    envVar: 'tropicality', coefficient: -10.65,
     description: 'woody water-storers outcompeted in humid tropical canopy' },
 
   // ── Med-leaf defended perennial — peaked(leaf=0.50) × defense × (1-seed) ──

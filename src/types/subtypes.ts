@@ -162,8 +162,8 @@ function classifyShrub(g: Genome): SubtypeId {
   scores[1] = (1 - Math.abs(g.leafSize - 0.5)) * 0.25 + (1 - Math.abs(g.heightPriority - 0.5)) * 0.25
     + g.seedInvestment * 0.2 + (1 - g.defense) * 0.2 + (1 - g.longevity) * 0.1;
 
-  // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy
-  scores[2] = g.woodiness * 0.3 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.25 + g.longevity * 0.2;
+  // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy, compact
+  scores[2] = g.woodiness * 0.25 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.20 + g.longevity * 0.15 + (1 - g.heightPriority) * 0.15;
 
   // Thorny: high defense, large-leaved (real brambles have big compound leaves)
   scores[3] = g.defense * 0.50 + g.leafSize * 0.25 + (1 - g.heightPriority) * 0.15 + g.rootPriority * 0.10;

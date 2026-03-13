@@ -481,3 +481,42 @@ Three changes applied sequentially, each tested independently:
 - **Temp/Arid** (3 missing): Saltbush, Aromatic, Desert Grass all need to be in top-3 but Bunchgrass/Clover/Ryegrass dominate.
 - **Med/Hill** (2 missing): Mediterranean and Aromatic subtypes can't break through grass dominance.
 - **Med/Arid** (2 missing): Mediterranean gap=0.584 — needs significant structural change.
+
+## Iteration 10
+### Hypothesis — What I think the problem is
+DOM gate stuck at 48.4% (30/62). Need 14 more DOMs to reach 70%. Architect analysis identified 6 prongs: Fern wetland boost, Aromatic med boost, Acacia drought-tree, Sedge wetland peaked term, Mediterranean classifier fix, and existing coefficient tweaks.
+
+### Approaches tested
+
+**Successful:**
+1. **Mediterranean classifier fix** — Added `(1-heightPriority)*0.15` weight to Mediterranean shrub classifier (subtypes.ts line 166). Genome shifted from hgt=0.99 to hgt=0.50, reducing wind/shallowSoil penalties. Net: +1 ABS (413→414), Med/Arid gap narrowed from 0.575→0.062.
+2. **Med coefficient 17→20** — Increased wood×wStr×mediterraneity from 17.0 to 20.0 with tropicality compensator 9.06→10.65. Med/Hill Mediterranean gap: 0.200→0.013. Med/Arid: 0.244→0.062.
+
+**Failed (~15 approaches):**
+3. **(1-wood)×wStr×waterlogging +0.20** — Too weak to close Sedge Med/Wetl gap. At +0.35, cascaded negatively (-0.8%).
+4. **root×(1-leaf)×wood×droughtStress +2.0 (Acacia)** — winterHarshness compensator destroyed Cypress in wetlands (-0.514 in Temp/Wetl). Birch shares identical trait product (0.696). Crashed to 76.4%.
+5. **Med-leaf coefficient 0.20→0.50/1.0 (Aromatic)** — extremeAridity compensator devastated desert niches. Bunchgrass (product=0.961) gets same boost. At 1.0: crashed to 75.1%.
+6. **waterStorage×waterlogging -0.60→-0.85** — Cypress and Mediterranean (both wStr=0.54) destroyed in wetlands. Crashed to 76.4%.
+7. **peaked(wStr=0.54)×(1-wood)×waterlogging +0.15** — Exactly neutral. Des/Wetl Sedge already in top-3; term too weak for Med/Wetl gap.
+8. **leafSize×longevity×shallowSoil +0.17** (broadleaf hill boost) — tropicality compensator devastated tropical DOMs. Wildflower entered Temp/Hill but Bunchgrass fell out. Crashed to 75.9%.
+9. **Turfgrass classifier** (root preference 0.15→0.20/0.30) — Turfgrass genome shifted to root≠0.99, losing Turfgrass DOM in Temp/Hill where it's needed. Binary genome shift.
+10. **Med coefficient 20→21/22** — Mediterranean entered top-3 in Med niches but displaced other DOMs (Bunchgrass in Med/Hill, Saguaro in Med/Arid). Net zero DOM changes.
+
+### Key insights
+- **DOM gate is structurally stuck at 30/62**: Every change that gains a DOM in one niche loses one in another due to shared trait signatures.
+- **4-for-3 slot ceiling is pervasive**: 12 of 16 niches have ≥3 target DOMs for 3 top-3 slots. Many have 4+ DOMs. Any boost to one DOM displaces another DOM.
+- **Non-DOM blockers in top-3**: Only way to gain net DOMs is displacing non-DOMs (COM/MIN/ABS) from top-3. But the gaps are large (0.066-0.942). The closest opportunities: Med/Hill Turfgrass(com) at +0.845 vs Mediterranean(DOM) at +0.779 (gap=0.066). Trop/Soil Oak(ABS) at +2.587 vs Magnolia(DOM) at +2.318 (gap=0.269).
+- **Compensator env var problem**: Any compensator env var is high in some niche where DOMs need to perform. winterHarshness → hurts Cypress in temperate. tropicality → hurts Fern in tropical. soilFertility → hurts Magnolia in tropical. shallowSoil → hurts Bunchgrass on hills.
+- **Genome similarity**: Many subtypes share near-identical trait products (Fern=Bunchgrass, Acacia=Birch, Sedge=Euphorbia minus wStr). The 3-trait filter maximum can't create enough separation.
+- **Classifier changes work but are fragile**: Mediterranean hgt fix worked (+1 ABS). But Turfgrass root change broke Temp/Hill DOM. Binary genome shifts in the 3-value grid (0.01/0.50/0.99) make classifier changes unpredictable.
+
+### Results
+- **78.2% → 78.4%** (+0.2pp)
+- DOM: 30→30 (unchanged)
+- ABS: 412→414 (+2)
+- COM: 75→75 (unchanged)
+- Mediterranean gaps narrowed: Med/Hill 0.200→0.013, Med/Arid 0.244→0.062
+
+### Remaining blockers
+- **DOM gate at 48.4%** is the binding constraint. Need structural changes beyond coefficient/classifier tuning to reach 70%.
+- **Potential future directions**: (a) new env variables that separate crowded niches, (b) 4-trait interactions in the engine, (c) subtype-specific trait modifiers (breaks current architecture), (d) rethinking the target matrix itself.
