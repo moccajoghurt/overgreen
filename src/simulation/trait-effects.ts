@@ -305,14 +305,16 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // Saguaro specialization: peaked(hgt=0.50) × defense × waterStorage in extreme desert
   // Peaked at 0.50 targets only moderate-height succulents (Saguaro hgt=0.50)
   // while ignoring short (Barrel hgt=0.01) and tall (Euphorbia hgt=0.99)
-  // Zero-mean: 5.00×0.059 - 1.343×0.219 = 0.294 - 0.294 = 0.000
+  // Boosted to +15.0 to reach Med/Arid top-3 (extremeAridity=0.100 there)
+  // extremeAridity=0 in Med/Hill and Trop/Hill, avoiding ABSENT violations
+  // Zero-mean: 15.00×0.0588 = 4.027×0.219 → 0.882 = 0.882 ✓
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'extremeAridity', coefficient: +5.00,
+    envVar: 'extremeAridity', coefficient: +15.00,
     description: 'tall columnar armored succulents escape ground heat in extreme desert' },
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'soilFertility', coefficient: -1.343,
+    envVar: 'soilFertility', coefficient: -4.027,
     description: 'tall columnar succulents are over-invested for fertile soil' },
 
 
@@ -369,6 +371,19 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     peaked: 0.50, inverse3: true,
     envVar: 'extremeAridity', coefficient: -0.292,
     description: 'moderate-leaved defended perennials struggle in extreme desert heat' },
+
+  // ── Cypress wetland specialization — peaked(hgt=0.50) × (1-leaf) × wood × waterlogging ──
+  // Cypress (hgt=0.50, leaf=0.01, wood=0.71): peaked=1.0, (1-leaf)=0.99, wood=0.71 → 0.703
+  // Conifer (hgt=0.99): peaked=0.02 → 0.014. Acacia (hgt=0.01): peaked=0.02 → 0.014. Negligible collateral.
+  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 ✓
+  { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
+    peaked: 0.50, inverse2: true,
+    envVar: 'waterlogging', coefficient: +3.50,
+    description: 'moderate-height narrow-leaved trees thrive in flooded wetlands' },
+  { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
+    peaked: 0.50, inverse2: true,
+    envVar: 'shallowSoil', coefficient: -0.926,
+    description: 'moderate-height narrow-leaved trees need deep soil for anchorage' },
 
   // ── Fundamental tradeoffs — climate-dependent to allow tropical "max everything" but penalize it elsewhere ──
   { trait: 'leafSize', trait2: 'defense', envVar: 'winterHarshness', coefficient: -0.30,

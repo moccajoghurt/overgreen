@@ -263,3 +263,52 @@ Structural blockers:
 - **Temp/Hill 4-dominant ceiling**: 4 dominants for 3 slots. Bunchgrass now in (was Wildflower). Ryegrass (common, rank 2) blocks both from being top-3 simultaneously.
 - **Med/Hill dominated by ABSENT subtypes**: Caudiciform (rank 1), Tropical Herb (rank 4) both ABSENT. Any Caudiciform suppression term spills into other hill niches via shallowSoil compensator.
 - **Des/Wetl fundamentally broken**: All env values near-zero. No lever to differentiate dominants from absent subtypes. All modifiers clustered 0.10-0.21.
+
+## Iteration 6
+### Hypothesis — What I think the problem is
+Two surgical interventions possible using peaked(hgt=0.50) trait signatures:
+1. **Cypress missing from all wetland targets** — Cypress (hgt=0.50, leaf=0.01, wood=0.71) has peaked(hgt=0.50)×(1-leaf)×wood = 0.703. No other subtype exceeds 0.014. Boosting this in waterlogging niches should get Cypress into Temp/Wetl and Med/Wetl top-3.
+2. **Saguaro missing from Med/Arid top-3** — Saguaro is rank 7 (mod=1.022, gap=0.074). The existing extremeAridity coefficient (+5.00) only contributes 0.238 in Med/Arid (extremeAridity=0.100). Increasing it to +15.00 should bridge the gap. Key: extremeAridity=0 in Med/Hill and Trop/Hill, so no ABSENT violations in those niches.
+
+### Changes — What I did
+1. **Cypress wetland term — peaked(hgt=0.50) × (1-leaf) × wood × waterlogging**
+   - `peaked(hgt, 0.50) × (1-leafSize) × woodiness × waterlogging × +3.50`
+   - `peaked(hgt, 0.50) × (1-leafSize) × woodiness × shallowSoil × -0.926`
+   - Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 ✓
+   - Cypress product = 0.703. Conifer/Acacia (peaked=0.02) → 0.014. 50× selectivity.
+   - **Effect:** Cypress enters top-3 in Temp/Wetl (+1 dominant). New Cypress ABSENT in Trop/Wetl (-1 absent) — waterlogging=0.810 in Trop/Wetl too strong.
+
+2. **Saguaro extremeAridity boost — +5.00 → +15.00**
+   - Increased existing peaked(hgt=0.50)×def×wStr×extremeAridity from +5.00 to +15.00
+   - Adjusted soilFertility compensator from -1.343 to -4.027
+   - Zero-mean: 15.00×0.0588 = 4.027×0.219 → 0.882 = 0.882 ✓
+   - **Effect:** Saguaro enters Med/Arid top-3 (+1 dominant). No new ABSENT violations — extremeAridity=0 in all Temp/Trop/Med-Hill niches.
+
+### Failed approaches this iteration
+- **Saguaro shallowSoil/soilFertility term** (+3.0/-5.823): Saguaro entered Med/Hill (ABSENT) and Trop/Hill (ABSENT) because shallowSoil is high in hills (0.700) regardless of climate. soilFertility compensator too weak in Med/Hill (soilFert=0.054). Replaced with boosting existing extremeAridity coefficient which is 0 in all Hill niches.
+- **Saguaro extremeAridity +12.0**: Not quite enough — Saguaro rank 7 in Med/Arid (gap 0.074). Needed +15.0 for margin.
+
+### Key insights
+- **extremeAridity as zero-collateral boost variable**: It's 0 in ALL Temperate, Tropical, and Mediterranean Hill niches. Only nonzero in Arid terrain (Med/Arid=0.100, Des/Arid=0.460, Des/Hill=0.280). Combined with peaked trait targeting, allows huge coefficients without any Hill/Temp/Trop collateral.
+- **shallowSoil is dangerous for arid boosting**: shallowSoil doesn't distinguish Hill from Arid terrain well (Hill=0.700, Arid=0.600). Any shallowSoil-based boost spills equally into hill niches.
+- **Waterlogging tropical overflow**: Trop/Wetl has waterlogging=0.810 (highest of all niches), so any waterlogging-based boost inevitably leaks there. Would need a (1-tropicality) modulation to prevent.
+
+### Results
+- **74.3% → 75.4%** (+1.1%)
+- Absent: 95.2% → 94.9% (412→411 of 433, -1)
+- Dominant: 38.7% → 41.9% (24→26 of 62, +2)
+- Common: 89.0% → 89.0% (73 of 82, unchanged)
+- Minor: 96.8% → 96.8% (61 of 63, unchanged)
+
+### Remaining gaps (36 missing dominant entries)
+Closest to fixing:
+- Temp/Hill: Wildflower (rank 4, gap ~0.005), Clover (rank 5-6)
+- Med/Hill: Bunchgrass (rank 5), Mediterranean, Aromatic
+- Med/Wetl: Cypress (still missing), Fern
+- Des/Wetl: Palm, Acacia, Sedge, Tallgrass — all 4 dominants missing
+- Trop/Soil: Palm, Magnolia, Tropical Herb, Fern — all 5 dominants missing (3 slots)
+
+Structural blockers:
+- **Trop/Wetl Cypress ABSENT violation**: waterlogging=0.810 creates massive boost. Need (1-tropicality) or similar modulation to suppress in tropical wetlands specifically.
+- **36 missing dominants**: Many are structurally blocked (trees with globally weak profiles, 4-dominant niches with 3 slots, ABSENT subtypes occupying top positions). Approaching limits of coefficient tuning alone.
+- **Des/Wetl still broken**: All env values near-zero, all modifiers clustered.
