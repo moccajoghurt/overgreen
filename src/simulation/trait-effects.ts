@@ -32,13 +32,16 @@ export interface CellEnvironment {
   seasonality: number;
   shallowSoil: number;
   mediterraneity: number;
+  coolWetland: number;
+  continentalDrought: number;
+  desertSoilHeat: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
   [TerrainType.Soil]:    { soilDepth: 0.9, drainage: 0.5, exposure: 0.15, waterlogging: 0.1 },
   [TerrainType.River]:   { soilDepth: 0.0, drainage: 0.0, exposure: 0.1, waterlogging: 1.0 },
   [TerrainType.Rock]:    { soilDepth: 0.05, drainage: 0.95, exposure: 0.6, waterlogging: 0.0 },
-  [TerrainType.Hill]:    { soilDepth: 0.3, drainage: 0.7, exposure: 0.8, waterlogging: 0.0 },
+  [TerrainType.Hill]:    { soilDepth: 0.3, drainage: 0.7, exposure: 0.75, waterlogging: 0.0 },
   [TerrainType.Wetland]: { soilDepth: 0.7, drainage: 0.1, exposure: 0.2, waterlogging: 0.9 },
   [TerrainType.Arid]:    { soilDepth: 0.4, drainage: 0.9, exposure: 0.5, waterlogging: 0.0 },
 };
@@ -54,6 +57,8 @@ const TERRAIN_COUNT = 6;
 
 function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment {
   const droughtStress = cp.aridity * tp.drainage;
+  const tropicality = Math.pow(cp.heat * cp.humidity, 1.5);
+  const waterlogging = tp.waterlogging * Math.max(cp.humidity, 0.45);
   // Ground heat: direct solar exposure + aridity-driven ground-level heat buildup.
   // On flat arid terrain, low wind (1-exposure) + low moisture (1-waterlogging) trap
   // intense radiative heat at ground level. Wind-exposed terrain (hills) stays cooler.
@@ -63,14 +68,14 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     frostRisk:        cp.coldness * tp.exposure,
     diseasePressure:  cp.humidity * (1 - tp.exposure),
     windExposure:     tp.exposure * (1 - cp.humidity * 0.5),
-    waterlogging:     tp.waterlogging * cp.humidity,
+    waterlogging,
     heatStress:       cp.heat * tp.exposure + groundHeat,
     soilFertility:    tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
     extremeAridity:   Math.max(0, droughtStress - 0.35),
     // Composite climate axes — these create large gaps between climate zones
     // (4-7×) unlike terrain×climate products where terrain dominates.
     // Power scaling creates sharp separation: Trop=0.50, Med=0.06, Temp=0.06, Desert=0.03
-    tropicality:      Math.pow(cp.heat * cp.humidity, 1.5),
+    tropicality,
     // Temp=0.42, Med=0.10, Desert=0.03, Trop=0.00
     winterHarshness:  cp.coldness * (1 - cp.heat),
     // Temp=0.69, Med=0.31, Desert=0.27, Trop=0.09
@@ -79,6 +84,12 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     shallowSoil:      1 - tp.soilDepth,
     // Med/Hill=0.280, Med/Soil=0.252, Med/Wetl=0.028 — peaks at moderate aridity + dry heat, suppressed in wetlands
     mediterraneity:   cp.heat * (1 - cp.humidity) * (1 - cp.coldness) * Math.max(0, 1 - 2 * Math.abs(cp.aridity - 0.5)) * (1 - tp.waterlogging),
+    // Temp/Wetl=0.540, Med/Wetl=0.180, Des/Wetl=0.270, Trop/Wetl=0.000 — separates non-tropical wetlands
+    coolWetland:      tp.waterlogging * cp.coldness,
+    // Temp/Arid=0.162, Des/Arid=0.243, Trop/*=0.000 — non-tropical aridity axis
+    continentalDrought: cp.coldness * cp.aridity * tp.drainage * (1 - tp.waterlogging),
+    // Des/Soil=0.381, Des/Arid=0.112, Des/Hill=0.047, all others=0 — thresholded desert heat
+    desertSoilHeat:   Math.max(0, tp.soilDepth * Math.pow(cp.aridity * cp.heat, 2) * (1 - tp.waterlogging) - 0.15),
   };
 }
 
@@ -121,6 +132,9 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.seasonality      = base.seasonality;                  // static
       eff.shallowSoil      = base.shallowSoil;                  // static (terrain-only)
       eff.mediterraneity   = base.mediterraneity;                // static (climate-only)
+      eff.coolWetland      = base.coolWetland;                   // static
+      eff.continentalDrought = base.continentalDrought;          // static
+      eff.desertSoilHeat   = base.desertSoilHeat;               // static
     }
   }
   recompileTraitEffects();
@@ -155,7 +169,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
   { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.40, description: 'wind strips foliage on broad-leaved plants' },
-  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: +0.25, inverse: true, description: 'narrow-leaved plants are aerodynamic — low wind resistance' },
+  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: +0.30, inverse: true, description: 'narrow-leaved plants are aerodynamic — low wind resistance' },
 
   // ── Defense — costly but essential where disease thrives ──
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
@@ -183,14 +197,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.60, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'heatStress',     coefficient: -0.30, description: 'bark cracking and xylem desiccation in extreme heat' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.35, description: 'root rot in waterlogged soil' },
-  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.55, description: 'water-demanding woody tissue' },
+  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.52, description: 'water-demanding woody tissue' },
   { trait: 'woodiness',      envVar: 'extremeAridity', coefficient: -2.00, description: 'xylem cavitation and wood cracking in extreme desert' },
   { trait: 'woodiness',      envVar: 'shallowSoil',   coefficient: -0.80, description: 'trees cannot anchor in thin rocky soil' },
 
   // ── Root priority — deep roots mine nutrients, but drown in wetland and fail in shallow soil ──
   { trait: 'rootPriority',   envVar: null,             coefficient: +0.18, description: 'nutrient mining and soil anchoring' },
   { trait: 'rootPriority',   envVar: 'soilFertility',  coefficient: +0.55, description: 'deep roots mine nutrients from fertile soil' },
-  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.65, description: 'deep water access' },
+  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.69, description: 'deep water access' },
   { trait: 'rootPriority',   envVar: 'windExposure',   coefficient: -0.25, description: 'deep taproots wind-levered in thin exposed soil' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.60, description: 'root drowning' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.55, inverse: true, description: 'shallow roots thrive in saturated soil' },
@@ -307,14 +321,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // while ignoring short (Barrel hgt=0.01) and tall (Euphorbia hgt=0.99)
   // Boosted to +15.0 to reach Med/Arid top-3 (extremeAridity=0.100 there)
   // extremeAridity=0 in Med/Hill and Trop/Hill, avoiding ABSENT violations
-  // Zero-mean: 15.00×0.0588 = 4.027×0.219 → 0.882 = 0.882 ✓
+  // Zero-mean: 17.00×0.0588 = 4.565×0.219 → 1.000 = 1.000 ✓
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'extremeAridity', coefficient: +15.00,
+    envVar: 'extremeAridity', coefficient: +17.00,
     description: 'tall columnar armored succulents escape ground heat in extreme desert' },
   { trait: 'heightPriority', trait2: 'defense', trait3: 'waterStorage',
     peaked: 0.50,
-    envVar: 'soilFertility', coefficient: -4.027,
+    envVar: 'soilFertility', coefficient: -4.565,
     description: 'tall columnar succulents are over-invested for fertile soil' },
 
 
@@ -349,14 +363,22 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'tropicality', coefficient: -0.211,
     description: 'broadleaf defended forbs outcompeted in tropical canopy' },
 
+  // ── Broadleaf perennial hill persistence — zero-mean (shallowSoil/tropicality) ──
+  // Wildflower (long=0.99, leaf=0.99): +0.037 in Temp/Hill. Ryegrass (long=0.01): +0.0005.
+  // Zero-mean: 0.05×0.425 = 0.132×0.161 → 0.021 = 0.021 ✓
+  { trait: 'longevity', trait2: 'leafSize', envVar: 'shallowSoil', coefficient: +0.05,
+    description: 'long-lived broadleaf perennials stabilize shallow hillside soil' },
+  { trait: 'longevity', trait2: 'leafSize', envVar: 'tropicality', coefficient: -0.132,
+    description: 'long-lived broadleaf perennials outcompeted in tropical canopy' },
+
   // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
   // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
-  // Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
+  // Zero-mean: 22.0×0.0857 = 11.71×0.161 → 1.885 = 1.885 ✓
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'mediterraneity', coefficient: +17.0,
+    envVar: 'mediterraneity', coefficient: +22.0,
     description: 'woody drought-hardy scrub with water storage dominates Mediterranean climate' },
   { trait: 'woodiness', trait2: 'waterStorage',
-    envVar: 'tropicality', coefficient: -9.06,
+    envVar: 'tropicality', coefficient: -11.71,
     description: 'woody water-storers outcompeted in humid tropical canopy' },
 
   // ── Med-leaf defended perennial — peaked(leaf=0.50) × defense × (1-seed) ──
@@ -375,7 +397,8 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   // ── Cypress wetland specialization — peaked(hgt=0.50) × (1-leaf) × wood × waterlogging ──
   // Cypress (hgt=0.50, leaf=0.01, wood=0.71): peaked=1.0, (1-leaf)=0.99, wood=0.71 → 0.703
   // Conifer (hgt=0.99): peaked=0.02 → 0.014. Acacia (hgt=0.01): peaked=0.02 → 0.014. Negligible collateral.
-  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 ✓
+  // Zero-mean: 3.50×0.1125 = 0.926×0.425 → 0.394 = 0.394 (based on pre-floor waterlogging mean)
+  // Note: waterlogging floor shifts mean to 0.144, creating +0.077 bias for Cypress — beneficial
   { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness',
     peaked: 0.50, inverse2: true,
     envVar: 'waterlogging', coefficient: +3.50,
@@ -416,6 +439,53 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     description: 'tall woody plants topple in thin soil without deep anchorage' },
   { trait: 'seedInvestment', trait2: 'rootPriority', envVar: 'shallowSoil', coefficient: +0.30,
     description: 'fibrous-rooted colonizers establish well in shallow disturbed soil' },
+
+  // ── Succulent seed dispersal penalty on wind-exposed terrain ──
+  // Caudiciform (seed=0.99, wStr=0.55): product 0.545. Saguaro (seed=0.01): ~0. Turfgrass (wStr=0.01): ~0.
+  // Zero-mean: 1.00×mean(windExposure=0.320) = 1.46×mean(soilFertility=0.219) → 0.320 = 0.320 ✓
+  { trait: 'seedInvestment', trait2: 'waterStorage', envVar: 'windExposure', coefficient: -1.00,
+    description: 'wind-exposed terrain desiccates heavy-seeded succulent tissue' },
+  { trait: 'seedInvestment', trait2: 'waterStorage', envVar: 'soilFertility', coefficient: +1.46,
+    description: 'heavy-seeded succulents establish well in fertile soil' },
+
+  // ── Pioneer tree wetland boost — seed × (1-defense) × wood × waterlogging ──
+  // Birch (seed=0.99, 1-def=0.99, wood=0.71) → 0.696. Flowering Shrub (seed=0.99, 1-def=0.50, wood=0.40) → 0.198.
+  // All other trees have low seed or high defense, giving minimal effect.
+  // Zero-mean: 0.30×0.144 = 0.102×0.425 → 0.043 = 0.043 ✓
+  { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
+    inverse2: true,
+    envVar: 'waterlogging', coefficient: +0.30,
+    description: 'pioneer trees with thin bark colonize dynamic wetland margins' },
+  { trait: 'seedInvestment', trait2: 'defense', trait3: 'woodiness',
+    inverse2: true,
+    envVar: 'shallowSoil', coefficient: -0.102,
+    description: 'pioneer trees need deep soil anchorage on hillsides' },
+
+  // ── Perennial non-seeder Mediterranean persistence — (1-seed) × long × med ──
+  // Bunchgrass (1-seed=0.99, long=0.99 → 0.980) vs Turfgrass (1-seed=0.01, long=0.01 → 0.0001)
+  // Ryegrass (1-seed=0.01 → 0.010) excluded. extremeAridity compensator avoids tropical collateral.
+  // Zero-mean: 0.25×0.0857 = 0.364×0.0588 → 0.0214 = 0.0214 ✓
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse: true,
+    envVar: 'mediterraneity', coefficient: +0.25,
+    description: 'perennial non-seeders persist through Mediterranean drought cycles' },
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse: true,
+    envVar: 'extremeAridity', coefficient: -0.364,
+    description: 'perennial non-seeders desiccate in extreme arid conditions' },
+
+  // ── Deep-rooted tree tropical suppression — root × wood × tropicality ──
+  // Oak (root=0.99, wood=0.71) → 0.703. Birch (root=0.99, wood=0.71) → 0.703
+  // Palm (root=0.01) → 0.007. Tropical (root=0.01) → 0.007. Conifer (root=0.01) → 0.007
+  // Compensator on winterHarshness boosts temperate trees where they're DOM
+  // Zero-mean: 1.55×0.161 = 0.956×0.261 → 0.250 = 0.249 ✓
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'tropicality', coefficient: -1.55,
+    description: 'deep-rooted trees outcompeted by shallow-rooted tropical species' },
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'droughtStress', coefficient: +0.956,
+    description: 'deep-rooted trees mine water reserves in drought conditions' },
+
 ];
 
 /** Niche index for a terrain×climate combination. */

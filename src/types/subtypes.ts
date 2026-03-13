@@ -88,7 +88,7 @@ function classifyGrass(g: Genome): SubtypeId {
   const scores = new Float64Array(8);
 
   // Turfgrass: low height, shallow roots — default short lawn grass
-  scores[0] = (1 - g.heightPriority) * 0.45 + (1 - g.rootPriority) * 0.15 + (1 - g.woodiness) * 0.20 + (1 - g.leafSize) * 0.1 + (1 - g.longevity) * 0.1;
+  scores[0] = (1 - g.heightPriority) * 0.35 + (1 - g.rootPriority) * 0.35 + (1 - g.woodiness) * 0.15 + (1 - g.leafSize) * 0.1 + (1 - g.longevity) * 0.05;
 
   // Tallgrass: high heightPriority, perennial
   scores[1] = g.heightPriority * 0.6 + g.leafSize * 0.2 + g.seedInvestment * 0.1 + g.longevity * 0.1;
@@ -162,14 +162,14 @@ function classifyShrub(g: Genome): SubtypeId {
   scores[1] = (1 - Math.abs(g.leafSize - 0.5)) * 0.25 + (1 - Math.abs(g.heightPriority - 0.5)) * 0.25
     + g.seedInvestment * 0.2 + (1 - g.defense) * 0.2 + (1 - g.longevity) * 0.1;
 
-  // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy
-  scores[2] = g.woodiness * 0.3 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.25 + g.longevity * 0.2;
+  // Mediterranean: fire-adapted scrub — thick bark, small leaves, drought-hardy, compact
+  scores[2] = g.woodiness * 0.25 + (1 - g.leafSize) * 0.25 + g.waterStorage * 0.20 + g.longevity * 0.15 + (1 - g.heightPriority) * 0.15;
 
   // Thorny: high defense, large-leaved (real brambles have big compound leaves)
   scores[3] = g.defense * 0.50 + g.leafSize * 0.25 + (1 - g.heightPriority) * 0.15 + g.rootPriority * 0.10;
 
-  // Desert/Saltbush: deep-rooted halophytic shrub — taproot water mining, small leaves, undefended
-  scores[4] = g.rootPriority * 0.30 + (1 - g.leafSize) * 0.25 + g.longevity * 0.20 + (1 - g.defense) * 0.15 + (1 - g.heightPriority) * 0.10;
+  // Desert/Saltbush: halophytic shrub — salt-tolerant, compact, small leaves
+  scores[4] = g.rootPriority * 0.15 + (1 - g.leafSize) * 0.304 + g.longevity * 0.243 + (1 - g.defense) * 0.182 + (1 - g.heightPriority) * 0.121;
 
   // Mangrove: wetland shrub — shallow roots, tall, lush
   scores[5] = (1 - g.rootPriority) * 0.3 + g.heightPriority * 0.3 + g.leafSize * 0.2 + (1 - g.waterStorage) * 0.2;

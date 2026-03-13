@@ -312,3 +312,332 @@ Structural blockers:
 - **Trop/Wetl Cypress ABSENT violation**: waterlogging=0.810 creates massive boost. Need (1-tropicality) or similar modulation to suppress in tropical wetlands specifically.
 - **36 missing dominants**: Many are structurally blocked (trees with globally weak profiles, 4-dominant niches with 3 slots, ABSENT subtypes occupying top positions). Approaching limits of coefficient tuning alone.
 - **Des/Wetl still broken**: All env values near-zero, all modifiers clustered.
+
+## Iteration 7
+### Hypothesis — What I think the problem is
+Three issues with surgical fixes:
+1. **Caudiciform (ABS) at #1 in Med/Hill** — seed=0.99 × wStr=0.55 (product 0.545) is uniquely high. A wind-exposed penalty for heavy-seeded succulents would push it down.
+2. **Turfgrass (ABS) dominates wind-exposed niches** — The (1-leafSize)×windExposure term at +0.25 is below where narrow-leaved grasses could differentiate from mid-leaf subtypes. A small bump helps.
+3. **Bunchgrass/Saltbush just below top-3** — Bunchgrass in Med/Hill (gap 0.056), Saltbush in Temp/Arid (gap 0.003). Deep-rooted and woody plants should get slightly more drought benefit.
+
+### Changes — What I did
+1. **Succulent seed dispersal wind penalty — seed×wStr×windExposure**
+   - `seedInvestment × waterStorage × windExposure × -1.00`
+   - `seedInvestment × waterStorage × soilFertility × +1.46`
+   - Zero-mean: 1.00×0.320 = 1.46×0.219 → 0.320 = 0.320 ✓
+   - Key design: Caudiciform (seed=0.99, wStr=0.55, product=0.545) uniquely high. Saguaro (seed=0.01): product ~0. Turfgrass (wStr=0.01): product ~0.
+   - **Effect:** Caudiciform drops from #1 to #6-7 in Med/Hill. Bunchgrass approaches top-3.
+
+2. **Narrow-leaf wind resistance bump — (1-leafSize)×windExposure: +0.25 → +0.30**
+   - Small coefficient increase (+0.05) to give narrow-leaved plants (Bunchgrass leaf=0.49, Saltbush leaf=0.01) more advantage on windy terrain.
+   - **Effect:** Bunchgrass enters top-3 in Med/Hill (#3 at +0.798). +1 dominant hit.
+
+3. **Deep root drought access bump — rootPriority×droughtStress: +0.65 → +0.69**
+   - Rewards deep-rooted plants (root=0.99) more in drought conditions. Differentiates Bunchgrass (root=0.99) from Tropical Herb (root=0.50) in Med/Hill.
+   - **Effect:** Combined with Proposals 1+3, closed the 0.004 gap between Bunchgrass and Tropical Herb in Med/Hill. +1 dominant (Bunchgrass in Med/Hill confirmed in top-3).
+
+4. **Woody drought penalty reduction — woodiness×droughtStress: -0.55 → -0.52**
+   - Reduced penalty for shrubs in drought. Differentiates Saltbush (wood=0.40) from Ryegrass (wood=0.01) in Temp/Arid.
+   - **Effect:** Closed 0.003 gap for Saltbush in Temp/Arid. Saltbush enters top-3. +1 dominant.
+
+### Failed approaches this iteration
+- **tropicalFertility composite env var**: Added tropicalFertility = pow(heat×humidity, 1.5) × soilDepth × humidity × (1 - exposure×0.5). Two paired terms targeting Tropical canopy tree (+8.0) and understory fern (+3.0). **Crashed to 70.6%** — coefficients way too aggressive. Lost 8 dominant hits, gained 26 absent violations. Reverted.
+- **(1-root)×(1-wood)×shallowSoil penalty (-0.30)**: Intended to penalize TropicalHerb (ABS in multiple niches). But TropicalHerb genome has root=0.50 (half effect) while Saguaro root=0.01 (full effect). Saguaro collateral: dropped from Med/Arid top-3 (-1 DOM). Architect analysis used wrong genome data.
+- **Height bump: (1-height)×windExposure +0.50→+0.55**: No effect on gaps because competitors in top-3 have similar height profiles. Gaps stayed at 0.003-0.004 regardless of coefficient.
+- **(1-leafSize)×windExposure +0.30→+0.32**: Genome selection cascade — crashed to 74.9% (lost 2 DOM). Even +0.02 more was enough to change which genome the optimizer selects for some subtype.
+
+### Key insights
+- **Genome selection is a cliff**: Coefficients have "safe zones" and "cascade zones". +0.05 bump (0.25→0.30) was fine; +0.07 (0.25→0.32) cascaded. The boundary is unpredictable.
+- **Trait products as subtype signatures**: seed×wStr uniquely identifies Caudiciform because no other subtype has BOTH seed=0.99 AND wStr≥0.55. Using this as a penalty term is surgical.
+- **Small coefficient bumps on existing terms**: Lower cascade risk than new term pairs. The +0.04 to rootPriority×droughtStress and -0.03 to woodiness×droughtStress were both safe because they're tiny adjustments to existing terms.
+- **Architect genome assumptions were wrong**: The subagent assumed TropicalHerb root=0.01 but it's actually root=0.50. Always verify representative genomes from balance-matrix before designing terms.
+
+### Results
+- **75.3% → 76.6%** (+1.3%)
+- Absent: 94.7% → 94.5% (410→409 of 433, -1)
+- Dominant: 41.9% → 45.2% (26→28 of 62, +2)
+- Common: 89.0% → 90.2% (73→74 of 82, +1)
+- Minor: 96.8% → 96.8% (61 of 63, unchanged)
+
+### Remaining gaps (34 missing dominant entries)
+Closest to fixing:
+- Temp/Hill: Wildflower (rank 4, gap 0.011) — swap with Bunchgrass (both DOM), net 0
+- Des/Wetl: Sedge (rank 11, gap 0.051) — all top-3 still non-dominant
+- Med/Wetl: Fern (rank 8, gap 0.081), Cypress (rank 9, gap 0.087)
+- Trop/Arid: Pampas (rank 12, gap 0.144)
+
+Structural blockers:
+- **Temp/Hill 4-dominant ceiling**: Still 4 DOMs for 3 slots. Ryegrass (common) at rank 2 blocks.
+- **Med/Wetl Desert Annual blocker**: rank 2 (ABS). Fern and Cypress far below.
+- **Des/Wetl broken**: All env values near-zero. All modifiers clustered 0.08-0.21.
+- **Trop/Soil Mangrove/Oak block**: Both ABS, ranks 1-3. Only Tropical (DOM) in top-3.
+- **Remaining 34 missing DOMs**: Most have gaps >0.1. Approaching limits of coefficient tuning.
+
+## Iteration 8
+### Hypothesis — What I think the problem is
+Dominant gate at 45.2% is the critical bottleneck (28/62). Closest misses: Temp/Hill Wildflower (gap 0.011), Med/Wetl Fern (gap 0.081), Med/Wetl Cypress (gap 0.087). Hypothesis: the Saguaro soilFertility compensator (peaked(hgt=0.50)×def×wStr×soilFertility -4.027) is collaterally crushing Cypress (-0.407) and Sedge (-0.136) in wetland niches because they share Saguaro's trait signature.
+
+### Changes — What I did
+No changes committed. All attempts reverted to baseline after testing.
+
+### Failed approaches this iteration
+
+**1. Cypress waterlogging boost + split compensator (Part A)**
+Changed Cypress wetland pair from waterlogging +3.50 / shallowSoil -0.926 to waterlogging +4.50 / shallowSoil -0.50 / tropicality -1.827. Result: 76.6% — identical to baseline. Cypress entered Med/Wetl top-3 but displaced Sedge (also DOM). Net 0 DOM.
+
+**2. Desert Annual wetland suppression — seed×(1-long)×waterlogging -0.50 / heatStress +0.181**
+Collateral: Birch (seed=0.99, long=0.01) got -0.221 in Temp/Wetl, dropping from top-3. Ryegrass boosted above Saltbush in Temp/Arid. Clover boosted above Aloe in Trop/Arid. Score crashed to 74.9% (25 DOM, -3 net).
+
+**3. Targeted DesAnn suppression — seed×(1-long)×defense×waterlogging -0.22 / heatStress +0.080**
+Avoided Birch (def=0.01) but heatStress compensator still boosted Ryegrass above Saltbush in Temp/Arid (-1 DOM) and Clover above Aloe in Trop/Arid (-1 DOM). Also created new Ryegrass ABS violation in Med/Arid. Score: 76.0% (27 DOM).
+
+**4. seed×leaf×long×shallowSoil +0.26 / tropicality -0.687 (Wildflower boost)**
+Wildflower entered Temp/Hill top-3 but: (a) Bunchgrass exited Temp/Hill (swap), (b) Wildflower rose to +0.903 in Temp/Arid, displacing Saltbush from top-3 (-1 DOM). Score: 76.1% (27 DOM).
+
+**5. seedInvestment×leafSize×winterHarshness +1.25 → +1.28 (+0.03)**
+Score dropped to 76.1% (27 DOM). Genome cascade.
+
+**6. seedInvestment×leafSize×winterHarshness +1.25 → +1.26 (+0.01)**
+Even +0.01 cascaded. Score: 76.0% (27 DOM). This coefficient pair is at the cascade boundary.
+
+**7. Saguaro compensator variable switch analysis**
+Computed alternative compensators for the Saguaro soilFertility -4.027 term. All alternatives (seasonality -2.765, winterHarshness -6.415, droughtStress -3.376) produce LARGER penalties for Cypress/Sedge in wetlands because those variables are higher in wetland niches than soilFertility is. soilFertility is actually the BEST compensator choice for minimizing wetland collateral.
+
+### Key insights
+- **Coefficient tuning has hit a hard ceiling at ~76.6%**: Every near-miss DOM fix causes equal-or-greater DOM losses elsewhere through zero-sum swaps or genome selection cascades.
+- **Saguaro compensator collateral is structural**: peaked(hgt=0.50)×def×wStr is shared by Cypress (0.535) and Sedge (0.535) — both DOM targets in wetlands. The -4.027×soilFertility penalty can't be switched to any alternative variable without making things worse.
+- **Ryegrass is the universal blocker**: With leaf=0.49 (moderate), seed=0.99, def=0.99, root=0.99, Ryegrass is a balanced generalist that occupies top-3 in Temp/Hill (COM), Temp/Arid (COM), Med/Hill (MIN). Any boost to other subtypes must be large enough to surpass Ryegrass, which triggers cascades.
+- **4-DOM-for-3-slot ceiling**: Temp/Hill, Med/Wetl, Des/Wetl all have 4+ DOMs needing 3 slots. Even perfect coefficient tuning can only seat 3 — the rest are structural misses.
+- **ABS violations are densely packed**: Suppressing one ABS subtype from top-5 reveals another (e.g., Turfgrass exits Temp/Arid top-5 but Pampas enters at same rank).
+- **+0.01 coefficient changes can cascade**: The seed×leaf×winterHarshness pair is so tightly balanced that even ±0.01 triggers genome selection changes.
+- **Mean shift vs zero-mean is crucial**: Non-zero-mean changes cascade because they shift the grid-search optimum for genome selection. Zero-mean changes avoid this but still cascade if they change the relative ranking between genomes at the margin.
+
+### Results
+- **76.6% → 76.6%** (no change — all attempts reverted)
+- This iteration confirms the coefficient tuning ceiling. Further progress requires structural changes: new environment variables, classifier modifications, terrain/climate physics adjustments, or genome grid resolution increases.
+
+### Recommended structural changes for future iterations
+1. **New env var for tropical soil differentiation**: Something like `canopyDensity = tropicality × soilFertility` that sharply separates Trop/Soil from other niches.
+2. **Classifier adjustments**: Aromatic genome has leaf=0.01 (should be ~0.50 for a Mediterranean shrub). Fixing this enables peaked(leaf=0.50)×mediterraneity terms to work.
+3. **Genome grid refinement**: 3^9 grid may miss critical genomes at intermediate values (e.g., 0.50). Increasing to 5^4 × 3^5 for key traits could find better representatives.
+4. **Terrain physics tuning**: Adjusting Hill/Wetland/Arid base physics could shift the landscape enough to unstick structural blockers.
+
+---
+
+## Iteration 9
+### Hypothesis — Structural physics changes can break past the coefficient ceiling
+Iteration 8 proved that coefficient tuning alone hits a ceiling at 76.6%. The dominant gate (45.2%, 28/62) needs structural changes to the environment physics layer, not just new trait×env table rows. Three specific structural approaches:
+
+1. **Waterlogging humidity floor**: Desert/Mediterranean wetlands have almost no waterlogging character (Des/Wetl=0.090 vs Trop/Wetl=0.810) because `waterlogging = tp.waterlogging × cp.humidity`. Real oases and spring-fed marshes retain standing water regardless of climate humidity. A `Math.max(humidity, 0.45)` floor would give these niches proper wetland character.
+
+2. **Hill exposure reduction**: Reducing Hill exposure from 0.80→0.75 slightly eases wind penalties that crush large-leaved forbs (Wildflower/Clover), improving their hill competitiveness without cascading as badly as coefficient changes.
+
+3. **Pioneer tree wetland boost**: Birch (seed=0.99, def=0.01, wood=0.71) is a pioneer tree that uniquely colonizes wetland margins. A `seed × (1-def) × wood × waterlogging` term targets Birch specifically without collateral (all other trees have high defense or low seed).
+
+### Approach
+Three changes applied sequentially, each tested independently:
+
+1. **Waterlogging floor** (`deriveCellEnv` line 66):
+   - Changed `tp.waterlogging * cp.humidity` → `tp.waterlogging * Math.max(cp.humidity, 0.45)`
+   - Effect: Med/Wetl waterlogging 0.270→0.405, Des/Wetl 0.090→0.405
+   - Result: 77.3% (+0.7pp), DOM 28→29, ABS 409→411
+   - Gained: Trop/Wetl Palm, Med/Wetl Cypress, Des/Wetl Sedge+Tallgrass (+4 DOM)
+   - Lost: Temp/Wetl Birch, Temp/Arid Saltbush, Med/Wetl Sedge (-3 DOM, net +1)
+   - Side effect: broke Cypress zero-mean pair (waterlogging mean shifted 0.113→0.144), but the resulting +0.077 Cypress mean bias was beneficial — "fixing" it dropped score to 74.8%
+
+2. **Hill exposure** (terrain physics):
+   - Changed Hill exposure 0.80→0.75
+   - Result: 77.6% (+0.3pp), ABS 412 (+1 fix)
+   - Removed Pampas ABS violation in Temp/Hill
+   - Wildflower gap narrowed from 0.011 to 0.003 but still 4-for-3 slot blocked
+
+3. **Pioneer tree wetland boost** (new TRAIT_EFFECTS entry):
+   - Added `seed × (1-def) × wood × waterlogging +0.08 / shallowSoil -0.027`
+   - Birch product: 0.696 (2x next largest collateral: Flowering Shrub 0.198)
+   - Result: 78.2% (+0.6pp), DOM 29→30 (Birch enters Temp/Wetl top-3)
+
+### Failed approaches within iteration 9
+- **Hill exposure 0.70**: Too aggressive, DOM crashed to 26/62 (cascaded through all Hill niches)
+- **Hill soilDepth 0.30→0.32**: Massive cascade through soilFertility, dropped to 75.5%
+- **Broadleaf hill boost 0.08→0.09/0.10**: Flipped Wildflower in but Bunchgrass out (4-for-3 zero-sum swap)
+- **Mediterranean term + (1-leaf) filter**: Theoretically should help Tropical tree by removing wood×wStr×tropicality collateral. In practice: exactly neutral (same 77.6%, same DOMs). The genome cascade absorbed the change.
+- **Cypress compensator "fix"**: Correcting the broken zero-mean (shallowSoil -0.926→-1.184) HURT because the imbalance was beneficial. Score dropped 77.6%→74.8%.
+
+### Key insights
+- **Waterlogging floor is botanically motivated**: Wetlands retain groundwater from terrain regardless of climate humidity — oases, spring-fed marshes, etc.
+- **Broken zero-mean can be beneficial**: When the waterlogging mean shifted, it created a positive Cypress bias that helped wetland DOMs. "Fixing" it removed the benefit.
+- **4-for-3 slot is a hard ceiling**: Temp/Hill has 4 DOMs (Bunchgrass, Turfgrass, Wildflower, Clover) for 3 slots. ANY term that helps one trades another out because the DOM subtypes have orthogonal trait profiles (short vs tall, perennial vs annual, broad vs narrow leaf).
+- **Surgical new terms work**: The pioneer tree boost (seed × (1-def) × wood) was extremely selective — only Birch gets meaningful effect among trees.
+
+### Results
+- **76.6% → 78.2%** (+1.6pp)
+- DOM: 28→30 (+2: Des/Wetl Sedge+Tallgrass, Trop/Wetl Palm, Med/Wetl Cypress, Temp/Wetl Birch gained; Temp/Arid Saltbush, Med/Wetl Sedge lost)
+- ABS: 409→412 (+3)
+- COM: 74→75 (+1)
+- Closest remaining DOM misses: Temp/Hill Wildflower (0.003), Med/Wetl Sedge (0.036), Temp/Hill Clover (0.039)
+
+### Remaining blockers
+- **Tropical niches** (11 missing DOMs): Holly/Oak/Mangrove dominate Trop/Soil instead of Palm/Magnolia/Tropical Herb/Fern. The Mediterranean wood×wStr×tropicality compensator crushes Tropical tree (product=0.383) — it gets -1.737 in Trop/Soil. Structural fix needed but (1-leaf) filter proved neutral.
+- **Temp/Arid** (3 missing): Saltbush, Aromatic, Desert Grass all need to be in top-3 but Bunchgrass/Clover/Ryegrass dominate.
+- **Med/Hill** (2 missing): Mediterranean and Aromatic subtypes can't break through grass dominance.
+- **Med/Arid** (2 missing): Mediterranean gap=0.584 — needs significant structural change.
+
+## Iteration 10
+### Hypothesis — What I think the problem is
+DOM gate stuck at 48.4% (30/62). Need 14 more DOMs to reach 70%. Architect analysis identified 6 prongs: Fern wetland boost, Aromatic med boost, Acacia drought-tree, Sedge wetland peaked term, Mediterranean classifier fix, and existing coefficient tweaks.
+
+### Approaches tested
+
+**Successful:**
+1. **Mediterranean classifier fix** — Added `(1-heightPriority)*0.15` weight to Mediterranean shrub classifier (subtypes.ts line 166). Genome shifted from hgt=0.99 to hgt=0.50, reducing wind/shallowSoil penalties. Net: +1 ABS (413→414), Med/Arid gap narrowed from 0.575→0.062.
+2. **Med coefficient 17→20** — Increased wood×wStr×mediterraneity from 17.0 to 20.0 with tropicality compensator 9.06→10.65. Med/Hill Mediterranean gap: 0.200→0.013. Med/Arid: 0.244→0.062.
+
+**Failed (~15 approaches):**
+3. **(1-wood)×wStr×waterlogging +0.20** — Too weak to close Sedge Med/Wetl gap. At +0.35, cascaded negatively (-0.8%).
+4. **root×(1-leaf)×wood×droughtStress +2.0 (Acacia)** — winterHarshness compensator destroyed Cypress in wetlands (-0.514 in Temp/Wetl). Birch shares identical trait product (0.696). Crashed to 76.4%.
+5. **Med-leaf coefficient 0.20→0.50/1.0 (Aromatic)** — extremeAridity compensator devastated desert niches. Bunchgrass (product=0.961) gets same boost. At 1.0: crashed to 75.1%.
+6. **waterStorage×waterlogging -0.60→-0.85** — Cypress and Mediterranean (both wStr=0.54) destroyed in wetlands. Crashed to 76.4%.
+7. **peaked(wStr=0.54)×(1-wood)×waterlogging +0.15** — Exactly neutral. Des/Wetl Sedge already in top-3; term too weak for Med/Wetl gap.
+8. **leafSize×longevity×shallowSoil +0.17** (broadleaf hill boost) — tropicality compensator devastated tropical DOMs. Wildflower entered Temp/Hill but Bunchgrass fell out. Crashed to 75.9%.
+9. **Turfgrass classifier** (root preference 0.15→0.20/0.30) — Turfgrass genome shifted to root≠0.99, losing Turfgrass DOM in Temp/Hill where it's needed. Binary genome shift.
+10. **Med coefficient 20→21/22** — Mediterranean entered top-3 in Med niches but displaced other DOMs (Bunchgrass in Med/Hill, Saguaro in Med/Arid). Net zero DOM changes.
+
+### Key insights
+- **DOM gate is structurally stuck at 30/62**: Every change that gains a DOM in one niche loses one in another due to shared trait signatures.
+- **4-for-3 slot ceiling is pervasive**: 12 of 16 niches have ≥3 target DOMs for 3 top-3 slots. Many have 4+ DOMs. Any boost to one DOM displaces another DOM.
+- **Non-DOM blockers in top-3**: Only way to gain net DOMs is displacing non-DOMs (COM/MIN/ABS) from top-3. But the gaps are large (0.066-0.942). The closest opportunities: Med/Hill Turfgrass(com) at +0.845 vs Mediterranean(DOM) at +0.779 (gap=0.066). Trop/Soil Oak(ABS) at +2.587 vs Magnolia(DOM) at +2.318 (gap=0.269).
+- **Compensator env var problem**: Any compensator env var is high in some niche where DOMs need to perform. winterHarshness → hurts Cypress in temperate. tropicality → hurts Fern in tropical. soilFertility → hurts Magnolia in tropical. shallowSoil → hurts Bunchgrass on hills.
+- **Genome similarity**: Many subtypes share near-identical trait products (Fern=Bunchgrass, Acacia=Birch, Sedge=Euphorbia minus wStr). The 3-trait filter maximum can't create enough separation.
+- **Classifier changes work but are fragile**: Mediterranean hgt fix worked (+1 ABS). But Turfgrass root change broke Temp/Hill DOM. Binary genome shifts in the 3-value grid (0.01/0.50/0.99) make classifier changes unpredictable.
+
+### Results
+- **78.2% → 78.4%** (+0.2pp)
+- DOM: 30→30 (unchanged)
+- ABS: 412→414 (+2)
+- COM: 75→75 (unchanged)
+- Mediterranean gaps narrowed: Med/Hill 0.200→0.013, Med/Arid 0.244→0.062
+
+### Remaining blockers
+- **DOM gate at 48.4%** is the binding constraint. Need structural changes beyond coefficient/classifier tuning to reach 70%.
+- **Potential future directions**: (a) new env variables that separate crowded niches, (b) 4-trait interactions in the engine, (c) subtype-specific trait modifiers (breaks current architecture), (d) rethinking the target matrix itself.
+
+## Iteration 11
+### Hypothesis — What I think the problem is
+DOM gate at 30/62 (48.4%) needs 14 more hits to reach 70%. Three structural barriers:
+1. **4-for-3 slot ceiling**: Most niches have 3-4 DOM targets for only 3 top-3 slots. Single-coefficient changes are zero-sum (one DOM in, another out).
+2. **ABS blockers in top-3**: Palm[ABS] in wetlands, Turfgrass[ABS] in Temp/Arid, Mangrove[ABS] in Trop/Soil, Fern/Epiphytic[ABS] in Trop/Arid occupy top-3 slots that DOMs need.
+3. **Shared trait signatures**: Many subtypes have near-identical trait products (Bunchgrass/Fern/Acacia all have root×def×long ≈ 0.970), making targeted terms cascade to unintended subtypes.
+
+### Changes — What I did
+Five changes applied and tested individually, keeping only those that produced net DOM gains:
+
+1. **Root×wood tropical suppression** (new term)
+   - `rootPriority × woodiness × tropicality × -1.55` — suppresses deep-rooted trees in tropics
+   - `rootPriority × woodiness × droughtStress × +0.956` — compensator boosts in drought
+   - Zero-mean: 1.55×0.161 = 0.956×0.261 → 0.250 ≈ 0.249 ✓
+   - Effect: +0.3% overall (78.4%→78.7%), no DOM change but improved absent gate
+
+2. **Pioneer tree wetland boost** (coefficient increase 0.08→0.30)
+   - `seed × (1-defense) × wood × waterlogging × +0.30` (was +0.08)
+   - `seed × (1-defense) × wood × shallowSoil × -0.102` (was -0.027)
+   - Effect: **+1 DOM** — Birch entered Temp/Wetl top-3 (passed Mangrove[com])
+
+3. **Saguaro 3-way coefficient bump** (15.0→17.0)
+   - `peaked(hgt=0.50) × defense × waterStorage × extremeAridity × +17.0`
+   - Compensator on soilFertility: -4.565
+   - Effect: Saguaro entered Med/Arid top-3 but displaced Mediterranean (DOM swap, net 0)
+
+4. **Mediterranean coefficient bump** (20.0→22.0)
+   - `woodiness × waterStorage × mediterraneity × +22.0`
+   - Compensator on tropicality: -11.71
+   - Effect: Combined with #3, Mediterranean re-entered Med/Arid top-3 alongside Saguaro and BC. **+1 DOM** (Desert Grass[com] displaced to #4)
+
+5. **Perennial non-seeder Mediterranean term** (new)
+   - `(1-seedInvestment) × longevity × mediterraneity × +0.25`
+   - `(1-seedInvestment) × longevity × extremeAridity × -0.364` (compensator)
+   - Zero-mean: 0.25×0.0857 = 0.364×0.0588 → 0.0214 ✓
+   - Effect: **+1 DOM** — Bunchgrass entered Med/Hill top-3 (passed Turfgrass[com])
+   - Trade-off: -1 ABS hit (Pampas entered Temp/Hill top-5)
+   - Note: tropicality compensator was tested first but cascaded badly (-1.5% crash) — penalized Magnolia/Fern in tropical niches. extremeAridity compensator is safe (only active in desert).
+
+### Approaches tested and rejected
+1. **Niche-weighted representative selection** in target-score.ts — tested at all weight levels (1.3/1.1/1.0/0.8), made score WORSE at every level (73.6%). Coefficients co-tuned with mean-modifier selection.
+2. **Root×wood×tropicality with winterHarshness compensator** — gained Magnolia in Trop/Soil but winterHarshness too strong in temperate (+0.491 for Oak), lost 4 DOMs net (76.6%).
+3. **(1-seed)×long×med with TROPICALITY compensator** — penalized many DOMs with high (1-seed)×long in tropical niches. Dropped from 79.8%→79.2%. Switched to extremeAridity compensator which is safe.
+4. **Saguaro 3-way at 15.5/16.0** — too small, gap didn't close. At 16.0, Saguaro entered but Mediterranean fell out (swap). Needed 17.0 + Med 22.0 combination to get both in.
+
+### Results
+- **Overall: 78.4% → 80.3%** (+1.9%)
+- DOM: 30→33 (+3)
+- ABS: 415→414 (-1, Pampas in Temp/Hill)
+- COM: 76→76 (unchanged)
+- MIN: 61→61 (unchanged)
+
+### Key insight
+The compensator env var choice is critical. tropicality and winterHarshness are dangerous compensators because they're high in important climate zones where DOMs need to perform. extremeAridity is the safest compensator — only active in desert niches where scores are generally inflated and subtypes are far from thresholds. soilFertility is next safest.
+
+## Iteration 12 — DOM structural plateau analysis
+
+### Hypothesis
+The DOM gate at 53.2% (33/62) is structurally plateaued. Every coefficient change cascades through genome reselection, gaining some DOMs while losing others. Need to find approaches that bypass the cascade.
+
+### Changes — What I did
+
+1. **3 new environment variables** added to CellEnvironment + deriveCellEnv + updateEffectiveEnv:
+   - `coolWetland = waterlogging × coldness` — Temp/Wetl=0.540, Med/Wetl=0.180, Des/Wetl=0.270, Trop/Wetl=0.000
+   - `continentalDrought = coldness × aridity × drainage × (1-waterlogging)` — Temp/Arid=0.162, Des/Arid=0.243
+   - `desertSoilHeat = max(0, soilDepth × (aridity×heat)² × (1-waterlogging) - 0.15)` — Des/Soil=0.381, Des/Arid=0.112
+
+2. **Turfgrass classifier change** (subtypes.ts):
+   - Height weight 0.45→0.35, rootPriority weight 0.15→0.35, woodiness 0.20→0.15, leafSize 0.10→0.10, longevity 0.10→0.05
+   - Effect: Turfgrass genome shifts to shallow roots (r=0.99→0.99, but composition changed). Fixed Turfgrass ABS violation in Temp/Arid.
+   - Trade: Turfgrass dropped from Temp/Hill #1 to #6 (-1 DOM), Wildflower entered Temp/Hill top-3 (+1 DOM). Net: +1 ABS, 0 DOM.
+   - Score: 80.3% → 80.4% (+0.1%)
+
+3. **Saltbush classifier change** (subtypes.ts):
+   - rootPriority weight 0.30→0.15, redistributed proportionally: leafSize 0.25→0.304, longevity 0.20→0.243, defense 0.15→0.182, heightPriority 0.10→0.121
+   - Effect: Saltbush genome shifts, enters Temp/Arid top-3 as DOM.
+   - Score: 80.4% → 80.9% (+0.5%), **DOM 33→34 (+1)**
+
+### Exhaustive sweeps performed (all found ZERO additional DOM gains)
+
+1. **Classifier weight sweep** (1136 evals): Every classifier's every weight ±0.05/0.10/0.15 and every inverse flip. Only Saltbush rootPriority produced +1 DOM. After applying, re-sweep found no further gains.
+
+2. **New env variable entry sweep** (864 evals): Every single-trait and 12 two-trait combinations on coolWetland/continentalDrought/desertSoilHeat at 12 coefficient values. Zero DOM gains.
+
+3. **Multi-classifier combination sweep** (36 pair combos): Targeted Fern (4 DOM misses), Aromatic (3 misses), Clover, Sedge classifier changes across different archetypes. All negative or neutral.
+
+4. **Stochastic hill-climbing optimizer** (5000 iterations): Randomly perturbed 3 coefficients simultaneously per iteration from the full 129-coefficient array. Found ABS improvements (19→16 violations, +0.5% overall) but ZERO DOM improvement across 5000 attempts.
+
+5. **Broadleaf seed-producer shallowSoil boost** (targeted): Increased existing 3-way entry `seed×leaf×def×shallowSoil` from +0.08 to +0.133/0.25. At 0.133: narrowed Clover Temp/Hill gap from 0.036→0.020 but no DOM flip. At 0.25: cascaded to DOM 32 (-2). Reverted.
+
+6. **Dense 4-point genome grid test**: Tested [0.01, 0.33, 0.67, 0.99] grid (262K genomes per archetype vs 19K). Score DROPPED to 73.5% with DOM 23/62 — intermediate trait values create genomes that exploit the engine differently, worse.
+
+### Corrected genome data (verified this session)
+Previous sessions had WRONG representative genome data. Actual genomes (3-point grid):
+- Sedge: r=0.01 (not 0.55), l=0.49 (not 0.99) — previous entries designed for wrong traits
+- Saltbush: d=0.50 (not 0.99) — defense weight was wrong direction
+- Turfgrass: r=0.99, d=0.99 (not 0.01/0.01)
+- Palm: h=0.50, l=0.50 (not 0.99/0.99)
+
+### Results
+- **Overall: 80.3% → 80.9%** (+0.6%)
+- DOM: 33→34 (+1, Saltbush in Temp/Arid)
+- ABS: 414→414 (unchanged net)
+
+### Key insight — DOM structural plateau
+The DOM gate at 54.8% (34/62) represents a hard structural limitation of the linear trait engine:
+
+1. **Genome reselection cascade**: Any coefficient change shifts which genome maximizes mean fitness for each subtype. This cascades through ALL rankings unpredictably. Even zero-mean paired changes cascade because variance shifts affect genome selection at the margin.
+
+2. **Shared genome profiles**: Many subtypes have identical or near-identical representative genomes (e.g., Wildflower and Fern differ only in seedInvestment; Oak and Acacia differ only in leafSize). The trait engine can't rank them differently because their trait products are nearly equal.
+
+3. **Mean-maximization vs niche-specific performance**: The grid search selects genomes maximizing MEAN modifier across 16 niches. But DOM assignments require niche-SPECIFIC excellence. A genome great for Temp/Wetl might be mediocre elsewhere, so it's never selected as representative.
+
+4. **Linear scoring capacity**: The trait engine is a linear sum of coefficient × trait × env products. With 129 entries and 62 DOM ordering constraints, the system is over-constrained. Adding entries helps some orderings but inevitably breaks others.
+
+**To reach 70% DOM (44/62), possible architectural changes:**
+- Per-niche representative genome selection (not mean-based)
+- Non-linear scoring (quadratic interactions, neural-net-like)
+- Subtype-specific trait bonuses (breaks the data-driven architecture principle)
+- Relaxed target matrix (fewer DOM assignments per niche)
