@@ -248,7 +248,7 @@ for (let s = 0; s < SUBTYPE_COUNT; s++) {
 
 // ── Parse target matrix for comparison ──
 
-import { getTargetTier, TARGET_TIERS, type Tier } from './lib/target-matrix';
+import { isExcluded, EXCLUDED } from './lib/target-matrix';
 
 // ── Output ──
 
@@ -267,37 +267,36 @@ for (let ni = 0; ni < TARGET_NICHES.length; ni++) {
   out('');
   out(`  ── ${niche.label} ──`);
 
-  const stable: { name: string; mod: number; tier: Tier }[] = [];
-  const drifted: { from: string; to: string; fromMod: number; toMod: number; tier: Tier }[] = [];
+  const stable: { name: string; mod: number; excluded: boolean }[] = [];
+  const drifted: { from: string; to: string; fromMod: number; toMod: number; excluded: boolean }[] = [];
 
   for (let s = 0; s < SUBTYPE_COUNT; s++) {
     const r = results[s][ni];
     if (!r) continue;
     const name = SUBTYPE_NAMES[s];
-    const tier = getTargetTier(niche.label, name);
+    const excl = isExcluded(niche.label, name);
     if (r.stable) {
-      stable.push({ name, mod: r.endModifier, tier });
+      stable.push({ name, mod: r.endModifier, excluded: excl });
     } else {
-      drifted.push({ from: name, to: SUBTYPE_NAMES[r.endSubtype], fromMod: r.startModifier, toMod: r.endModifier, tier });
+      drifted.push({ from: name, to: SUBTYPE_NAMES[r.endSubtype], fromMod: r.startModifier, toMod: r.endModifier, excluded: excl });
     }
   }
 
   // Sort stable by modifier descending
   stable.sort((a, b) => b.mod - a.mod);
 
-  const tierSymbol = (t: Tier) => t === 'dominant' ? 'D' : t === 'common' ? 'C' : t === 'minor' ? 'M' : ' ';
-
   out('  Stable attractors:');
   for (const s of stable) {
-    out(`    ${tierSymbol(s.tier)} ✓ ${pad(s.name, 16)} ${fmt(s.mod)}`);
+    const tag = s.excluded ? ' [EXCL]' : '';
+    out(`      ✓ ${pad(s.name, 16)} ${fmt(s.mod)}${tag}`);
   }
 
-  // Show drifts for target subtypes only (dominant/common/minor that drift = problem)
-  const targetDrifts = drifted.filter(d => d.tier !== 'absent');
-  if (targetDrifts.length > 0) {
-    out('  Target subtypes that DRIFT (problem!):');
-    for (const d of targetDrifts) {
-      out(`    ${tierSymbol(d.tier)} ${pad(d.from, 16)} → ${pad(d.to, 16)}  ${fmt(d.fromMod)} → ${fmt(d.toMod)}`);
+  // Show drifts for allowed subtypes (excluded drifting is fine)
+  const allowedDrifts = drifted.filter(d => !d.excluded);
+  if (allowedDrifts.length > 0) {
+    out('  Allowed subtypes that DRIFT:');
+    for (const d of allowedDrifts) {
+      out(`      ${pad(d.from, 16)} → ${pad(d.to, 16)}  ${fmt(d.fromMod)} → ${fmt(d.toMod)}`);
     }
   }
 }
@@ -325,12 +324,11 @@ for (let s = 0; s < SUBTYPE_COUNT; s++) {
 
   for (let ni = 0; ni < TARGET_NICHES.length; ni++) {
     const r = results[s][ni]!;
-    const tier = getTargetTier(TARGET_NICHES[ni].label, name);
-    const isTarget = tier !== 'absent';
-    if (isTarget) targetCount++;
+    const allowed = !isExcluded(TARGET_NICHES[ni].label, name);
+    if (allowed) targetCount++;
     if (r.stable) {
       stableCount++;
-      if (isTarget) stableInTarget++;
+      if (allowed) stableInTarget++;
     } else {
       const dest = SUBTYPE_NAMES[r.endSubtype];
       driftDests.set(dest, (driftDests.get(dest) || 0) + 1);
@@ -353,55 +351,34 @@ out('  SECTION 3: Target Match — Niche Attractors vs Target Matrix');
 out('  For each niche: what stable attractors exist, and do they match?');
 out('═══════════════════════════════════════════════════════════════════════');
 
-let totalHits = 0;
-let totalMisses = 0;
-let totalFalseAttractors = 0;
+let totalExcludedAttractors = 0;
+let totalAllowedAttractors = 0;
 
 for (let ni = 0; ni < TARGET_NICHES.length; ni++) {
   const niche = TARGET_NICHES[ni];
-  const target = TARGET_TIERS[niche.label] || {};
 
   // Collect stable attractors in this niche
-  const attractors: { id: number; name: string; mod: number }[] = [];
+  const attractors: { id: number; name: string; mod: number; excluded: boolean }[] = [];
   for (let s = 0; s < SUBTYPE_COUNT; s++) {
     const r = results[s][ni];
     if (!r || !r.stable) continue;
-    attractors.push({ id: s, name: SUBTYPE_NAMES[s], mod: r.endModifier });
+    attractors.push({ id: s, name: SUBTYPE_NAMES[s], mod: r.endModifier, excluded: isExcluded(niche.label, SUBTYPE_NAMES[s]) });
   }
   attractors.sort((a, b) => b.mod - a.mod);
 
-  // Check which target subtypes are stable attractors
-  const targetDominant = Object.entries(target).filter(([, t]) => t === 'dominant').map(([n]) => n);
-  const targetCommon = Object.entries(target).filter(([, t]) => t === 'common').map(([n]) => n);
-
-  const attractorNames = new Set(attractors.map(a => a.name));
-  const domHits = targetDominant.filter(n => attractorNames.has(n));
-  const domMisses = targetDominant.filter(n => !attractorNames.has(n));
-  const comHits = targetCommon.filter(n => attractorNames.has(n));
-  const falseAttractors = attractors.filter(a => {
-    const tier = getTargetTier(niche.label, a.name);
-    return tier === 'absent';
-  });
-
-  totalHits += domHits.length + comHits.length;
-  totalMisses += domMisses.length;
-  totalFalseAttractors += falseAttractors.length;
+  const excludedAttractors = attractors.filter(a => a.excluded);
+  totalExcludedAttractors += excludedAttractors.length;
+  totalAllowedAttractors += attractors.length - excludedAttractors.length;
 
   out('');
   out(`  ── ${niche.label} ──`);
-  out(`    Target dominant: ${targetDominant.join(', ')}`);
-  out(`    Target common:   ${targetCommon.join(', ')}`);
   out(`    Stable attractors (${attractors.length}):`);
   for (const a of attractors.slice(0, 10)) {
-    const tier = getTargetTier(niche.label, a.name);
-    const marker = tier === 'dominant' ? ' ✓D' : tier === 'common' ? ' ✓C' : tier === 'minor' ? '  M' : ' ✗ ';
-    out(`      ${marker} ${pad(a.name, 16)} ${fmt(a.mod)}`);
+    const tag = a.excluded ? ' [EXCL]' : '';
+    out(`      ${pad(a.name, 16)} ${fmt(a.mod)}${tag}`);
   }
-  if (domMisses.length > 0) {
-    out(`    MISSING dominant: ${domMisses.join(', ')}`);
-  }
-  if (falseAttractors.length > 0) {
-    out(`    FALSE attractors (absent in target): ${falseAttractors.map(a => a.name).join(', ')}`);
+  if (excludedAttractors.length > 0) {
+    out(`    WARNING — excluded subtypes are stable attractors: ${excludedAttractors.map(a => a.name).join(', ')}`);
   }
 }
 
@@ -421,9 +398,8 @@ for (let s = 0; s < SUBTYPE_COUNT; s++) {
   }
 }
 out(`  Unique subtypes that are stable attractors somewhere: ${allStable.size}/40`);
-out(`  Target dominant/common hits:  ${totalHits}`);
-out(`  Target dominant misses:       ${totalMisses}`);
-out(`  False attractors (absent):    ${totalFalseAttractors}`);
+out(`  Allowed stable attractors:    ${totalAllowedAttractors}`);
+out(`  Excluded stable attractors:   ${totalExcludedAttractors}  (these are problems — excluded subtypes shouldn't be attractors)`);
 
 // Drift patterns — what do most subtypes converge to?
 out('');

@@ -1,19 +1,18 @@
 /**
- * Target Matrix Score — single-number compliance check.
+ * Target Matrix Score — two-gate compliance check.
  *
- * Compares balance-matrix output (pure-math trait modifiers) against target-matrix.md.
- * Outputs a single compliance percentage + per-gate breakdown.
- * Runs in milliseconds — use as primary iteration feedback.
+ * Gate 1 (Exclusion): Excluded subtypes must NOT appear in a niche's top-5.
+ * Gate 2 (Archetype): Strong archetypes must have ≥1 subtype in the top-5 with positive modifier.
  *
  * Usage: npx tsx scripts/balance-tuning/target-score.ts
  *        npx tsx scripts/balance-tuning/target-score.ts --verbose
  */
 
-import { Genome, TerrainType, archetype } from '../../src/types/core';
+import { Genome, archetype, Archetype } from '../../src/types/core';
 import { ClimateZone, CLIMATE_ZONE_COUNT } from '../../src/types/environment';
-import { classifySubtype, SUBTYPE_NAMES } from '../../src/types/subtypes';
+import { classifySubtype, SUBTYPE_NAMES, subtypeArchetype, SubtypeId } from '../../src/types/subtypes';
 import { EFFECTIVE_ENV, computeTraitModifier, getEnvIdx } from '../../src/simulation/trait-effects';
-import { getTargetTier, getSubtypesForTier, TARGET_NICHE_LABELS, type Tier } from './lib/target-matrix';
+import { EXCLUDED, STRONG_ARCHETYPES, TARGET_NICHE_LABELS, archetypeName, isExcluded } from './lib/target-matrix';
 
 const verbose = process.argv.includes('--verbose');
 
@@ -85,106 +84,79 @@ for (let arch = 0; arch < 5; arch++) {
 
 // ── Compute rankings per niche ──
 
-interface NicheRanking { name: string; modifier: number; rank: number; }
+interface NicheRanking { name: string; modifier: number; rank: number; archetype: Archetype; }
 
 function getNicheRankings(niche: Niche): NicheRanking[] {
-  const entries: { name: string; mod: number }[] = [];
+  const entries: { name: string; mod: number; arch: Archetype }[] = [];
   for (let s = 0; s < SUBTYPE_COUNT; s++) {
     if (!repGenomes[s]) continue;
     const env = EFFECTIVE_ENV[getEnvIdx(niche.cz, niche.tt)];
-    entries.push({ name: SUBTYPE_NAMES[s], mod: computeTraitModifier(repGenomes[s]!, env) });
+    entries.push({
+      name: SUBTYPE_NAMES[s],
+      mod: computeTraitModifier(repGenomes[s]!, env),
+      arch: subtypeArchetype(s as SubtypeId),
+    });
   }
   entries.sort((a, b) => b.mod - a.mod);
-  return entries.map((e, i) => ({ name: e.name, modifier: e.mod, rank: i + 1 }));
+  return entries.map((e, i) => ({ name: e.name, modifier: e.mod, rank: i + 1, archetype: e.arch }));
 }
 
 // ── Score against target matrix ──
 
 const out = (s: string) => process.stdout.write(s + '\n');
 
-let absentViolations = 0;
-let absentTotal = 0;
-let dominantHits = 0;
-let dominantTotal = 0;
-let commonPositive = 0;
-let commonTotal = 0;
-let minorReasonable = 0; // modifier > -0.5 (not strongly penalized)
-let minorTotal = 0;
+let exclusionViolations = 0;
+let exclusionTotal = 0;
+let archetypeHits = 0;
+let archetypeTotal = 0;
 
 interface NicheReport {
   label: string;
-  absentInTop5: string[];
-  dominantInTop3: string[];
-  dominantMissing: string[];
-  commonNegative: string[];
+  excludedInTop5: string[];
+  archetypeMissing: string[];
+  archetypePresent: string[];
 }
 
 const nicheReports: NicheReport[] = [];
 
 for (const niche of TARGET_NICHES) {
   const rankings = getNicheRankings(niche);
-  const rankMap = new Map(rankings.map(r => [r.name, r]));
-  const top5Names = new Set(rankings.slice(0, 5).map(r => r.name));
-  const top3Names = new Set(rankings.slice(0, 3).map(r => r.name));
+  const top5 = rankings.slice(0, 5);
+  const top5Names = new Set(top5.map(r => r.name));
 
   const report: NicheReport = {
     label: niche.label,
-    absentInTop5: [],
-    dominantInTop3: [],
-    dominantMissing: [],
-    commonNegative: [],
+    excludedInTop5: [],
+    archetypeMissing: [],
+    archetypePresent: [],
   };
 
-  // Gate 1: Absent subtypes must NOT be in top-5
-  const absentSubtypes = getSubtypesForTier(niche.label, 'absent');
-  // Everything not listed as dominant/common/minor is absent
-  const allListed = new Set([
-    ...getSubtypesForTier(niche.label, 'dominant'),
-    ...getSubtypesForTier(niche.label, 'common'),
-    ...getSubtypesForTier(niche.label, 'minor'),
-  ]);
-  for (let s = 0; s < SUBTYPE_COUNT; s++) {
-    if (!repGenomes[s]) continue;
-    const name = SUBTYPE_NAMES[s];
-    if (!allListed.has(name)) {
-      absentTotal++;
-      if (top5Names.has(name)) {
-        absentViolations++;
-        report.absentInTop5.push(name);
-      }
+  // Gate 1: Excluded subtypes must NOT be in top-5
+  for (const r of top5) {
+    if (isExcluded(niche.label, r.name)) {
+      exclusionViolations++;
+      report.excludedInTop5.push(r.name);
+    }
+  }
+  // Count total excluded subtypes that have representative genomes
+  const excludedSet = EXCLUDED[niche.label];
+  if (excludedSet) {
+    for (let s = 0; s < SUBTYPE_COUNT; s++) {
+      if (repGenomes[s] && excludedSet.has(SUBTYPE_NAMES[s])) exclusionTotal++;
     }
   }
 
-  // Gate 2: Dominant subtypes should be in top-3
-  const dominants = getSubtypesForTier(niche.label, 'dominant');
-  for (const name of dominants) {
-    dominantTotal++;
-    if (top3Names.has(name)) {
-      dominantHits++;
-      report.dominantInTop3.push(name);
+  // Gate 2: Strong archetypes should have ≥1 subtype in top-5 with positive modifier
+  const strongArchs = STRONG_ARCHETYPES[niche.label] ?? [];
+  for (const arch of strongArchs) {
+    archetypeTotal++;
+    const hasStrong = top5.some(r => r.archetype === arch && r.modifier > 0);
+    if (hasStrong) {
+      archetypeHits++;
+      report.archetypePresent.push(archetypeName(arch));
     } else {
-      report.dominantMissing.push(name);
+      report.archetypeMissing.push(archetypeName(arch));
     }
-  }
-
-  // Gate 3: Common subtypes should have positive modifiers
-  const commons = getSubtypesForTier(niche.label, 'common');
-  for (const name of commons) {
-    commonTotal++;
-    const r = rankMap.get(name);
-    if (r && r.modifier > 0) {
-      commonPositive++;
-    } else {
-      report.commonNegative.push(name);
-    }
-  }
-
-  // Gate 4: Minor subtypes shouldn't be strongly penalized
-  const minors = getSubtypesForTier(niche.label, 'minor');
-  for (const name of minors) {
-    minorTotal++;
-    const r = rankMap.get(name);
-    if (r && r.modifier > -0.5) minorReasonable++;
   }
 
   nicheReports.push(report);
@@ -192,13 +164,11 @@ for (const niche of TARGET_NICHES) {
 
 // ── Compute scores ──
 
-const absentScore = absentTotal > 0 ? ((absentTotal - absentViolations) / absentTotal) * 100 : 100;
-const dominantScore = dominantTotal > 0 ? (dominantHits / dominantTotal) * 100 : 100;
-const commonScore = commonTotal > 0 ? (commonPositive / commonTotal) * 100 : 100;
-const minorScore = minorTotal > 0 ? (minorReasonable / minorTotal) * 100 : 100;
+const exclusionScore = exclusionTotal > 0 ? ((exclusionTotal - exclusionViolations) / exclusionTotal) * 100 : 100;
+const archetypeScore = archetypeTotal > 0 ? (archetypeHits / archetypeTotal) * 100 : 100;
 
-// Weighted overall: absent gate matters most, then dominant, then common, then minor
-const overallScore = absentScore * 0.35 + dominantScore * 0.35 + commonScore * 0.20 + minorScore * 0.10;
+// Weighted overall: exclusion gate matters most
+const overallScore = exclusionScore * 0.60 + archetypeScore * 0.40;
 
 // ── Output ──
 
@@ -208,10 +178,8 @@ out(`║  TARGET MATRIX COMPLIANCE:  ${overallScore.toFixed(1).padStart(5)}%    
 out('╚═══════════════════════════════════════════════════════════╝');
 out('');
 out('  Gate breakdown:');
-out(`    Absent gate (35%):   ${absentScore.toFixed(1).padStart(5)}%  (${absentTotal - absentViolations}/${absentTotal} absent subtypes correctly outside top-5)`);
-out(`    Dominant gate (35%): ${dominantScore.toFixed(1).padStart(5)}%  (${dominantHits}/${dominantTotal} dominant subtypes in top-3)`);
-out(`    Common gate (20%):   ${commonScore.toFixed(1).padStart(5)}%  (${commonPositive}/${commonTotal} common subtypes with positive modifier)`);
-out(`    Minor gate (10%):    ${minorScore.toFixed(1).padStart(5)}%  (${minorReasonable}/${minorTotal} minor subtypes not strongly penalized)`);
+out(`    Exclusion gate (60%):  ${exclusionScore.toFixed(1).padStart(5)}%  (${exclusionTotal - exclusionViolations}/${exclusionTotal} excluded subtypes correctly outside top-5)`);
+out(`    Archetype gate (40%): ${archetypeScore.toFixed(1).padStart(5)}%  (${archetypeHits}/${archetypeTotal} strong archetypes represented in top-5)`);
 
 // Per-niche problems
 out('');
@@ -221,12 +189,10 @@ let cleanNiches = 0;
 for (const report of nicheReports) {
   const problems: string[] = [];
 
-  if (report.absentInTop5.length > 0)
-    problems.push(`ABSENT in top-5: ${report.absentInTop5.join(', ')}`);
-  if (report.dominantMissing.length > 0)
-    problems.push(`DOMINANT missing from top-3: ${report.dominantMissing.join(', ')}`);
-  if (verbose && report.commonNegative.length > 0)
-    problems.push(`COMMON negative: ${report.commonNegative.join(', ')}`);
+  if (report.excludedInTop5.length > 0)
+    problems.push(`EXCLUDED in top-5: ${report.excludedInTop5.join(', ')}`);
+  if (report.archetypeMissing.length > 0)
+    problems.push(`ARCHETYPE missing from top-5: ${report.archetypeMissing.join(', ')}`);
 
   if (problems.length > 0) {
     out(`    ${report.label}:`);
@@ -238,41 +204,62 @@ for (const report of nicheReports) {
 
 if (cleanNiches > 0) out(`    (${cleanNiches} niches fully compliant)`);
 
-// Diagnostic: missing dominants sorted by gap to top-3
-out('');
-out('  Missing dominant entries (sorted by gap to top-3):');
-const gaps: { niche: string; name: string; rank: number; mod: number; top3mod: number; gap: number }[] = [];
-for (const niche of TARGET_NICHES) {
-  const rankings = getNicheRankings(niche);
-  const top3Mod = rankings.length >= 3 ? rankings[2].modifier : -Infinity;
-  const dominants = getSubtypesForTier(niche.label, 'dominant');
-  const top3Names = new Set(rankings.slice(0, 3).map(r => r.name));
-  for (const name of dominants) {
-    if (top3Names.has(name)) continue;
-    const r = rankings.find(x => x.name === name);
-    if (!r) continue;
-    gaps.push({ niche: niche.label, name, rank: r.rank, mod: r.modifier, top3mod: top3Mod, gap: top3Mod - r.modifier });
+// Diagnostic: exclusion violations detail
+if (exclusionViolations > 0) {
+  out('');
+  out('  Exclusion violations (sorted by rank):');
+  const violations: { niche: string; name: string; rank: number; mod: number }[] = [];
+  for (const niche of TARGET_NICHES) {
+    const rankings = getNicheRankings(niche);
+    for (const r of rankings.slice(0, 5)) {
+      if (isExcluded(niche.label, r.name)) {
+        violations.push({ niche: niche.label, name: r.name, rank: r.rank, mod: r.modifier });
+      }
+    }
+  }
+  violations.sort((a, b) => a.rank - b.rank);
+  for (const v of violations) {
+    out(`    ${v.niche.padEnd(18)} ${v.name.padEnd(16)} rank #${String(v.rank).padStart(2)}  mod=${v.mod >= 0 ? '+' : ''}${v.mod.toFixed(3)}`);
   }
 }
-gaps.sort((a, b) => a.gap - b.gap);
-for (const g of gaps.slice(0, 20)) {
-  out(`    ${g.niche.padEnd(18)} ${g.name.padEnd(16)} rank #${String(g.rank).padStart(2)}  mod=${g.mod >= 0 ? '+' : ''}${g.mod.toFixed(3)}  top3=${g.top3mod >= 0 ? '+' : ''}${g.top3mod.toFixed(3)}  gap=${g.gap.toFixed(3)}`);
+
+// Diagnostic: archetype gap analysis
+const archGaps: { niche: string; arch: string; bestRank: number; bestMod: number; bestName: string }[] = [];
+for (const niche of TARGET_NICHES) {
+  const strongArchs = STRONG_ARCHETYPES[niche.label] ?? [];
+  const rankings = getNicheRankings(niche);
+  const top5 = rankings.slice(0, 5);
+  for (const arch of strongArchs) {
+    const inTop5 = top5.some(r => r.archetype === arch && r.modifier > 0);
+    if (inTop5) continue;
+    // Find best subtype of this archetype
+    const best = rankings.find(r => r.archetype === arch);
+    if (best) {
+      archGaps.push({ niche: niche.label, arch: archetypeName(arch), bestRank: best.rank, bestMod: best.modifier, bestName: best.name });
+    }
+  }
+}
+if (archGaps.length > 0) {
+  out('');
+  out('  Missing archetype detail (best subtype per missing archetype):');
+  archGaps.sort((a, b) => a.bestRank - b.bestRank);
+  for (const g of archGaps) {
+    out(`    ${g.niche.padEnd(18)} ${g.arch.padEnd(10)} best: ${g.bestName.padEnd(16)} rank #${String(g.bestRank).padStart(2)}  mod=${g.bestMod >= 0 ? '+' : ''}${g.bestMod.toFixed(3)}`);
+  }
 }
 
-// Diagnostic: dump top-10 for problem niches
+// Verbose: dump top-10 per niche
 if (verbose) {
   out('');
   out('  Per-niche top-10 rankings:');
-  const dumpNiches = ['Temperate/Soil', 'Temperate/Hill', 'Temperate/Wetland', 'Temperate/Arid', 'Tropical/Soil', 'Tropical/Hill', 'Tropical/Wetland', 'Tropical/Arid', 'Mediterr/Soil', 'Mediterr/Hill', 'Mediterr/Wetland', 'Mediterr/Arid', 'Desert/Soil', 'Desert/Hill', 'Desert/Wetland', 'Desert/Arid'];
-  for (const nicheLabel of dumpNiches) {
-    const niche = TARGET_NICHES.find(n => n.label === nicheLabel);
-    if (!niche) continue;
+  const ARCH_SHORT: Record<number, string> = { 0: 'GRS', 1: 'SHR', 2: 'SUC', 3: 'TRE', 4: 'FRB' };
+  for (const niche of TARGET_NICHES) {
     const rankings = getNicheRankings(niche);
-    out(`    ${nicheLabel}:`);
+    out(`    ${niche.label}:`);
     for (const r of rankings.slice(0, 10)) {
-      const tier = getTargetTier(nicheLabel, r.name);
-      const tierTag = tier === 'dominant' ? ' [DOM]' : tier === 'common' ? ' [com]' : tier === 'minor' ? ' [min]' : ' [ABS]';
-      out(`      #${String(r.rank).padStart(2)}  ${r.name.padEnd(16)} ${r.modifier >= 0 ? '+' : ''}${r.modifier.toFixed(3)}${tierTag}`);
+      const excluded = isExcluded(niche.label, r.name);
+      const tag = excluded ? ' [EXCL]' : '';
+      out(`      #${String(r.rank).padStart(2)}  ${r.name.padEnd(16)} ${r.modifier >= 0 ? '+' : ''}${r.modifier.toFixed(3)}  ${ARCH_SHORT[r.archetype] ?? '???'}${tag}`);
     }
   }
 }
