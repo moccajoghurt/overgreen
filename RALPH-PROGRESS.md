@@ -372,3 +372,52 @@ Structural blockers:
 - **Des/Wetl broken**: All env values near-zero. All modifiers clustered 0.08-0.21.
 - **Trop/Soil Mangrove/Oak block**: Both ABS, ranks 1-3. Only Tropical (DOM) in top-3.
 - **Remaining 34 missing DOMs**: Most have gaps >0.1. Approaching limits of coefficient tuning.
+
+## Iteration 8
+### Hypothesis — What I think the problem is
+Dominant gate at 45.2% is the critical bottleneck (28/62). Closest misses: Temp/Hill Wildflower (gap 0.011), Med/Wetl Fern (gap 0.081), Med/Wetl Cypress (gap 0.087). Hypothesis: the Saguaro soilFertility compensator (peaked(hgt=0.50)×def×wStr×soilFertility -4.027) is collaterally crushing Cypress (-0.407) and Sedge (-0.136) in wetland niches because they share Saguaro's trait signature.
+
+### Changes — What I did
+No changes committed. All attempts reverted to baseline after testing.
+
+### Failed approaches this iteration
+
+**1. Cypress waterlogging boost + split compensator (Part A)**
+Changed Cypress wetland pair from waterlogging +3.50 / shallowSoil -0.926 to waterlogging +4.50 / shallowSoil -0.50 / tropicality -1.827. Result: 76.6% — identical to baseline. Cypress entered Med/Wetl top-3 but displaced Sedge (also DOM). Net 0 DOM.
+
+**2. Desert Annual wetland suppression — seed×(1-long)×waterlogging -0.50 / heatStress +0.181**
+Collateral: Birch (seed=0.99, long=0.01) got -0.221 in Temp/Wetl, dropping from top-3. Ryegrass boosted above Saltbush in Temp/Arid. Clover boosted above Aloe in Trop/Arid. Score crashed to 74.9% (25 DOM, -3 net).
+
+**3. Targeted DesAnn suppression — seed×(1-long)×defense×waterlogging -0.22 / heatStress +0.080**
+Avoided Birch (def=0.01) but heatStress compensator still boosted Ryegrass above Saltbush in Temp/Arid (-1 DOM) and Clover above Aloe in Trop/Arid (-1 DOM). Also created new Ryegrass ABS violation in Med/Arid. Score: 76.0% (27 DOM).
+
+**4. seed×leaf×long×shallowSoil +0.26 / tropicality -0.687 (Wildflower boost)**
+Wildflower entered Temp/Hill top-3 but: (a) Bunchgrass exited Temp/Hill (swap), (b) Wildflower rose to +0.903 in Temp/Arid, displacing Saltbush from top-3 (-1 DOM). Score: 76.1% (27 DOM).
+
+**5. seedInvestment×leafSize×winterHarshness +1.25 → +1.28 (+0.03)**
+Score dropped to 76.1% (27 DOM). Genome cascade.
+
+**6. seedInvestment×leafSize×winterHarshness +1.25 → +1.26 (+0.01)**
+Even +0.01 cascaded. Score: 76.0% (27 DOM). This coefficient pair is at the cascade boundary.
+
+**7. Saguaro compensator variable switch analysis**
+Computed alternative compensators for the Saguaro soilFertility -4.027 term. All alternatives (seasonality -2.765, winterHarshness -6.415, droughtStress -3.376) produce LARGER penalties for Cypress/Sedge in wetlands because those variables are higher in wetland niches than soilFertility is. soilFertility is actually the BEST compensator choice for minimizing wetland collateral.
+
+### Key insights
+- **Coefficient tuning has hit a hard ceiling at ~76.6%**: Every near-miss DOM fix causes equal-or-greater DOM losses elsewhere through zero-sum swaps or genome selection cascades.
+- **Saguaro compensator collateral is structural**: peaked(hgt=0.50)×def×wStr is shared by Cypress (0.535) and Sedge (0.535) — both DOM targets in wetlands. The -4.027×soilFertility penalty can't be switched to any alternative variable without making things worse.
+- **Ryegrass is the universal blocker**: With leaf=0.49 (moderate), seed=0.99, def=0.99, root=0.99, Ryegrass is a balanced generalist that occupies top-3 in Temp/Hill (COM), Temp/Arid (COM), Med/Hill (MIN). Any boost to other subtypes must be large enough to surpass Ryegrass, which triggers cascades.
+- **4-DOM-for-3-slot ceiling**: Temp/Hill, Med/Wetl, Des/Wetl all have 4+ DOMs needing 3 slots. Even perfect coefficient tuning can only seat 3 — the rest are structural misses.
+- **ABS violations are densely packed**: Suppressing one ABS subtype from top-5 reveals another (e.g., Turfgrass exits Temp/Arid top-5 but Pampas enters at same rank).
+- **+0.01 coefficient changes can cascade**: The seed×leaf×winterHarshness pair is so tightly balanced that even ±0.01 triggers genome selection changes.
+- **Mean shift vs zero-mean is crucial**: Non-zero-mean changes cascade because they shift the grid-search optimum for genome selection. Zero-mean changes avoid this but still cascade if they change the relative ranking between genomes at the margin.
+
+### Results
+- **76.6% → 76.6%** (no change — all attempts reverted)
+- This iteration confirms the coefficient tuning ceiling. Further progress requires structural changes: new environment variables, classifier modifications, terrain/climate physics adjustments, or genome grid resolution increases.
+
+### Recommended structural changes for future iterations
+1. **New env var for tropical soil differentiation**: Something like `canopyDensity = tropicality × soilFertility` that sharply separates Trop/Soil from other niches.
+2. **Classifier adjustments**: Aromatic genome has leaf=0.01 (should be ~0.50 for a Mediterranean shrub). Fixing this enables peaked(leaf=0.50)×mediterraneity terms to work.
+3. **Genome grid refinement**: 3^9 grid may miss critical genomes at intermediate values (e.g., 0.50). Increasing to 5^4 × 3^5 for key traits could find better representatives.
+4. **Terrain physics tuning**: Adjusting Hill/Wetland/Arid base physics could shift the landscape enough to unstick structural blockers.
