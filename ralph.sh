@@ -79,8 +79,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     "$PROMPT" \
     2>&1) | tee "$OUTFILE" || true
 
-  # Check for completion promise
-  if grep -q "RALPH_COMPLETE" "$OUTFILE"; then
+  # Check for completion promise (match the actual <promise> tag, not bare mentions)
+  if grep -q "<promise>RALPH_COMPLETE</promise>" "$OUTFILE"; then
     rm -f "$OUTFILE"
     echo ""
     echo "=========================================="
