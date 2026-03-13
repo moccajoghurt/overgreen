@@ -575,3 +575,69 @@ Five changes applied and tested individually, keeping only those that produced n
 
 ### Key insight
 The compensator env var choice is critical. tropicality and winterHarshness are dangerous compensators because they're high in important climate zones where DOMs need to perform. extremeAridity is the safest compensator — only active in desert niches where scores are generally inflated and subtypes are far from thresholds. soilFertility is next safest.
+
+## Iteration 12 — DOM structural plateau analysis
+
+### Hypothesis
+The DOM gate at 53.2% (33/62) is structurally plateaued. Every coefficient change cascades through genome reselection, gaining some DOMs while losing others. Need to find approaches that bypass the cascade.
+
+### Changes — What I did
+
+1. **3 new environment variables** added to CellEnvironment + deriveCellEnv + updateEffectiveEnv:
+   - `coolWetland = waterlogging × coldness` — Temp/Wetl=0.540, Med/Wetl=0.180, Des/Wetl=0.270, Trop/Wetl=0.000
+   - `continentalDrought = coldness × aridity × drainage × (1-waterlogging)` — Temp/Arid=0.162, Des/Arid=0.243
+   - `desertSoilHeat = max(0, soilDepth × (aridity×heat)² × (1-waterlogging) - 0.15)` — Des/Soil=0.381, Des/Arid=0.112
+
+2. **Turfgrass classifier change** (subtypes.ts):
+   - Height weight 0.45→0.35, rootPriority weight 0.15→0.35, woodiness 0.20→0.15, leafSize 0.10→0.10, longevity 0.10→0.05
+   - Effect: Turfgrass genome shifts to shallow roots (r=0.99→0.99, but composition changed). Fixed Turfgrass ABS violation in Temp/Arid.
+   - Trade: Turfgrass dropped from Temp/Hill #1 to #6 (-1 DOM), Wildflower entered Temp/Hill top-3 (+1 DOM). Net: +1 ABS, 0 DOM.
+   - Score: 80.3% → 80.4% (+0.1%)
+
+3. **Saltbush classifier change** (subtypes.ts):
+   - rootPriority weight 0.30→0.15, redistributed proportionally: leafSize 0.25→0.304, longevity 0.20→0.243, defense 0.15→0.182, heightPriority 0.10→0.121
+   - Effect: Saltbush genome shifts, enters Temp/Arid top-3 as DOM.
+   - Score: 80.4% → 80.9% (+0.5%), **DOM 33→34 (+1)**
+
+### Exhaustive sweeps performed (all found ZERO additional DOM gains)
+
+1. **Classifier weight sweep** (1136 evals): Every classifier's every weight ±0.05/0.10/0.15 and every inverse flip. Only Saltbush rootPriority produced +1 DOM. After applying, re-sweep found no further gains.
+
+2. **New env variable entry sweep** (864 evals): Every single-trait and 12 two-trait combinations on coolWetland/continentalDrought/desertSoilHeat at 12 coefficient values. Zero DOM gains.
+
+3. **Multi-classifier combination sweep** (36 pair combos): Targeted Fern (4 DOM misses), Aromatic (3 misses), Clover, Sedge classifier changes across different archetypes. All negative or neutral.
+
+4. **Stochastic hill-climbing optimizer** (5000 iterations): Randomly perturbed 3 coefficients simultaneously per iteration from the full 129-coefficient array. Found ABS improvements (19→16 violations, +0.5% overall) but ZERO DOM improvement across 5000 attempts.
+
+5. **Broadleaf seed-producer shallowSoil boost** (targeted): Increased existing 3-way entry `seed×leaf×def×shallowSoil` from +0.08 to +0.133/0.25. At 0.133: narrowed Clover Temp/Hill gap from 0.036→0.020 but no DOM flip. At 0.25: cascaded to DOM 32 (-2). Reverted.
+
+6. **Dense 4-point genome grid test**: Tested [0.01, 0.33, 0.67, 0.99] grid (262K genomes per archetype vs 19K). Score DROPPED to 73.5% with DOM 23/62 — intermediate trait values create genomes that exploit the engine differently, worse.
+
+### Corrected genome data (verified this session)
+Previous sessions had WRONG representative genome data. Actual genomes (3-point grid):
+- Sedge: r=0.01 (not 0.55), l=0.49 (not 0.99) — previous entries designed for wrong traits
+- Saltbush: d=0.50 (not 0.99) — defense weight was wrong direction
+- Turfgrass: r=0.99, d=0.99 (not 0.01/0.01)
+- Palm: h=0.50, l=0.50 (not 0.99/0.99)
+
+### Results
+- **Overall: 80.3% → 80.9%** (+0.6%)
+- DOM: 33→34 (+1, Saltbush in Temp/Arid)
+- ABS: 414→414 (unchanged net)
+
+### Key insight — DOM structural plateau
+The DOM gate at 54.8% (34/62) represents a hard structural limitation of the linear trait engine:
+
+1. **Genome reselection cascade**: Any coefficient change shifts which genome maximizes mean fitness for each subtype. This cascades through ALL rankings unpredictably. Even zero-mean paired changes cascade because variance shifts affect genome selection at the margin.
+
+2. **Shared genome profiles**: Many subtypes have identical or near-identical representative genomes (e.g., Wildflower and Fern differ only in seedInvestment; Oak and Acacia differ only in leafSize). The trait engine can't rank them differently because their trait products are nearly equal.
+
+3. **Mean-maximization vs niche-specific performance**: The grid search selects genomes maximizing MEAN modifier across 16 niches. But DOM assignments require niche-SPECIFIC excellence. A genome great for Temp/Wetl might be mediocre elsewhere, so it's never selected as representative.
+
+4. **Linear scoring capacity**: The trait engine is a linear sum of coefficient × trait × env products. With 129 entries and 62 DOM ordering constraints, the system is over-constrained. Adding entries helps some orderings but inevitably breaks others.
+
+**To reach 70% DOM (44/62), possible architectural changes:**
+- Per-niche representative genome selection (not mean-based)
+- Non-linear scoring (quadratic interactions, neural-net-like)
+- Subtype-specific trait bonuses (breaks the data-driven architecture principle)
+- Relaxed target matrix (fewer DOM assignments per niche)

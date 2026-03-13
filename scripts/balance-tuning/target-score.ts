@@ -263,7 +263,7 @@ for (const g of gaps.slice(0, 20)) {
 if (verbose) {
   out('');
   out('  Per-niche top-10 rankings:');
-  const dumpNiches = ['Temperate/Hill', 'Temperate/Arid', 'Mediterr/Hill', 'Mediterr/Wetland', 'Mediterr/Arid', 'Tropical/Soil', 'Tropical/Hill', 'Desert/Soil', 'Desert/Hill', 'Desert/Wetland', 'Temperate/Wetland', 'Tropical/Arid'];
+  const dumpNiches = ['Temperate/Soil', 'Temperate/Hill', 'Temperate/Wetland', 'Temperate/Arid', 'Tropical/Soil', 'Tropical/Hill', 'Tropical/Wetland', 'Tropical/Arid', 'Mediterr/Soil', 'Mediterr/Hill', 'Mediterr/Wetland', 'Mediterr/Arid', 'Desert/Soil', 'Desert/Hill', 'Desert/Wetland', 'Desert/Arid'];
   for (const nicheLabel of dumpNiches) {
     const niche = TARGET_NICHES.find(n => n.label === nicheLabel);
     if (!niche) continue;

@@ -32,6 +32,9 @@ export interface CellEnvironment {
   seasonality: number;
   shallowSoil: number;
   mediterraneity: number;
+  coolWetland: number;
+  continentalDrought: number;
+  desertSoilHeat: number;
 }
 
 const TERRAIN_PHYSICS: Record<TerrainType, TerrainPhysics> = {
@@ -54,6 +57,8 @@ const TERRAIN_COUNT = 6;
 
 function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment {
   const droughtStress = cp.aridity * tp.drainage;
+  const tropicality = Math.pow(cp.heat * cp.humidity, 1.5);
+  const waterlogging = tp.waterlogging * Math.max(cp.humidity, 0.45);
   // Ground heat: direct solar exposure + aridity-driven ground-level heat buildup.
   // On flat arid terrain, low wind (1-exposure) + low moisture (1-waterlogging) trap
   // intense radiative heat at ground level. Wind-exposed terrain (hills) stays cooler.
@@ -63,14 +68,14 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     frostRisk:        cp.coldness * tp.exposure,
     diseasePressure:  cp.humidity * (1 - tp.exposure),
     windExposure:     tp.exposure * (1 - cp.humidity * 0.5),
-    waterlogging:     tp.waterlogging * Math.max(cp.humidity, 0.45),
+    waterlogging,
     heatStress:       cp.heat * tp.exposure + groundHeat,
     soilFertility:    tp.soilDepth * cp.humidity * (1 - tp.exposure * 0.5),
     extremeAridity:   Math.max(0, droughtStress - 0.35),
     // Composite climate axes — these create large gaps between climate zones
     // (4-7×) unlike terrain×climate products where terrain dominates.
     // Power scaling creates sharp separation: Trop=0.50, Med=0.06, Temp=0.06, Desert=0.03
-    tropicality:      Math.pow(cp.heat * cp.humidity, 1.5),
+    tropicality,
     // Temp=0.42, Med=0.10, Desert=0.03, Trop=0.00
     winterHarshness:  cp.coldness * (1 - cp.heat),
     // Temp=0.69, Med=0.31, Desert=0.27, Trop=0.09
@@ -79,6 +84,12 @@ function deriveCellEnv(tp: TerrainPhysics, cp: ClimatePhysics): CellEnvironment 
     shallowSoil:      1 - tp.soilDepth,
     // Med/Hill=0.280, Med/Soil=0.252, Med/Wetl=0.028 — peaks at moderate aridity + dry heat, suppressed in wetlands
     mediterraneity:   cp.heat * (1 - cp.humidity) * (1 - cp.coldness) * Math.max(0, 1 - 2 * Math.abs(cp.aridity - 0.5)) * (1 - tp.waterlogging),
+    // Temp/Wetl=0.540, Med/Wetl=0.180, Des/Wetl=0.270, Trop/Wetl=0.000 — separates non-tropical wetlands
+    coolWetland:      tp.waterlogging * cp.coldness,
+    // Temp/Arid=0.162, Des/Arid=0.243, Trop/*=0.000 — non-tropical aridity axis
+    continentalDrought: cp.coldness * cp.aridity * tp.drainage * (1 - tp.waterlogging),
+    // Des/Soil=0.381, Des/Arid=0.112, Des/Hill=0.047, all others=0 — thresholded desert heat
+    desertSoilHeat:   Math.max(0, tp.soilDepth * Math.pow(cp.aridity * cp.heat, 2) * (1 - tp.waterlogging) - 0.15),
   };
 }
 
@@ -121,6 +132,9 @@ export function updateEffectiveEnv(env: Environment): void {
       eff.seasonality      = base.seasonality;                  // static
       eff.shallowSoil      = base.shallowSoil;                  // static (terrain-only)
       eff.mediterraneity   = base.mediterraneity;                // static (climate-only)
+      eff.coolWetland      = base.coolWetland;                   // static
+      eff.continentalDrought = base.continentalDrought;          // static
+      eff.desertSoilHeat   = base.desertSoilHeat;               // static
     }
   }
   recompileTraitEffects();
