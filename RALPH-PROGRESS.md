@@ -312,3 +312,63 @@ Structural blockers:
 - **Trop/Wetl Cypress ABSENT violation**: waterlogging=0.810 creates massive boost. Need (1-tropicality) or similar modulation to suppress in tropical wetlands specifically.
 - **36 missing dominants**: Many are structurally blocked (trees with globally weak profiles, 4-dominant niches with 3 slots, ABSENT subtypes occupying top positions). Approaching limits of coefficient tuning alone.
 - **Des/Wetl still broken**: All env values near-zero, all modifiers clustered.
+
+## Iteration 7
+### Hypothesis — What I think the problem is
+Three issues with surgical fixes:
+1. **Caudiciform (ABS) at #1 in Med/Hill** — seed=0.99 × wStr=0.55 (product 0.545) is uniquely high. A wind-exposed penalty for heavy-seeded succulents would push it down.
+2. **Turfgrass (ABS) dominates wind-exposed niches** — The (1-leafSize)×windExposure term at +0.25 is below where narrow-leaved grasses could differentiate from mid-leaf subtypes. A small bump helps.
+3. **Bunchgrass/Saltbush just below top-3** — Bunchgrass in Med/Hill (gap 0.056), Saltbush in Temp/Arid (gap 0.003). Deep-rooted and woody plants should get slightly more drought benefit.
+
+### Changes — What I did
+1. **Succulent seed dispersal wind penalty — seed×wStr×windExposure**
+   - `seedInvestment × waterStorage × windExposure × -1.00`
+   - `seedInvestment × waterStorage × soilFertility × +1.46`
+   - Zero-mean: 1.00×0.320 = 1.46×0.219 → 0.320 = 0.320 ✓
+   - Key design: Caudiciform (seed=0.99, wStr=0.55, product=0.545) uniquely high. Saguaro (seed=0.01): product ~0. Turfgrass (wStr=0.01): product ~0.
+   - **Effect:** Caudiciform drops from #1 to #6-7 in Med/Hill. Bunchgrass approaches top-3.
+
+2. **Narrow-leaf wind resistance bump — (1-leafSize)×windExposure: +0.25 → +0.30**
+   - Small coefficient increase (+0.05) to give narrow-leaved plants (Bunchgrass leaf=0.49, Saltbush leaf=0.01) more advantage on windy terrain.
+   - **Effect:** Bunchgrass enters top-3 in Med/Hill (#3 at +0.798). +1 dominant hit.
+
+3. **Deep root drought access bump — rootPriority×droughtStress: +0.65 → +0.69**
+   - Rewards deep-rooted plants (root=0.99) more in drought conditions. Differentiates Bunchgrass (root=0.99) from Tropical Herb (root=0.50) in Med/Hill.
+   - **Effect:** Combined with Proposals 1+3, closed the 0.004 gap between Bunchgrass and Tropical Herb in Med/Hill. +1 dominant (Bunchgrass in Med/Hill confirmed in top-3).
+
+4. **Woody drought penalty reduction — woodiness×droughtStress: -0.55 → -0.52**
+   - Reduced penalty for shrubs in drought. Differentiates Saltbush (wood=0.40) from Ryegrass (wood=0.01) in Temp/Arid.
+   - **Effect:** Closed 0.003 gap for Saltbush in Temp/Arid. Saltbush enters top-3. +1 dominant.
+
+### Failed approaches this iteration
+- **tropicalFertility composite env var**: Added tropicalFertility = pow(heat×humidity, 1.5) × soilDepth × humidity × (1 - exposure×0.5). Two paired terms targeting Tropical canopy tree (+8.0) and understory fern (+3.0). **Crashed to 70.6%** — coefficients way too aggressive. Lost 8 dominant hits, gained 26 absent violations. Reverted.
+- **(1-root)×(1-wood)×shallowSoil penalty (-0.30)**: Intended to penalize TropicalHerb (ABS in multiple niches). But TropicalHerb genome has root=0.50 (half effect) while Saguaro root=0.01 (full effect). Saguaro collateral: dropped from Med/Arid top-3 (-1 DOM). Architect analysis used wrong genome data.
+- **Height bump: (1-height)×windExposure +0.50→+0.55**: No effect on gaps because competitors in top-3 have similar height profiles. Gaps stayed at 0.003-0.004 regardless of coefficient.
+- **(1-leafSize)×windExposure +0.30→+0.32**: Genome selection cascade — crashed to 74.9% (lost 2 DOM). Even +0.02 more was enough to change which genome the optimizer selects for some subtype.
+
+### Key insights
+- **Genome selection is a cliff**: Coefficients have "safe zones" and "cascade zones". +0.05 bump (0.25→0.30) was fine; +0.07 (0.25→0.32) cascaded. The boundary is unpredictable.
+- **Trait products as subtype signatures**: seed×wStr uniquely identifies Caudiciform because no other subtype has BOTH seed=0.99 AND wStr≥0.55. Using this as a penalty term is surgical.
+- **Small coefficient bumps on existing terms**: Lower cascade risk than new term pairs. The +0.04 to rootPriority×droughtStress and -0.03 to woodiness×droughtStress were both safe because they're tiny adjustments to existing terms.
+- **Architect genome assumptions were wrong**: The subagent assumed TropicalHerb root=0.01 but it's actually root=0.50. Always verify representative genomes from balance-matrix before designing terms.
+
+### Results
+- **75.3% → 76.6%** (+1.3%)
+- Absent: 94.7% → 94.5% (410→409 of 433, -1)
+- Dominant: 41.9% → 45.2% (26→28 of 62, +2)
+- Common: 89.0% → 90.2% (73→74 of 82, +1)
+- Minor: 96.8% → 96.8% (61 of 63, unchanged)
+
+### Remaining gaps (34 missing dominant entries)
+Closest to fixing:
+- Temp/Hill: Wildflower (rank 4, gap 0.011) — swap with Bunchgrass (both DOM), net 0
+- Des/Wetl: Sedge (rank 11, gap 0.051) — all top-3 still non-dominant
+- Med/Wetl: Fern (rank 8, gap 0.081), Cypress (rank 9, gap 0.087)
+- Trop/Arid: Pampas (rank 12, gap 0.144)
+
+Structural blockers:
+- **Temp/Hill 4-dominant ceiling**: Still 4 DOMs for 3 slots. Ryegrass (common) at rank 2 blocks.
+- **Med/Wetl Desert Annual blocker**: rank 2 (ABS). Fern and Cypress far below.
+- **Des/Wetl broken**: All env values near-zero. All modifiers clustered 0.08-0.21.
+- **Trop/Soil Mangrove/Oak block**: Both ABS, ranks 1-3. Only Tropical (DOM) in top-3.
+- **Remaining 34 missing DOMs**: Most have gaps >0.1. Approaching limits of coefficient tuning.

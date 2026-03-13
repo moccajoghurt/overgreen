@@ -238,4 +238,43 @@ for (const report of nicheReports) {
 
 if (cleanNiches > 0) out(`    (${cleanNiches} niches fully compliant)`);
 
+// Diagnostic: missing dominants sorted by gap to top-3
+out('');
+out('  Missing dominant entries (sorted by gap to top-3):');
+const gaps: { niche: string; name: string; rank: number; mod: number; top3mod: number; gap: number }[] = [];
+for (const niche of TARGET_NICHES) {
+  const rankings = getNicheRankings(niche);
+  const top3Mod = rankings.length >= 3 ? rankings[2].modifier : -Infinity;
+  const dominants = getSubtypesForTier(niche.label, 'dominant');
+  const top3Names = new Set(rankings.slice(0, 3).map(r => r.name));
+  for (const name of dominants) {
+    if (top3Names.has(name)) continue;
+    const r = rankings.find(x => x.name === name);
+    if (!r) continue;
+    gaps.push({ niche: niche.label, name, rank: r.rank, mod: r.modifier, top3mod: top3Mod, gap: top3Mod - r.modifier });
+  }
+}
+gaps.sort((a, b) => a.gap - b.gap);
+for (const g of gaps.slice(0, 20)) {
+  out(`    ${g.niche.padEnd(18)} ${g.name.padEnd(16)} rank #${String(g.rank).padStart(2)}  mod=${g.mod >= 0 ? '+' : ''}${g.mod.toFixed(3)}  top3=${g.top3mod >= 0 ? '+' : ''}${g.top3mod.toFixed(3)}  gap=${g.gap.toFixed(3)}`);
+}
+
+// Diagnostic: dump top-10 for problem niches
+if (verbose) {
+  out('');
+  out('  Per-niche top-10 rankings:');
+  const dumpNiches = ['Temperate/Hill', 'Temperate/Arid', 'Mediterr/Hill', 'Mediterr/Wetland', 'Mediterr/Arid', 'Tropical/Soil', 'Tropical/Hill', 'Desert/Soil', 'Desert/Hill', 'Desert/Wetland', 'Temperate/Wetland', 'Tropical/Arid'];
+  for (const nicheLabel of dumpNiches) {
+    const niche = TARGET_NICHES.find(n => n.label === nicheLabel);
+    if (!niche) continue;
+    const rankings = getNicheRankings(niche);
+    out(`    ${nicheLabel}:`);
+    for (const r of rankings.slice(0, 10)) {
+      const tier = getTargetTier(nicheLabel, r.name);
+      const tierTag = tier === 'dominant' ? ' [DOM]' : tier === 'common' ? ' [com]' : tier === 'minor' ? ' [min]' : ' [ABS]';
+      out(`      #${String(r.rank).padStart(2)}  ${r.name.padEnd(16)} ${r.modifier >= 0 ? '+' : ''}${r.modifier.toFixed(3)}${tierTag}`);
+    }
+  }
+}
+
 out('');

@@ -155,7 +155,7 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'leafSize',       envVar: 'heatStress',     coefficient: -0.25, description: 'heat scorching' },
   { trait: 'leafSize',       envVar: 'diseasePressure', coefficient: -0.30, description: 'large leaves catch disease' },
   { trait: 'leafSize',       envVar: 'windExposure',   coefficient: -0.40, description: 'wind strips foliage on broad-leaved plants' },
-  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: +0.25, inverse: true, description: 'narrow-leaved plants are aerodynamic — low wind resistance' },
+  { trait: 'leafSize',       envVar: 'windExposure',   coefficient: +0.30, inverse: true, description: 'narrow-leaved plants are aerodynamic — low wind resistance' },
 
   // ── Defense — costly but essential where disease thrives ──
   { trait: 'defense',        envVar: 'diseasePressure', coefficient: +0.70, description: 'disease resistance' },
@@ -183,14 +183,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'woodiness',      envVar: 'windExposure',   coefficient: +0.60, inverse: true, description: 'flexible herbaceous stems resist wind' },
   { trait: 'woodiness',      envVar: 'heatStress',     coefficient: -0.30, description: 'bark cracking and xylem desiccation in extreme heat' },
   { trait: 'woodiness',      envVar: 'waterlogging',   coefficient: -0.35, description: 'root rot in waterlogged soil' },
-  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.55, description: 'water-demanding woody tissue' },
+  { trait: 'woodiness',      envVar: 'droughtStress',  coefficient: -0.52, description: 'water-demanding woody tissue' },
   { trait: 'woodiness',      envVar: 'extremeAridity', coefficient: -2.00, description: 'xylem cavitation and wood cracking in extreme desert' },
   { trait: 'woodiness',      envVar: 'shallowSoil',   coefficient: -0.80, description: 'trees cannot anchor in thin rocky soil' },
 
   // ── Root priority — deep roots mine nutrients, but drown in wetland and fail in shallow soil ──
   { trait: 'rootPriority',   envVar: null,             coefficient: +0.18, description: 'nutrient mining and soil anchoring' },
   { trait: 'rootPriority',   envVar: 'soilFertility',  coefficient: +0.55, description: 'deep roots mine nutrients from fertile soil' },
-  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.65, description: 'deep water access' },
+  { trait: 'rootPriority',   envVar: 'droughtStress',  coefficient: +0.69, description: 'deep water access' },
   { trait: 'rootPriority',   envVar: 'windExposure',   coefficient: -0.25, description: 'deep taproots wind-levered in thin exposed soil' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: -0.60, description: 'root drowning' },
   { trait: 'rootPriority',   envVar: 'waterlogging',   coefficient: +0.55, inverse: true, description: 'shallow roots thrive in saturated soil' },
@@ -349,6 +349,14 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'tropicality', coefficient: -0.211,
     description: 'broadleaf defended forbs outcompeted in tropical canopy' },
 
+  // ── Broadleaf perennial hill persistence — zero-mean (shallowSoil/tropicality) ──
+  // Wildflower (long=0.99, leaf=0.99): +0.034 in Temp/Hill. Ryegrass (long=0.01): +0.0004.
+  // Zero-mean: 0.05×0.425 = 0.132×0.161 → 0.021 = 0.021 ✓
+  { trait: 'longevity', trait2: 'leafSize', envVar: 'shallowSoil', coefficient: +0.05,
+    description: 'long-lived broadleaf perennials stabilize shallow hillside soil' },
+  { trait: 'longevity', trait2: 'leafSize', envVar: 'tropicality', coefficient: -0.132,
+    description: 'long-lived broadleaf perennials outcompeted in tropical canopy' },
+
   // ── Mediterranean climate specialization — wood×wStr uniquely identifies Mediterranean subtype ──
   // Mediterranean genome (wood=0.40, wStr=0.54) → product 0.216 (all others ≤ 0.007)
   // Zero-mean: 17.0×0.0857 = 9.06×0.161 → 1.457 = 1.458 ✓
@@ -416,6 +424,15 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     description: 'tall woody plants topple in thin soil without deep anchorage' },
   { trait: 'seedInvestment', trait2: 'rootPriority', envVar: 'shallowSoil', coefficient: +0.30,
     description: 'fibrous-rooted colonizers establish well in shallow disturbed soil' },
+
+  // ── Succulent seed dispersal penalty on wind-exposed terrain ──
+  // Caudiciform (seed=0.99, wStr=0.55): product 0.545. Saguaro (seed=0.01): ~0. Turfgrass (wStr=0.01): ~0.
+  // Zero-mean: 1.00×mean(windExposure=0.320) = 1.46×mean(soilFertility=0.219) → 0.320 = 0.320 ✓
+  { trait: 'seedInvestment', trait2: 'waterStorage', envVar: 'windExposure', coefficient: -1.00,
+    description: 'wind-exposed terrain desiccates heavy-seeded succulent tissue' },
+  { trait: 'seedInvestment', trait2: 'waterStorage', envVar: 'soilFertility', coefficient: +1.46,
+    description: 'heavy-seeded succulents establish well in fertile soil' },
+
 ];
 
 /** Niche index for a terrain×climate combination. */
