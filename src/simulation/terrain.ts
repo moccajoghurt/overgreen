@@ -121,7 +121,7 @@ function generateRocks(grid: Cell[][], w: number, h: number): void {
   }
 }
 
-function generateBiomes(grid: Cell[][], elevation: number[][], w: number, h: number): void {
+function generateBiomes(grid: Cell[][], _elevation: number[][], w: number, h: number): void {
   // Large-scale noise (scale ~25 on 80×80) creates 2-3 coherent regions
   const scale = 25;
   const coarseW = Math.ceil(w / scale) + 2;

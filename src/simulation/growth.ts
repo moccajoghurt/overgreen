@@ -6,7 +6,7 @@ import {
   archetype,
 } from './plants';
 import { cellPlantIds } from './tiers';
-import { classifySubtype } from '../types/subtypes';
+
 import { absorbWater } from './water';
 
 // Flat arrays — allocated once, reused every tick.
