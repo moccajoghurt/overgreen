@@ -542,6 +542,143 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'tropicality', coefficient: +0.693,
     description: 'short woody plants thrive in tropics (compensator)' },
 
+  // ── Deep-rooted small-leaf tropical boost — Bunchgrass in Trop/Arid ──
+  // Bunchgrass (root=0.99, 1-leaf=0.51) product=0.50. Tropical Herb (root=0.01) product=0.005.
+  // Fern (root=0.99, 1-leaf=0.01) product=0.01 — minimal collateral on Fern.
+  // Zero-mean: 0.50×0.161 = 0.368×0.219 → 0.081 = 0.081 ✓
+  { trait: 'rootPriority', trait2: 'leafSize', inverse2: true,
+    envVar: 'tropicality', coefficient: +0.50,
+    description: 'deep-rooted small-leaf plants gain in tropical competition' },
+  { trait: 'rootPriority', trait2: 'leafSize', inverse2: true,
+    envVar: 'soilFertility', coefficient: -0.368,
+    description: 'deep-rooted small-leaf plants lose on fertile soil (compensator)' },
+
+  // ── Desert soil compact shrub boost — Aromatic in Des/Soil ──
+  // Aromatic (def=0.99, 1-wood=0.60) product=0.594. Acacia (def=0.99, 1-wood=0.29) product=0.287.
+  // desertSoilHeat is ~0.38 in Des/Soil, near-zero elsewhere.
+  // Zero-mean: 0.80×0.034 = 0.169×0.161 → 0.027 = 0.027 ✓
+  { trait: 'defense', trait2: 'woodiness', inverse2: true,
+    envVar: 'desertSoilHeat', coefficient: +0.80,
+    description: 'defended non-woody plants thrive on hot desert soil' },
+  { trait: 'defense', trait2: 'woodiness', inverse2: true,
+    envVar: 'tropicality', coefficient: -0.169,
+    description: 'defended non-woody plants lose in tropics (compensator)' },
+
+  // ── Non-succulent herb tropical/fertile soil axis — Fern suppression in tropics ──
+  // Fern (leaf=0.99, 1-wood=0.99, 1-wStor=0.99) product=0.97
+  // Jade/Epiphytic (1-wStor=0.45) product=0.44 — less affected
+  // Tropical Herb (leaf=0.50) product=0.49
+  // Zero-mean: 0.80×0.219 = 1.088×0.161 → 0.175 = 0.175 ✓
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true, trait3: 'waterStorage', inverse3: true,
+    envVar: 'soilFertility', coefficient: +0.80,
+    description: 'non-succulent broadleaf herbs thrive on fertile soil' },
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true, trait3: 'waterStorage', inverse3: true,
+    envVar: 'tropicality', coefficient: -1.088,
+    description: 'non-succulent broadleaf herbs lose in tropical competition' },
+
+  // ── Desert Annual wetland penalty — seedInv×(1-long)×(1-root)×waterlogging ──
+  // DA (seedInv=0.99, 1-long=0.99, 1-root=0.50) product=0.49. Clover (root=0.99): 0.01.
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, trait3: 'rootPriority', inverse3: true,
+    envVar: 'waterlogging', coefficient: -0.202,
+    description: 'short-lived shallow seeders drown in wetlands' },
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, trait3: 'rootPriority', inverse3: true,
+    envVar: 'droughtStress', coefficient: +0.111,
+    description: 'short-lived shallow seeders tolerate drought (compensator)' },
+
+  // ── Pampas temperate penalty — (1-seedSize)×(1-wood)×winterHarshness ──
+  // Pampas (seedSize=0.50 → 1-ss=0.50) product=0.495. Others (seedSize=0.99): ≈0.01.
+  { trait: 'seedSize', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'winterHarshness', coefficient: -1.251,
+    description: 'mid-seeded herbs struggle in harsh winters' },
+  { trait: 'seedSize', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'tropicality', coefficient: +1.069,
+    description: 'mid-seeded herbs gain in tropical competition (compensator)' },
+  // ── Pampas Mediterranean micro-penalty — (1-seedSize)×(1-wood)×mediterraneity ──
+  // Supplementary pair: Pampas at #5 in Med/Hill with 0.002 gap, need tiny nudge.
+  // Zero-mean: 0.02×0.086 = 0.024×0.071 → 0.002 = 0.002 ✓
+  { trait: 'seedSize', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'mediterraneity', coefficient: -0.02,
+    description: 'mid-seeded herbs struggle in Mediterranean climates' },
+  { trait: 'seedSize', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'continentalDrought', coefficient: +0.024,
+    description: 'mid-seeded herbs tolerate continental drought (compensator)' },
+
+  // ── Leafy tree tropical boost — leaf×wood×tropicality ──
+  // Magnolia (leaf=0.99, wood=0.71) product=0.70. Trees in tropical niches.
+  { trait: 'leafSize', trait2: 'woodiness',
+    envVar: 'tropicality', coefficient: +1.525,
+    description: 'broadleaf trees dominate tropical canopy' },
+  { trait: 'leafSize', trait2: 'woodiness',
+    envVar: 'winterHarshness', coefficient: -1.784,
+    description: 'broadleaf trees lose in harsh winters (compensator)' },
+
+  // ── Deep-rooted tree tropical boost — root×wood×tropicality ──
+  // Acacia (root=0.99, wood=0.71) product=0.70.
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'tropicality', coefficient: +0.343,
+    description: 'deep-rooted trees thrive in tropical soils' },
+  { trait: 'rootPriority', trait2: 'woodiness',
+    envVar: 'winterHarshness', coefficient: -0.401,
+    description: 'deep-rooted trees lose in harsh winters (compensator)' },
+
+  // ── Perennial non-seeder herb wetland — long×(1-seedInv)×(1-wood)×waterlogging ──
+  // Fern (long=0.99, 1-seedInv=0.99) product=0.97. DA (long=0.01): 0.01.
+  { trait: 'longevity', trait2: 'seedInvestment', inverse2: true, trait3: 'woodiness', inverse3: true,
+    envVar: 'waterlogging', coefficient: -0.400,
+    description: 'perennial non-seeding herbs struggle in waterlogged soil' },
+  { trait: 'longevity', trait2: 'seedInvestment', inverse2: true, trait3: 'woodiness', inverse3: true,
+    envVar: 'droughtStress', coefficient: +0.220,
+    description: 'perennial non-seeding herbs tolerate drought (compensator)' },
+
+  // ── Tall tree hill boost — height×wood×shallowSoil ──
+  // Tropical Tree (h=0.50, w=0.71) product=0.355. On hills/arid (shallowSoil=0.6-0.7).
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'shallowSoil', coefficient: +1.285,
+    description: 'tall trees anchor through shallow rocky soil' },
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'soilFertility', coefficient: -2.490,
+    description: 'tall trees lose on fertile soil (compensator)' },
+
+  // ── Shallow herb tropical boost — (1-root)×(1-wood)×tropicality ──
+  // Holly (0.594), Turfgrass (0.495), Fern (0.01).
+  { trait: 'rootPriority', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'tropicality', coefficient: +0.412,
+    description: 'shallow-rooted herbs gain tropical niche advantage' },
+  { trait: 'rootPriority', inverse: true, trait2: 'woodiness', inverse2: true,
+    envVar: 'winterHarshness', coefficient: -0.482,
+    description: 'shallow-rooted herbs lose in harsh winters (compensator)' },
+
+  // ── Annual herb wetland penalty — (1-long)×leaf×(1-wood)×waterlogging ──
+  // DA (product=0.97), Fern (long=0.99): 0.01.
+  { trait: 'longevity', inverse: true, trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'waterlogging', coefficient: -0.388,
+    description: 'annual broadleaf herbs cannot establish in waterlogged soil' },
+  { trait: 'longevity', inverse: true, trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'droughtStress', coefficient: +0.213,
+    description: 'annual broadleaf herbs tolerate drought (compensator)' },
+
+  // ── Deep-rooted leafy herb tropical boost — root×leaf×(1-wood)×tropicality ──
+  // Fern (root=0.99, leaf=0.99, 1-wood=0.99) product=0.97 → boosts Forb in Trop/Soil.
+  // In Med/Soil (trop=0.058): +0.034 (tiny). In Des niches: extremeAridity compensator.
+  // Zero-mean: 0.60×0.161 = 1.637×0.059 → 0.097 = 0.097 ✓
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'tropicality', coefficient: +0.60,
+    description: 'deep-rooted broadleaf herbs thrive in tropical competition' },
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'extremeAridity', coefficient: -1.637,
+    description: 'deep-rooted broadleaf herbs wilt in extreme aridity (compensator)' },
+
+  // ── Deep-rooted peaked shrub desert heat — peaked(wood,0.40)×root×desertSoilHeat ──
+  // Aromatic (peaked=1.0, root=0.99) product=0.99. Holly (root=0.01): 0.01.
+  // desertSoilHeat=0.381 in Des/Soil, near-zero elsewhere. Ultra-targeted.
+  // Zero-mean: 1.00×0.034 = 0.576×0.059 → 0.034 = 0.034 ✓
+  { trait: 'woodiness', peaked: 0.40, trait2: 'rootPriority',
+    envVar: 'desertSoilHeat', coefficient: +1.00,
+    description: 'deep-rooted moderate-woody shrubs adapted to hot desert soil' },
+  { trait: 'woodiness', peaked: 0.40, trait2: 'rootPriority',
+    envVar: 'extremeAridity', coefficient: -0.576,
+    description: 'deep-rooted moderate-woody shrubs wilt in extreme aridity (compensator)' },
+
   // ── Tall succulent wetland suppression — waterStorage × heightPriority × waterlogging ──
   // Euphorbia (ws=0.55, hgt=0.99) in Des/Wetl: 0.55×0.99×0.405×(-1.50)=-0.330 → pushes from #1
   // Sedge (ws=0.01): negligible. Tallgrass (ws=0.01): negligible. Palm (ws=0.01): negligible.

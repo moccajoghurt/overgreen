@@ -192,54 +192,54 @@ interface EffectSlot {
 }
 
 const SLOTS: EffectSlot[] = [
-  // Slot 0: Tall non-woody cool wetland (Tallgrass in Temp/Wetl)
-  { label: 'tall-herb-coolWetl',
-    effect: { trait: 'heightPriority', trait2: 'woodiness', inverse2: true, envVar: 'coolWetland' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 1: Seeding broadleaf herb cool wetland (Clover/Wildflower in Temp/Wetl)
-  { label: 'seed-leaf-herb-coolWetl',
-    effect: { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'woodiness', inverse3: true, envVar: 'coolWetland' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 2: Water storage continental drought (Succulents in Temp/Arid)
-  { label: 'wStr-contDrought',
+  // Slot 0: DA wetland penalty — highly selective (DA product=0.49, Clover=0.01, most others≈0)
+  { label: 'DA-wetland',
+    effect: { trait: 'seedInvestment', trait2: 'longevity', inverse2: true, trait3: 'rootPriority', inverse3: true, envVar: 'waterlogging' },
+    compensatorEnvVar: 'extremeAridity' },
+  // Slot 1: Annual herb wetland — DA product=0.97 via (1-long)×leaf, Fern=0.01
+  { label: 'annual-herb-wetl',
+    effect: { trait: 'longevity', inverse: true, trait2: 'leafSize', trait3: 'woodiness', inverse3: true, envVar: 'waterlogging' },
+    compensatorEnvVar: 'extremeAridity' },
+  // Slot 2: Pampas penalty — Pampas (1-seedSize)×(1-wood)=0.495, others≈0.01
+  { label: 'pampas-penalty',
+    effect: { trait: 'seedSize', inverse: true, trait2: 'woodiness', inverse2: true, envVar: 'winterHarshness' },
+    compensatorEnvVar: 'continentalDrought' },
+  // Slot 3: Forb med suppression — leaf×(1-wood)×mediterraneity, boosts in seasonality
+  { label: 'forb-med-suppress',
+    effect: { trait: 'leafSize', trait2: 'woodiness', inverse2: true, envVar: 'mediterraneity' },
+    compensatorEnvVar: 'continentalDrought' },
+  // Slot 4: Peaked shrub desert — peaked(wood,0.40) × desertSoilHeat
+  { label: 'peaked-shrub-des',
+    effect: { trait: 'woodiness', peaked: 0.40, envVar: 'desertSoilHeat' },
+    compensatorEnvVar: 'extremeAridity' },
+  // Slot 5: Shallow-root peaked-shrub tropical — Holly (peaked=1.0, 1-root=0.99) product=0.99
+  { label: 'shallowShrub-trop',
+    effect: { trait: 'woodiness', peaked: 0.40, trait2: 'rootPriority', inverse2: true, envVar: 'tropicality' },
+    compensatorEnvVar: 'winterHarshness' },
+  // Slot 6: Deep-root herb mediterraneity — Fern/Bunchgrass (root=0.99) boost
+  { label: 'deepHerb-med',
+    effect: { trait: 'rootPriority', trait2: 'woodiness', inverse2: true, envVar: 'mediterraneity' },
+    compensatorEnvVar: 'continentalDrought' },
+  // Slot 7: Succulent continental drought — Barrel Cactus (wStor=0.55)
+  { label: 'succ-contDrought',
     effect: { trait: 'waterStorage', envVar: 'continentalDrought' },
     compensatorEnvVar: 'waterlogging' },
-  // Slot 3: Compact defended desert shrub (Aromatic in Desert/Soil)
-  { label: 'def-lowHgt-desertHeat',
-    effect: { trait: 'defense', trait2: 'heightPriority', inverse2: true, envVar: 'desertSoilHeat' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 4: Leafy herbs in waterlogged soil (forbs in wetlands)
-  { label: 'leaf-herb-waterlog',
+  // Slot 8: Low-root tall tree tropical — h×l×w×tropicality. Tropical Tree=0.351, Magnolia=0.007
+  { label: 'tallLeafTree-trop',
+    effect: { trait: 'heightPriority', trait2: 'leafSize', trait3: 'woodiness', envVar: 'tropicality' },
+    compensatorEnvVar: 'winterHarshness' },
+  // Slot 9: Leafy herb waterlogging — forbs in wetlands via leaf×(1-wood)×waterlogging
+  { label: 'leafHerb-waterlog',
     effect: { trait: 'leafSize', trait2: 'woodiness', inverse2: true, envVar: 'waterlogging' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 5: Leafy herbs on fertile soil (forbs in Temp/Soil)
-  { label: 'leaf-herb-fertile',
-    effect: { trait: 'leafSize', trait2: 'woodiness', inverse2: true, envVar: 'soilFertility' },
     compensatorEnvVar: 'extremeAridity' },
-  // Slot 6: Undefended broadleaf drought penalty (suppress Fern in Trop/Arid)
-  { label: 'leaf-nodef-drought',
-    effect: { trait: 'leafSize', trait2: 'defense', inverse2: true, envVar: 'droughtStress' },
-    compensatorEnvVar: 'soilFertility' },
-  // Slot 7: Non-woody seeder waterlogging (grasses/annuals in wetlands)
-  { label: 'seed-herb-waterlog',
-    effect: { trait: 'seedInvestment', trait2: 'woodiness', inverse2: true, envVar: 'waterlogging' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 8: Woody deep-rooted tropicality (help trees in Trop/Hill)
-  { label: 'wood-root-tropical',
-    effect: { trait: 'woodiness', trait2: 'rootPriority', envVar: 'tropicality' },
-    compensatorEnvVar: 'seasonality' },
-  // Slot 9: Tall woody tropicality boost (trees in tropical niches)
-  { label: 'hgt-wood-tropical',
-    effect: { trait: 'heightPriority', trait2: 'woodiness', envVar: 'tropicality' },
-    compensatorEnvVar: 'seasonality' },
-  // Slot 10: Seeding herb waterlogging (forbs in wetlands)
-  { label: 'seed-leaf-waterlog',
-    effect: { trait: 'seedInvestment', trait2: 'leafSize', envVar: 'waterlogging' },
-    compensatorEnvVar: 'droughtStress' },
-  // Slot 11: Low woody seasonality (shrubs in seasonal climates)
-  { label: 'lowHgt-wood-season',
-    effect: { trait: 'heightPriority', trait2: 'woodiness', inverse: true, envVar: 'seasonality' },
-    compensatorEnvVar: 'tropicality' },
+  // Slot 10: Deep peaked-shrub desert heat — Aromatic (peaked=1.0, root=0.99)=0.99
+  { label: 'deepShrub-desHeat',
+    effect: { trait: 'woodiness', peaked: 0.40, trait2: 'rootPriority', envVar: 'desertSoilHeat' },
+    compensatorEnvVar: 'extremeAridity' },
+  // Slot 11: Root×wood×(1-leaf)×tropicality — Acacia (0.99×0.71×0.99=0.696), minimal for others
+  { label: 'acaciaType-trop',
+    effect: { trait: 'rootPriority', trait2: 'woodiness', trait3: 'leafSize', inverse3: true, envVar: 'tropicality' },
+    compensatorEnvVar: 'winterHarshness' },
 ];
 
 // Pre-compute trait products for each slot × subtype (constant for fixed genomes)
