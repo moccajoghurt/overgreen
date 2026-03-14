@@ -690,6 +690,79 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'extremeAridity', coefficient: +3.673,
     description: 'tall columnar succulents escape ground heat in extreme arid conditions' },
 
+  // ── Greedy-optimized zero-mean pairs (8 envVar-compensated pairs) ──
+
+  // Zero-mean: tall broadleaf plants gain frost tolerance, pay disease cost
+  // 3.000×0.110 = 1.222×0.270 → 0.330 = 0.330 ✓
+  { trait: 'heightPriority', trait2: 'leafSize',
+    envVar: 'frostRisk', coefficient: +3.000,
+    description: 'tall broadleaf plants tolerate moderate frost — competitive edge in temperate zones' },
+  { trait: 'heightPriority', trait2: 'leafSize',
+    envVar: 'diseasePressure', coefficient: -1.222,
+    description: 'tall broadleaf canopies spread foliar disease (compensator)' },
+
+  // Zero-mean: deep-rooted leafy trees suppressed in tropics, boosted in mediterranean
+  // 3.000×0.161 = 5.625×0.086 → 0.482 = 0.482 ✓
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness',
+    envVar: 'tropicality', coefficient: -3.000,
+    description: 'deep-rooted leafy trees outcompeted in high tropical diversity' },
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness',
+    envVar: 'mediterraneity', coefficient: +5.625,
+    description: 'deep-rooted leafy trees thrive in mediterranean dry summers (compensator)' },
+
+  // Zero-mean: short-lived seed investors gain drought edge, suffer in waterlogged soil
+  // 0.300×0.261 = 0.545×0.144 → 0.078 = 0.078 ✓
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true,
+    envVar: 'droughtStress', coefficient: +0.300,
+    description: 'short-lived seed-investors exploit post-drought gaps' },
+  { trait: 'seedInvestment', trait2: 'longevity', inverse2: true,
+    envVar: 'waterlogging', coefficient: -0.545,
+    description: 'short-lived seed-investor seeds rot in waterlogged soil (compensator)' },
+
+  // Zero-mean: tall broadleaf plants gain frost tolerance in mediterranean context
+  // 1.000×0.110 = 1.283×0.086 → 0.110 = 0.110 ✓
+  { trait: 'heightPriority', trait2: 'leafSize',
+    envVar: 'frostRisk', coefficient: +1.000,
+    description: 'tall broadleaf plants adapted to cool mediterranean winters' },
+  { trait: 'heightPriority', trait2: 'leafSize',
+    envVar: 'mediterraneity', coefficient: -1.283,
+    description: 'tall broadleaf plants crowded by scrub in mediterranean shrublands (compensator)' },
+
+  // Zero-mean: tall woody plants penalized by drought, recover in heat
+  // 2.000×0.261 = 1.717×0.304 → 0.523 = 0.523 ✓
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'droughtStress', coefficient: -2.000,
+    description: 'tall woody plants lose hydraulic conductance in drought' },
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'heatStress', coefficient: +1.717,
+    description: 'tall woody plants shade canopy gains value in heat stress (compensator)' },
+
+  // Zero-mean: non-seed broadleaf penalized by drought, recover in heat
+  // 0.600×0.261 = 0.515×0.304 → 0.157 = 0.157 ✓
+  { trait: 'seedInvestment', inverse: true, trait2: 'leafSize',
+    envVar: 'droughtStress', coefficient: -0.600,
+    description: 'vegetatively-reproducing broadleaf plants wilt in drought' },
+  { trait: 'seedInvestment', inverse: true, trait2: 'leafSize',
+    envVar: 'heatStress', coefficient: +0.515,
+    description: 'vegetatively-reproducing broadleaf plants tolerate heat via transpiration (compensator)' },
+
+  // Zero-mean: seed-investing non-woody climbers penalized by heat, boosted in tropical
+  // 3.000×0.304 = 5.677×0.161 → 0.913 = 0.913 ✓
+  { trait: 'seedInvestment', trait2: 'heightPriority', trait3: 'woodiness', inverse3: true,
+    envVar: 'heatStress', coefficient: -3.000,
+    description: 'seeding non-woody climbers lose turgor in intense heat' },
+  { trait: 'seedInvestment', trait2: 'heightPriority', trait3: 'woodiness', inverse3: true,
+    envVar: 'tropicality', coefficient: +5.677,
+    description: 'seeding non-woody climbers thrive in tropical support structure (compensator)' },
+
+  // Zero-mean: deep-rooted leafy trees gain frost tolerance, pay disease cost
+  // 2.000×0.110 = 0.815×0.270 → 0.220 = 0.220 ✓
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness',
+    envVar: 'frostRisk', coefficient: +2.000,
+    description: 'deep-rooted leafy trees survive frost via deep root insulation' },
+  { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness',
+    envVar: 'diseasePressure', coefficient: -0.815,
+    description: 'deep-rooted leafy trees harbor soil pathogens (compensator)' },
 ];
 
 /** Niche index for a terrain×climate combination. */
