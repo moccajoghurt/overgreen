@@ -3800,7 +3800,7 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   2.50,   // 11: Birch        15m   → 2.5
   // Shrubs (12-17)
   0.80,   // 12: Ev. Shrub    1.5m  → 0.80
-  2.00,   // 13: Dec. Shrub   3.0m  → 2.00
+  1.00,   // 13: Dec. Shrub   3.0m  → 1.00
   0.55,   // 14: Mediterranean 1.0m → 0.55
   1.00,   // 15: Thorny       2.0m  → 1.00
   1.00,   // 16: Desert Shrub 2.0m  → 1.00
