@@ -461,6 +461,7 @@ const TARGET_FRAME_MS = 15; // target frame time (leaves ~1.6ms margin for 60fps
 const SAFETY_MARGIN_MS = 3; // headroom for GC, compositor, etc.
 let wasWarpActive = false;
 let lastRenderMs = 4;       // rolling estimate of render cost
+let lastTickMs = 2;         // rolling estimate of single tick cost
 
 function loop(now: number): void {
   perfTracker.markFrame(now);
@@ -503,10 +504,18 @@ function loop(now: number): void {
       lastTickTime = now;
       ffOverlay.update(world);
     } else if (controls.tickBudgetMs > 0) {
-      // Fast: adaptive budget based on how long rendering takes
-      const tickBudget = Math.max(2, TARGET_FRAME_MS - lastRenderMs - SAFETY_MARGIN_MS);
-      const deadline = performance.now() + tickBudget;
-      do { doTick(perfHooks); } while (performance.now() < deadline);
+      // Fast: always tick at least once, then pack more if budget allows
+      const tickBudget = TARGET_FRAME_MS - lastRenderMs - SAFETY_MARGIN_MS;
+      const deadline = performance.now() + Math.max(0, tickBudget);
+      let tickStart = performance.now();
+      doTick(perfHooks);
+      lastTickMs = lastTickMs * 0.8 + (performance.now() - tickStart) * 0.2;
+      // Only pack additional ticks if there's room for at least one more
+      while (performance.now() + lastTickMs < deadline) {
+        tickStart = performance.now();
+        doTick(perfHooks);
+        lastTickMs = lastTickMs * 0.8 + (performance.now() - tickStart) * 0.2;
+      }
       lastTickTime = now;
     } else if (now - lastTickTime >= controls.tickInterval) {
       doTick(perfHooks);
