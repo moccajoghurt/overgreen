@@ -469,6 +469,8 @@ export function createSystemsOverlay(container: HTMLElement): SystemsOverlay {
       windExposure: 0, waterlogging: 0, heatStress: 0,
       soilFertility: 0, extremeAridity: 0,
       tropicality: 0, winterHarshness: 0, seasonality: 0,
+      shallowSoil: 0, mediterraneity: 0, coolWetland: 0,
+      continentalDrought: 0, desertSoilHeat: 0,
     };
     for (let cz = 0; cz < CLIMATE_ZONE_COUNT; cz++) {
       for (let tt = 0; tt < TERRAIN_COUNT; tt++) {
