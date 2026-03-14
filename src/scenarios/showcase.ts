@@ -25,7 +25,7 @@ import { SUBTYPE_NAMES } from '../types/subtypes';
 // Health EMA values for the three states
 const EMA_THRIVING = 1.0;
 const EMA_STRESSED = 0.6;
-const EMA_DYING = 0.3;
+const EMA_DYING = 0.1;
 
 // Triplet: 3 plants with different health states, optionally forceLow
 function triplet(x: number, y: number, sub: number, low = false) {
