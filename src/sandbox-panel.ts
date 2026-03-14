@@ -1,13 +1,13 @@
 import { TRAITS } from './trait-defs';
 import {
-  createPlant, genomeDistance, randomGenome, generateSpeciesColor,
+  genomeDistance, randomGenome, generateSpeciesColor,
 } from './simulation/plants';
 import { generateSpeciesName } from './species-names';
 import { classifySubtype } from './types/subtypes';
 import { speciesColorToRgb } from './ui-utils';
-import { World, Genome, TerrainType } from './types';
+import { World, Genome } from './types';
 import { Controls } from './controls';
-import { cellIsEmpty, clearCellPlant, setCellPlant, Tier } from './simulation/tiers';
+import { sandboxPlacePlant, removePlantsBySpecies, clearAllPlants } from './simulation/sandbox-ops';
 
 interface CustomSpecies {
   name: string;
@@ -278,14 +278,7 @@ export function createSandboxPanel(
   body.appendChild(clearSection);
 
   clearBtn.addEventListener('click', () => {
-    const speciesIds = new Set(customSpecies.keys());
-    for (const plant of world.plants.values()) {
-      if (speciesIds.has(plant.speciesId)) {
-        const cell = world.grid[plant.y][plant.x];
-        clearCellPlant(cell, plant.id);
-        world.plants.delete(plant.id);
-      }
-    }
+    removePlantsBySpecies(world, new Set(customSpecies.keys()));
     customSpecies.clear();
     rebuildPlacedList();
     onPlantsDirty?.();
@@ -302,18 +295,7 @@ export function createSandboxPanel(
   body.appendChild(clearAllSection);
 
   clearAllBtn.addEventListener('click', () => {
-    for (const plant of world.plants.values()) {
-      const cell = world.grid[plant.y][plant.x];
-      clearCellPlant(cell, plant.id);
-    }
-    world.plants.clear();
-    // Clear seed bank from every cell so plants don't instantly regrow
-    for (let y = 0; y < world.height; y++) {
-      for (let x = 0; x < world.width; x++) {
-        world.grid[y][x].seeds.length = 0;
-      }
-    }
-    world.seedPopulations.clear();
+    clearAllPlants(world);
     customSpecies.clear();
     rebuildPlacedList();
     onPlantsDirty?.();
@@ -367,45 +349,29 @@ export function createSandboxPanel(
 
   // --- Placement logic ---
   function handlePlacement(x: number, y: number): void {
-    const cell = world.grid[y][x];
-    if (cell.terrainType === TerrainType.River || cell.terrainType === TerrainType.Rock) return;
-    if (!cellIsEmpty(cell)) return;
-
     const genome = { ...currentGenome };
 
-    // Species matching — find existing custom species with same genome
-    let speciesId: number | null = null;
+    // Check if current genome matches an existing custom species
+    let matchedSpeciesId: number | null = null;
     for (const [sid, sp] of customSpecies) {
       if (genomeDistance(sp.genome, genome) < 0.001) {
-        speciesId = sid;
+        matchedSpeciesId = sid;
         sp.placedCount++;
         break;
       }
     }
 
-    // New species
-    if (speciesId === null) {
-      const subtype = classifySubtype(genome);
-      // Reuse existing species for this subtype if one exists
-      const existingForSubtype = world.subtypeSpecies.get(subtype);
-      if (existingForSubtype !== undefined) {
-        speciesId = existingForSubtype;
-      } else {
-        speciesId = world.nextSpeciesId++;
-        const color = generateSpeciesColor(speciesId);
-        const name = generateSpeciesName(genome, speciesId, subtype);
-        world.species.set(speciesId, { id: speciesId, name, color, subtype });
-        world.subtypeSpecies.set(subtype, speciesId);
-      }
-      customSpecies.set(speciesId, { name: world.species.get(speciesId)!.name, genome, placedCount: 1 });
-    }
+    const result = sandboxPlacePlant(world, x, y, genome);
+    if (!result) return;
 
-    // Create plant
-    const id = world.nextPlantId++;
-    const plant = createPlant(id, x, y, genome, speciesId, speciesId);
-    world.plants.set(id, plant);
-    setCellPlant(cell, Tier.Ground, id);
-    cell.lastSpeciesId = speciesId;
+    // Track in local customSpecies if this is a new species for the sandbox
+    if (matchedSpeciesId === null) {
+      customSpecies.set(result.speciesId, {
+        name: world.species.get(result.speciesId)!.name,
+        genome,
+        placedCount: 1,
+      });
+    }
 
     rebuildPlacedList();
     updatePreview();

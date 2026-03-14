@@ -1,4 +1,5 @@
 import { SpeciesColor, World } from './types';
+import { TRAITS } from './trait-defs';
 
 /** Tick-scoped cache: computes all centroids in a single pass on first call per tick */
 let _centroidCache: Map<number, { x: number; y: number }> = new Map();
@@ -85,4 +86,111 @@ export function hexToRgba(hex: string, alpha: number): string {
     b = parseInt(hex.slice(5, 7), 16);
   }
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ── Shared overlay DOM helpers ──
+
+/** Tiny section header label (VITALS, GENOME, etc.) used by overlay cards. */
+export function sectionLabel(text: string): HTMLElement {
+  const lbl = document.createElement('div');
+  lbl.style.cssText = `font-size:8px; font-weight:normal; color:rgba(255,255,255,0.35); margin-top:4px; letter-spacing:0.5px;`;
+  lbl.textContent = text;
+  return lbl;
+}
+
+/** Horizontal labeled stat bar with fill + value display. */
+export function createBarRow(
+  label: string,
+  opts?: {
+    labelWidth?: number;
+    barHeight?: number;
+    barMinWidth?: number;
+    barColor?: string;
+    valueWidth?: number;
+    valueColor?: string;
+  },
+): { row: HTMLElement; barFill: HTMLElement; valueEl: HTMLElement } {
+  const lw = opts?.labelWidth ?? 32;
+  const bh = opts?.barHeight ?? 6;
+  const bmw = opts?.barMinWidth ?? 50;
+  const vc = opts?.valueColor ?? '#aaa';
+  const vw = opts?.valueWidth ?? 28;
+
+  const row = document.createElement('div');
+  row.style.cssText = `display:flex; align-items:center; gap:4px; height:12px; margin-top:1px;`;
+
+  const labelEl = document.createElement('span');
+  labelEl.style.cssText = `font-size:9px; color:rgba(255,255,255,0.5); width:${lw}px; text-align:right;`;
+  labelEl.textContent = label;
+  row.appendChild(labelEl);
+
+  const barBg = document.createElement('div');
+  barBg.style.cssText = `flex:1; height:${bh}px; background:rgba(255,255,255,0.08); border-radius:2px; position:relative; min-width:${bmw}px;`;
+  const barFill = document.createElement('div');
+  barFill.style.cssText = `position:absolute; top:0; left:0; height:100%; border-radius:2px; transition:width 0.15s ease;`;
+  if (opts?.barColor) {
+    barFill.style.background = opts.barColor;
+  }
+  barFill.style.width = '0%';
+  barBg.appendChild(barFill);
+  row.appendChild(barBg);
+
+  const valueEl = document.createElement('span');
+  valueEl.style.cssText = `font-size:9px; color:${vc}; min-width:${vw}px; text-align:right;`;
+  row.appendChild(valueEl);
+
+  return { row, barFill, valueEl };
+}
+
+/** Vertical equalizer bars for genome traits. */
+export function createGenomeEqualizer(
+  opts?: {
+    width?: number;
+    height?: number;
+    fillAlpha?: number;
+    transitionMs?: number;
+    labelSize?: number;
+  },
+): { container: HTMLElement; barFills: HTMLElement[] } {
+  const w = opts?.width ?? 120;
+  const h = opts?.height ?? 20;
+  const fa = opts?.fillAlpha ?? 0.6;
+  const tm = opts?.transitionMs ?? 150;
+  const ls = opts?.labelSize ?? 6;
+
+  const container = document.createElement('div');
+  container.style.cssText = `display:flex; gap:2px; width:${w}px; height:${h}px; margin-top:1px;`;
+  const barFills: HTMLElement[] = [];
+
+  for (const trait of TRAITS) {
+    const col = document.createElement('div');
+    col.style.cssText = `
+      flex:1; position:relative;
+      background:rgba(255,255,255,0.06);
+      border-radius:2px 2px 0 0;
+    `;
+    const fill = document.createElement('div');
+    fill.style.cssText = `
+      position:absolute; bottom:0; left:0; width:100%;
+      background:${hexToRgba(trait.color, fa)};
+      border-radius:2px 2px 0 0;
+      transition:height ${tm / 1000}s ease;
+    `;
+    fill.style.height = '0%';
+    col.appendChild(fill);
+    barFills.push(fill);
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `
+      position:absolute; bottom:1px; left:0; width:100%;
+      text-align:center; font-size:${ls}px; line-height:1;
+      color:rgba(255,255,255,0.4);
+    `;
+    lbl.textContent = trait.label[0];
+    col.appendChild(lbl);
+
+    container.appendChild(col);
+  }
+
+  return { container, barFills };
 }

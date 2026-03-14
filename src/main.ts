@@ -1,9 +1,9 @@
-import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario, CLIMATE_ZONE_COUNT, ZONE_NAMES, ClimateZone } from './types';
-import { createWorld, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
+import { GRID_WIDTH, GRID_HEIGHT } from './types';
+import { createWorld, clearFrameEvents, tickWorld, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
 import { createCellCardOverlay } from './cell-card-overlay';
-import { createHistory, recordTick, resetHistory } from './history';
+import { createHistory, recordTick } from './history';
 import { createGenomePanel } from './genome-panel';
 import { createLineagePanel } from './lineage-panel';
 import { createCommentary } from './commentary';
@@ -13,10 +13,8 @@ import { createSpeciesLabelsOverlay } from './species-labels-overlay';
 import { createTerrainLabelsOverlay } from './terrain-labels-overlay';
 import { createZoneLabelsOverlay } from './zone-labels-overlay';
 import { createFFOverlay } from './ff-overlay';
-import type { ColorMode } from './types/renderer';
 import type { Genome } from './types/core';
 import { loadScenario } from './scenario-loader';
-import { SCENARIOS } from './scenarios';
 import { genesis } from './scenarios/genesis';
 import { createHookPhase } from './hook-phase';
 import { PerfTracker } from './perf';
@@ -26,45 +24,21 @@ import { createPlantCardOverlay } from './plant-card-overlay';
 import { createExperimentRunner } from './experiment-runner';
 import { createExperimentOverlay } from './experiment-overlay';
 import { naturalSelection101 } from './experiments/natural-selection';
-import type { Experiment } from './types/experiment';
+import { initUIWiring } from './ui-wiring';
+import { initScenarioManager } from './scenario-manager';
+import { startFrameLoop } from './frame-loop';
 
+// ── Create world & renderer ──
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
-
-// Load Genesis as the default starting scenario
 loadScenario(world, genesis);
 
 const renderer = await createRenderer3D(container, world);
 const controls = initControls(renderer.canvas, renderer);
-
-let lastTickTime = 0;
-let lastUITick = -1;
-let lastUISelectedCell: { x: number; y: number } | null = null;
-let frameCount = 0;
-let lastEventSeq = 0;
-
-// ── Hook phase (curated first-load experience) ──
-const hookPhase = createHookPhase({
-  container,
-  camera: renderer.camera,
-  mapControls: renderer.mapControls,
-  controls,
-  onRevealComplete: () => {
-    // Force UI refresh
-    lastUITick = -1;
-    updateUI();
-  },
-  onStartExperiment: () => {
-    doStartExperiment(naturalSelection101);
-  },
-});
-
-// Start with natural colors
 renderer.setColorMode('natural');
 
 // ── Performance tracking ──
 const perfTracker = new PerfTracker();
-// Register all labels in display order
 perfTracker.register('simTotal', 'sim');
 perfTracker.register('environment', 'sim');
 perfTracker.register('rechargeWater', 'sim');
@@ -88,91 +62,16 @@ perfTracker.register('glDraw', 'render');
 perfTracker.register('frame', 'frame');
 const perfPanel = createPerfPanel(container, perfTracker);
 
-// --- View drawer expand/collapse ---
-const viewExpandBtn = document.getElementById('btn-view-expand') as HTMLButtonElement;
-const viewDrawer = document.getElementById('view-drawer')!;
-viewExpandBtn.addEventListener('click', () => {
-  const open = viewDrawer.classList.toggle('hidden') === false;
-  viewExpandBtn.textContent = open ? '−' : '+';
-});
-
-// --- Mobile menu toggle ---
-const mobileMenuBtn = document.createElement('button');
-mobileMenuBtn.id = 'mobile-menu-btn';
-mobileMenuBtn.textContent = '\u2630';
-document.body.appendChild(mobileMenuBtn);
-
-const mobileBackdrop = document.createElement('div');
-mobileBackdrop.id = 'mobile-backdrop';
-document.body.appendChild(mobileBackdrop);
-
-const sidebar = document.getElementById('sidebar')!;
-mobileMenuBtn.addEventListener('click', () => {
-  sidebar.classList.toggle('mobile-open');
-  mobileBackdrop.classList.toggle('visible');
-});
-mobileBackdrop.addEventListener('click', () => {
-  sidebar.classList.remove('mobile-open');
-  mobileBackdrop.classList.remove('visible');
-});
-
-// --- View toggles ---
-function setupViewCheckbox(id: string, onToggle: (checked: boolean) => void) {
-  const el = document.getElementById(id) as HTMLInputElement;
-  el.addEventListener('change', () => onToggle(el.checked));
-  return el;
-}
-
+// ── Create overlays & panels ──
 const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 const plantCard = createPlantCardOverlay(container, renderer);
 const cellCard = createCellCardOverlay(container, renderer, () => { controls.selectedCell = null; });
-
-// Heatmap button row — 1-click color mode switching
-const heatmapRow = document.getElementById('heatmap-row')!;
-const traitSelector = document.getElementById('trait-selector') as HTMLSelectElement;
-heatmapRow.addEventListener('click', (e) => {
-  const btn = (e.target as HTMLElement).closest('.heatmap-btn') as HTMLElement | null;
-  if (!btn) return;
-  const mode = btn.dataset.color as ColorMode;
-  heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
-  btn.classList.add('active');
-  renderer.setColorMode(mode);
-  traitSelector.style.display = mode === 'trait' ? '' : 'none';
-});
-traitSelector.addEventListener('change', () => {
-  renderer.setTraitColorTrait(traitSelector.value as keyof Genome);
-});
-const speciesCardsToggle = setupViewCheckbox('toggle-species-cards', (on) => speciesLabels.setVisible(on));
-const terrainToggle = setupViewCheckbox('toggle-terrain', (on) => terrainLabels.setVisible(on));
-const climateToggle = setupViewCheckbox('toggle-climate', (on) => zoneLabels.setVisible(on));
-setupViewCheckbox('toggle-lineage-cards', (on) => speciesLabels.setLineageVisible(on));
-const systemsToggle = setupViewCheckbox('toggle-systems', (on) => {
-  if (on) systemsOverlay.show(); else systemsOverlay.hide();
-});
-
 const ffOverlay = createFFOverlay(container);
 const systemsOverlay = createSystemsOverlay(container);
-
 const history = createHistory();
 const diagLogger = createDiagnosticLogger();
-// Expose for programmatic access (experiments)
-(window as any).__diagLogger = diagLogger;
-(window as any).__world = world;
-(window as any).__doTick = () => { clearFrameEvents(world); tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
-(window as any).__updateUI = () => { lastUITick = -1; updateUI(); };
-(window as any).__perfTracker = perfTracker;
-(window as any).__setCamera = (pos: {x:number,y:number,z:number}, target: {x:number,y:number,z:number}) => {
-  renderer.camera.position.set(pos.x, pos.y, pos.z);
-  renderer.mapControls.target.set(target.x, target.y, target.z);
-  renderer.mapControls.update();
-};
-(window as any).__getCamera = () => {
-  const p = renderer.camera.position;
-  const t = renderer.mapControls.target;
-  return { position: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2) }, target: { x: +t.x.toFixed(2), y: +t.y.toFixed(2), z: +t.z.toFixed(2) } };
-};
 const genomePanel = createGenomePanel(document.getElementById('genomes-container')!, container, renderer);
 const lineagePanel = createLineagePanel(document.getElementById('lineage-container')!, container, renderer);
 const commentary = createCommentary(container);
@@ -181,18 +80,8 @@ const sandboxPanel = createSandboxPanel(
   world, controls, renderer.canvas,
   () => renderer.markPlantsDirty(),
 );
-const btnSandbox = document.getElementById('btn-sandbox') as HTMLButtonElement;
-btnSandbox.addEventListener('click', () => {
-  const next = !sandboxPanel.isVisible();
-  sandboxPanel.setVisible(next);
-});
-const btnSystems = document.getElementById('btn-systems') as HTMLButtonElement;
-btnSystems.addEventListener('click', () => {
-  systemsOverlay.toggle();
-  systemsToggle.checked = systemsOverlay.isVisible();
-});
 
-// --- Experiment system ---
+// ── Experiment system ──
 const experimentOverlay = createExperimentOverlay(container);
 const experimentRunner = createExperimentRunner({
   onStepActivated: (index, step) => experimentOverlay.showStep(index, experimentRunner.totalSteps, step),
@@ -212,12 +101,12 @@ const experimentRunner = createExperimentRunner({
   },
   onColorModeRequested: (mode, trait) => {
     renderer.setColorMode(mode);
-    heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
-    heatmapRow.querySelector(`.heatmap-btn[data-color="${mode}"]`)?.classList.add('active');
-    traitSelector.style.display = mode === 'trait' ? '' : 'none';
+    uiRefs.heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
+    uiRefs.heatmapRow.querySelector(`.heatmap-btn[data-color="${mode}"]`)?.classList.add('active');
+    uiRefs.traitSelector.style.display = mode === 'trait' ? '' : 'none';
     if (trait) {
-      renderer.setTraitColorTrait(trait);
-      traitSelector.value = trait;
+      renderer.setTraitColorTrait(trait as keyof Genome);
+      uiRefs.traitSelector.value = trait;
     }
   },
   onSpeedRequested: (speed) => {
@@ -235,393 +124,75 @@ const experimentRunner = createExperimentRunner({
 experimentOverlay.onContinue = () => experimentRunner.continueStep();
 experimentOverlay.onClose = () => { experimentRunner.stop(); experimentOverlay.hide(); };
 
-function doStartExperiment(experiment: Experiment): void {
-  experimentRunner.stop();
-  experimentOverlay.hide();
-  doLoadScenario(experiment.scenario);
-  experimentRunner.start(experiment);
-}
-
-// Experiment buttons
-const EXPERIMENTS: Experiment[] = [naturalSelection101];
-const experimentButtonsContainer = document.getElementById('experiment-buttons')!;
-for (const exp of EXPERIMENTS) {
-  const btn = document.createElement('button');
-  btn.textContent = exp.name;
-  btn.title = exp.description;
-  btn.style.cssText = 'font-family:monospace; font-size:11px; padding:5px 8px; background:#1a2a1a; color:#8f8; border:1px solid #3a5a3a; border-radius:3px; cursor:pointer; text-align:left;';
-  btn.addEventListener('click', () => {
-    doStartExperiment(exp);
-    setActiveMapButton(null);
-  });
-  btn.addEventListener('mouseenter', () => { btn.style.background = '#2a3a2a'; });
-  btn.addEventListener('mouseleave', () => { btn.style.background = '#1a2a1a'; });
-  experimentButtonsContainer.appendChild(btn);
-}
-
-// Map buttons — featured maps shown as full buttons, experiments in dev dropdown
-const mapButtonsContainer = document.getElementById('map-buttons')!;
-const mapButtons: HTMLButtonElement[] = [];
-const FEATURED_IDS = new Set(['genesis', 'lindenvale']);
-
-function setActiveMapButton(activeId: string | null): void {
-  for (const btn of mapButtons) {
-    btn.classList.toggle('active', btn.dataset.scenarioId === activeId);
-  }
-}
-
-function createMapButton(id: string, name: string, onClick: () => void): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.className = 'map-btn';
-  btn.dataset.scenarioId = id;
-  btn.title = name;
-  const img = document.createElement('img');
-  img.className = 'map-btn-img';
-  img.alt = name;
-  img.src = `maps/${id}.png`;
-  img.onerror = () => {
-    const fallback = document.createElement('div');
-    fallback.className = 'map-btn-fallback';
-    fallback.textContent = name;
-    img.replaceWith(fallback);
-  };
-  btn.appendChild(img);
-  btn.addEventListener('click', () => { onClick(); setActiveMapButton(id); });
-  return btn;
-}
-
-// Featured map buttons
-for (const s of SCENARIOS) {
-  if (!FEATURED_IDS.has(s.id)) continue;
-  const btn = createMapButton(s.id, s.name, () => doLoadScenario(s));
-  if (s.id === 'genesis') btn.classList.add('active');
-  mapButtonsContainer.appendChild(btn);
-  mapButtons.push(btn);
-}
-
-// Random button (always last in featured)
-{
-  const btn = createMapButton('__random__', 'Random', () => doLoadRandom());
-  btn.querySelector('img')!.src = 'maps/random.png';
-  btn.classList.add('map-btn-random');
-  const badge = document.createElement('span');
-  badge.className = 'map-btn-badge';
-  badge.textContent = '\u{1F3B2}';
-  btn.appendChild(badge);
-  mapButtonsContainer.appendChild(btn);
-  mapButtons.push(btn);
-}
-
-// Dev scenarios dropdown (···)
-const devDropdown = document.getElementById('dev-scenario-dropdown')!;
-const btnDevScenarios = document.getElementById('btn-dev-scenarios')!;
-btnDevScenarios.addEventListener('click', () => {
-  devDropdown.classList.toggle('hidden');
+// ── UI wiring (view toggles, status bar, etc.) ──
+const uiRefs = initUIWiring({
+  renderer, controls, world,
+  speciesLabels, terrainLabels, zoneLabels, systemsOverlay,
+  cellCard, genomePanel, lineagePanel, commentary, sandboxPanel,
+  history,
 });
 
-for (const s of SCENARIOS) {
-  if (FEATURED_IDS.has(s.id)) continue;
-  const btn = document.createElement('button');
-  btn.textContent = s.name;
-  btn.addEventListener('click', () => {
-    doLoadScenario(s);
-    setActiveMapButton(null);
-    devDropdown.classList.add('hidden');
-  });
-  devDropdown.appendChild(btn);
-}
-
-function doLoadScenario(scenario: Scenario): void {
-  hookPhase.skip();
-  if (experimentRunner.active) { experimentRunner.stop(); experimentOverlay.hide(); }
-  controls.paused = false;
-  const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = '\u25B6 Running';
-  btn.classList.remove('paused');
-  sandboxPanel.reset();
-  controls.selectedCell = null;
-  controls.hoveredSpecies = null;
-  loadScenario(world, scenario);
-  resetAllState();
-  if (scenario.frozen) {
-    controls.paused = true;
-    btn.textContent = '\u23F8 PAUSED';
-    btn.classList.add('paused');
-  }
-}
-
-function doLoadRandom(): void {
-  hookPhase.skip();
-  if (experimentRunner.active) { experimentRunner.stop(); experimentOverlay.hide(); }
-  controls.paused = false;
-  const btn = document.getElementById('btn-play-pause')!;
-  btn.textContent = '\u25B6 Running';
-  btn.classList.remove('paused');
-  sandboxPanel.reset();
-  controls.selectedCell = null;
-  controls.hoveredSpecies = null;
-
-  const fresh = createWorld(GRID_WIDTH, GRID_HEIGHT);
-  seedSinglePlant(fresh);
-
-  // Copy all fields into existing world object
-  Object.assign(world, fresh);
-
-  resetAllState();
-}
-
-function resetAllState(): void {
-  // Exit warp mode if active — reset to 1x
-  if (controls.renderSkip > 0) {
-    controls.renderSkip = 0;
-    controls.tickInterval = 500;
-    controls.tickBudgetMs = 0;
-    document.querySelectorAll<HTMLButtonElement>('.speed-btn')
-      .forEach(b => {
-        b.classList.toggle('active', b.dataset.preset === 'play');
-        b.classList.remove('warp');
-      });
-    document.getElementById('btn-play-pause')!.classList.remove('warp-active');
-  }
-  resetHistory(history);
-  lastEventSeq = 0;
-  diagLogger.reset();
-  commentary.reset();
-  speciesLabels.reset();
-  plantCard.reset();
-  cellCard.reset();
-  genomePanel.reset();
-  lineagePanel.reset();
-  systemsOverlay.reset();
-  renderer.rebuildTerrain();
-  renderer.rebuildWater();
-  terrainLabels.rebuild(world);
-  zoneLabels.rebuild(world);
-  updateZoneLabel();
-  lastUITick = -1;
-  updateUI();
-  renderer.moveTo(world.width / 2, world.height / 2);
-}
-
-// Tab switching
-const chartTabs = document.querySelectorAll<HTMLButtonElement>('.chart-tab');
-const chartContainers = document.querySelectorAll<HTMLElement>('#genomes-container, #lineage-container');
-chartTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    chartTabs.forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const which = tab.dataset.chart;
-    chartContainers.forEach(c => {
-      c.style.display = c.id === which + '-container' ? '' : 'none';
-    });
-  });
+// ── Hook phase (curated first-load experience) ──
+// Declared after uiRefs so callbacks can reference updateUI and scenario manager
+let scenarioMgr: ReturnType<typeof initScenarioManager>;
+const hookPhase = createHookPhase({
+  container,
+  camera: renderer.camera,
+  mapControls: renderer.mapControls,
+  controls,
+  onRevealComplete: () => {
+    loopHandles.resetLastUITick();
+    uiRefs.updateUI();
+  },
+  onStartExperiment: () => {
+    scenarioMgr.doStartExperiment(naturalSelection101);
+  },
 });
 
-const tickLabel = document.getElementById('tick-label')!;
-const plantCount = document.getElementById('plant-count')!;
-const seasonLabel = document.getElementById('season-label')!;
-const yearLabel = document.getElementById('year-label')!;
-const herbivoreCount = document.getElementById('herbivore-count')!;
-const zoneLabel = document.getElementById('zone-label')!;
+// ── Frame loop ──
+const loopHandles = startFrameLoop({
+  world, controls, perfTracker, perfPanel, renderer,
+  hookPhase, experimentRunner,
+  ffOverlay, speciesLabels, terrainLabels, zoneLabels, systemsOverlay,
+  plantCard, cellCard,
+  history, diagLogger,
+  updateUI: uiRefs.updateUI,
+  speciesCardsToggle: uiRefs.speciesCardsToggle,
+  terrainToggle: uiRefs.terrainToggle,
+  climateToggle: uiRefs.climateToggle,
+  systemsToggle: uiRefs.systemsToggle,
+});
 
-function updateZoneLabel(): void {
-  const counts = new Array(CLIMATE_ZONE_COUNT).fill(0);
-  let total = 0;
-  for (let y = 0; y < world.height; y++) {
-    for (let x = 0; x < world.width; x++) {
-      counts[world.grid[y][x].climateZone]++;
-      total++;
-    }
-  }
-  const parts: string[] = [];
-  for (let z = 0; z < CLIMATE_ZONE_COUNT; z++) {
-    if (counts[z] > 0) {
-      const pct = Math.round(100 * counts[z] / total);
-      parts.push(`${ZONE_NAMES[z as ClimateZone]} ${pct}%`);
-    }
-  }
-  zoneLabel.textContent = parts.join(' · ');
-}
-updateZoneLabel();
+// ── Scenario manager (map buttons, experiments, load/reset) ──
+scenarioMgr = initScenarioManager({
+  world, controls, hookPhase, experimentRunner, experimentOverlay,
+  sandboxPanel, renderer, history, diagLogger, commentary,
+  speciesLabels, plantCard, cellCard, genomePanel, lineagePanel,
+  systemsOverlay, terrainLabels, zoneLabels,
+  updateUI: uiRefs.updateUI,
+  updateZoneLabel: uiRefs.updateZoneLabel,
+  resetLastUITick: loopHandles.resetLastUITick,
+  resetLastEventSeq: loopHandles.resetLastEventSeq,
+});
 
-function updateUI(): void {
-  tickLabel.textContent = String(world.tick);
-  plantCount.textContent = String(world.plants.size);
-  herbivoreCount.textContent = String(world.herbivores.size);
-  seasonLabel.textContent = SEASON_NAMES[world.environment.season];
-  yearLabel.textContent = String(world.environment.yearCount + 1);
-  cellCard.update(world, controls.selectedCell);
-  genomePanel.update(world);
-  lineagePanel.update(world);
-  commentary.update(history, world.species, world, renderer);
-  sandboxPanel.update(world);
-  speciesLabels.update(world, history);
-  systemsOverlay.update(world, history);
-}
+// ── Window globals (programmatic access / experiments) ──
+(window as any).__diagLogger = diagLogger;
+(window as any).__world = world;
+(window as any).__doTick = () => { clearFrameEvents(world); tickWorld(world); recordTick(history, world); diagLogger.recordTick(world); };
+(window as any).__updateUI = () => { loopHandles.resetLastUITick(); uiRefs.updateUI(); };
+(window as any).__perfTracker = perfTracker;
+(window as any).__setCamera = (pos: {x:number,y:number,z:number}, target: {x:number,y:number,z:number}) => {
+  renderer.camera.position.set(pos.x, pos.y, pos.z);
+  renderer.mapControls.target.set(target.x, target.y, target.z);
+  renderer.mapControls.update();
+};
+(window as any).__getCamera = () => {
+  const p = renderer.camera.position;
+  const t = renderer.mapControls.target;
+  return { position: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2) }, target: { x: +t.x.toFixed(2), y: +t.y.toFixed(2), z: +t.z.toFixed(2) } };
+};
 
-
-function doTick(hooks?: import('./perf').TimingHooks): void {
-  tickWorld(world, hooks);
-  recordTick(history, world);
-  diagLogger.recordTick(world);
-
-  // Forward new events to hook phase
-  if (hookPhase.active && history.events.length > lastEventSeq) {
-    for (let i = lastEventSeq; i < history.events.length; i++) {
-      const ev = history.events[i];
-      if (ev.type === 'population_record' || ev.type === 'dominance_shift'
-        || ev.type === 'extinction' || ev.type === 'speciation'
-        || ev.type === 'mass_extinction') {
-        hookPhase.handleEvent(ev);
-      }
-    }
-    lastEventSeq = history.events.length;
-  }
-}
-
-const WARP_BUDGET_MS = 15;  // max ms to spend ticking per frame in warp mode (no rendering)
-const TARGET_FRAME_MS = 15; // target frame time (leaves ~1.6ms margin for 60fps)
-const SAFETY_MARGIN_MS = 3; // headroom for GC, compositor, etc.
-let wasWarpActive = false;
-let lastRenderMs = 4;       // rolling estimate of render cost
-let lastTickMs = 2;         // rolling estimate of single tick cost
-
-function loop(now: number): void {
-  perfTracker.markFrame(now);
-  perfTracker.begin('frame');
-  frameCount++;
-  const warpActive = controls.renderSkip > 0 && !controls.paused;
-
-  // Warp mode transitions
-  if (warpActive && !wasWarpActive) {
-    ffOverlay.show();
-    speciesLabels.setVisible(false);
-    speciesLabels.setLineageVisible(false);
-    terrainLabels.setVisible(false);
-    zoneLabels.setVisible(false);
-    systemsOverlay.hide();
-  } else if (!warpActive && wasWarpActive) {
-    ffOverlay.hide();
-    speciesLabels.setVisible(speciesCardsToggle.checked);
-    terrainLabels.setVisible(terrainToggle.checked);
-    zoneLabels.setVisible(climateToggle.checked);
-    if (systemsToggle.checked) systemsOverlay.show();
-    lastUITick = -1; // force full UI refresh
-  }
-  wasWarpActive = warpActive;
-
-  const shouldRender = !warpActive;
-
-  const perfHooks = perfTracker;
-
-  if (!controls.paused) {
-    // Clear event arrays once per frame so all ticks in a batch accumulate events
-    clearFrameEvents(world);
-    perfTracker.begin('simTotal');
-    if (controls.renderSkip > 0) {
-      // Warp: time-budgeted, no rendering
-      const deadline = performance.now() + WARP_BUDGET_MS;
-      while (performance.now() < deadline) {
-        doTick(perfHooks);
-      }
-      lastTickTime = now;
-      ffOverlay.update(world);
-    } else if (controls.tickBudgetMs > 0) {
-      // Fast: always tick at least once, then pack more if budget allows
-      const tickBudget = TARGET_FRAME_MS - lastRenderMs - SAFETY_MARGIN_MS;
-      const deadline = performance.now() + Math.max(0, tickBudget);
-      let tickStart = performance.now();
-      doTick(perfHooks);
-      lastTickMs = lastTickMs * 0.8 + (performance.now() - tickStart) * 0.2;
-      // Only pack additional ticks if there's room for at least one more
-      while (performance.now() + lastTickMs < deadline) {
-        tickStart = performance.now();
-        doTick(perfHooks);
-        lastTickMs = lastTickMs * 0.8 + (performance.now() - tickStart) * 0.2;
-      }
-      lastTickTime = now;
-    } else if (now - lastTickTime >= controls.tickInterval) {
-      doTick(perfHooks);
-      lastTickTime = now;
-    }
-    perfTracker.end('simTotal');
-  }
-
-  // Update hook phase
-  if (hookPhase.active) {
-    hookPhase.update(world, history);
-  }
-
-  // Update experiment runner
-  if (experimentRunner.active) {
-    experimentRunner.update(world, history);
-  }
-
-  if (shouldRender) {
-    const renderStart = performance.now();
-    let highlightSet: Set<number> | null = null;
-    const hoveredPlant = controls.hoveredPlantId !== null ? world.plants.get(controls.hoveredPlantId) : null;
-    if (controls.hoverPlantEnabled && hoveredPlant?.alive) {
-      renderer.setHighlightedPlant(hoveredPlant.id);
-      renderer.setHighlightedLineageRoot(null);
-      renderer.setHighlightedSpecies(null);
-    } else if (controls.hoverLineageEnabled && hoveredPlant?.alive) {
-      renderer.setHighlightedPlant(null);
-      renderer.setHighlightedLineageRoot(hoveredPlant.lineageRoot);
-      renderer.setHighlightedSpecies(null);
-    } else {
-      renderer.setHighlightedPlant(null);
-      renderer.setHighlightedLineageRoot(null);
-      if (controls.hoverEnabled && controls.hoveredSpecies !== null) {
-        highlightSet = new Set([controls.hoveredSpecies]);
-      }
-      renderer.setHighlightedSpecies(highlightSet);
-    }
-    perfTracker.begin('renderTotal');
-    renderer.render(controls.selectedCell, perfHooks);
-    if (!hookPhase.active) {
-      const hoveredPlantPos = hoveredPlant?.alive ? { x: hoveredPlant.x, y: hoveredPlant.y } : null;
-      speciesLabels.setHoveredSpecies(controls.hoverEnabled && !controls.hoverLineageEnabled ? controls.hoveredSpecies : null, hoveredPlantPos);
-      speciesLabels.setHoveredLineageRoot(
-        controls.hoverLineageEnabled && hoveredPlant?.alive
-          ? hoveredPlant.lineageRoot
-          : null,
-      );
-      speciesLabels.updatePositions();
-      terrainLabels.updatePositions();
-      zoneLabels.updatePositions();
-      plantCard.update(world, controls.hoverPlantEnabled ? controls.hoveredPlantId : null);
-      plantCard.updatePosition();
-      cellCard.updatePosition();
-    }
-    perfTracker.end('renderTotal');
-    // Smooth render time estimate for adaptive tick budgeting
-    lastRenderMs = lastRenderMs * 0.8 + (performance.now() - renderStart) * 0.2;
-  }
-
-  // Only update UI when rendering and simulation has ticked or selected cell changed
-  // Throttle in fast mode: update every ~4th tick to save 5-10ms/frame
-  const selChanged = controls.selectedCell !== lastUISelectedCell;
-  const isFastMode = controls.tickBudgetMs > 0;
-  if (shouldRender && (world.tick !== lastUITick || selChanged)) {
-    const skipUI = isFastMode && !selChanged && (world.tick % 8 !== 0);
-    if (!skipUI) {
-      lastUITick = world.tick;
-      lastUISelectedCell = controls.selectedCell;
-      if (!hookPhase.active) {
-        updateUI();
-      }
-    }
-  }
-
-  perfTracker.end('frame');
-  perfPanel.update();
-  requestAnimationFrame(loop);
-}
-
-requestAnimationFrame(loop);
-
-// Debug shortcuts
+// ── Debug shortcuts ──
 window.addEventListener('keydown', (e) => {
   if (e.key === 'F3') {
     e.preventDefault();
@@ -630,7 +201,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'F4') {
     e.preventDefault();
     systemsOverlay.toggle();
-    systemsToggle.checked = systemsOverlay.isVisible();
+    uiRefs.systemsToggle.checked = systemsOverlay.isVisible();
   }
   if (e.key === 'f' || e.key === 'F') {
     spawnFire(world);
@@ -645,5 +216,5 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Auto-start hook for Genesis (after all declarations are initialized)
+// Auto-start hook for Genesis
 hookPhase.start();

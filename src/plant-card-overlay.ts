@@ -1,6 +1,5 @@
 import { SIM, World, Renderer, Plant } from './types';
-import { speciesColorToRgb } from './ui-utils';
-import { hexToRgba } from './ui-utils';
+import { speciesColorToRgb, sectionLabel, createBarRow, createGenomeEqualizer } from './ui-utils';
 import { TRAITS } from './trait-defs';
 
 /**
@@ -47,9 +46,9 @@ export function createPlantCardOverlay(
 
   // Vitals section
   card.appendChild(sectionLabel('VITALS'));
-  const healthRow = createBarRow('Health');
-  const energyRow = createBarRow('Energy');
-  const waterRow = createBarRow('Water');
+  const healthRow = createBarRow('Health', { labelWidth: 38, barHeight: 8, barMinWidth: 60, valueWidth: 48, valueColor: '#ccc' });
+  const energyRow = createBarRow('Energy', { labelWidth: 38, barHeight: 8, barMinWidth: 60, valueWidth: 48, valueColor: '#ccc' });
+  const waterRow = createBarRow('Water', { labelWidth: 38, barHeight: 8, barMinWidth: 60, valueWidth: 48, valueColor: '#ccc' });
   card.appendChild(healthRow.row);
   card.appendChild(energyRow.row);
   card.appendChild(waterRow.row);
@@ -68,39 +67,9 @@ export function createPlantCardOverlay(
 
   // Genome bars
   card.appendChild(sectionLabel('GENOME'));
-  const barsContainer = document.createElement('div');
-  barsContainer.style.cssText = `display:flex; gap:2px; width:120px; height:20px; margin-top:1px;`;
-  const barFills: HTMLElement[] = [];
-  for (const trait of TRAITS) {
-    const col = document.createElement('div');
-    col.style.cssText = `
-      flex:1; position:relative;
-      background:rgba(255,255,255,0.06);
-      border-radius:2px 2px 0 0;
-    `;
-    const fill = document.createElement('div');
-    fill.style.cssText = `
-      position:absolute; bottom:0; left:0; width:100%;
-      background:${hexToRgba(trait.color, 0.6)};
-      border-radius:2px 2px 0 0;
-      transition:height 0.15s ease;
-    `;
-    fill.style.height = '0%';
-    col.appendChild(fill);
-    barFills.push(fill);
-
-    const lbl = document.createElement('div');
-    lbl.style.cssText = `
-      position:absolute; bottom:1px; left:0; width:100%;
-      text-align:center; font-size:6px; line-height:1;
-      color:rgba(255,255,255,0.4);
-    `;
-    lbl.textContent = trait.label[0];
-    col.appendChild(lbl);
-
-    barsContainer.appendChild(col);
-  }
-  card.appendChild(barsContainer);
+  const genomeBars = createGenomeEqualizer();
+  const barFills = genomeBars.barFills;
+  card.appendChild(genomeBars.container);
 
   // Status flags
   const statusEl = document.createElement('div');
@@ -108,37 +77,6 @@ export function createPlantCardOverlay(
   card.appendChild(statusEl);
 
   // ── Helpers ──
-
-  function sectionLabel(text: string): HTMLElement {
-    const lbl = document.createElement('div');
-    lbl.style.cssText = `font-size:8px; font-weight:normal; color:rgba(255,255,255,0.35); margin-top:4px; letter-spacing:0.5px;`;
-    lbl.textContent = text;
-    return lbl;
-  }
-
-  function createBarRow(label: string) {
-    const row = document.createElement('div');
-    row.style.cssText = `display:flex; align-items:center; gap:4px; height:12px; margin-top:1px;`;
-
-    const labelEl = document.createElement('span');
-    labelEl.style.cssText = `font-size:9px; color:rgba(255,255,255,0.5); width:38px; text-align:right;`;
-    labelEl.textContent = label;
-    row.appendChild(labelEl);
-
-    const barBg = document.createElement('div');
-    barBg.style.cssText = `flex:1; height:8px; background:rgba(255,255,255,0.08); border-radius:2px; position:relative; min-width:60px;`;
-    const barFill = document.createElement('div');
-    barFill.style.cssText = `position:absolute; top:0; left:0; height:100%; border-radius:2px; transition:width 0.15s ease, background 0.15s ease;`;
-    barFill.style.width = '0%';
-    barBg.appendChild(barFill);
-    row.appendChild(barBg);
-
-    const valueEl = document.createElement('span');
-    valueEl.style.cssText = `font-size:9px; color:#ccc; min-width:48px; text-align:right;`;
-    row.appendChild(valueEl);
-
-    return { row, barFill, valueEl };
-  }
 
   function healthColor(t: number): string {
     // green (high health) → yellow → red (low health)

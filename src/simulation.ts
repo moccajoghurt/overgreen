@@ -13,6 +13,7 @@ import { phaseGermination } from './simulation/germination';
 export { createWorld } from './simulation/terrain';
 export { seedInitialPlants, seedSinglePlant } from './simulation/plants';
 export { spawnFire, spawnDisease } from './simulation/environment';
+export { sandboxPlacePlant, removePlantsBySpecies, clearAllPlants } from './simulation/sandbox-ops';
 
 /** Clear renderer event arrays. Call once per frame before the tick batch. */
 export function clearFrameEvents(world: World): void {

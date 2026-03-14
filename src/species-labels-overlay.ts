@@ -1,5 +1,5 @@
 import { World, Renderer, History } from './types';
-import { speciesCentroid, speciesColorToRgb, speciesColorToRgba, hexToRgba } from './ui-utils';
+import { speciesCentroid, speciesColorToRgb, speciesColorToRgba, sectionLabel, createGenomeEqualizer } from './ui-utils';
 import { TRAITS } from './trait-defs';
 
 const UPDATE_EVERY_N_TICKS = 10;
@@ -71,52 +71,14 @@ export function createSpeciesLabelsOverlay(
     genEl.style.cssText = `font-size:11px; font-weight:normal; color:#fff; opacity:0.7;`;
     el.appendChild(genEl);
 
-    // Section label helper
-    const sectionLabel = (text: string) => {
-      const lbl = document.createElement('div');
-      lbl.style.cssText = `font-size:8px; font-weight:normal; color:rgba(255,255,255,0.35); margin-top:4px; letter-spacing:0.5px;`;
-      lbl.textContent = text;
-      return lbl;
-    };
-
     // Genome bars (vertical equalizer)
     el.appendChild(sectionLabel('GENOME'));
-    const barsContainer = document.createElement('div');
-    barsContainer.style.cssText = `
-      display:flex; gap:2px; width:${SPARKLINE_W}px; height:24px;
-      margin-top:1px;
-    `;
-    const barFills: HTMLElement[] = [];
-    for (const trait of TRAITS) {
-      const col = document.createElement('div');
-      col.style.cssText = `
-        flex:1; position:relative;
-        background:rgba(255,255,255,0.06);
-        border-radius:2px 2px 0 0;
-      `;
-      const fill = document.createElement('div');
-      fill.style.cssText = `
-        position:absolute; bottom:0; left:0; width:100%;
-        background:${hexToRgba(trait.color, 0.5)};
-        border-radius:2px 2px 0 0;
-        transition:height 0.3s ease;
-      `;
-      fill.style.height = '0%';
-      col.appendChild(fill);
-      barFills.push(fill);
-
-      const lbl = document.createElement('div');
-      lbl.style.cssText = `
-        position:absolute; bottom:1px; left:0; width:100%;
-        text-align:center; font-size:7px; line-height:1;
-        color:rgba(255,255,255,0.4);
-      `;
-      lbl.textContent = trait.label[0];
-      col.appendChild(lbl);
-
-      barsContainer.appendChild(col);
-    }
-    el.appendChild(barsContainer);
+    const genomeBars = createGenomeEqualizer({
+      width: SPARKLINE_W, height: 24,
+      fillAlpha: 0.5, transitionMs: 300, labelSize: 7,
+    });
+    const barFills = genomeBars.barFills;
+    el.appendChild(genomeBars.container);
 
     // Population share area chart
     el.appendChild(sectionLabel('POPULATION SHARE'));

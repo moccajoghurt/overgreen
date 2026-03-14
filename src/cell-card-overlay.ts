@@ -1,6 +1,6 @@
 import { SIM, World, WeatherOverlay } from './types';
 import { Renderer } from './types/renderer';
-import { speciesColorToRgb } from './ui-utils';
+import { speciesColorToRgb, sectionLabel, createBarRow } from './ui-utils';
 
 const TERRAIN_NAMES = ['Soil', 'River', 'Rock', 'Hill', 'Wetland', 'Arid'];
 const TERRAIN_COLORS = ['#8a7', '#58c', '#999', '#a96', '#5a8', '#ca6'];
@@ -57,9 +57,9 @@ export function createCellCardOverlay(mapContainer: HTMLElement, renderer: Rende
 
   // Environment section
   card.appendChild(sectionLabel('ENVIRONMENT'));
-  const waterRow = createBarRow('Water', '#6bc');
-  const nutrientsRow = createBarRow('Nutr', '#ac6');
-  const lightRow = createBarRow('Light', '#ee8');
+  const waterRow = createBarRow('Water', { barColor: '#6bc' });
+  const nutrientsRow = createBarRow('Nutr', { barColor: '#ac6' });
+  const lightRow = createBarRow('Light', { barColor: '#ee8' });
   card.appendChild(waterRow.row);
   card.appendChild(nutrientsRow.row);
   card.appendChild(lightRow.row);
@@ -86,37 +86,6 @@ export function createCellCardOverlay(mapContainer: HTMLElement, renderer: Rende
   card.appendChild(herbEl);
 
   // ── Helpers ──
-
-  function sectionLabel(text: string): HTMLElement {
-    const lbl = document.createElement('div');
-    lbl.style.cssText = `font-size:8px; font-weight:normal; color:rgba(255,255,255,0.35); margin-top:5px; letter-spacing:0.5px;`;
-    lbl.textContent = text;
-    return lbl;
-  }
-
-  function createBarRow(label: string, color: string) {
-    const row = document.createElement('div');
-    row.style.cssText = `display:flex; align-items:center; gap:4px; height:12px; margin-top:1px;`;
-
-    const labelEl = document.createElement('span');
-    labelEl.style.cssText = `font-size:9px; color:rgba(255,255,255,0.5); width:32px; text-align:right;`;
-    labelEl.textContent = label;
-    row.appendChild(labelEl);
-
-    const barBg = document.createElement('div');
-    barBg.style.cssText = `flex:1; height:6px; background:rgba(255,255,255,0.08); border-radius:2px; position:relative; min-width:50px;`;
-    const barFill = document.createElement('div');
-    barFill.style.cssText = `position:absolute; top:0; left:0; height:100%; border-radius:2px; background:${color}; transition:width 0.15s ease;`;
-    barFill.style.width = '0%';
-    barBg.appendChild(barFill);
-    row.appendChild(barBg);
-
-    const valueEl = document.createElement('span');
-    valueEl.style.cssText = `font-size:9px; color:#aaa; min-width:28px; text-align:right;`;
-    row.appendChild(valueEl);
-
-    return { row, barFill, valueEl };
-  }
 
   function makeBadge(text: string, color: string): HTMLElement {
     const badge = document.createElement('span');
