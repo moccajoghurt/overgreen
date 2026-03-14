@@ -101,7 +101,8 @@ addExclusions('Mediterr/Wetland', [
 addExclusions('Desert/Wetland', [
   'Oak', 'Birch', 'Magnolia', 'Conifer', 'Tropical', 'Cypress',
   'Holly', 'Hazel', 'Mediterranean', 'Aromatic', 'Bramble', 'Flowering Shrub',
-  ...ALL_SUCCULENTS,
+  // Euphorbia allowed — large genus with many species near desert water sources (oases, seasonal streams)
+  'Saguaro', 'Aloe', 'Caudiciform', 'Iceplant', 'Epiphytic', 'Barrel Cactus', 'Jade',
   'Bamboo', 'Pampas', 'Desert Grass', 'Bunchgrass', 'Turfgrass',
   'Vine', 'Tall Herb', 'Tropical Herb', 'Desert Annual',
 ]);
@@ -115,11 +116,13 @@ addExclusions('Temperate/Arid', [
   'Tall Herb', 'Fern', 'Vine', 'Moss', 'Tropical Herb',
 ]);
 addExclusions('Tropical/Arid', [
-  'Oak', 'Magnolia', 'Conifer', 'Tropical', 'Palm', 'Birch', 'Cypress',
+  // Magnolia allowed — represents broadleaf trees which dominate tropical dry forests
+  // Fern allowed — drought-adapted ferns (Cheilanthes, Pellaea) thrive in tropical arid
+  'Oak', 'Conifer', 'Tropical', 'Palm', 'Birch', 'Cypress',
   'Holly', 'Hazel', 'Mediterranean', 'Bramble', 'Mangrove', 'Flowering Shrub',
   'Iceplant', 'Epiphytic',
   'Tallgrass', 'Turfgrass', 'Ryegrass', 'Bamboo', 'Sedge',
-  'Wildflower', 'Tall Herb', 'Fern', 'Vine', 'Clover', 'Moss',
+  'Wildflower', 'Tall Herb', 'Vine', 'Clover', 'Moss',
 ]);
 addExclusions('Mediterr/Arid', [
   'Oak', 'Magnolia', 'Conifer', 'Tropical', 'Palm', 'Birch', 'Cypress',
