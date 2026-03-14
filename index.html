@@ -269,6 +269,73 @@
     }
     .hook-speed-btn:hover { color: #aaa; border-color: #555; }
     .hook-speed-btn.active { color: #8f8; border-color: #4a7a4a; }
+
+    /* ── Hook intro card ── */
+    #hook-intro-card {
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 32px 36px;
+      max-width: min(420px, 90vw);
+      text-align: center;
+      pointer-events: auto;
+      opacity: 0;
+      animation: hook-intro-fadein 600ms ease 200ms forwards;
+    }
+    #hook-intro-card.hidden { display: none; }
+    @keyframes hook-intro-fadein {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hook-intro-title {
+      font-size: 28px; color: #8f8; font-family: monospace;
+      margin: 0 0 4px 0; font-weight: normal;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    }
+    .hook-intro-subtitle {
+      font-size: 14px; color: #999; font-family: monospace;
+      margin: 0 0 16px 0;
+    }
+    .hook-intro-desc {
+      font-size: 13px; color: #bbb; font-family: monospace;
+      line-height: 1.6; margin: 0 0 24px 0; text-align: left;
+    }
+    .hook-intro-buttons {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 20px;
+    }
+    .hook-intro-btn {
+      padding: 10px 16px; font-family: monospace; font-size: 13px;
+      border-radius: 4px; cursor: pointer;
+      transition: background 150ms, border-color 150ms;
+    }
+    .hook-intro-btn-detail {
+      display: block; font-size: 11px; color: #6a6; margin-top: 2px;
+      font-weight: normal;
+    }
+    .hook-intro-btn-primary {
+      background: rgba(80,180,80,0.15); color: #8f8;
+      border: 1px solid #4a7a4a;
+    }
+    .hook-intro-btn-primary:hover {
+      background: rgba(80,180,80,0.25); border-color: #6a9a6a;
+    }
+    .hook-intro-btn-secondary {
+      background: transparent; color: #888;
+      border: 1px solid #444;
+    }
+    .hook-intro-btn-secondary:hover {
+      background: rgba(255,255,255,0.04); color: #aaa; border-color: #666;
+    }
+    .hook-intro-capabilities {
+      font-size: 11px; color: #555; font-family: monospace;
+      margin: 0 0 4px 0; letter-spacing: 0.02em;
+    }
+    .hook-intro-format {
+      font-size: 11px; color: #444; font-family: monospace;
+      margin: 0;
+    }
   </style>
 </head>
 <body class="hook-active">
@@ -358,13 +425,24 @@
   </div>
   <div id="canvas-container">
     <div id="hook-overlay" class="hidden">
+      <div id="hook-intro-card" class="hidden">
+        <h1 class="hook-intro-title">Overgreen</h1>
+        <p class="hook-intro-subtitle">A real-time plant evolution simulator</p>
+        <p class="hook-intro-desc">Plants compete for water and light. Mutations accumulate. Species emerge &mdash; no scripted outcomes. Students observe identical populations diverge under different environmental pressures.</p>
+        <div class="hook-intro-buttons">
+          <button id="hook-btn-experiment" class="hook-intro-btn hook-intro-btn-primary">Natural Selection 101<span class="hook-intro-btn-detail">Guided experiment &middot; ~5 min</span></button>
+          <button id="hook-btn-explore" class="hook-intro-btn hook-intro-btn-secondary">Open Sandbox</button>
+        </div>
+        <p class="hook-intro-capabilities">Species tracking &middot; Genome analysis &middot; Trait heatmaps &middot; Guided experiments</p>
+        <p class="hook-intro-format">Browser-based &middot; No install &middot; No account required &middot; Free</p>
+      </div>
       <div id="hook-commentary"></div>
       <div id="hook-speciation"></div>
       <button id="hook-skip">Skip intro</button>
       <div id="hook-speed">
         <button class="hook-speed-btn" data-speed="2x">2&times;</button>
         <button class="hook-speed-btn" data-speed="5x">5&times;</button>
-        <button class="hook-speed-btn active" data-speed="10x">10&times;</button>
+        <button class="hook-speed-btn" data-speed="10x">10&times;</button>
       </div>
       <div id="hook-stats"></div>
       <div id="hook-title">Overgreen</div>

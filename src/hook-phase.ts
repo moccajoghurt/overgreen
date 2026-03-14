@@ -8,15 +8,16 @@ import type { MapControls } from 'three/addons/controls/MapControls.js';
 /**
  * Hook phase — the curated first-load experience.
  *
- * States: 'idle' | 'waiting' | 'growing' | 'revealing' | 'done'
+ * States: 'idle' | 'intro' | 'waiting' | 'growing' | 'revealing' | 'done'
  *
- * waiting:   tick 0-100, canvas only + title card sequence
- * growing:   tick 100-300+, show plant count, allow commentary
- * revealing: speciation trigger hit, speciation announcement + camera reveal + UI slide-in
+ * intro:     context card overlay — paused at tick 0, user chooses path
+ * waiting:   cinematic mode: tick 0-100, canvas only + title card sequence
+ * growing:   cinematic mode: tick 100-300+, show plant count, allow commentary
+ * revealing: cinematic mode: speciation trigger hit, announcement + camera reveal + UI slide-in
  * done:      normal UI
  */
 
-type HookState = 'idle' | 'waiting' | 'growing' | 'revealing' | 'done';
+type HookState = 'idle' | 'intro' | 'waiting' | 'growing' | 'revealing' | 'done';
 
 const STORAGE_KEY = 'overgreen-hook-seen';
 const REVEAL_SPECIES_THRESHOLD = 3;
@@ -29,6 +30,7 @@ interface HookPhaseOpts {
   mapControls: MapControls;
   controls: Controls;
   onRevealComplete: () => void;
+  onStartExperiment: () => void;
 }
 
 export function createHookPhase(opts: HookPhaseOpts) {
@@ -44,6 +46,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   let speciationCount = 0;
   let shownPopMilestone = false;
   let cameraHandedOver = false;
+  let delayUIReveal = false;
 
   const hookCam = createHookCamera({
     camera,
@@ -53,6 +56,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
 
   // DOM refs
   const overlay = document.getElementById('hook-overlay')!;
+  const introCard = document.getElementById('hook-intro-card')!;
   const titleEl = document.getElementById('hook-title')!;
   const subtitleEl = document.getElementById('hook-subtitle')!;
   const statsEl = document.getElementById('hook-stats')!;
@@ -63,6 +67,21 @@ export function createHookPhase(opts: HookPhaseOpts) {
   const speedBtns = speedEl.querySelectorAll<HTMLButtonElement>('.hook-speed-btn');
 
   skipBtn.addEventListener('click', () => skip());
+
+  // Intro card button handlers
+  const btnExperiment = document.getElementById('hook-btn-experiment')!;
+  const btnExplore = document.getElementById('hook-btn-explore')!;
+
+  btnExperiment.addEventListener('click', () => {
+    localStorage.setItem(STORAGE_KEY, '1');
+    delayUIReveal = true;
+    opts.onStartExperiment();
+    // onStartExperiment → doStartExperiment → doLoadScenario → hookPhase.skip()
+  });
+
+  btnExplore.addEventListener('click', () => {
+    skip();
+  });
 
   // Speed pill click handlers
   const HOOK_SPEEDS: Record<string, { tickInterval: number; tickBudgetMs: number }> = {
@@ -97,17 +116,42 @@ export function createHookPhase(opts: HookPhaseOpts) {
   container.addEventListener('touchstart', onCameraInteraction);
 
   function start(): void {
-    // ?hook in URL forces the hook to replay
-    if (new URLSearchParams(window.location.search).has('hook')) {
+    const params = new URLSearchParams(window.location.search);
+
+    // ?hook or ?demo forces cinematic replay
+    if (params.has('hook') || params.has('demo')) {
       localStorage.removeItem(STORAGE_KEY);
+      startCinematic();
+      return;
     }
 
-    // Check localStorage — skip if already seen
+    // Returning visitor — skip everything
     if (localStorage.getItem(STORAGE_KEY)) {
       skip();
       return;
     }
 
+    // First-time visitor — show intro card, paused at tick 0
+    state = 'intro';
+    document.body.classList.add('hook-active');
+    overlay.classList.remove('hidden');
+    introCard.classList.remove('hidden');
+
+    // Hide all cinematic elements
+    titleEl.classList.remove('visible', 'corner');
+    subtitleEl.classList.remove('visible', 'faded');
+    statsEl.classList.remove('visible');
+    commentaryEl.classList.remove('visible');
+    speciationEl.classList.remove('visible');
+    speedEl.classList.remove('visible');
+    skipBtn.style.display = 'none';
+
+    // Pause simulation — terrain visible, nothing ticking
+    controls.paused = true;
+  }
+
+  /** Full cinematic experience (camera choreography + text overlay). Used for ?hook / ?demo. */
+  function startCinematic(): void {
     state = 'waiting';
     hookStartTime = performance.now();
     speciationCount = 0;
@@ -115,16 +159,18 @@ export function createHookPhase(opts: HookPhaseOpts) {
     cameraHandedOver = false;
     document.body.classList.add('hook-active');
     overlay.classList.remove('hidden');
+    introCard.classList.add('hidden');
     titleEl.classList.remove('visible', 'corner');
     subtitleEl.classList.remove('visible', 'faded');
     statsEl.classList.remove('visible');
     commentaryEl.classList.remove('visible');
     speciationEl.classList.remove('visible');
     speedEl.classList.remove('visible');
-    // Default hook speed: 10x for fast time-lapse to moneyshot
-    controls.tickInterval = 0;
+    skipBtn.style.display = '';
+    // Default hook speed: 5x for fast time-lapse to moneyshot
     controls.tickInterval = 67;
     controls.tickBudgetMs = 0;
+    controls.paused = false;
     speedBtns.forEach(b => b.classList.toggle('active', b.dataset.speed === '5x'));
 
     // Start camera choreography
@@ -157,7 +203,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   }
 
   function update(world: World, _history: History): void {
-    if (state === 'idle' || state === 'done') return;
+    if (state === 'idle' || state === 'done' || state === 'intro') return;
 
     // Update camera (time-based, independent of sim speed)
     hookCam.update();
@@ -200,7 +246,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   }
 
   function handleEvent(event: SimEvent): void {
-    if (state === 'done' || state === 'idle') return;
+    if (state === 'done' || state === 'idle' || state === 'intro') return;
 
     switch (event.type) {
       case 'population_record':
@@ -229,7 +275,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   }
 
   function showCommentary(text: string, durationMs: number = 4000): void {
-    if (state === 'done' || state === 'idle') return;
+    if (state === 'done' || state === 'idle' || state === 'intro') return;
     if (text === lastCommentaryText) return;
     lastCommentaryText = text;
     commentaryEl.textContent = text;
@@ -274,6 +320,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
   function finishReveal(): void {
     state = 'done';
     overlay.classList.add('hidden');
+    introCard.classList.add('hidden');
     // Reset inline styles
     titleEl.style.opacity = '';
     subtitleEl.style.opacity = '';
@@ -283,6 +330,7 @@ export function createHookPhase(opts: HookPhaseOpts) {
     speciationEl.classList.remove('visible');
     commentaryEl.classList.remove('visible');
     speedEl.classList.remove('visible');
+    skipBtn.style.display = '';
 
     localStorage.setItem(STORAGE_KEY, '1');
     onRevealComplete();
@@ -291,10 +339,23 @@ export function createHookPhase(opts: HookPhaseOpts) {
   function skip(): void {
     state = 'done';
     cameraHandedOver = false;
-    document.body.classList.remove('hook-active');
+    controls.paused = false;
     overlay.classList.add('hidden');
+    introCard.classList.add('hidden');
     speedEl.classList.remove('visible');
+    skipBtn.style.display = '';
     hookCam.skip();
+
+    if (delayUIReveal) {
+      // Experiment transition: delay sidebar/bottom-panel reveal so experiment card appears first
+      delayUIReveal = false;
+      setTimeout(() => {
+        document.body.classList.remove('hook-active');
+      }, 800);
+    } else {
+      document.body.classList.remove('hook-active');
+    }
+
     onRevealComplete();
   }
 

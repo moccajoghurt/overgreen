@@ -1,21 +1,32 @@
-Capture screenshots of the Genesis scenario and view the contact sheet.
+Capture screenshots of the first-time visitor experience and view the contact sheet.
 
 There are two modes. If $ARGUMENTS is empty or ambiguous, ask the user which mode they want.
 
 ## Modes
 
-### 1. Hook mode (`hook`)
-Captures the **hook phase** — what a brand-new visitor sees (fullscreen canvas, no UI, camera choreography, overlay text). Time-based screenshots at real-world intervals.
+### 1. Card mode (`card`) — default
+Captures the **intro card overlay** — what a first-time visitor sees (context card over Genesis terrain, paused at tick 0).
 
 ```bash
-node scripts/capture-hook.mjs [--port 5173]
+node scripts/capture-hook.mjs --mode card [--port 5173]
 ```
 
-Output: `screenshots/hook-contact-sheet.jpg` and `screenshots/hook-NNNs.jpg` individual frames.
+Output: `screenshots/hook-card-contact-sheet.jpg` and `screenshots/hook-card-NNNs.jpg` individual frames.
 
-**Use this when:** evaluating the first-time user experience, overlay text, camera movement, reveal timing.
+**Use this when:** evaluating the first-time visitor experience, card layout, terrain behind the card.
 
-### 2. Simulation mode (`sim`)
+### 2. Cinematic mode (`cinematic`)
+Captures the **cinematic hook** — camera choreography, overlay text, speciation reveal. This is the experience triggered by `?hook` or `?demo` URL parameter (for demos, social media, conference presentations).
+
+```bash
+node scripts/capture-hook.mjs --mode cinematic [--port 5173]
+```
+
+Output: `screenshots/hook-cinematic-contact-sheet.jpg` and `screenshots/hook-cinematic-NNNs.jpg` individual frames.
+
+**Use this when:** evaluating camera movement, overlay text timing, reveal sequence for demo/marketing purposes.
+
+### 3. Simulation mode (`sim`)
 Captures the **full UI** at specific tick milestones (skips the hook). Shows sidebar, genome panel, events, species labels.
 
 ```bash

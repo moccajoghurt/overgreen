@@ -166,10 +166,14 @@ export function createExperimentOverlay(container: HTMLElement) {
     continueBtn.style.display = step.waitForContinue === false ? 'none' : '';
   }
 
-  function showWaiting(stepIndex: number, total: number): void {
+  function showWaiting(stepIndex: number, total: number, waitingHint?: string): void {
     continueBtn.style.display = 'none';
     stepIndicator.textContent = `Step ${stepIndex + 1} of ${total}`;
-    body.innerHTML = '<span style="color:#666; animation:experiment-dot-pulse 1.5s ease-in-out infinite; display:inline-block;">Simulating...</span>';
+    let html = '<span style="color:#666; animation:experiment-dot-pulse 1.5s ease-in-out infinite; display:inline-block;">Simulating...</span>';
+    if (waitingHint) {
+      html += `<br><span style="color:#555; font-size:11px;">${waitingHint}</span>`;
+    }
+    body.innerHTML = html;
     buildDots(total, stepIndex);
   }
 

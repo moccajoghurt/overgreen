@@ -7,7 +7,7 @@ export type ExperimentRunnerState = 'inactive' | 'running' | 'waitingContinue' |
 
 export interface ExperimentRunnerCallbacks {
   onStepActivated(index: number, step: ExperimentStep): void;
-  onWaiting(nextStepIndex: number): void;
+  onWaiting(nextStepIndex: number, waitingHint?: string): void;
   onComplete(wrapUp?: Experiment['wrapUp']): void;
   onPauseRequested(): void;
   onResumeRequested(): void;
@@ -87,7 +87,7 @@ export function createExperimentRunner(callbacks: ExperimentRunnerCallbacks) {
     // If next step has a trigger, fast-forward and show waiting state
     // If no trigger, it'll activate immediately in the next update()
     if (experiment.steps[nextIndex].trigger) {
-      callbacks.onWaiting(nextIndex);
+      callbacks.onWaiting(nextIndex, experiment.steps[nextIndex].waitingHint);
       callbacks.onSpeedRequested('fast');
     }
     callbacks.onResumeRequested();

@@ -22,6 +22,8 @@ export interface ExperimentStep {
   speed?: 'play' | 'fast';
   /** Show Continue button. Default true. Set false for auto-advance steps. */
   waitForContinue?: boolean;
+  /** Hint text shown below "Simulating..." while waiting for this step's trigger */
+  waitingHint?: string;
 }
 
 export interface Experiment {

@@ -54,6 +54,9 @@ const hookPhase = createHookPhase({
     lastUITick = -1;
     updateUI();
   },
+  onStartExperiment: () => {
+    doStartExperiment(naturalSelection101);
+  },
 });
 
 // Start with natural colors
@@ -173,7 +176,7 @@ btnSystems.addEventListener('click', () => {
 const experimentOverlay = createExperimentOverlay(container);
 const experimentRunner = createExperimentRunner({
   onStepActivated: (index, step) => experimentOverlay.showStep(index, experimentRunner.totalSteps, step),
-  onWaiting: (nextIndex) => experimentOverlay.showWaiting(nextIndex, experimentRunner.totalSteps),
+  onWaiting: (nextIndex, hint) => experimentOverlay.showWaiting(nextIndex, experimentRunner.totalSteps, hint),
   onComplete: (wrapUp) => wrapUp ? experimentOverlay.showWrapUp(wrapUp) : experimentOverlay.hide(),
   onPauseRequested: () => {
     controls.paused = true;
