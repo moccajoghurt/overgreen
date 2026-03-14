@@ -486,6 +486,62 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     envVar: 'droughtStress', coefficient: +0.956,
     description: 'deep-rooted trees mine water reserves in drought conditions' },
 
+  // ── Herbaceous broadleaf boost on fertile/wet soil ──
+  // Forbs (high leaf, low wood) gain on fertile soil and wetlands, compensated in extreme aridity
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true,
+    envVar: 'soilFertility', coefficient: +0.407,
+    description: 'broadleaf herbs thrive on fertile soil' },
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true,
+    envVar: 'extremeAridity', coefficient: -1.519,
+    description: 'broadleaf herbs wilt in extreme aridity (compensator)' },
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true,
+    envVar: 'waterlogging', coefficient: +0.407,
+    description: 'broadleaf herbs exploit waterlogged soil' },
+  { trait: 'leafSize', trait2: 'woodiness', inverse2: true,
+    envVar: 'droughtStress', coefficient: -0.224,
+    description: 'broadleaf herbs suffer drought (compensator)' },
+
+  // ── Tall herb cool wetland boost ──
+  // Tallgrass (high height, low wood) gains in cool wetlands
+  { trait: 'heightPriority', trait2: 'woodiness', inverse2: true,
+    envVar: 'coolWetland', coefficient: +0.407,
+    description: 'tall herbs exploit cool wetland conditions' },
+  { trait: 'heightPriority', trait2: 'woodiness', inverse2: true,
+    envVar: 'droughtStress', coefficient: -0.107,
+    description: 'tall herbs suffer drought (compensator)' },
+
+  // ── Seeding broadleaf herb cool wetland ──
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'coolWetland', coefficient: +0.407,
+    description: 'seeding broadleaf herbs thrive in cool wetlands' },
+  { trait: 'seedInvestment', trait2: 'leafSize', trait3: 'woodiness', inverse3: true,
+    envVar: 'droughtStress', coefficient: -0.107,
+    description: 'seeding broadleaf herbs suffer drought (compensator)' },
+
+  // ── Undefended broadleaf drought selection ──
+  { trait: 'leafSize', trait2: 'defense', inverse2: true,
+    envVar: 'droughtStress', coefficient: +0.207,
+    description: 'undefended broadleaves gain drought tolerance' },
+  { trait: 'leafSize', trait2: 'defense', inverse2: true,
+    envVar: 'soilFertility', coefficient: -0.246,
+    description: 'undefended broadleaves lose fertile soil edge (compensator)' },
+
+  // ── Tall woody tropical boost ──
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'tropicality', coefficient: +0.284,
+    description: 'tall woody plants dominate tropical canopy' },
+  { trait: 'heightPriority', trait2: 'woodiness',
+    envVar: 'seasonality', coefficient: -0.143,
+    description: 'tall woody plants lose in seasonal climates (compensator)' },
+
+  // ── Low woody seasonality boost ──
+  { trait: 'heightPriority', trait2: 'woodiness', inverse: true,
+    envVar: 'seasonality', coefficient: -0.349,
+    description: 'short woody plants penalized in seasonal climates' },
+  { trait: 'heightPriority', trait2: 'woodiness', inverse: true,
+    envVar: 'tropicality', coefficient: +0.693,
+    description: 'short woody plants thrive in tropics (compensator)' },
+
   // ── Tall succulent wetland suppression — waterStorage × heightPriority × waterlogging ──
   // Euphorbia (ws=0.55, hgt=0.99) in Des/Wetl: 0.55×0.99×0.405×(-1.50)=-0.330 → pushes from #1
   // Sedge (ws=0.01): negligible. Tallgrass (ws=0.01): negligible. Palm (ws=0.01): negligible.
