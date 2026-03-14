@@ -74,7 +74,7 @@ function writePlantInstance(
 ): void {
   const { dummy, maturityHeights, groundCover } = state;
   const matH = maturityHeights[subtype];
-  const s = Math.max(height / matH, 0.15) * scale;
+  const s = Math.max(Math.pow(height / matH, 0.55), 0.15) * scale;
 
   const ry = plantHash(plantId, 0) * Math.PI * 2;
   if (groundCover[subtype]) {

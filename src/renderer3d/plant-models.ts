@@ -3792,12 +3792,12 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   0.08,   // 4: Spreading     0.08m → 0.027 (floored)
   0.83,   // 5: Sedge         2.5m  → 0.83
   // Trees (6-11)
-  5.00,   // 6: Oak           15m   → 5.0
-  4.00,   // 7: Magnolia      12m   → 4.0
-  6.67,   // 8: Conifer       20m   → 6.67
-  6.67,   // 9: Tropical      20m   → 6.67
-  6.00,   // 10: Palm         18m   → 6.0
-  5.00,   // 11: Birch        15m   → 5.0
+  2.50,   // 6: Oak           15m   → 2.5
+  2.00,   // 7: Magnolia      12m   → 2.0
+  3.30,   // 8: Conifer       20m   → 3.3
+  3.30,   // 9: Tropical      20m   → 3.3
+  3.00,   // 10: Palm         18m   → 3.0
+  2.50,   // 11: Birch        15m   → 2.5
   // Shrubs (12-17)
   0.80,   // 12: Ev. Shrub    1.5m  → 0.80
   2.00,   // 13: Dec. Shrub   3.0m  → 2.00
@@ -3822,8 +3822,8 @@ export const TARGET_MODEL_HEIGHTS: number[] = [
   // New climate-zone subtypes (30-39)
   0.67,   // 30: Pampas       2.0m  → 0.67
   0.45,   // 31: Desert Grass 0.5m  → 0.45
-  6.67,   // 32: Cypress      20m   → 6.67
-  4.00,   // 33: Acacia       12m   → 4.0
+  3.30,   // 32: Cypress      20m   → 3.3
+  2.00,   // 33: Acacia       12m   → 2.0
   1.50,   // 34: Flowering    3.0m  → 1.50
   0.70,   // 35: Aromatic     0.75m → 0.70
   1.25,   // 36: Barrel       1.5m  → 1.25
