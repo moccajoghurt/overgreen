@@ -285,10 +285,21 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     description: 'tall columnar wood escapes ground-level heat and accesses light' },
 
   // Wetland specialization
-  { trait: 'heightPriority', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.70,
-    description: 'prop-root shrubs grow above waterline without deep roots' },
+  { trait: 'heightPriority', trait2: 'rootPriority', trait3: 'leafSize', inverse2: true, envVar: 'waterlogging', coefficient: +0.70,
+    description: 'tall broadleaf shallow-rooted plants grow above waterline' },
   { trait: 'leafSize', trait2: 'rootPriority', inverse2: true, envVar: 'waterlogging', coefficient: +0.60,
     description: 'leafy shallow-rooted plants exploit saturated surface soil' },
+
+  // Conifer wetland exclusion: narrow-leaved woody plants (conifers) cannot tolerate
+  // waterlogged anaerobic soil — roots rot without air channels that broadleaf wetland
+  // trees (mangrove, cypress) have evolved. Cypress escapes via peaked specialization.
+  // Zero-mean: 1.20×0.144 = 0.662×0.261 → 0.173 = 0.173 ✓
+  { trait: 'leafSize', inverse: true, trait2: 'woodiness',
+    envVar: 'waterlogging', coefficient: -1.20,
+    description: 'narrow-leaved woody plants intolerant of waterlogged anaerobic soil' },
+  { trait: 'leafSize', inverse: true, trait2: 'woodiness',
+    envVar: 'droughtStress', coefficient: +0.662,
+    description: 'narrow-leaved woody plants drought-adapted via reduced transpiration (compensator)' },
 
   // Mediterranean specialization
   { trait: 'woodiness', trait2: 'waterStorage', envVar: 'heatStress', coefficient: +0.50,
