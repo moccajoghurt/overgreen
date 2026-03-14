@@ -73,7 +73,16 @@ export function initControls(
     });
   });
 
+  // Track mousedown position to distinguish clicks from drags
+  let downX = 0, downY = 0;
+  const DRAG_THRESHOLD = 5; // px — beyond this, it's a drag not a click
+  canvas.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+
   canvas.addEventListener('click', (e) => {
+    // Ignore clicks that were actually drags (camera orbit/pan)
+    const dx = e.clientX - downX, dy = e.clientY - downY;
+    if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+
     // Exit warp mode on canvas click — switch to Fast
     if (controls.renderSkip > 0) {
       const fastCfg = PRESETS['fast'];

@@ -107,7 +107,7 @@ const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 const plantCard = createPlantCardOverlay(container, renderer);
-const cellCard = createCellCardOverlay(container);
+const cellCard = createCellCardOverlay(container, renderer, () => { controls.selectedCell = null; });
 
 // Heatmap button row — 1-click color mode switching
 const heatmapRow = document.getElementById('heatmap-row')!;
@@ -572,6 +572,7 @@ function loop(now: number): void {
       zoneLabels.updatePositions();
       plantCard.update(world, controls.hoverPlantEnabled ? controls.hoveredPlantId : null);
       plantCard.updatePosition();
+      cellCard.updatePosition();
     }
     perfTracker.end('renderTotal');
     // Smooth render time estimate for adaptive tick budgeting

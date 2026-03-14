@@ -1,4 +1,5 @@
 import { SIM, World, WeatherOverlay } from './types';
+import { Renderer } from './types/renderer';
 import { speciesColorToRgb } from './ui-utils';
 
 const TERRAIN_NAMES = ['Soil', 'River', 'Rock', 'Hill', 'Wetland', 'Arid'];
@@ -7,15 +8,15 @@ const ZONE_NAMES = ['Temperate', 'Tropical', 'Mediterranean', 'Desert'];
 const ZONE_COLORS = ['#7a9', '#ac6', '#ca8', '#c96'];
 
 /**
- * Cell info card — appears on cell click, anchored bottom-left of canvas.
+ * Cell info card — appears on cell click, positioned near the clicked cell.
  * Shows cell-level data: terrain, environment, plants by tier, seeds, herbivores.
  */
-export function createCellCardOverlay(mapContainer: HTMLElement) {
+export function createCellCardOverlay(mapContainer: HTMLElement, renderer: Renderer, onClose?: () => void) {
 
   // ── Build DOM ──
   const card = document.createElement('div');
   card.style.cssText = `
-    position:absolute; bottom:12px; left:12px;
+    position:absolute; left:0; top:0;
     display:none; z-index:10;
     background:rgba(0,0,0,0.7); backdrop-filter:blur(6px);
     border-left:3px solid #666;
@@ -25,13 +26,24 @@ export function createCellCardOverlay(mapContainer: HTMLElement) {
     line-height:1.4;
     min-width:160px; max-width:220px;
     pointer-events:auto;
+    transform:translate(8px, -50%);
   `;
   mapContainer.appendChild(card);
 
-  // Header: coordinates
+  // Header row: coordinates + close button
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = `display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;`;
+  card.appendChild(headerRow);
+
   const headerEl = document.createElement('div');
-  headerEl.style.cssText = `font-size:12px; font-weight:bold; margin-bottom:2px; color:#aaa;`;
-  card.appendChild(headerEl);
+  headerEl.style.cssText = `font-size:12px; font-weight:bold; color:#aaa;`;
+  headerRow.appendChild(headerEl);
+
+  const closeBtn = document.createElement('div');
+  closeBtn.style.cssText = `cursor:pointer; color:#888; font-size:14px; line-height:1; padding:0 0 0 8px;`;
+  closeBtn.textContent = '\u00d7';
+  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); onClose?.(); });
+  headerRow.appendChild(closeBtn);
 
   // Badges row: terrain + climate
   const badgesEl = document.createElement('div');
@@ -121,14 +133,47 @@ export function createCellCardOverlay(mapContainer: HTMLElement) {
     return `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${color};margin-right:3px;vertical-align:middle;"></span>`;
   }
 
+  // ── Position tracking ──
+  let cellX = 0, cellY = 0;
+  let visible = false;
+
+  function updatePosition(): void {
+    if (!visible) return;
+    const screen = renderer.projectToScreen(cellX, cellY);
+    if (screen) {
+      // Clamp so card stays within the container
+      const cw = mapContainer.clientWidth;
+      const ch = mapContainer.clientHeight;
+      const cardW = card.offsetWidth;
+      const cardH = card.offsetHeight;
+      let x = screen.x + 8;
+      let y = screen.y - cardH / 2;
+      // If card would overflow right, flip to left side of cell
+      if (x + cardW > cw) x = screen.x - cardW - 8;
+      // Clamp vertical
+      if (y < 4) y = 4;
+      if (y + cardH > ch - 4) y = ch - cardH - 4;
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+      card.style.transform = 'none';
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  }
+
   // ── Public API ──
 
   function update(world: World, cell: { x: number; y: number } | null): void {
     if (!cell) {
       card.style.display = 'none';
+      visible = false;
       return;
     }
 
+    visible = true;
+    cellX = cell.x;
+    cellY = cell.y;
     card.style.display = '';
 
     const c = world.grid[cell.y][cell.x];
@@ -218,7 +263,8 @@ export function createCellCardOverlay(mapContainer: HTMLElement) {
 
   function reset(): void {
     card.style.display = 'none';
+    visible = false;
   }
 
-  return { update, reset };
+  return { update, updatePosition, reset };
 }
