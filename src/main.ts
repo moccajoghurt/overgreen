@@ -2,7 +2,7 @@ import { GRID_WIDTH, GRID_HEIGHT, SEASON_NAMES, Scenario, CLIMATE_ZONE_COUNT, ZO
 import { createWorld, seedSinglePlant, tickWorld, clearFrameEvents, spawnFire, spawnDisease } from './simulation';
 import { createRenderer3D } from './renderer3d';
 import { initControls } from './controls';
-import { updateInspector } from './inspector';
+import { createCellCardOverlay } from './cell-card-overlay';
 import { createHistory, recordTick, resetHistory } from './history';
 import { createGenomePanel } from './genome-panel';
 import { createLineagePanel } from './lineage-panel';
@@ -35,7 +35,7 @@ const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
 loadScenario(world, genesis);
 
 const renderer = await createRenderer3D(container, world);
-const controls = initControls(renderer.canvas, renderer, world);
+const controls = initControls(renderer.canvas, renderer);
 
 let lastTickTime = 0;
 let lastUITick = -1;
@@ -104,6 +104,7 @@ const speciesLabels = createSpeciesLabelsOverlay(container, renderer);
 const terrainLabels = createTerrainLabelsOverlay(container, renderer, world);
 const zoneLabels = createZoneLabelsOverlay(container, renderer, world);
 const plantCard = createPlantCardOverlay(container, renderer);
+const cellCard = createCellCardOverlay(container);
 
 // Heatmap button row — 1-click color mode switching
 const heatmapRow = document.getElementById('heatmap-row')!;
@@ -365,6 +366,7 @@ function resetAllState(): void {
   commentary.reset();
   speciesLabels.reset();
   plantCard.reset();
+  cellCard.reset();
   genomePanel.reset();
   lineagePanel.reset();
   systemsOverlay.reset();
@@ -425,9 +427,7 @@ function updateUI(): void {
   herbivoreCount.textContent = String(world.herbivores.size);
   seasonLabel.textContent = SEASON_NAMES[world.environment.season];
   yearLabel.textContent = String(world.environment.yearCount + 1);
-  if (controls.selectedCell) {
-    updateInspector(world, controls);
-  }
+  cellCard.update(world, controls.selectedCell);
   genomePanel.update(world);
   lineagePanel.update(world);
   commentary.update(history, world.species, world, renderer);

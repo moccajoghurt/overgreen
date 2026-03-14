@@ -1,5 +1,4 @@
-import { World, Renderer } from './types';
-import { updateInspector } from './inspector';
+import { Renderer } from './types';
 
 export interface Controls {
   paused: boolean;
@@ -28,7 +27,6 @@ const PRESETS: Record<SpeedPreset, { tickInterval: number; tickBudgetMs: number;
 export function initControls(
   canvas: HTMLCanvasElement,
   renderer: Renderer,
-  world: World,
 ): Controls {
   const controls: Controls = {
     paused: false,
@@ -95,7 +93,6 @@ export function initControls(
       controls.onPlaceClick(pos.x, pos.y);
     } else {
       controls.selectedCell = pos;
-      updateInspector(world, controls);
     }
   });
 

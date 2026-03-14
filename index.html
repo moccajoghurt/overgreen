@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>Overgreen</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,12 +28,6 @@
     button:hover { background: #444; }
     .btn-group { display: flex; gap: 4px; }
     .stats { font-size: 12px; line-height: 1.6; }
-    .inspector {
-      font-size: 12px; line-height: 1.5; white-space: pre-wrap;
-      background: #222; padding: 8px; border-radius: 4px;
-      min-height: 120px; max-height: 200px; overflow-y: auto;
-      flex-shrink: 0;
-    }
     /* Section groups */
     .section-group { display: flex; flex-direction: column; gap: 6px; }
     .section-group + .section-group { border-top: 1px solid #2a2a2a; padding-top: 8px; }
@@ -358,11 +353,6 @@
         <div>Plants: <span id="plant-count">0</span> &nbsp; Deer: <span id="herbivore-count">0</span></div>
         <div>Zones: <span id="zone-label"></span></div>
       </div>
-    </div>
-
-    <div class="section-group">
-      <div class="group-label">Inspector</div>
-      <div class="inspector" id="inspector">Click a cell to inspect...</div>
     </div>
 
   </div>
