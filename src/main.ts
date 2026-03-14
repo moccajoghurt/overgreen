@@ -23,6 +23,10 @@ import { PerfTracker } from './perf';
 import { createPerfPanel } from './perf-panel';
 import { createSystemsOverlay } from './systems-overlay';
 import { createPlantCardOverlay } from './plant-card-overlay';
+import { createExperimentRunner } from './experiment-runner';
+import { createExperimentOverlay } from './experiment-overlay';
+import { naturalSelection101 } from './experiments/natural-selection';
+import type { Experiment } from './types/experiment';
 
 const container = document.getElementById('canvas-container')!;
 const world = createWorld(GRID_WIDTH, GRID_HEIGHT);
@@ -164,6 +168,73 @@ btnSystems.addEventListener('click', () => {
   systemsToggle.checked = systemsOverlay.isVisible();
 });
 
+// --- Experiment system ---
+const experimentOverlay = createExperimentOverlay(container);
+const experimentRunner = createExperimentRunner({
+  onStepActivated: (index, step) => experimentOverlay.showStep(index, experimentRunner.totalSteps, step),
+  onWaiting: (nextIndex) => experimentOverlay.showWaiting(nextIndex, experimentRunner.totalSteps),
+  onComplete: (wrapUp) => wrapUp ? experimentOverlay.showWrapUp(wrapUp) : experimentOverlay.hide(),
+  onPauseRequested: () => {
+    controls.paused = true;
+    const btn = document.getElementById('btn-play-pause')!;
+    btn.textContent = '\u23F8 PAUSED';
+    btn.classList.add('paused');
+  },
+  onResumeRequested: () => {
+    controls.paused = false;
+    const btn = document.getElementById('btn-play-pause')!;
+    btn.textContent = '\u25B6 Running';
+    btn.classList.remove('paused');
+  },
+  onColorModeRequested: (mode, trait) => {
+    renderer.setColorMode(mode);
+    heatmapRow.querySelector('.heatmap-btn.active')?.classList.remove('active');
+    heatmapRow.querySelector(`.heatmap-btn[data-color="${mode}"]`)?.classList.add('active');
+    traitSelector.style.display = mode === 'trait' ? '' : 'none';
+    if (trait) {
+      renderer.setTraitColorTrait(trait);
+      traitSelector.value = trait;
+    }
+  },
+  onSpeedRequested: (speed) => {
+    if (speed === 'play') {
+      controls.tickInterval = 500; controls.tickBudgetMs = 0; controls.renderSkip = 0;
+    } else {
+      controls.tickInterval = 0; controls.tickBudgetMs = 1; controls.renderSkip = 0;
+    }
+    document.querySelectorAll<HTMLButtonElement>('.speed-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.preset === speed);
+      b.classList.remove('warp');
+    });
+  },
+});
+experimentOverlay.onContinue = () => experimentRunner.continueStep();
+experimentOverlay.onClose = () => { experimentRunner.stop(); experimentOverlay.hide(); };
+
+function doStartExperiment(experiment: Experiment): void {
+  experimentRunner.stop();
+  experimentOverlay.hide();
+  doLoadScenario(experiment.scenario);
+  experimentRunner.start(experiment);
+}
+
+// Experiment buttons
+const EXPERIMENTS: Experiment[] = [naturalSelection101];
+const experimentButtonsContainer = document.getElementById('experiment-buttons')!;
+for (const exp of EXPERIMENTS) {
+  const btn = document.createElement('button');
+  btn.textContent = exp.name;
+  btn.title = exp.description;
+  btn.style.cssText = 'font-family:monospace; font-size:11px; padding:5px 8px; background:#1a2a1a; color:#8f8; border:1px solid #3a5a3a; border-radius:3px; cursor:pointer; text-align:left;';
+  btn.addEventListener('click', () => {
+    doStartExperiment(exp);
+    setActiveMapButton(null);
+  });
+  btn.addEventListener('mouseenter', () => { btn.style.background = '#2a3a2a'; });
+  btn.addEventListener('mouseleave', () => { btn.style.background = '#1a2a1a'; });
+  experimentButtonsContainer.appendChild(btn);
+}
+
 // Map buttons — featured maps shown as full buttons, experiments in dev dropdown
 const mapButtonsContainer = document.getElementById('map-buttons')!;
 const mapButtons: HTMLButtonElement[] = [];
@@ -238,6 +309,7 @@ for (const s of SCENARIOS) {
 
 function doLoadScenario(scenario: Scenario): void {
   hookPhase.skip();
+  if (experimentRunner.active) { experimentRunner.stop(); experimentOverlay.hide(); }
   controls.paused = false;
   const btn = document.getElementById('btn-play-pause')!;
   btn.textContent = '\u25B6 Running';
@@ -256,6 +328,7 @@ function doLoadScenario(scenario: Scenario): void {
 
 function doLoadRandom(): void {
   hookPhase.skip();
+  if (experimentRunner.active) { experimentRunner.stop(); experimentOverlay.hide(); }
   controls.paused = false;
   const btn = document.getElementById('btn-play-pause')!;
   btn.textContent = '\u25B6 Running';
@@ -445,6 +518,11 @@ function loop(now: number): void {
   // Update hook phase
   if (hookPhase.active) {
     hookPhase.update(world, history);
+  }
+
+  // Update experiment runner
+  if (experimentRunner.active) {
+    experimentRunner.update(world, history);
   }
 
   if (shouldRender) {
