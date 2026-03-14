@@ -307,6 +307,13 @@ export function createSandboxPanel(
       clearCellPlant(cell, plant.id);
     }
     world.plants.clear();
+    // Clear seed bank from every cell so plants don't instantly regrow
+    for (let y = 0; y < world.height; y++) {
+      for (let x = 0; x < world.width; x++) {
+        world.grid[y][x].seeds.length = 0;
+      }
+    }
+    world.seedPopulations.clear();
     customSpecies.clear();
     rebuildPlacedList();
     onPlantsDirty?.();
