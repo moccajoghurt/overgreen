@@ -144,3 +144,6 @@ screenshots/
 
 # Claude Code
 .claude/worktrees/
+
+# Private planning docs
+planning/
