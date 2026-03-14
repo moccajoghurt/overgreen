@@ -87,8 +87,8 @@ export const experimentNicheMatrix: Scenario = (() => {
     },
     {
       name: 'Starter Tree',
-      genome: { rootPriority: 0.40, heightPriority: 0.45, leafSize: 0.45, seedInvestment: 0.30, seedSize: 0.60, defense: 0.20, woodiness: 0.85, waterStorage: 0.20, longevity: 0.65 },
-      color: { r: 0.2, g: 0.5, b: 0.3 },
+      genome: { rootPriority: 0.35, heightPriority: 0.40, leafSize: 0.90, seedInvestment: 0.40, seedSize: 0.40, defense: 0.25, woodiness: 0.10, waterStorage: 0.02, longevity: 0.45 },
+      color: { r: 0.35, g: 0.25, b: 0.10 },
     },
     {
       name: 'Starter Succulent',
