@@ -96,6 +96,26 @@ viewExpandBtn.addEventListener('click', () => {
   viewExpandBtn.textContent = open ? '−' : '+';
 });
 
+// --- Mobile menu toggle ---
+const mobileMenuBtn = document.createElement('button');
+mobileMenuBtn.id = 'mobile-menu-btn';
+mobileMenuBtn.textContent = '\u2630';
+document.body.appendChild(mobileMenuBtn);
+
+const mobileBackdrop = document.createElement('div');
+mobileBackdrop.id = 'mobile-backdrop';
+document.body.appendChild(mobileBackdrop);
+
+const sidebar = document.getElementById('sidebar')!;
+mobileMenuBtn.addEventListener('click', () => {
+  sidebar.classList.toggle('mobile-open');
+  mobileBackdrop.classList.toggle('visible');
+});
+mobileBackdrop.addEventListener('click', () => {
+  sidebar.classList.remove('mobile-open');
+  mobileBackdrop.classList.remove('visible');
+});
+
 // --- View toggles ---
 function setupViewCheckbox(id: string, onToggle: (checked: boolean) => void) {
   const el = document.getElementById(id) as HTMLInputElement;
