@@ -763,6 +763,47 @@ const TRAIT_EFFECTS: TraitEffect[] = [
   { trait: 'rootPriority', trait2: 'leafSize', trait3: 'woodiness',
     envVar: 'diseasePressure', coefficient: -0.815,
     description: 'deep-rooted leafy trees harbor soil pathogens (compensator)' },
+
+  // ── Mediterr/Wetland exclusion fixes (3 zero-mean pairs) ──
+
+  // Fix Palm in Mediterr/Wetland: peaked(leaf=0.50) × wood × diseasePressure
+  // Palm (peaked=1.0, wood=0.71): 0.710 product. Cypress (peaked=0.02): 0.014. Mangrove (peaked=0.02): 0.008.
+  // diseasePressure: Med/Wetl=0.240, Des/Wetl=0.080 (3:1 ratio avoids Des/Wetl collateral).
+  // Zero-mean: 1.000×0.270 = 1.033×0.261 → 0.270 = 0.270 ✓
+  { trait: 'leafSize', trait2: 'woodiness',
+    peaked: 0.50,
+    envVar: 'diseasePressure', coefficient: -1.000,
+    description: 'moderate-leaved woody trees suffer foliar disease in humid conditions' },
+  { trait: 'leafSize', trait2: 'woodiness',
+    peaked: 0.50,
+    envVar: 'droughtStress', coefficient: +1.033,
+    description: 'moderate-leaved woody trees tolerate drought via reduced transpiration (compensator)' },
+
+  // Fix Vine in Mediterr/Wetland: peaked(hgt=0.50) × seed × coolWetland
+  // Vine (peaked=1.0, seed=0.99): 0.990. Tallgrass (peaked=0.02): 0.010. Sedge (seed=0.01): 0.010.
+  // coolWetland=0 in tropical niches → zero tropical collateral.
+  // Zero-mean: 0.500×0.069 = 0.313×0.110 → 0.034 = 0.034 ✓
+  { trait: 'heightPriority', trait2: 'seedInvestment',
+    peaked: 0.50,
+    envVar: 'coolWetland', coefficient: -0.500,
+    description: 'moderate-height seeders struggle in cold saturated soil' },
+  { trait: 'heightPriority', trait2: 'seedInvestment',
+    peaked: 0.50,
+    envVar: 'frostRisk', coefficient: +0.313,
+    description: 'moderate-height seeders tolerate exposed frost (compensator)' },
+
+  // Fix Desert Annual in Mediterr/Wetland: seed × (1-longevity) × coolWetland
+  // DA (seed=0.99, 1-lo=0.99): 0.980. Vine (1-lo=0.01): 0.010. Tallgrass (1-lo=0.01): 0.005.
+  // coolWetland=0 in tropical niches → zero tropical collateral.
+  // Zero-mean: 0.300×0.069 = 0.188×0.110 → 0.021 = 0.021 ✓
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse2: true,
+    envVar: 'coolWetland', coefficient: -0.300,
+    description: 'annual seeders cannot establish in cold waterlogged conditions' },
+  { trait: 'seedInvestment', trait2: 'longevity',
+    inverse2: true,
+    envVar: 'frostRisk', coefficient: +0.188,
+    description: 'annual seeders exploit post-frost disturbance gaps (compensator)' },
 ];
 
 /** Niche index for a terrain×climate combination. */
