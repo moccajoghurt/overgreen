@@ -81,7 +81,8 @@ Everything not excluded is allowed. A subtype not listed as excluded can appear 
 ### Wetland+Desert — Desert oasis
 
 - **Strong**: Trees, Grasses
-- **Excluded**: Oak, Birch, Magnolia, Conifer, Tropical, Cypress, Holly, Hazel, Mediterranean, Aromatic, Bramble, Flowering Shrub, all Succulents, Bamboo, Pampas, Desert Grass, Bunchgrass, Turfgrass, Vine, Tall Herb, Tropical Herb, Desert Annual
+- **Excluded**: Oak, Birch, Magnolia, Conifer, Tropical, Cypress, Holly, Hazel, Mediterranean, Aromatic, Bramble, Flowering Shrub, Saguaro, Aloe, Caudiciform, Iceplant, Epiphytic, Barrel Cactus, Jade, Bamboo, Pampas, Desert Grass, Bunchgrass, Turfgrass, Vine, Tall Herb, Tropical Herb, Desert Annual
+- Note: Euphorbia allowed — large genus with many species found near desert water sources (oases, seasonal streams)
 
 ---
 
@@ -95,7 +96,8 @@ Everything not excluded is allowed. A subtype not listed as excluded can appear 
 ### Arid+Tropical — Tropical arid savanna
 
 - **Strong**: Trees, Succulents, Grasses
-- **Excluded**: Oak, Magnolia, Conifer, Tropical, Palm, Birch, Cypress, Holly, Hazel, Mediterranean, Bramble, Mangrove, Flowering Shrub, Iceplant, Epiphytic, Tallgrass, Turfgrass, Ryegrass, Bamboo, Sedge, Wildflower, Tall Herb, Fern, Vine, Clover, Moss
+- **Excluded**: Oak, Conifer, Tropical, Palm, Birch, Cypress, Holly, Hazel, Mediterranean, Bramble, Mangrove, Flowering Shrub, Iceplant, Epiphytic, Tallgrass, Turfgrass, Ryegrass, Bamboo, Sedge, Wildflower, Tall Herb, Vine, Clover, Moss
+- Note: Magnolia allowed — represents broadleaf trees present in tropical dry forests. Fern allowed — drought-adapted ferns (Cheilanthes, Pellaea) thrive in tropical arid.
 
 ### Arid+Mediterranean — Hot Mediterranean arid (Sonoran/North African)
 
