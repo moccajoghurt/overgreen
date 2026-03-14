@@ -3847,7 +3847,7 @@ export function scaleToTarget(group: THREE.Group, subtypeIndex: number): void {
  * Instance scale: s = plant.height / MATURITY_HEIGHT[subtype]
  * Rendered height = authored_model_height × s
  *
- * Example: Oak (model ~2.75 units) at sim h=8 → 2.75 × (8/10) = 2.2 world units
+ * Example: Oak (model ~2.75 units) at sim h=3 → 2.75 × (3/3) = 2.75 world units
  *          Turfgrass (model ~0.2 units) at sim h=1 → 0.2 × (1/1.5) = 0.13 world units
  */
 export const MATURITY_HEIGHT: number[] = [
@@ -3859,24 +3859,24 @@ export const MATURITY_HEIGHT: number[] = [
   1.0,   // 4: Spreading — ground cover
   7.0,   // 5: Sedge — papyrus
   // Trees (6-11)
-  10.0,  // 6: Oak — large broadleaf
-  10.0,  // 7: Magnolia — medium tree
-  10.0,  // 8: Conifer — tall conifer
-  12.0,  // 9: Tropical — tall tropical
-  9.0,   // 10: Palm — tall palm
-  9.0,   // 11: Birch — medium tree
+  3.0,   // 6: Oak — large broadleaf
+  3.0,   // 7: Magnolia — medium tree
+  4.0,   // 8: Conifer — tall conifer
+  3.5,   // 9: Tropical — tall tropical
+  3.8,   // 10: Palm — tall palm
+  3.5,   // 11: Birch — medium tree
   // Shrubs (12-17)
-  6.0,   // 12: Evergreen Shrub — hedge
-  6.0,   // 13: Deciduous Shrub — multi-stem
-  5.0,   // 14: Mediterranean — mound
-  5.0,   // 15: Thorny — spiny shrub
-  5.0,   // 16: Desert Shrub — open shrub
-  7.0,   // 17: Mangrove — small tree
+  2.5,   // 12: Evergreen Shrub — hedge
+  3.0,   // 13: Deciduous Shrub — multi-stem
+  3.0,   // 14: Mediterranean — mound
+  2.0,   // 15: Thorny — spiny shrub
+  2.5,   // 16: Desert Shrub — open shrub
+  3.2,   // 17: Mangrove — small tree
   // Succulents (18-23)
-  8.0,   // 18: Saguaro — tall cactus
+  3.0,   // 18: Saguaro — tall cactus
   2.0,   // 19: Aloe — rosette
-  4.0,   // 20: Caudiciform — swollen-trunk
-  9.0,   // 21: Euphorbia — candelabra
+  2.5,   // 20: Caudiciform — swollen-trunk
+  2.5,   // 21: Euphorbia — candelabra
   1.0,   // 22: Ice Plant — ground-level
   1.5,   // 23: Epiphytic — trailing
   // Forbs (24-29)
@@ -3889,12 +3889,12 @@ export const MATURITY_HEIGHT: number[] = [
   // New climate-zone subtypes (30-39)
   8.0,   // 30: Pampas — tall ornamental grass
   4.0,   // 31: Desert Grass — tussock
-  10.0,  // 32: Cypress — tall columnar
-  10.0,  // 33: Acacia — wide flat-topped tree
-  6.0,   // 34: Flowering Shrub — hibiscus
-  4.0,   // 35: Aromatic — lavender
-  4.0,   // 36: Barrel Cactus — squat
-  3.0,   // 37: Jade — compact succulent tree
+  3.5,   // 32: Cypress — tall columnar
+  2.5,   // 33: Acacia — wide flat-topped tree
+  2.0,   // 34: Flowering Shrub — hibiscus
+  2.0,   // 35: Aromatic — lavender
+  1.8,   // 36: Barrel Cactus — squat
+  2.0,   // 37: Jade — compact succulent tree
   3.0,   // 38: Tropical Herb — heliconia
   1.5,   // 39: Desert Annual — poppy
 ];
