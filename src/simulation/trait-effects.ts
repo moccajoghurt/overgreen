@@ -804,6 +804,21 @@ const TRAIT_EFFECTS: TraitEffect[] = [
     inverse2: true,
     envVar: 'frostRisk', coefficient: +0.188,
     description: 'annual seeders exploit post-frost disturbance gaps (compensator)' },
+
+  // Fix Tallgrass in Tropical/Hill: peaked(hgt=0.99) × seed × windExposure / droughtStress
+  // Tallgrass (peaked=1.0, seed=0.50): 0.500. Other hgt=0.99 subtypes have seed=0.01 (0.010).
+  // Trop/Hill: windExp=0.413, droughtStress=0.140 → net=+0.201.
+  // Trop/Arid: windExp=0.275, droughtStress=0.180 → net=+0.050 (safe, stays below #5).
+  // Zero-mean: 1.63×0.310 = 1.937×0.261 → 0.505 ≈ 0.506 ✓
+  { trait: 'heightPriority', trait2: 'seedInvestment',
+    peaked: 0.99,
+    envVar: 'windExposure', coefficient: +1.63,
+    description: 'tall seeding grasses disperse seed efficiently on windy highland slopes' },
+  { trait: 'heightPriority', trait2: 'seedInvestment',
+    peaked: 0.99,
+    envVar: 'droughtStress', coefficient: -1.937,
+    description: 'tall seeding grasses lose moisture rapidly in drought via large surface area' },
+
 ];
 
 /** Niche index for a terrain×climate combination. */
